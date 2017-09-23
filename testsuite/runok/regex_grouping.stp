@@ -186,6 +186,11 @@ probe begin {
 # extra check -- missing groups should be empty
   @check1("a|(b)", "a", "a", "")
 
+# extra check -- any extra groups from previous match cleared properly
+  @check2("a(b)(c)", "abc", "abc", "b", "c")
+  r = @check0("a", "a", "a")
+  if (r && ngroups() != 1) { pass --; fail ++ }
+
 # TODO: extra check: be sure using ngroups() with failed / nonexistent match throws an error properly
 # TODO: further tests here...
 

@@ -120,11 +120,6 @@ stapdfa::emit_declaration (translator_output *o) const
     {
       o->newline() << "#define YYTAG(t,s) (c->last_match.tag_states[(t)][(s)])";
       o->newline() << "#define YYFINAL(t) (c->last_match.tag_vals[(t)])";
-
-      // XXX: Paranoia -- be sure to erase the result of any previous match.
-      // Otherwise, matched(n) *might* return data from an earlier match.
-      o->newline() << "unsigned int t;";
-      o->newline() << "for (t = 0; t < STAPREGEX_MAX_TAG; t++) YYFINAL(t) = 0;";
     }
   o->newline() << "#define YYCTYPE char";
   o->newline() << "#define YYSTART start";

@@ -1093,7 +1093,7 @@ dfa::emit (translator_output *o) const
   if (ntags > 0)
     {
       o->newline() << "unsigned int i;";
-      o->newline() << "for (i = 0; i < " << ntags << "; i++)";
+      o->newline() << "for (i = 0; i < STAPREGEX_MAX_TAG; i++)";
       o->newline(1) << "YYFINAL(i) = -1;";
       o->indent(-1);
     }
