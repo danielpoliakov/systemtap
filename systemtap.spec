@@ -73,7 +73,7 @@
 %endif
 
 Name: systemtap
-Version: 3.2
+Version: 3.3
 Release: 1%{?dist}
 # for version, see also configure.ac
 
@@ -1158,7 +1158,7 @@ done
 
 # PRERELEASE
 %changelog
-* Wed Oct 17 2017 Frank Ch. Eigler <fche@redhat.com> - 3.2-1
+* Wed Oct 18 2017 Frank Ch. Eigler <fche@redhat.com> - 3.2-1
 - Upstream release.
 
 * Fri Feb 17 2017 Frank Ch. Eigler <fche@redhat.com> - 3.1-1

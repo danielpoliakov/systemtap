@@ -7,11 +7,11 @@
 	<title>SystemTap Beginners Guide</title>
         <subtitle>Introduction to SystemTap</subtitle>
         <!-- PRERELEASE -->
-	<edition>3.2</edition>
+	<edition>3.3</edition>
 
 	<productname>SystemTap</productname>
         <!-- PRERELEASE -->
-	<productnumber>3.2</productnumber>
+	<productnumber>3.3</productnumber>
 
 	<pubsnumber>2</pubsnumber>
 	<abstract><para>This guide provides basic instructions on how to use SystemTap to monitor different subsystems of a Linux system in finer detail.</para></abstract>
