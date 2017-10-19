@@ -1493,6 +1493,10 @@ bpf_unparser::visit_functioncall (functioncall *e)
 static void
 print_format_add_tag(print_format *e)
 {
+  if (e->tag)
+    return;
+
+  e->tag = true;
   // surround the string with <MODNAME>...</MODNAME> to facilitate
   // stapbpf recovering it from debugfs.
   std::string start_tag = module_name;
