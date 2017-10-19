@@ -26,6 +26,9 @@
 #include <ext/stdio_filebuf.h>
 #include <algorithm>
 #include <mutex>
+#include <functional> 
+#include <cctype>
+#include <locale>
 
 extern "C" {
 #include <elf.h>
@@ -1496,6 +1499,31 @@ flush_to_stream (const string &fname, ostream &o)
   return 1; // Failure
 }
 
+// trim from start (in place)
+void
+ltrim(std::string &s)
+{
+  s.erase(s.begin(),
+	  std::find_if(s.begin(), s.end(),
+		       std::not1(std::ptr_fun<int, int>(std::isspace))));
+}
+
+// trim from end (in place)
+void
+rtrim(std::string &s)
+{
+  s.erase(std::find_if(s.rbegin(), s.rend(),
+	  std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+}
+
+// trim from both ends (in place)
+void
+trim(std::string &s)
+{
+    ltrim(s);
+    rtrim(s);
+}
+
 // Tries to determine the name and version of the running Linux OS
 // distribution. Fills in the 'info' argument with (name, version)
 // strings. Returns true if it was able to retrieve the information.
@@ -1548,6 +1576,10 @@ get_distro_info(vector<string> &info)
     // etc.) or /etc/*_version ('debian', etc.), if needed.
 
     info.clear();
+    if (! name.empty())
+	trim(name);
+    if (! version.empty())
+	trim(version);
     if (! name.empty()) {
 	info.push_back(name);
 	info.push_back(version);

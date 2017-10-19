@@ -657,8 +657,7 @@ mark_builder::build(systemtap_session & sess,
 	  getline(module_markers, format);
 
 	  // trim leading whitespace
-	  string::size_type notwhite = format.find_first_not_of(" \t");
-	  format.erase(0, notwhite);
+	  ltrim(format);
 
 	  // If the format is empty, make sure we add back a space
 	  // character, which is what MARK_NOARGS expands to.

@@ -413,6 +413,10 @@ template <class T>
 int write_to_file (const std::string &fname, const T &data);
 int flush_to_stream (const std::string &fname, std::ostream &o);
 
+void ltrim(std::string &s);
+void rtrim(std::string &s);
+void trim(std::string &s);
+
 bool get_distro_info(std::vector<std::string> &info);
 #endif // UTIL_H
 

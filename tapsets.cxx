@@ -8429,20 +8429,13 @@ dwarf_builder::build(systemtap_session & sess,
 
            if (line.compare (0, 2, "#!") == 0)
            {
-              string path_head = line.substr(2);
+              string path = line.substr(2);
 
-              // remove white spaces at the beginning of the string
-              size_t p2 = path_head.find_first_not_of(" \t");
+              // trim white space
+	      trim(path);
 
-              if (p2 != string::npos)
+              if (! path.empty())
               {
-                string path = path_head.substr(p2);
-
-                // remove white spaces at the end of the string
-                p2 = path.find_last_not_of(" \t\n");
-                if (string::npos != p2)
-                  path.erase(p2+1);
-
                 // handle "#!/usr/bin/env" redirect
                 size_t offset = 0;
                 if (path.compare(0, sizeof("/bin/env")-1, "/bin/env") == 0)
