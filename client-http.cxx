@@ -106,6 +106,7 @@ http_client::get_data (void *ptr, size_t size, size_t nitems)
 {
   string data ((const char *) ptr, (size_t) size * nitems);
 
+  // Process the JSON data.
   if (data.front () == '{')
     {
       enum json_tokener_error json_error;
@@ -115,6 +116,10 @@ http_client::get_data (void *ptr, size_t size, size_t nitems)
         clog << json_object_to_json_string (root) << endl;
       if (root == NULL)
         throw SEMANTIC_ERROR (json_tokener_error_desc (json_error));
+    }
+  else
+    {
+      clog << "Malformed JSON data: '" << data << "'" << endl;
     }
   return size * nitems;
 }
@@ -171,6 +176,8 @@ http_client::download (const std::string & url, http_client::download_type type)
     curl_easy_reset (curl);
   curl = curl_easy_init ();
   curl_global_init (CURL_GLOBAL_ALL);
+  if (s.verbose >= 4)
+    curl_easy_setopt (curl, CURLOPT_VERBOSE, 1L);
   curl_easy_setopt (curl, CURLOPT_URL, url.c_str ());
   curl_easy_setopt (curl, CURLOPT_NOSIGNAL, 1); //Prevent "longjmp causes uninitialized stack frame" bug
   curl_easy_setopt (curl, CURLOPT_ACCEPT_ENCODING, "deflate");
@@ -182,7 +189,8 @@ http_client::download (const std::string & url, http_client::download_type type)
   if (type == json_type)
     {
       curl_easy_setopt (curl, CURLOPT_WRITEDATA, http);
-      curl_easy_setopt (curl, CURLOPT_WRITEFUNCTION, http_client::get_data_shim);
+      curl_easy_setopt (curl, CURLOPT_WRITEFUNCTION,
+			http_client::get_data_shim);
     }
   else if (type == file_type)
     {
@@ -699,8 +707,10 @@ http_client_backend::find_and_connect_to_server ()
       i != s.http_servers.end ();
       ++i)
     {
-      // Try to connect to the server.
-      if (http->download (*i + "/builds", http->json_type))
+      // Try to connect to the server. We'll try to grab the base
+      // directory of the server just to see if we can make a
+      // connection.
+      if (http->download (*i + "/", http->json_type))
         {
 	  if (http->post (*i + "/builds", request_parameters))
 	    {

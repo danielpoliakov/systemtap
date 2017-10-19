@@ -238,6 +238,37 @@ request_handler::DELETE(const request &)
     return get_404_response();
 }
 
+class base_dir_rh : public request_handler
+{
+public:
+    base_dir_rh(string n) : request_handler(n) {}
+
+    response GET(const request &req);
+};
+
+response base_dir_rh::GET(const request &)
+{
+    response r(0);
+    ostringstream os;
+
+    clog << "base_dir_rh::GET" << endl;
+    r.status_code = 200;
+    r.content_type = "application/json";
+    os << "{" << endl;
+    os << "  \"version\": \"" VERSION "\"" << endl;
+    os << "}" << endl;
+    r.content = os.str();
+    return r;
+}
+
+base_dir_rh base_rh("base dir");
+
+server::server(uint16_t port) : port(port), dmn_ipv4(NULL)
+{
+    add_request_handler("/$", base_rh);
+    start();
+}
+
 void
 server::add_request_handler(const string &url_path_re, request_handler &handler)
 {

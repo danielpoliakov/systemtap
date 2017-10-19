@@ -70,10 +70,7 @@ public:
     void wait();
     void stop();
 
-    server(uint16_t port) : port(port), dmn_ipv4(NULL)
-    {
-	start();
-    }
+    server(uint16_t port);
 
     ~server()
     {
