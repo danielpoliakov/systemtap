@@ -83,6 +83,13 @@ if {[file exists /tmp/XXX.o]} then {
 }
 exec rm -f /tmp/XXX.o
 
+verbose -log "$dtrace -G -s $dpath -o /dev/null"
+if [as_non_root "$python $dtrace -G -s $dpath -o /dev/null"] {
+    fail "$test -G -o /dev/null"
+} else {
+    pass "$test -G -o /dev/null"
+}
+
 verbose -log "$dtrace -G -s $dpath -o /tmp/XXX"
 catch {exec $python $dtrace -G -s $dpath -o /tmp/XXX} res
 if {[file exists /tmp/XXX]} then {
