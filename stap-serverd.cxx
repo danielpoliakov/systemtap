@@ -2431,10 +2431,12 @@ accept_connections (PRFileDesc *listenSocket, CERTCertificate *cert)
       t_arg->addr = addr;
 
       /* Handle the conncection */
+      int thread_rc = -1;
       if (max_threads > 0)
         /* Create the worker thread and handle the connection. */
-        pthread_create(&tid, NULL, handle_connection, t_arg);
-      else
+        thread_rc = pthread_create(&tid, NULL, handle_connection, t_arg);
+
+      if (thread_rc != 0)
         /* Since max_threads == 0, don't spawn a new thread,
          * just handle in the current thread. */
         handle_connection(t_arg);

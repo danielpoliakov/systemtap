@@ -410,8 +410,12 @@ def main():
         else:
             print("header: " + fname)
 
-        fname = filename + ".dtrace-temp.c"
-        fdesc = open(fname, mode='w')
+        try: # for reproducible-builds purposes, prefer a fixed path name pattern
+            fname = filename + ".dtrace-temp.c"
+            fdesc = open(fname, mode='w')
+        except: # but that doesn't work for  -o /dev/null - see rhbz1504009
+            (ignore,fname) = mkstemp(suffix=".c")
+            fdesc = open(fname, mode='w')
         providers.semaphore_write(fdesc)
         fdesc.close()
         cc1 = os.environ.get("CC", "gcc")

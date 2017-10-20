@@ -552,6 +552,7 @@ struct print_format: public expression
   interned_string delimiter;
   std::vector<expression*> args;
   hist_op *hist;
+  bool tag;
 
   static std::string components_to_string(std::vector<format_component> const & components);
   static std::vector<format_component> string_to_components(std::string const & str);
@@ -565,7 +566,7 @@ private:
   print_format(bool stream, bool format, bool delim, bool newline, bool _char, interned_string type):
     print_to_stream(stream), print_with_format(format),
     print_with_delim(delim), print_with_newline(newline),
-    print_char(_char), hist(NULL), print_format_type(type)
+    print_char(_char), hist(NULL), tag(false), print_format_type(type)
   {}
 };
 
