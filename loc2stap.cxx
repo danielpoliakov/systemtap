@@ -796,7 +796,7 @@ location_context::frame_location()
       // the DW_AT_frame_base attribute expression's value first.
       const Dwarf_Op *fb_ops;
       Dwarf_Op *fb_expr;
-      size_t fb_len;
+      size_t fb_len = 0;
 
       if (this->fb_attr == NULL)
 	{
