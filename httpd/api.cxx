@@ -628,7 +628,8 @@ build_info::module_build()
     // If none of the backends can handle the request, send an error.
     if (!backend_found) {
 	// Return an error.
-	clog << "No backends can satisfy this request " << endl;
+	clog << "Error: No backends can satisfy this request, returning a 501."
+	     << endl;
 	result_info *ri = new result_info(501, "<h1>Not implemented.</h1>");
 	set_result(ri);
 	return NULL;

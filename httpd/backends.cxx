@@ -8,6 +8,7 @@
 
 #include "backends.h"
 #include <iostream>
+#include <fstream>
 #include "../util.h"
 
 extern "C" {
@@ -21,6 +22,47 @@ extern "C" {
 }
 
 using namespace std;
+
+
+class default_backend : public backend_base
+{
+public:
+    
+    bool can_generate_module(const struct client_request_data *) {
+	return true;
+    }
+    int generate_module(const struct client_request_data *crd,
+			const vector<string> &argv,
+			const string &tmp_dir,
+			const string &stdout_path,
+			const string &stderr_path);
+};
+
+int
+default_backend::generate_module(const struct client_request_data *crd,
+				 const vector<string> &,
+				 const string &,
+				 const string &stdout_path,
+				 const string &stderr_path)
+{
+    ofstream stdout_stream, stderr_stream;
+
+    // Create an empty stdout file.
+    stdout_stream.open(stdout_path);
+    if (stdout_stream.is_open()) {
+	stdout_stream.close();
+    }
+
+    // Create an stderr file with an error message.
+    stderr_stream.open(stderr_path);
+    if (stderr_stream.is_open()) {
+	stderr_stream << "Error: the server cannot create a module for kernel "
+		      << crd->kver << ", architecture " << crd->arch
+		      << ", distro " << crd->distro_name << endl;
+	stderr_stream.close();
+    }
+    return 1;
+}
 
 
 class local_backend : public backend_base
@@ -264,8 +306,13 @@ get_backends(vector<backend_base *> &backends)
     static vector<backend_base *>saved_backends;
 
     if (saved_backends.empty()) {
+	// Note that order *is* important here. We want to try the
+	// local backend first (since it would be the fastest), then
+	// the docker backend, and finally the default backend (which
+	// just returns an error).
 	saved_backends.push_back(new local_backend());
 	saved_backends.push_back(new docker_backend());
+	saved_backends.push_back(new default_backend());
     }
     backends.clear();
     backends = saved_backends;
