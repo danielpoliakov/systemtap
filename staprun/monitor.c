@@ -688,6 +688,7 @@ void *redirect_stdin(void *arg)
                 }
         }
         read_stdin_cleanup();
+        close(fd); /* if it pleases m'lud coverity */
         return arg;
 }
 
