@@ -259,9 +259,9 @@ if { !$debugmode } {
     dmesg_snap
     set rc [catch {eval exec "stap -g $opts testscript.stp 2>@1"} msg]
     if {$rc == 0} {
-        pass "testscript"
+        pass "tapset_functions testscript"
     } else {
-        fail "testscript"
+        fail "tapset_functions testscript"
         verbose -log "$msg"
     }
     dmesg_check
