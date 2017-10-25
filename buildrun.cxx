@@ -409,8 +409,6 @@ compile_pass (systemtap_session& s)
   output_autoconf(s, o, "autoconf-netfilter-4_4.c", "STAPCONF_NETFILTER_V44", NULL);
   output_autoconf(s, o, "autoconf-smpcall-5args.c", "STAPCONF_SMPCALL_5ARGS", NULL);
   output_autoconf(s, o, "autoconf-smpcall-4args.c", "STAPCONF_SMPCALL_4ARGS", NULL);
-  output_autoconf(s, o, "autoconf-sched-mm.c", "STAPCONF_SCHED_MM_H", NULL);
-  output_autoconf(s, o, "autoconf-sched-task_stack.c", "STAPCONF_SCHED_TASK_STACK_H", NULL);
 
   // used by tapset/timestamp_monotonic.stp
   output_autoconf(s, o, "autoconf-cpu-clock.c", "STAPCONF_CPU_CLOCK", NULL);
@@ -463,9 +461,9 @@ compile_pass (systemtap_session& s)
 		  "STAPCONF_GET_USER_PAGES_REMOTE_FLAGS", NULL);
   output_autoconf(s, o, "autoconf-get_user_pages_remote-flags_locked.c",
 		  "STAPCONF_GET_USER_PAGES_REMOTE_FLAGS_LOCKED", NULL);
-  output_autoconf(s, o, "autoconf-uapi-linux-sched-types.c",
-		  "STAPCONF_UAPI_LINUX_SCHED_TYPES", NULL);
   output_autoconf(s, o, "autoconf-bio-bi_opf.c", "STAPCONF_BIO_BI_OPF", NULL);
+  output_autoconf(s, o, "autoconf-linux-sched_headers.c",
+		  "STAPCONF_LINUX_SCHED_HEADERS", NULL);
 
   // used by runtime/linux/netfilter.c
   output_exportconf(s, o, "nf_register_hook", "STAPCONF_NF_REGISTER_HOOK");

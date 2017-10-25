@@ -1737,7 +1737,7 @@ function _module_flags_str:string(flags:long)
 
 %{
 #include <linux/sched.h>
-#ifdef STAPCONF_UAPI_LINUX_SCHED_TYPES
+#if defined(STAPCONF_LINUX_SCHED_HEADERS)
 #include <uapi/linux/sched/types.h>
 #endif
 

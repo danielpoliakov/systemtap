@@ -58,7 +58,7 @@ static inline int _stp_is_compat_task(void)
 #include <asm/processor.h>
 #include <asm/ptrace.h>
 #include <linux/sched.h>
-#ifdef STAPCONF_SCHED_TASK_STACK_H
+#if defined(STAPCONF_LINUX_SCHED_HEADERS)
 #include <linux/sched/task_stack.h>
 #endif
 

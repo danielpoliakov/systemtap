@@ -4,7 +4,7 @@
  * we copied and pasted it here.  Fortunately, everything it calls is exported.
  */
 #include <linux/sched.h>
-#ifdef STAPCONF_SCHED_MM_H
+#if defined(STAPCONF_LINUX_SCHED_HEADERS)
 #include <linux/sched/mm.h>
 #endif
 #include <linux/pagemap.h>
