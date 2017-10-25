@@ -13,6 +13,9 @@
 
 %{
 #include <linux/sched.h>
+#if defined(STAPCONF_LINUX_SCHED_HEADERS)
+#include <linux/sched/loadavg.h>
+#endif
 
 #define LOAD_INT(x) ((x) >> FSHIFT)
 #define LOAD_FRAC(x) LOAD_INT(((x) & (FIXED_1-1)) * 100)
