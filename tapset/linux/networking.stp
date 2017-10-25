@@ -59,7 +59,8 @@ function get_netdev_name:string (addr:long) {
 ///</para>
 // Main device receive routine, be called when packet arrives on network device
 probe netdev.receive
-	=  kernel.function("netif_receive_skb")
+	= kernel.function("netif_receive_skb_internal") !,
+	  kernel.function("netif_receive_skb")
 {
 	dev_name = kernel_string($skb->dev->name)
 	length = $skb->len
