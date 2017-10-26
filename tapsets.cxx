@@ -11171,6 +11171,7 @@ static vector<string> tracepoint_extra_decls (systemtap_session& s,
     they_live.push_back ("struct nfs_closeres;");
     they_live.push_back ("struct nfs_closeargs;");
     they_live.push_back ("struct nfs_unlinkdata;");
+    they_live.push_back ("struct nfs_writeverf;");
     they_live.push_back ("struct nfs4_sequence_args;");
     they_live.push_back ("struct nfs4_sequence_res;");
     they_live.push_back ("struct nfs4_session;");
@@ -11319,7 +11320,8 @@ static vector<string> tracepoint_extra_decls (systemtap_session& s,
   if (header.find("v4l2") != string::npos)
     they_live.push_back ("struct v4l2_buffer;");
 
-  if (header.find("pcm_trace") != string::npos)
+  if (header.find("pcm_trace") != string::npos
+      || header.find("pcm_param_trace") != string::npos)
     {
       they_live.push_back ("struct snd_pcm_substream;");
       they_live.push_back ("#include <sound/asound.h>");
@@ -11387,12 +11389,20 @@ static vector<string> tracepoint_extra_decls (systemtap_session& s,
 	they_live.push_back ("#include <linux/swiotlb.h>");
     }
 
-  if (header.find("afs") != string::npos)
+  if (header.find("afs") != string::npos
+      || header.find("rxrpc") != string::npos)
     {
+      they_live.push_back ("struct afs_call;");
       they_live.push_back ("struct rxrpc_call;");
       they_live.push_back ("struct rxrpc_connection;");
       they_live.push_back ("struct rxrpc_seq_t;");
       they_live.push_back ("struct rxrpc_serial_t;");
+      they_live.push_back ("struct rxrpc_skb_priv;");
+
+      // We need a definition of a 'rxrpc_seq_t', which is a typedef.
+      // So, we'll have to include the right kernel header file.
+      if (header_exists(s, "/net/rxrpc/protocol.h"))
+	they_live.push_back ("#include \"net/rxrpc/protocol.h\"");
     }
 
   if (header.find("xdp") != string::npos)
@@ -11415,6 +11425,17 @@ static vector<string> tracepoint_extra_decls (systemtap_session& s,
 	s.kernel_extra_cflags.push_back ("-I" + s.kernel_source_tree
 					 + "/fs/xfs/libxfs");
     }	  
+
+  if (header.find("fsi") != string::npos)
+    {
+      they_live.push_back ("struct fsi_master;");
+      they_live.push_back ("struct fsi_master_gpio;");
+    }
+
+  if (header.find("drm") != string::npos)
+    {
+      they_live.push_back ("struct drm_file;");
+    }
   return they_live;
 }
 
