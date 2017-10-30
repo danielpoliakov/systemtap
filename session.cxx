@@ -383,6 +383,7 @@ systemtap_session::systemtap_session (const systemtap_session& other,
   script_file = other.script_file;
   cmdline_script = other.cmdline_script;
   additional_scripts = other.additional_scripts;
+  stdin_script.str() = other.stdin_script.str();
   c_macros = other.c_macros;
   args = other.args;
   kbuildflags = other.kbuildflags;

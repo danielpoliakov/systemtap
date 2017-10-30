@@ -39,6 +39,42 @@ set rc [stap_run_batch "" -I $srcdir/systemtap.server/tapset -e "probe oneshot {
 if {$rc == 0} { pass "$test $subtest" } else { fail "$test $subtest" }
 
 #-------------------------------------------------------
+# Build a module using stdin.
+set subtest "stdin1"
+set cmd {echo "probe oneshot { exit() }" | stap -vp4 --use-server=$server_spec -}
+verbose -log "executing: $cmd"
+set rc 0
+if {[catch {eval exec $cmd} err]} {
+    if {[lindex $::errorCode 0] eq "CHILDSTATUS"} {
+	set rc [lindex $::errorCode 2]
+    }
+}
+verbose -log "$err"
+if {$rc} {
+    fail "$test $subtest"
+} else {
+    pass "$test $subtest"
+}
+
+#-------------------------------------------------------
+# Build another module using stdin.
+set subtest "stdin2"
+set cmd {stap -vp4 --use-server=$server_spec - < $srcdir/systemtap.server/hello.stp}
+verbose -log "executing: $cmd"
+set rc 0
+if {[catch {eval exec $cmd} err]} {
+    if {[lindex $::errorCode 0] eq "CHILDSTATUS"} {
+	set rc [lindex $::errorCode 2]
+    }
+}
+verbose -log "$err"
+if {$rc} {
+    fail "$test $subtest"
+} else {
+    pass "$test $subtest"
+}
+
+#-------------------------------------------------------
 # Building, returning and using the uprobes.ko module.
 set subtest "uprobes"
 if {! [uprobes_p]} then {

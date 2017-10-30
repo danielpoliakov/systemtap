@@ -777,7 +777,10 @@ passes_0_4 (systemtap_session &s)
       user_flags |= pf_user_file;
       if (s.script_file == "-")
         {
-          s.user_files.push_back (parse (s, "<input>", cin, user_flags));
+	  if (s.stdin_script.str().empty())
+	    s.stdin_script << cin.rdbuf();	    
+          s.user_files.push_back (parse (s, "<input>", s.stdin_script,
+					 user_flags));
         }
       else if (s.script_file != "")
         {

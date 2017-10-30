@@ -192,7 +192,10 @@ compile_server_client::create_request ()
 		   << endl;
 	      return rc;
 	    }
-	  rc = ! copy_file("/dev/stdin", packaged_script_dir + "/-");
+
+	  if (s.stdin_script.str().empty())
+	    s.stdin_script << cin.rdbuf();	    
+	  rc = write_to_file(packaged_script_dir + "/-", s.stdin_script.str());
 	  if (rc != 0)
 	    return rc;
 

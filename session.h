@@ -163,6 +163,7 @@ public:
   std::string script_file; // FILE
   std::string cmdline_script; // -e PROGRAM
   std::vector<std::string> additional_scripts; // -E SCRIPT
+  std::stringstream stdin_script;	       // stdin script (stap -)
   bool have_script;
   std::vector<std::string> include_path;
   int include_arg_start;
