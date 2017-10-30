@@ -160,7 +160,6 @@ copy_file(const string& src, const string& dest, bool verbose)
     }
 
   // Rename the temporary output file to the destination file.
-  unlink(dest.c_str());
   if (rename(tmp_name, dest.c_str()) == -1)
     {
       unlink(tmp_name);
