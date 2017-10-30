@@ -50,7 +50,9 @@ public:
   // 'request_numeric_parameters' - but then we get the ordering
   // wrong.
   std::vector<std::tuple<std::string, std::string>> request_parameters;
-  std::vector<std::tuple<std::string, std::string>> request_files;
+
+private:
+  bool files_seen;
 };
 
 #endif	// HAVE_HTTP_SUPPORT

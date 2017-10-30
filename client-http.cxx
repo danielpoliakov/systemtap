@@ -28,7 +28,6 @@ extern "C" {
 #include <curl/easy.h>
 #include <json-c/json.h>
 #include <sys/stat.h>
-#include <ftw.h>
 #include <rpm/rpmlib.h>
 #include <rpm/header.h>
 #include <rpm/rpmts.h>
@@ -60,7 +59,7 @@ public:
 
   bool download (const std::string & url, enum download_type type);
   bool post (const std::string & url, std::vector<std::tuple<std::string, std::string>> &request_parameters);
-  void add_script_file (std::string script_type, std::string script_file);
+  void add_file (std::string filename);
   void add_module (std::string module);
   void get_header_field (const std::string & data, const std::string & field);
   static size_t get_data_shim (void *ptr, size_t size, size_t nitems, void *client);
@@ -77,7 +76,7 @@ private:
   static int process_buildid_shim (Dwfl_Module *dwflmod, void **userdata, const char *name,
       Dwarf_Addr base, void *client);
   int process_buildid (Dwfl_Module *dwflmod);
-  std::vector<std::string> script_files;
+  std::vector<std::string> files;
   std::vector<std::string> modules;
   std::vector<std::tuple<std::string, std::string>> buildids;
   systemtap_session &s;
@@ -457,7 +456,7 @@ http_client::get_response_code (void)
 }
 
 
-// Post REQUEST_PARAMETERS, script_files, modules, buildids to URL
+// Post REQUEST_PARAMETERS, files, modules, buildids to URL
 
 bool
 http_client::post (const std::string & url,
@@ -485,35 +484,24 @@ http_client::post (const std::string & url,
     }
 
   // Fill in the file upload field; libcurl will load data from the given file name
-  for (vector<std::string>::const_iterator it = script_files.begin ();
-      it != script_files.end ();
+  for (vector<std::string>::const_iterator it = files.begin ();
+      it != files.end ();
       ++it)
     {
-      string script_file = (*it);
-      string script_base = basename (script_file.c_str());
+      string filename = (*it);
+      string filebase = basename (filename.c_str());
 
       curl_formadd (&formpost,
 		    &lastptr,
-		    CURLFORM_COPYNAME, script_base.c_str(),
-		    CURLFORM_FILE, script_file.c_str(),
+		    CURLFORM_COPYNAME, filebase.c_str(),
+		    CURLFORM_FILE, filename.c_str(),
 		    CURLFORM_END);
 
       curl_formadd (&formpost,
                     &lastptr,
                     CURLFORM_COPYNAME, "files",
-                    CURLFORM_COPYCONTENTS, script_file.c_str(),
+                    CURLFORM_COPYCONTENTS, filename.c_str(),
                     CURLFORM_END);
-
-      // FIXME: There is no guarantee that the first file in
-      // script_files is a script - "stap -I foo/ -e '...script...'".
-      // 
-      // script name is not in cmd_args so add it manually
-      if (it == script_files.begin())
-        curl_formadd (&formpost,
-                      &lastptr,
-                      CURLFORM_COPYNAME, "cmd_args",
-                      CURLFORM_COPYCONTENTS, script_base.c_str(),
-                      CURLFORM_END);
     }
 
   int bid_idx = 0;
@@ -642,15 +630,11 @@ http_client::post (const std::string & url,
 }
 
 
-//  Add SCRIPT_FILE having SCRIPT_TYPE to script_files
-
+//  Add FILE to files
 void
-http_client::add_script_file (std::string script_type, std::string script_file)
+http_client::add_file (std::string filename)
 {
-  if (script_type == "tapset")
-    script_files.push_back (script_file);
-  else
-    script_files.insert(script_files.begin(), script_file);
+  files.push_back (filename);
 }
 
 
@@ -664,7 +648,7 @@ http_client::add_module (std::string module)
 
 
 http_client_backend::http_client_backend (systemtap_session &s)
-  : client_backend(s)
+  : client_backend(s), files_seen(false)
 {
   server_tmpdir = s.tmpdir;
 }
@@ -674,14 +658,134 @@ http_client_backend::initialize ()
 {
   http = new http_client (s);
   request_parameters.clear();
-  request_files.clear();
   return 0;
+}
+
+// Symbolically link the given file or directory into the client's temp
+// directory under the given subdirectory.
+//
+// We need to do this even for the http client/server so that we can
+// fully handle systemtap's complexity. A tricky example of this
+// complexity would be something like "stap -I tapset_dir script.stp",
+// where "tapset_dir" is empty. You can transfer files with a POST,
+// but you can't really indicate an empty directory.
+//
+// So, we'll handle this like the NSS client does - build up a
+// directory of all the files we need to transfer over to the server
+// and zip it up and send the one zip file.
+int
+http_client_backend::include_file_or_directory (const string &subdir,
+						const string &path)
+{
+  // Must predeclare these because we do use 'goto done' to
+  // exit from error situations.
+  vector<string> components;
+  string name;
+  int rc = 0;
+
+  // Canonicalize the given path and remove the leading /.
+  string rpath;
+  char *cpath = canonicalize_file_name (path.c_str ());
+  if (! cpath)
+    {
+      // It can not be canonicalized. Use the name relative to
+      // the current working directory and let the server deal with it.
+      char cwd[PATH_MAX];
+      if (getcwd (cwd, sizeof (cwd)) == NULL)
+	{
+	  rpath = path;
+	  rc = 1;
+	  goto done;
+	}
+	rpath = string (cwd) + "/" + path;
+    }
+  else
+    {
+      // It can be canonicalized. Use the canonicalized name and add this
+      // file or directory to the request package.
+      rpath = cpath;
+      free (cpath);
+
+      // Including / would require special handling in the code below and
+      // is a bad idea anyway. Let's not allow it.
+      if (rpath == "/")
+	{
+	  if (rpath != path)
+	    clog << _F("%s resolves to %s\n", path.c_str (), rpath.c_str ());
+	  clog << _F("Unable to send %s to the server\n", path.c_str ());
+	  return 1;
+	}
+
+      // First create the requested subdirectory (if there is one).
+      if (! subdir.empty())
+        {
+	  name = client_tmpdir + "/" + subdir;
+	  rc = create_dir (name.c_str ());
+	  if (rc) goto done;
+	}
+      else
+        {
+	  name = client_tmpdir;
+	}
+
+      // Now create each component of the path within the sub directory.
+      assert (rpath[0] == '/');
+      tokenize (rpath.substr (1), components, "/");
+      assert (components.size () >= 1);
+      unsigned i;
+      for (i = 0; i < components.size() - 1; ++i)
+	{
+	  if (components[i].empty ())
+	    continue; // embedded '//'
+	  name += "/" + components[i];
+	  rc = create_dir (name.c_str ());
+	  if (rc) goto done;
+	}
+
+      // Now make a symbolic link to the actual file or directory.
+      assert (i == components.size () - 1);
+      name += "/" + components[i];
+      rc = symlink (rpath.c_str (), name.c_str ());
+      if (rc) goto done;
+    }
+
+  // Name this file or directory in the packaged arguments.
+  rc = add_cmd_arg (subdir + "/" + rpath.substr (1));
+
+ done:
+  if (rc != 0)
+    {
+      const char* e = strerror (errno);
+      clog << "ERROR: unable to add "
+	   << rpath
+	   << " to temp directory as "
+	   << name << ": " << e
+	   << endl;
+    }
+  else
+    {
+      files_seen = true;
+    }
+  return rc;
 }
 
 int
 http_client_backend::package_request ()
 {
-  return 0;
+  int rc = 0;
+  // Package up the temporary directory into a zip file, if needed.
+  if (files_seen)
+    {
+      string client_zipfile = client_tmpdir + ".zip";
+      string cmd = "cd " + cmdstr_quoted(client_tmpdir) + " && zip -qr "
+	  + cmdstr_quoted(client_zipfile) + " *";
+      vector<string> sh_cmd { "sh", "-c", cmd };
+      rc = stap_system (s.verbose, sh_cmd);
+
+      if (rc == 0)
+	http->add_file(client_zipfile);
+    }
+  return rc;
 }
 
 int
@@ -712,6 +816,13 @@ http_client_backend::find_and_connect_to_server ()
       // connection.
       if (http->download (*i + "/", http->json_type))
         {
+	  // FIXME: The server returns its version number. We might
+	  // need to check it for compatibility.
+	  //
+	  // FIXME 2: When the server starts signing modules, we'll
+	  // need to check and see if it is trusted.
+
+	  // Send our build request.
 	  if (http->post (*i + "/builds", request_parameters))
 	    {
 	      s.winning_server = *i;
@@ -884,35 +995,10 @@ http_client_backend::add_sysinfo ()
   return 0;
 }
 
-
 int
-add_tapsets (const char *name, const struct stat *status __attribute__ ((unused)), int type)
+http_client_backend::add_tmpdir_file (const std::string &)
 {
-  if (type == FTW_F)
-    http->add_script_file ("tapset", name);
-
-  return 0;
-}
-
-
-int
-http_client_backend::include_file_or_directory (const std::string &script_type,
-						const std::string &script_file)
-{
-  // FIXME: this is going to be interesting. We can't add a whole
-  // directory at one shot, we'll have to traverse the directory and
-  // add each file, preserving the directory structure somehow.
-  if (script_type == "tapset")
-    ftw (script_file.c_str(), add_tapsets, 1);
-  else
-    http->add_script_file (script_type, script_file);
-  return 0;
-}
-
-int
-http_client_backend::add_tmpdir_file (const std::string &file)
-{
-  request_files.push_back(make_tuple("files", file));
+  files_seen = true;
   return 0;
 }
 

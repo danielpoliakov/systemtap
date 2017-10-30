@@ -361,6 +361,7 @@ response build_collection_rh::POST(const request &req)
 	}
 	// Notice we silently ignore any "extra" parameters.
     }
+
     if (! req.files.empty()) {
 	clog << "Files received:" << endl;
 	crd->base_dir = req.base_dir;
@@ -368,6 +369,28 @@ response build_collection_rh::POST(const request &req)
 	    for (auto j = i->second.begin(); j != i->second.end();
 		 j++) {
 		clog << *j << endl;
+		// The client can optionally send over a "client.zip"
+		// file, which we automatically unzip here.
+		//
+		// FIXME: We should probably do this via a
+		// "stap_spawn", not a "stap_system".
+		if (*j == "client.zip")
+		{
+		    string zip_path = crd->base_dir + "/client.zip";
+		    vector<string> argv = { "unzip", "-q", "-d", crd->base_dir,
+					    zip_path };
+		    int rc = stap_system (2, argv);
+		    if (rc != 0)
+		    {
+			// FIXME: is this the right error?
+
+			// Return an error.
+			clog << "400 - bad request" << endl;
+			response error400(400);
+			error400.content = "<h1>Bad request</h1>";
+			return error400;
+		    }
+		}
 	    }
 	}
     }
