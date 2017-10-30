@@ -10,6 +10,7 @@ probe kernel.function("*").return {}
 probe module("*").function("*").return {}
 probe kernel.function("*").inline {}
 probe module("*").function("*").inline {}
-' | wc
+' > /dev/null
 
-# without the |wc,  we'd log the humongous list of stuff stap -p2 prints
+# Without the redirection, we'd log the humongous list of stuff 'stap
+# -p2' prints.
