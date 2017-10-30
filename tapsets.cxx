@@ -8054,8 +8054,7 @@ glob_executable(const string& pattern)
       const char* globbed = the_blob.gl_pathv[i];
       struct stat st;
 
-      if (access (globbed, X_OK) == 0
-          && stat (globbed, &st) == 0
+      if (stat (globbed, &st) == 0
           && S_ISREG (st.st_mode)) // see find_executable()
         {
           // Need to call resolve_path here, in order to path-expand
