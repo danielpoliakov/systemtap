@@ -208,6 +208,7 @@ struct bpf_unparser : public throwing_visitor
   value *emit_bool(expression *e);
   value *parse_reg(const std::string &str, embeddedcode *s);
 
+  void add_prologue();
   locals_map *new_locals(const std::vector<vardecl *> &);
 
   bpf_unparser (program &c, globals &g);
@@ -1967,6 +1968,41 @@ output_maps(BPF_Output &eo, globals &glob)
     }
 }
 
+void
+bpf_unparser::add_prologue()
+{
+  auto g = glob.internal_exit;
+  value *i0 = this_prog.new_imm(0);
+
+  // lookup exit global
+  value *frame = this_prog.lookup_reg(BPF_REG_10);
+  this_prog.mk_st(this_ins, BPF_W, frame, -4, i0);
+  this_prog.use_tmp_space(4);
+
+  this_prog.load_map(this_ins, this_prog.lookup_reg(BPF_REG_1), 0);
+  this_prog.mk_binary(this_ins, BPF_ADD, this_prog.lookup_reg(BPF_REG_2),
+                      frame, this_prog.new_imm(-4));
+  this_prog.mk_call(this_ins, BPF_FUNC_map_lookup_elem, 2);
+
+  value *r0 = this_prog.lookup_reg(BPF_REG_0);
+  block *cont_block = this_prog.new_block();
+  block *exit_block = get_exit_block();
+
+  // check that map_lookup_elem returned non-null ptr
+  this_prog.mk_jcond(this_ins, EQ, r0, i0, exit_block, cont_block);
+  set_block(cont_block);
+
+  // load exit status from ptr
+  value *exit_status = this_prog.new_reg();
+  this_prog.mk_ld(this_ins, BPF_DW, exit_status, r0, 0);
+
+  // if exit_status == 1 jump to exit, else continue with handler
+  cont_block = this_prog.new_block();
+  this_prog.mk_jcond(this_ins, EQ, exit_status, this_prog.new_imm(1),
+                     exit_block, cont_block);
+  set_block(cont_block);
+}
+
 static void
 translate_probe(program &prog, globals &glob, derived_probe *dp)
 {
@@ -1982,6 +2018,8 @@ translate_probe(program &prog, globals &glob, derived_probe *dp)
   // this only when needed.
   u.this_in_arg0 = prog.new_reg();
   prog.mk_mov(u.this_ins, u.this_in_arg0, prog.lookup_reg(BPF_REG_1));
+
+  u.add_prologue();
 
   dp->body->visit (&u);
   if (u.in_block())
