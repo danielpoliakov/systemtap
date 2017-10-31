@@ -1971,7 +1971,6 @@ output_maps(BPF_Output &eo, globals &glob)
 void
 bpf_unparser::add_prologue()
 {
-  auto g = glob.internal_exit;
   value *i0 = this_prog.new_imm(0);
 
   // lookup exit global
