@@ -1,0 +1,17 @@
+global count
+probe begin {
+	printf("BEGIN\n")
+}
+
+probe kernel.function("sys_read") {
+	count++
+	exit()
+}
+
+
+probe end {
+	if (count == 1)
+	        printf("END PASS\n")
+        else
+		printf("END FAIL\n")
+}

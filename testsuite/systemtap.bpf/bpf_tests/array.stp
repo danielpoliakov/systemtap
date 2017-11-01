@@ -1,4 +1,4 @@
-global arr[3], flag = 1
+global arr[3]
 probe begin {
 	printf("BEGIN\n")
 	arr[0] = 1
@@ -7,13 +7,10 @@ probe begin {
 }
 
 probe kernel.function("vfs_read") {
-	if (flag) {
-	    arr[0]++
-            arr[10]++
-	    arr[199]++
-	    flag = 0
-	    exit()
-	}
+        arr[0]++
+        arr[10]++
+        arr[199]++
+        exit()
 }
 
 probe end {
