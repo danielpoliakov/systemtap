@@ -98,6 +98,10 @@ local_backend::local_backend()
 	// We weren't able to find any kernel build trees. This isn't
 	// a fatal error, since one of the other backends might be
 	// able to satisfy requests.
+	//
+	// FIXME: By reading the directory here, we'll only see
+	// kernel build trees installed at startup. If a kernel build
+	// tree gets installed after startup, we won't see it.
 	return;
     }
     for (unsigned int i = 0; i < globber.gl_pathc; i++) {
@@ -244,6 +248,10 @@ docker_backend::docker_backend()
 	// We weren't able to find any JSON docker data files. This
 	// isn't a fatal error, since one of the other backends might
 	// be able to satisfy requests.
+	//
+	// FIXME: By reading the directory here, we'll only see distro
+	// json files installed at startup. If one gets installed
+	// after startup, we won't see it.
 	return;
     }
     for (unsigned int i = 0; i < globber.gl_pathc; i++) {
