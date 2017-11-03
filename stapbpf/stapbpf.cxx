@@ -539,7 +539,7 @@ register_timers()
       timer_data &t = timers[i];
       peattr.sample_period = t.period;
 
-      int fd = perf_event_open(&peattr, -1, 0, -1, 0);
+      int fd = perf_event_open(&peattr, -1, 0, group_fd, 0);
       if (fd < 0)
         {
           int err = errno;
