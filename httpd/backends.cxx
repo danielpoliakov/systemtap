@@ -156,13 +156,13 @@ local_backend:: generate_module(const struct client_request_data *,
     if (rc == 0) {
 	rc = posix_spawn_file_actions_addopen(&actions, 1,
 					      stdout_path.c_str(),
-					      O_WRONLY|O_CREAT|O_EXCL,
+					      O_WRONLY|O_CREAT,
 					      S_IRWXU);
     }
     if (rc == 0) {
 	rc = posix_spawn_file_actions_addopen(&actions, 2,
 					      stderr_path.c_str(),
-					      O_WRONLY|O_CREAT|O_EXCL,
+					      O_WRONLY|O_CREAT,
 					      S_IRWXU);
     }
     if (rc != 0) {
@@ -223,6 +223,9 @@ private:
 
     // The current architecture.
     string arch;
+
+    // The script path that builds a docker container.
+    string docker_build_container_script_path;
 };
 
 
@@ -230,6 +233,10 @@ docker_backend::docker_backend()
 {
     try {
 	docker_path = find_executable("docker");
+	// If find_executable() can't find the path, it returns the
+	// name you passed it.
+	if (docker_path == "docker")
+	    docker_path.clear();
     }
     catch (...) {
 	// It really isn't an error for the system to not have the
@@ -239,6 +246,9 @@ docker_backend::docker_backend()
 	docker_path.clear();
     }
     
+    docker_build_container_script_path = string(PKGLIBDIR)
+	+ "/stap_build_docker_container.py";
+
     datadir = string(PKGDATADIR) + "/httpd/docker";
 
     glob_t globber;
@@ -265,7 +275,7 @@ docker_backend::docker_backend()
 	    // Now, chop off the .json extension.
 	    size_t found = filename.find_last_of(".");
 	    if (found != string::npos) {
-		string distro = filename.substr(found + 1);
+		string distro = filename.substr(0, found);
 		data_files.insert({distro, path});
 	    }
 	}
@@ -295,16 +305,100 @@ docker_backend::can_generate_module(const struct client_request_data *crd)
 }
 
 int
-docker_backend:: generate_module(const struct client_request_data *,
+docker_backend:: generate_module(const struct client_request_data *crd,
 				const vector<string> &,
-				const string &,
-				const string &,
-				const string &)
+				const string &tmp_dir,
+				const string &stdout_path,
+				const string &stderr_path)
 {
     // FIXME: Here we'll need to generate a docker file, run docker to
     // create the container (and get all the right requirements
     // installed), copy any files over, then finally run "docker exec"
     // to actually run stap.
+
+    // Handle capturing stdout and stderr (along with using /dev/null
+    // for stdin).
+    posix_spawn_file_actions_t actions;
+    string docker_stdout_path = string(tmp_dir) + "/docker_stdout";
+    string docker_stderr_path = string(tmp_dir) + "/docker_stderr";
+    int rc = posix_spawn_file_actions_init(&actions);
+    if (rc == 0) {
+	rc = posix_spawn_file_actions_addopen(&actions, 0, "/dev/null",
+					      O_RDONLY, S_IRWXU);
+    }
+    if (rc == 0) {
+	rc = posix_spawn_file_actions_addopen(&actions, 1,
+					      docker_stdout_path.c_str(),
+					      O_WRONLY|O_CREAT|O_EXCL,
+					      S_IRWXU);
+    }
+    if (rc == 0) {
+	rc = posix_spawn_file_actions_addopen(&actions, 2,
+					      docker_stderr_path.c_str(),
+					      O_WRONLY|O_CREAT|O_EXCL,
+					      S_IRWXU);
+    }
+    if (rc != 0) {
+	clog << "posix_spawn_file_actions failed: " << strerror(errno)
+	     << endl;
+	return rc;
+    }
+
+    // Kick off building the docker container.
+    vector<string> docker_args;
+    docker_args.push_back(docker_build_container_script_path);
+    docker_args.push_back("--distro-ver=" + crd->distro_version);
+    docker_args.push_back("--kernel-ver=" + crd->kver);
+    docker_args.push_back(data_files[crd->distro_name]);
+    pid_t pid = stap_spawn(2, docker_args, &actions);
+    clog << "spawn returned " << pid << endl;
+
+    // If stap_spawn() failed, no need to wait.
+    if (pid == -1) {
+	rc = errno;
+	clog << "Error in spawn: " << strerror(errno) << endl;
+	(void)posix_spawn_file_actions_destroy(&actions);
+	return rc;
+    }
+
+    // Wait on the spawned process to finish.
+    rc = stap_waitpid(0, pid);
+    if (rc < 0) {			// stap_waitpid() failed
+	clog << "waitpid failed: " << strerror(errno) << endl;
+	(void)posix_spawn_file_actions_destroy(&actions);
+	return rc;
+    }
+
+    clog << "Spawned process returned " << rc << endl;
+    (void)posix_spawn_file_actions_destroy(&actions);
+
+    // If the client requested it, append the docker build output to
+    // the client's stdout/stderr files.
+    if (crd->verbose >= 3) {
+	ifstream docker_file;
+	ofstream client_file;
+
+	// Copy over stdout data.
+	docker_file.open(docker_stdout_path, ios::in);
+	client_file.open(stdout_path, ios::out|ios::app);
+	client_file << docker_file.rdbuf();
+	docker_file.close();
+	client_file.close();
+
+	// Copy over stderr data.
+	docker_file.open(docker_stderr_path, ios::in);
+	client_file.open(stderr_path, ios::out|ios::app);
+	client_file << docker_file.rdbuf();
+	docker_file.close();
+	client_file.close();
+    }
+
+    // Send an error message back in the stderr file.
+    ofstream file;
+    file.open(stderr_path, ios::out|ios::app);
+    file << "Error: Unable to actually build a module with the docker backend." << endl;;
+    file.close();
+
     return -1;
 }
 

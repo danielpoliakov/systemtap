@@ -9,10 +9,12 @@
 #include "api.h"
 #include "server.h"
 #include <iostream>
-#include <iomanip>
+#include <fstream>
 #include <sstream>
+#include <iomanip>
 #include "../util.h"
 #include "backends.h"
+#include "../cmdline.h"
 
 extern "C" {
 #include <unistd.h>
@@ -161,6 +163,7 @@ private:
     bool builder_thread_running;
     pthread_t builder_tid;
 
+    void parse_cmd_args(void);
     static void *module_build_shim(void *arg);
     void *module_build();
     result_info *result;
@@ -571,6 +574,61 @@ build_info::module_build_shim(void *arg)
     return bi->module_build();
 }
 
+void
+build_info::parse_cmd_args(void)
+{
+    // Here we parse the stap command line for anything
+    // interesting. Note that we're not parsing the httpd command
+    // line, but the stap command line the user entered on the client
+    // side.
+    //
+    // Also Note that we need not do any options consistency checking
+    // since our spawned stap instance will do that.
+
+    // Create an argv/argc for use by getopt_long.
+    unsigned argc = crd->cmd_args.size();
+    char **argv = new char *[argc + 1];
+    for (unsigned i = 0; i < argc; ++i)
+	argv[i] = (char *)crd->cmd_args[i].c_str();
+    argv[argc] = NULL;
+
+    optind = 1;
+    unsigned perpass_verbose[5];
+    unsigned verbose;
+    while (true) {
+	int grc = getopt_long(argc, argv, STAP_SHORT_OPTIONS,
+			      stap_long_options, NULL);
+	if (grc < 0)
+	    break;
+	switch (grc) {
+        case 'v':
+	    for (unsigned i = 0; i < 5; i++)
+		perpass_verbose[i]++;
+	    verbose++;
+	    break;
+	case LONG_OPT_VERBOSE_PASS:
+            assert(optarg);
+	    if (strlen(optarg) > 0 && strlen(optarg) <= 5) {
+		for (unsigned i = 0; i < strlen(optarg); i++) {
+		    if (isdigit(optarg[i]))
+			perpass_verbose[i] += (optarg[i] - '0');
+		}
+	    }
+	    break;
+	default:
+	    // We silently ignore all options we aren't interested in.
+	    break;
+	}
+    }
+    delete[] argv;
+
+    // Now that we've finished parsing the arguments, we'll take the
+    // pass 2 verbose level as the level of verbosity to report things
+    // back to the client.
+    crd->verbose = perpass_verbose[2];
+    cerr << "Verbose level: " << crd->verbose << endl;
+}
+
 void *
 build_info::module_build()
 {
@@ -634,8 +692,18 @@ build_info::module_build()
 	}
     }
 
+    // Parse the client's command args.
+    parse_cmd_args();
+
+    // Create empty stdout/stderr files, so they always exist.
     string stdout_path = string(tmp_dir) + "/stdout";
+    ofstream file;
+    file.open(stdout_path, ios::out);
+    file.close();
     string stderr_path = string(tmp_dir) + "/stderr";
+    file.open(stderr_path, ios::out);
+    file.close();
+
     int staprc = -1;
     vector<backend_base *> backends;
     get_backends(backends);

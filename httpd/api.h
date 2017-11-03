@@ -22,6 +22,7 @@ struct client_request_data
     std::string distro_version;
     std::vector<std::string> cmd_args;
     std::vector<std::string> files;
+    unsigned verbose;
 };
 
 //extern bool
