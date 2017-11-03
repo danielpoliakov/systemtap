@@ -39,6 +39,11 @@ typedef std::vector<std::pair<derived_probe *, std::string> >
   sort_for_bpf_probe_arg_vector;
 bool sort_for_bpf(generic_kprobe_derived_probe_group *ge,
 		  sort_for_bpf_probe_arg_vector &v);
+struct hrtimer_derived_probe_group;
+struct timer_derived_probe_group;
+bool sort_for_bpf(hrtimer_derived_probe_group *hr,
+                  timer_derived_probe_group *t,
+                  sort_for_bpf_probe_arg_vector &v);
 
 void register_tapset_been(systemtap_session& sess);
 void register_tapset_itrace(systemtap_session& sess);

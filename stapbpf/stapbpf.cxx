@@ -106,8 +106,19 @@ struct kprobe_data
   { }
 };
 
-static std::vector<kprobe_data> kprobes;
+struct timer_data
+{
+  unsigned long period;
+  int prog_fd;
+  int event_fd;
 
+  timer_data(unsigned long period, int fd)
+    : period(period), prog_fd(fd), event_fd(-1)
+  { }
+};
+
+static std::vector<kprobe_data> kprobes;
+static std::vector<timer_data> timers;
 
 static void __attribute__((noreturn))
 fatal(const char *str, ...)
@@ -174,13 +185,23 @@ instantiate_maps (Elf64_Shdr *shdr, Elf_Data *data)
 }
 
 static int
-prog_load(Elf_Data *data)
+prog_load(Elf_Data *data, const char *name)
 {
+  enum bpf_prog_type prog_type;
+
+  if (strncmp(name, "kprobe", 6) == 0)
+    prog_type = BPF_PROG_TYPE_KPROBE;
+  else if (strncmp(name, "kretprobe", 9) == 0)
+    prog_type = BPF_PROG_TYPE_KPROBE;
+  else if (strncmp(name, "timer", 5) == 0)
+    prog_type = BPF_PROG_TYPE_PERF_EVENT;
+  else
+    fatal("error loading program due to unhandled symbol name: %s\n", name);
+
   if (data->d_size % sizeof(bpf_insn))
     fatal("program size not a multiple of %zu\n", sizeof(bpf_insn));
 
-  int fd = bpf_prog_load(BPF_PROG_TYPE_KPROBE,
-			 static_cast<bpf_insn *>(data->d_buf),
+  int fd = bpf_prog_load(prog_type, static_cast<bpf_insn *>(data->d_buf),
 			 data->d_size, module_license, kernel_version);
   if (fd < 0)
     {
@@ -304,6 +325,29 @@ maybe_collect_kprobe(const char *name, unsigned name_idx,
     fatal("probe %u offset non-zero\n", name_idx);
 
   kprobes.push_back(kprobe_data(type, arg, fd));
+}
+
+static void
+maybe_collect_timer(const char *name, unsigned name_idx, unsigned fd_idx)
+{
+  if (strncmp(name, "timer/", 6) == 0)
+    {
+      unsigned long period = strtoul(name + 11, NULL, 10);
+
+      if (strncmp(name + 6, "jiff/", 5) == 0)
+        {
+          long jiffies_per_sec = sysconf(_SC_CLK_TCK);
+          period *= 1e9 / jiffies_per_sec;
+        }
+
+      int fd = -1;
+      if (fd_idx >= prog_fds.size() || (fd = prog_fds[fd_idx]) < 0)
+        fatal("probe %u section %u not loaded\n", name_idx, fd_idx);
+
+      timers.push_back(timer_data(period, fd));
+    }
+
+  return;
 }
 
 static void
@@ -474,6 +518,48 @@ unregister_kprobes(const size_t nprobes)
 }
 
 static void
+unregister_timers(const size_t nprobes)
+{
+  for (size_t i = 0; i < nprobes; ++i)
+    close(timers[i].event_fd);
+}
+
+static void
+register_timers()
+{
+  perf_event_attr peattr;
+
+  memset(&peattr, 0, sizeof(peattr));
+  peattr.size = sizeof(peattr);
+  peattr.type = PERF_TYPE_SOFTWARE;
+  peattr.config = PERF_COUNT_SW_CPU_CLOCK;
+
+  for (size_t i = 0; i < timers.size(); ++i)
+    {
+      timer_data &t = timers[i];
+      peattr.sample_period = t.period;
+
+      int fd = perf_event_open(&peattr, -1, 0, -1, 0);
+      if (fd < 0)
+        {
+          int err = errno;
+          unregister_timers(timers.size());
+          fatal("Error opening probe id %zu: %s\n", i, strerror(err));
+        }
+
+      t.event_fd = fd;
+      if (ioctl(fd, PERF_EVENT_IOC_SET_BPF, timers[i].prog_fd) < 0)
+        {
+          int err = errno;
+          unregister_timers(timers.size());
+          fatal("Error installing bpf for probe id %zu: %s\n", i, strerror(err));
+        }
+    }
+
+  return;
+}
+
+static void
 init_internal_globals()
 {
   using namespace bpf;
@@ -545,6 +631,7 @@ load_bpf_file(const char *module)
   unsigned version_idx = 0;
   unsigned license_idx = 0;
   unsigned kprobes_idx = 0;
+  unsigned timer_idx = 0;
   unsigned begin_idx = 0;
   unsigned end_idx = 0;
 
@@ -584,6 +671,8 @@ load_bpf_file(const char *module)
 	maps_idx = i;
       else if (strcmp(shname, "kprobes") == 0)
 	kprobes_idx = i;
+      else if (strncmp(shname, "timer", 5) == 0)
+        timer_idx = i;
       else if (strcmp(shname, "stap_begin") == 0)
 	begin_idx = i;
       else if (strcmp(shname, "stap_end") == 0)
@@ -641,7 +730,7 @@ load_bpf_file(const char *module)
     {
       Elf64_Shdr *shdr = shdrs[i];
       if ((shdr->sh_flags & SHF_ALLOC) && (shdr->sh_flags & SHF_EXECINSTR))
-	prog_fds[i] = prog_load(sh_data[i]);
+	prog_fds[i] = prog_load(sh_data[i], sh_name[i]);
     }
 
   // Remember begin and end probes.
@@ -685,6 +774,13 @@ load_bpf_file(const char *module)
       // section name.  Each kprobe has its own program.
       for (unsigned i = 1; i < shnum; ++i)
 	maybe_collect_kprobe(sh_name[i], i, i, 0);
+    }
+
+  // Record all timers
+  if (timer_idx != 0)
+    {
+     for (unsigned i = 1; i < shnum; ++i)
+       maybe_collect_timer(sh_name[i], i, i);
     }
 }
 
@@ -853,6 +949,7 @@ main(int argc, char **argv)
     fatal("Error creating perf event group: %s\n", strerror(errno));
 
   register_kprobes();
+  register_timers();
 
   // Run the begin probes.
   if (prog_begin)
@@ -883,6 +980,7 @@ main(int argc, char **argv)
 
   // Unregister all probes.
   unregister_kprobes(kprobes.size());
+  unregister_timers(timers.size());
 
   // Run the end+error probes.
   if (prog_end)

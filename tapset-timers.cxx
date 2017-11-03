@@ -47,6 +47,9 @@ struct timer_derived_probe: public derived_probe
 struct timer_derived_probe_group: public generic_dpg<timer_derived_probe>
 {
   void emit_interval (translator_output* o);
+  friend bool sort_for_bpf(hrtimer_derived_probe_group *hr,
+                           timer_derived_probe_group *t,
+                           sort_for_bpf_probe_arg_vector &v);
 public:
   void emit_module_decls (systemtap_session& s);
   void emit_module_init (systemtap_session& s);
@@ -217,6 +220,9 @@ struct hrtimer_derived_probe: public derived_probe
 
 struct hrtimer_derived_probe_group: public generic_dpg<hrtimer_derived_probe>
 {
+  friend bool sort_for_bpf(hrtimer_derived_probe_group *hr,
+                           timer_derived_probe_group *t,
+                           sort_for_bpf_probe_arg_vector &v);
 public:
   void emit_module_decls (systemtap_session& s);
   void emit_module_init (systemtap_session& s);
@@ -753,6 +759,36 @@ register_tapset_timers(systemtap_session& s)
   }
 }
 
+bool
+sort_for_bpf(hrtimer_derived_probe_group *hr, timer_derived_probe_group *t,
+             sort_for_bpf_probe_arg_vector &v)
+{
+  if (hr)
+    for (auto i = hr->probes.begin(); i != hr->probes.end(); ++i)
+      {
+        hrtimer_derived_probe *p = *i;
+        std::stringstream o;
+
+        o << "timer/nsec/" << p->interval;
+        v.push_back(std::pair<derived_probe *, std::string>(p, o.str()));
+      }
+
+  if (t)
+    for (auto i = t->probes.begin(); i != t->probes.end(); ++i)
+      {
+        timer_derived_probe *p = *i;
+        std::stringstream o;
+
+        if (p->time_is_msecs)
+          o << "timer/nsec/" << (p->interval * 1e6);
+        else
+          o << "timer/jiff/" << p->interval;
+
+        v.push_back(std::pair<derived_probe *, std::string>(p, o.str()));
+      }
+
+  return v.empty();
+}
 
 
 /* vim: set sw=2 ts=8 cino=>4,n-2,{2,^-2,t0,(0,u0,w1,M1 : */

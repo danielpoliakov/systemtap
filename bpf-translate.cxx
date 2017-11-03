@@ -1454,6 +1454,11 @@ bpf_unparser::visit_functioncall (functioncall *e)
 
   assert (e->args.size () == f->formal_args.size ());
 
+  // ??? Needed for testsuite to run. This should be removed as soon
+  // as strings are supported and error can be properly implemented.
+  if (f->unmangled_name == "error")
+    return;
+
   // Create a new map for the function's local variables.
   locals_map *locals = new_locals(f->locals);
 
@@ -2313,6 +2318,22 @@ translate_bpf_pass (systemtap_session& s)
           sort_for_bpf(s.generic_kprobe_derived_probes, kprobe_v);
 
           for (auto i = kprobe_v.begin(); i != kprobe_v.end(); ++i)
+            {
+              t = i->first->tok;
+              program p;
+              translate_probe(p, glob, i->first);
+              p.generate();
+              output_probe(eo, p, i->second, SHF_ALLOC);
+            }
+        }
+
+      if (s.hrtimer_derived_probes || s.timer_derived_probes)
+        {
+          sort_for_bpf_probe_arg_vector timer_v;
+          sort_for_bpf(s.hrtimer_derived_probes,
+                       s.timer_derived_probes, timer_v);
+
+          for (auto i = timer_v.begin(); i != timer_v.end(); ++i)
             {
               t = i->first->tok;
               program p;

@@ -1,0 +1,42 @@
+// This test assumes that there are 100 jiffies per second.
+// This assumption will not hold for every kernel (but should
+// hold for many).
+global ns, us, ms, s, jf, hz
+probe begin {
+	printf("BEGIN\n")
+}
+
+probe timer.ns(1000000000) {
+	ns++
+}
+
+probe timer.us(1000000) {
+	us++
+}
+
+probe timer.ms(1000) {
+	ms++
+}
+
+probe timer.s(1) {
+	s++
+}
+
+probe timer.jiffies(100) {
+	jf++
+}
+
+probe timer.hz(1) {
+	hz++
+}
+
+probe timer.ms(10500) {
+	exit()
+}
+
+probe end {
+	if (ns == 10 && us == 10 && ms == 10 && s == 10 && jf == 10 && hz == 10)
+		printf("END PASS\n")
+	else
+		printf("END FAIL\n")
+}
