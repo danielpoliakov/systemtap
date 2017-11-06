@@ -372,28 +372,7 @@ response build_collection_rh::POST(const request &req)
 	    for (auto j = i->second.begin(); j != i->second.end();
 		 j++) {
 		clog << *j << endl;
-		// The client can optionally send over a "client.zip"
-		// file, which we automatically unzip here.
-		//
-		// FIXME: We should probably do this via a
-		// "stap_spawn", not a "stap_system".
-		if (*j == "client.zip")
-		{
-		    string zip_path = crd->base_dir + "/client.zip";
-		    vector<string> argv = { "unzip", "-q", "-d", crd->base_dir,
-					    zip_path };
-		    int rc = stap_system (2, argv);
-		    if (rc != 0)
-		    {
-			// FIXME: is this the right error?
-
-			// Return an error.
-			clog << "400 - bad request" << endl;
-			response error400(400);
-			error400.content = "<h1>Bad request</h1>";
-			return error400;
-		    }
-		}
+		crd->files.push_back(*j);
 	    }
 	}
     }
@@ -635,6 +614,25 @@ build_info::module_build()
     vector<string> argv;
     char tmp_dir_template[] = "/tmp/stap-httpd.XXXXXX";
     char *tmp_dir;
+
+    // The client can optionally send over a "client.zip" file, which
+    // we automatically unzip here.
+    for (auto i = crd->files.begin(); i != crd->files.end(); i++) {
+	if (*i == "client.zip") {
+	    string zip_path = crd->base_dir + "/client.zip";
+	    vector<string> zip_argv = { "unzip", "-q", "-d", crd->base_dir,
+					zip_path };
+	    int rc = stap_system (2, zip_argv);
+	    if (rc != 0) {
+		// Return an error.
+		clog << "unzip failed: " << rc << endl;
+		result_info *ri = new result_info(400,
+						  "<h1>Bad request</h1>");
+		set_result(ri);
+		return NULL;
+	    }
+	}
+    }
 
     // Process the command arguments.
     argv.push_back("stap");
