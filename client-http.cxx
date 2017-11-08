@@ -58,7 +58,7 @@ public:
   enum download_type {json_type, file_type};
 
   bool download (const std::string & url, enum download_type type);
-  bool post (const std::string & url, std::vector<std::tuple<std::string, std::string>> &request_parameters);
+  bool post (const string & url, vector<tuple<string, string>> & request_parameters);
   void add_file (std::string filename);
   void add_module (std::string module);
   void get_header_field (const std::string & data, const std::string & field);
@@ -459,78 +459,93 @@ http_client::get_response_code (void)
 // Post REQUEST_PARAMETERS, files, modules, buildids to URL
 
 bool
-http_client::post (const std::string & url,
-                   std::vector<std::tuple<std::string, std::string>> &request_parameters)
+http_client::post (const string & url,
+                   vector<tuple<string, string>> & request_parameters)
 {
-  struct curl_slist *headers=NULL;
+  struct curl_slist *headers = NULL;
   int still_running = false;
-  struct curl_httppost *formpost=NULL;
-  struct curl_httppost *lastptr=NULL;
-  CURLM *multi_handle;
-  static const char buf[] = "Expect:";
-  headers = curl_slist_append (headers, buf);
+  struct curl_httppost *formpost = NULL;
+  struct curl_httppost *lastptr = NULL;
 
-  for (vector<std::tuple<std::string, std::string>>::const_iterator it = request_parameters.begin ();
-      it != request_parameters.end ();
-      ++it)
+  headers = curl_slist_append (headers, "Expect:");
+
+  for (auto it = request_parameters.begin ();
+      it != request_parameters.end (); ++it)
     {
       string parm_type = get<0>(*it);
-      char *parm_data = (char*)get<1>(*it).c_str();
-      curl_formadd (&formpost,
-          &lastptr,
-          CURLFORM_COPYNAME, parm_type.c_str(),
-          CURLFORM_COPYCONTENTS, parm_data,
-          CURLFORM_END);
+      string parm_data = get<1>(*it);
+      curl_formadd (&formpost, &lastptr,
+		    CURLFORM_COPYNAME, parm_type.c_str(),
+		    CURLFORM_COPYCONTENTS, parm_data.c_str(),
+		    CURLFORM_END);
     }
 
-  // Fill in the file upload field; libcurl will load data from the given file name
-  for (vector<std::string>::const_iterator it = files.begin ();
-      it != files.end ();
-      ++it)
+  // Fill in the file upload field; libcurl will load data from the
+  // given file name.
+  for (auto it = files.begin (); it != files.end (); ++it)
     {
       string filename = (*it);
       string filebase = basename (filename.c_str());
 
-      curl_formadd (&formpost,
-		    &lastptr,
+      curl_formadd (&formpost, &lastptr,
 		    CURLFORM_COPYNAME, filebase.c_str(),
 		    CURLFORM_FILE, filename.c_str(),
 		    CURLFORM_END);
-
-      curl_formadd (&formpost,
-                    &lastptr,
+      curl_formadd (&formpost, &lastptr,
                     CURLFORM_COPYNAME, "files",
                     CURLFORM_COPYCONTENTS, filename.c_str(),
                     CURLFORM_END);
     }
 
+  // Here we're adding the package information. We'd like to do
+  // something like (in JSON):
+  //
+  //   "package_info": [ { "package": "kernel-4.14.0-0.rc4.git4.1.fc28.x86_64",
+  //                       "filename": "kernel",
+  //                       "id": "ef7210ee3a447c798c3548102b82665f03ef241f" },
+  //                     { "package": "foo-1.1.x86_64",
+  //                       "filename": "/usr/bin/foo",
+  //                       "id": "deadbeef" }
+  //                   ]
+  //
+  // For each file, we've got the package it came from and its build
+  // id.
+  //
+  // But we can't do that in POST form data (or in libcurl). So
+  // instead, we'll turn those arrays inside out. The package
+  // information will look like:
+  //
+  //   "file_pkg": [ "kernel-4.14.0-0.rc4.git4.1.fc28.x86_64",
+  //                 "foo-1.1.x86_64" ],
+  //   "file_name": [ "kernel", "/usr/bin/foo" ],
+  //   "file_id": [ "ef7210ee3a447c798c3548102b82665f03ef241f",
+  //                "deadbeef" ]
+  //
+  // So, the items are arranged by index - item N in each array are
+  // related information.
   int bid_idx = 0;
-
-  for (vector<std::string>::const_iterator it = modules.begin ();
-      it != modules.end ();
-      ++it)
+  for (auto it = modules.begin (); it != modules.end (); ++it, ++bid_idx)
     {
-      string module = (*it);
-      std::stringstream ss;
-
-      string bid_module = std::get<0>(buildids[bid_idx]);
+      string pkg = (*it);
+      string buildid_file = std::get<0>(buildids[bid_idx]);
       string buildid = std::get<1>(buildids[bid_idx]);
 
-      ss  << "{"
-          << "\"package\" : \"" << module
-          << "\", \"filename\" : \"" << bid_module
-          << "\", \"id\" : \"" << buildid
-          << "\"}";
-      curl_formadd (&formpost,
-          &lastptr,
-          CURLFORM_COPYNAME, "package info",
-          CURLFORM_CONTENTTYPE, "application/json",
-          CURLFORM_COPYCONTENTS, ss.str().c_str(),
-          CURLFORM_END);
-      bid_idx += 1;
+      curl_formadd (&formpost, &lastptr,
+		    CURLFORM_COPYNAME, "file_pkg",
+		    CURLFORM_CONTENTTYPE, "application/json",
+		    CURLFORM_COPYCONTENTS, pkg.c_str(),
+		    CURLFORM_END);
+      curl_formadd (&formpost, &lastptr,
+		    CURLFORM_COPYNAME, "file_name",
+		    CURLFORM_CONTENTTYPE, "application/json",
+		    CURLFORM_COPYCONTENTS, buildid_file.c_str(),
+		    CURLFORM_END);
+      curl_formadd (&formpost, &lastptr,
+		    CURLFORM_COPYNAME, "file_id",
+		    CURLFORM_CONTENTTYPE, "application/json",
+		    CURLFORM_COPYCONTENTS, buildid.c_str(),
+		    CURLFORM_END);
     }
-
-  multi_handle = curl_multi_init();
 
   curl_easy_setopt (curl, CURLOPT_URL, url.c_str());
   curl_easy_setopt (curl, CURLOPT_HTTPHEADER, headers);
@@ -552,10 +567,9 @@ http_client::post (const std::string & url,
       curl_easy_cleanup (db_curl);
     }
 
+  CURLM *multi_handle = curl_multi_init();
   curl_multi_add_handle (multi_handle, curl);
-
   curl_multi_perform (multi_handle, &still_running);
-
   do {
       struct timeval timeout;
       int rc; // select() return code
@@ -621,9 +635,7 @@ http_client::post (const std::string & url,
   } while (still_running);
 
   curl_multi_cleanup (multi_handle);
-
   curl_formfree (formpost);
-
   curl_slist_free_all (headers);
 
   return true;
