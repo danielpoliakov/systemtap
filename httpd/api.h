@@ -13,6 +13,13 @@
 #include <string>
 #include <vector>
 
+struct file_info
+{
+    std::string name;
+    std::string pkg;
+    std::string build_id;
+};
+
 struct client_request_data
 {
     std::string kver;
@@ -22,6 +29,7 @@ struct client_request_data
     std::string distro_version;
     std::vector<std::string> cmd_args;
     std::vector<std::string> files;
+    std::vector<std::shared_ptr<struct file_info> > file_info;
     unsigned verbose;
 };
 

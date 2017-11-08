@@ -346,6 +346,9 @@ response build_collection_rh::POST(const request &req)
     }
 
     // Gather up the info we need.
+    vector<string> file_name;
+    vector<string> file_id;
+    vector<string> file_pkg;
     for (auto it = req.params.begin(); it != req.params.end(); it++) {
 	if (it->first == "kver") {
 	    crd->kver = it->second[0];
@@ -362,7 +365,35 @@ response build_collection_rh::POST(const request &req)
 	else if (it->first == "distro_version") {
 	    crd->distro_version = it->second[0];
 	}
+	else if (it->first == "file_id") {
+	    file_id = it->second;
+	}
+	else if (it->first == "file_name") {
+	    file_name = it->second;
+	}
+	else if (it->first == "file_pkg") {
+	    file_pkg = it->second;
+	}
 	// Notice we silently ignore any "extra" parameters.
+    }
+
+    // Combine the file info fields.
+    if (! file_name.empty() || ! file_id.empty() || ! file_pkg.empty()) {
+	if (file_name.size() != file_id.size()
+	    || file_name.size() != file_pkg.size()) {
+	    // Return an error.
+	    clog << "400 - bad request" << endl;
+	    response error400(400);
+	    error400.content = "<h1>Bad request</h1>";
+	    return error400;
+	}
+	for (unsigned i = 0; i < file_name.size(); ++i) {
+	    auto finfo = make_shared<struct file_info>();
+	    finfo->name = file_name[i];
+	    finfo->pkg = file_pkg[i];
+	    finfo->build_id = file_id[i];
+	    crd->file_info.push_back(finfo);
+	}
     }
 
     if (! req.files.empty()) {
@@ -561,19 +592,24 @@ build_info::parse_cmd_args(void)
     // line, but the stap command line the user entered on the client
     // side.
     //
-    // Also Note that we need not do any options consistency checking
+    // Also note that we need not do any options consistency checking
     // since our spawned stap instance will do that.
 
-    // Create an argv/argc for use by getopt_long.
-    unsigned argc = crd->cmd_args.size();
+    // Create an argv/argc for use by getopt_long. Note that we have
+    // to add an argument 0 (for the 'stap' command itself) to make
+    // getopt_long() happy.
+    unsigned argc = crd->cmd_args.size() + 1;
     char **argv = new char *[argc + 1];
-    for (unsigned i = 0; i < argc; ++i)
-	argv[i] = (char *)crd->cmd_args[i].c_str();
+    char arg0[] = "stap";
+    argv[0] = arg0;
+    for (unsigned i = 0; i < crd->cmd_args.size(); ++i) {
+	argv[i + 1] = (char *)crd->cmd_args[i].c_str();
+    }
     argv[argc] = NULL;
 
     optind = 1;
-    unsigned perpass_verbose[5];
-    unsigned verbose;
+    unsigned perpass_verbose[5] = { 0 };
+    unsigned verbose = 0;
     while (true) {
 	int grc = getopt_long(argc, argv, STAP_SHORT_OPTIONS,
 			      stap_long_options, NULL);
@@ -604,7 +640,7 @@ build_info::parse_cmd_args(void)
     // Now that we've finished parsing the arguments, we'll take the
     // pass 2 verbose level as the level of verbosity to report things
     // back to the client.
-    crd->verbose = perpass_verbose[2];
+    crd->verbose = perpass_verbose[1];
     cerr << "Verbose level: " << crd->verbose << endl;
 }
 
