@@ -1,0 +1,35 @@
+global x0, x1, x2, x3, x4
+probe begin {
+	printf("BEGIN\n")
+}
+
+probe perf.type(0).config(9).sample(10000000) { // hw
+	x0++
+}
+
+probe perf.type(1).config(0).hz(100) { // sw
+	x1++
+}
+
+probe perf.type(2).config(100).hz(1) { // tracepoint
+	x2++
+}
+
+probe perf.type(3).config(0).hz(1) { // hw cache
+	x3++
+}
+
+probe perf.type(4).config(0).hz(1) { // raw
+	x4++
+}
+
+probe timer.s(5) {
+	exit()
+}
+
+probe end {
+	if (x0 + x1 + x2 + x3 + x4 >= 200)
+		printf("END PASS\n")
+	else
+		printf("END FAIL\n")
+}

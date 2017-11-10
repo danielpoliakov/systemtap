@@ -3,6 +3,6 @@ probe begin {
 }
 
 probe kernel.function("vfs_read") {
-	printf("END PASS\N")
+	printf("END PASS\n")
 	exit()
 }

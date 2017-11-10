@@ -1,0 +1,31 @@
+global p1, p2, p3, p4 
+probe begin {
+	printf("BEGIN\n")
+}
+
+probe perf.type(1).config(0).sample(1000000000) {
+	p1++
+}
+
+probe perf.type(1).config(0).sample(1000000) {
+	p2++
+}
+
+probe perf.type(1).config(0).hz(1) {
+	p3++
+}
+
+probe perf.type(1).config(0) {
+	p4++
+}
+
+probe timer.ms(5500) {
+	exit()
+}
+
+probe end {
+	if (p1 == 5 && p2 == p4 && p3 == 5)
+		printf("END PASS\n")
+	else
+		printf("END FAIL\n")
+}

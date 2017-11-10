@@ -57,6 +57,9 @@ struct perf_derived_probe: public derived_probe
 
 struct perf_derived_probe_group: public generic_dpg<perf_derived_probe>
 {
+  friend bool sort_for_bpf(perf_derived_probe_group *pg,
+                           sort_for_bpf_probe_arg_vector &v);
+
   void emit_module_decls (systemtap_session& s);
   void emit_module_init (systemtap_session& s);
   void emit_module_exit (systemtap_session& s);
@@ -400,6 +403,30 @@ register_tapset_perf(systemtap_session& s)
   event->bind(TOK_PROCESS)->bind(builder);
   event->bind_str(TOK_COUNTER)->bind(builder);
   event->bind_str(TOK_PROCESS)->bind_str(TOK_COUNTER)->bind(builder);
+}
+
+bool
+sort_for_bpf(perf_derived_probe_group *pg, sort_for_bpf_probe_arg_vector &v)
+{
+  if (!pg)
+    return false;
+
+  for (auto i = pg->probes.begin(); i != pg->probes.end(); ++i)
+    {
+      perf_derived_probe *p = *i;
+      std::stringstream o;
+
+      o << "perf/" << p->event_type << "/" << p->event_config << "/";
+      if (p->has_freq)
+        o << "f/" << p->interval;  // uses sample_freq (hz)
+      else
+        o << "p/" << p->interval;  // uses sample_period
+
+      // XXX .process, .counter
+      v.push_back(std::pair<derived_probe *, std::string>(p, o.str()));
+    }
+
+  return v.empty();
 }
 
 /* vim: set sw=2 ts=8 cino=>4,n-2,{2,^-2,t0,(0,u0,w1,M1 : */
