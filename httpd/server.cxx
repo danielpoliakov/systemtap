@@ -28,9 +28,9 @@ static int
 get_key_values(void *cls, enum MHD_ValueKind /*kind*/,
 	       const char *key, const char *value)
 {
-    struct request *rq_info = static_cast<struct request *>(cls);
+    post_params_t *params = static_cast<post_params_t *>(cls);
 
-    rq_info->params[key].push_back(value ? value : "");
+    (*params)[key].push_back(value ? value : "");
     return MHD_YES;
 }
 
@@ -66,7 +66,7 @@ struct connection_info
 			 size_t size);
 
     MHD_PostProcessor *postprocessor;
-    map<string, vector<string>> post_params;
+    post_params_t post_params;
 
     string post_dir;
     map<string, vector<upload_file_info>> post_files;
@@ -204,7 +204,8 @@ connection_info::postdataiterator(enum MHD_ValueKind kind,
 	}
     }
     else if (key) {
-	return get_key_values(&post_params, kind, key, data);
+	string value(data, size);
+	return get_key_values(&post_params, kind, key, value.c_str());
     }
     return MHD_YES;
 }
@@ -379,7 +380,7 @@ server::access_handler(struct MHD_Connection *connection,
 			       ? MHD_POSTDATA_KIND
 			       : MHD_GET_ARGUMENT_KIND);
     MHD_get_connection_values(connection, kind, &get_key_values,
-			      &rq_info);
+			      &rq_info.params);
 
     // POST data might or might not have been handled by
     // MHD_get_connection_values(). We have to post-process the POST

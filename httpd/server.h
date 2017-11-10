@@ -40,9 +40,11 @@ struct response
 
 extern response get_404_response();
 
+typedef map<string, vector<string>> post_params_t;
+
 struct request
 {
-    map<string, vector<string>> params;
+    post_params_t params;
     string base_dir;
     map<string, vector<string>> files;
     vector<string> matches;
