@@ -126,7 +126,7 @@ protected:
 class build_info : public resource
 {
 public:
-    build_info(struct client_request_data *crd)
+    build_info(client_request_data *crd)
 	: resource("/builds/"), crd(crd), builder_thread_running(false),
 	  result(NULL) { }
 
@@ -142,7 +142,7 @@ public:
 	}
 	if (crd) {
 	    delete crd;
-	    crd = (struct client_request_data *)(void *)0xdeadbeef;
+	    crd = (client_request_data *)(void *)0xdeadbeef;
 	}
     }
 
@@ -158,7 +158,7 @@ public:
     }
 
 private:
-    struct client_request_data *crd;
+    client_request_data *crd;
 
     bool builder_thread_running;
     pthread_t builder_tid;
@@ -336,7 +336,7 @@ public:
 
 response build_collection_rh::POST(const request &req)
 {
-    struct client_request_data *crd = new struct client_request_data;
+    client_request_data *crd = new struct client_request_data;
     if (crd == NULL) {
 	// Return an error.
 	clog << "500 - internal server error" << endl;
@@ -360,7 +360,12 @@ response build_collection_rh::POST(const request &req)
 	    crd->cmd_args = it->second;
 	}
 	else if (it->first == "distro_name") {
+	    // Notice we're lowercasing the distro name to make things
+	    // simpler.
 	    crd->distro_name = it->second[0];
+	    transform(crd->distro_name.begin(), crd->distro_name.end(),
+		      crd->distro_name.begin(), ::tolower);
+
 	}
 	else if (it->first == "distro_version") {
 	    crd->distro_version = it->second[0];
@@ -382,7 +387,7 @@ response build_collection_rh::POST(const request &req)
 	if (file_name.size() != file_id.size()
 	    || file_name.size() != file_pkg.size()) {
 	    // Return an error.
-	    clog << "400 - bad request" << endl;
+	    clog << "400 - bad request (1)" << endl;
 	    response error400(400);
 	    error400.content = "<h1>Bad request</h1>";
 	    return error400;
@@ -412,7 +417,7 @@ response build_collection_rh::POST(const request &req)
     if (crd->kver.empty() || crd->arch.empty() || crd->cmd_args.empty()
 	|| crd->distro_name.empty() || crd->distro_version.empty()) {
 	// Return an error.
-	clog << "400 - bad request" << endl;
+	clog << "400 - bad request (2)" << endl;
 	response error400(400);
 	error400.content = "<h1>Bad request</h1>";
 	return error400;
@@ -795,6 +800,55 @@ build_info::module_build()
 				      module_path, module_mode);
     set_result(ri);
     return NULL;
+}
+
+// Return a json representation of the client_request_data. The caller
+// is responsible for calling json_object_put() on the returned object.
+struct json_object *
+client_request_data::get_json_object() const
+{
+    // To make sure we have all the latest changes, we always make a
+    // "fresh" json object.
+    struct json_object *root = json_object_new_object();
+
+    struct json_object *item = json_object_new_string(kver.c_str());
+    json_object_object_add(root, "kver", item);
+    item = json_object_new_string(arch.c_str());
+    json_object_object_add(root, "arch", item);
+    item = json_object_new_string(base_dir.c_str());
+    json_object_object_add(root, "base_dir", item);
+    item = json_object_new_string(distro_name.c_str());
+    json_object_object_add(root, "distro_name", item);
+    item = json_object_new_string(distro_version.c_str());
+    json_object_object_add(root, "distro_version", item);
+
+    struct json_object *array = json_object_new_array();
+    for (auto it = cmd_args.begin(); it != cmd_args.end(); ++it) {
+	item = json_object_new_string((*it).c_str());
+	json_object_array_add(array, item);
+    }
+    json_object_object_add(root, "cmd_args", array);
+    
+    array = json_object_new_array();
+    for (auto it = files.begin(); it != files.end(); ++it) {
+	item = json_object_new_string((*it).c_str());
+	json_object_array_add(array, item);
+    }
+    json_object_object_add(root, "files", array);
+
+    array = json_object_new_array();
+    for (auto it = file_info.begin(); it != file_info.end(); ++it) {
+	struct json_object *name = json_object_new_string((*it)->name.c_str());
+	struct json_object *pkg = json_object_new_string((*it)->pkg.c_str());
+	struct json_object *build_id = json_object_new_string((*it)->build_id.c_str());
+	item = json_object_new_object();
+	json_object_object_add(item, "name", name);
+	json_object_object_add(item, "pkg", pkg);
+	json_object_object_add(item, "build_id", build_id);
+	json_object_array_add(array, item);
+    }
+    json_object_object_add(root, "file_info", array);
+    return root;
 }
 
 void api_cleanup()

@@ -12,6 +12,9 @@
 #include "server.h"
 #include <string>
 #include <vector>
+extern "C" {
+#include <json-c/json_object.h>
+}
 
 struct file_info
 {
@@ -20,8 +23,11 @@ struct file_info
     std::string build_id;
 };
 
-struct client_request_data
+class client_request_data
 {
+public:
+    struct json_object *get_json_object() const;
+
     std::string kver;
     std::string arch;
     std::string base_dir;

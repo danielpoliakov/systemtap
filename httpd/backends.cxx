@@ -28,10 +28,10 @@ class default_backend : public backend_base
 {
 public:
     
-    bool can_generate_module(const struct client_request_data *) {
+    bool can_generate_module(const client_request_data *) {
 	return true;
     }
-    int generate_module(const struct client_request_data *crd,
+    int generate_module(const client_request_data *crd,
 			const vector<string> &argv,
 			const string &tmp_dir,
 			const string &stdout_path,
@@ -39,7 +39,7 @@ public:
 };
 
 int
-default_backend::generate_module(const struct client_request_data *crd,
+default_backend::generate_module(const client_request_data *crd,
 				 const vector<string> &,
 				 const string &,
 				 const string &stdout_path,
@@ -70,8 +70,8 @@ class local_backend : public backend_base
 public:
     local_backend();
 
-    bool can_generate_module(const struct client_request_data *crd);
-    int generate_module(const struct client_request_data *crd,
+    bool can_generate_module(const client_request_data *crd);
+    int generate_module(const client_request_data *crd,
 			const vector<string> &argv,
 			const string &tmp_dir,
 			const string &stdout_path,
@@ -127,7 +127,7 @@ local_backend::local_backend()
 }
 
 bool
-local_backend::can_generate_module(const struct client_request_data *crd)
+local_backend::can_generate_module(const client_request_data *crd)
 {
     // See if we support the kernel/arch/distro combination.
     if (supported_kernels.count(crd->kver) == 1 && arch == crd->arch
@@ -139,7 +139,7 @@ local_backend::can_generate_module(const struct client_request_data *crd)
 }
 
 int
-local_backend:: generate_module(const struct client_request_data *,
+local_backend:: generate_module(const client_request_data *,
 				const vector<string> &argv,
 				const string &,
 				const string &stdout_path,
@@ -205,7 +205,7 @@ public:
     docker_backend();
 
     bool can_generate_module(const struct client_request_data *crd);
-    int generate_module(const struct client_request_data *crd,
+    int generate_module(const client_request_data *crd,
 			const vector<string> &argv,
 			const string &tmp_dir,
 			const string &stdout_path,
@@ -275,7 +275,11 @@ docker_backend::docker_backend()
 	    // Now, chop off the .json extension.
 	    size_t found = filename.find_last_of(".");
 	    if (found != string::npos) {
+		// Notice we're lowercasing the distro name to make
+		// things simpler.
 		string distro = filename.substr(0, found);
+		transform(distro.begin(), distro.end(), distro.begin(),
+			  ::tolower);
 		data_files.insert({distro, path});
 	    }
 	}
@@ -289,7 +293,7 @@ docker_backend::docker_backend()
 }
 
 bool
-docker_backend::can_generate_module(const struct client_request_data *crd)
+docker_backend::can_generate_module(const client_request_data *crd)
 {
     // If we don't have a docker executable, we're done.
     if (docker_path.empty())
@@ -305,7 +309,7 @@ docker_backend::can_generate_module(const struct client_request_data *crd)
 }
 
 int
-docker_backend:: generate_module(const struct client_request_data *crd,
+docker_backend::generate_module(const client_request_data *crd,
 				const vector<string> &,
 				const string &tmp_dir,
 				const string &stdout_path,
@@ -344,12 +348,23 @@ docker_backend:: generate_module(const struct client_request_data *crd,
 	return rc;
     }
 
+    // Grab a JSON representation of the client_request_data, and
+    // write it to a file (so the script that generates the docker
+    // file(s) knows what it is supposed to be doing).
+    string build_data_path = string(tmp_dir) + "/build_data.json";
+    struct json_object *root = crd->get_json_object();
+    clog << "JSON data: " << json_object_to_json_string(root) << endl;
+    ofstream build_data_file;
+    build_data_file.open(build_data_path, ios::out);
+    build_data_file << json_object_to_json_string(root);
+    build_data_file.close();
+    json_object_put(root);
+
     // Kick off building the docker container.
     vector<string> docker_args;
     docker_args.push_back(docker_build_container_script_path);
-    docker_args.push_back("--distro-ver=" + crd->distro_version);
-    docker_args.push_back("--kernel-ver=" + crd->kver);
     docker_args.push_back(data_files[crd->distro_name]);
+    docker_args.push_back(build_data_path);
     pid_t pid = stap_spawn(2, docker_args, &actions);
     clog << "spawn returned " << pid << endl;
 
