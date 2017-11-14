@@ -12932,7 +12932,7 @@ ac_config_files="$ac_config_files staprun/Makefile"
 
 ac_config_files="$ac_config_files stapbpf/Makefile"
 
-ac_config_files="$ac_config_files httpd/Makefile"
+ac_config_files="$ac_config_files httpd/Makefile httpd/docker/Makefile"
 
 ac_config_files="$ac_config_files staprun/run-staprun"
 
@@ -13835,6 +13835,7 @@ do
     "staprun/Makefile") CONFIG_FILES="$CONFIG_FILES staprun/Makefile" ;;
     "stapbpf/Makefile") CONFIG_FILES="$CONFIG_FILES stapbpf/Makefile" ;;
     "httpd/Makefile") CONFIG_FILES="$CONFIG_FILES httpd/Makefile" ;;
+    "httpd/docker/Makefile") CONFIG_FILES="$CONFIG_FILES httpd/docker/Makefile" ;;
     "staprun/run-staprun") CONFIG_FILES="$CONFIG_FILES staprun/run-staprun" ;;
     "staprun/guest/stapshd") CONFIG_FILES="$CONFIG_FILES staprun/guest/stapshd" ;;
     "staprun/guest/stapsh-daemon") CONFIG_FILES="$CONFIG_FILES staprun/guest/stapsh-daemon" ;;

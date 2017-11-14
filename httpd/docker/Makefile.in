@@ -13,8 +13,6 @@
 # PARTICULAR PURPOSE.
 
 @SET_MAKE@
-
-# Makefile.am --- automake input file for systemtap tapset reference manual
 VPATH = @srcdir@
 am__is_gnu_make = { \
   if test -z '$(MAKELEVEL)'; then \
@@ -90,7 +88,8 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
-subdir = doc/beginners
+@HAVE_HTTP_SUPPORT_TRUE@am__append_1 = stap_build_docker_container.py
+subdir = httpd/docker
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
 	$(top_srcdir)/m4/ax_cxx_compile_stdcxx.m4 \
@@ -102,7 +101,8 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
-DIST_COMMON = $(srcdir)/Makefile.am
+DIST_COMMON = $(srcdir)/Makefile.am \
+	$(am__pkglibexecdocker_PYTHON_DIST)
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
@@ -125,6 +125,39 @@ am__can_run_installinfo = \
     n|no|NO) false;; \
     *) (install-info --version) >/dev/null 2>&1;; \
   esac
+am__pkglibexecdocker_PYTHON_DIST = stap_build_docker_container.py
+am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
+am__vpath_adj = case $$p in \
+    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
+    *) f=$$p;; \
+  esac;
+am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
+am__install_max = 40
+am__nobase_strip_setup = \
+  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
+am__nobase_strip = \
+  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
+am__nobase_list = $(am__nobase_strip_setup); \
+  for p in $$list; do echo "$$p $$p"; done | \
+  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
+  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
+    if (++n[$$2] == $(am__install_max)) \
+      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
+    END { for (dir in files) print dir, files[dir] }'
+am__base_list = \
+  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
+  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
+am__uninstall_files_from_dir = { \
+  test -z "$$files" \
+    || { test ! -d "$$dir" && test ! -f "$$dir" && test ! -r "$$dir"; } \
+    || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
+         $(am__cd) "$$dir" && rm -f $$files; }; \
+  }
+am__py_compile = PYTHON=$(PYTHON) $(SHELL) $(py_compile)
+am__installdirs = "$(DESTDIR)$(pkglibexecdockerdir)"
+am__pep3147_tweak = \
+  sed -e 's|\.py$$||' -e 's|[^/]*$$|__pycache__/&.*.py|'
+py_compile = $(top_srcdir)/py-compile
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
@@ -327,9 +360,13 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 uuid_CFLAGS = @uuid_CFLAGS@
 uuid_LIBS = @uuid_LIBS@
-DOC_INSTALL_DIR = $(DESTDIR)$(datadir)/doc/systemtap
-SBG = SystemTap_Beginners_Guide
-BEGIN_INSTALL_DIR = $(DOC_INSTALL_DIR)/$(SBG)
+AUTOMAKE_OPTIONS = no-dist foreign subdir-objects
+JSON_FILES_DEST = $(DESTDIR)$(pkgdatadir)/httpd/docker
+
+# Any script in the following variable will get byte-compiled at
+# install time.
+pkglibexecdocker_PYTHON = $(am__append_1)
+pkglibexecdockerdir = $(pkglibexecdir)/httpd/docker
 all: all-am
 
 .SUFFIXES:
@@ -342,9 +379,9 @@ $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__confi
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign doc/beginners/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign httpd/docker/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign doc/beginners/Makefile
+	  $(AUTOMAKE) --foreign httpd/docker/Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
 	  *config.status*) \
@@ -362,6 +399,54 @@ $(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(am__aclocal_m4_deps):
+install-pkglibexecdockerPYTHON: $(pkglibexecdocker_PYTHON)
+	@$(NORMAL_INSTALL)
+	@list='$(pkglibexecdocker_PYTHON)'; dlist=; list2=; test -n "$(pkglibexecdockerdir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(pkglibexecdockerdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(pkglibexecdockerdir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then b=; else b="$(srcdir)/"; fi; \
+	  if test -f $$b$$p; then \
+	    $(am__strip_dir) \
+	    dlist="$$dlist $$f"; \
+	    list2="$$list2 $$b$$p"; \
+	  else :; fi; \
+	done; \
+	for file in $$list2; do echo $$file; done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(pkglibexecdockerdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(pkglibexecdockerdir)" || exit $$?; \
+	done || exit $$?; \
+	if test -n "$$dlist"; then \
+	  $(am__py_compile) --destdir "$(DESTDIR)" \
+	                    --basedir "$(pkglibexecdockerdir)" $$dlist; \
+	else :; fi
+
+uninstall-pkglibexecdockerPYTHON:
+	@$(NORMAL_UNINSTALL)
+	@list='$(pkglibexecdocker_PYTHON)'; test -n "$(pkglibexecdockerdir)" || list=; \
+	py_files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	test -n "$$py_files" || exit 0; \
+	dir='$(DESTDIR)$(pkglibexecdockerdir)'; \
+	pyc_files=`echo "$$py_files" | sed 's|$$|c|'`; \
+	pyo_files=`echo "$$py_files" | sed 's|$$|o|'`; \
+	py_files_pep3147=`echo "$$py_files" | $(am__pep3147_tweak)`; \
+	echo "$$py_files_pep3147";\
+	pyc_files_pep3147=`echo "$$py_files_pep3147" | sed 's|$$|c|'`; \
+	pyo_files_pep3147=`echo "$$py_files_pep3147" | sed 's|$$|o|'`; \
+	st=0; \
+	for files in \
+	  "$$py_files" \
+	  "$$pyc_files" \
+	  "$$pyo_files" \
+	  "$$pyc_files_pep3147" \
+	  "$$pyo_files_pep3147" \
+	; do \
+	  $(am__uninstall_files_from_dir) || st=$$?; \
+	done; \
+	exit $$st
 tags TAGS:
 
 ctags CTAGS:
@@ -372,6 +457,9 @@ check-am: all-am
 check: check-am
 all-am: Makefile
 installdirs:
+	for dir in "$(DESTDIR)$(pkglibexecdockerdir)"; do \
+	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
+	done
 install: install-am
 install-exec: install-exec-am
 install-data: install-data-am
@@ -402,12 +490,10 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-@BUILD_DOCS_FALSE@clean-local:
-@BUILD_DOCS_FALSE@uninstall-local:
-@BUILD_DOCS_FALSE@install-data-hook:
+@HAVE_HTTP_SUPPORT_FALSE@install-data-local:
 clean: clean-am
 
-clean-am: clean-generic clean-local mostlyclean-am
+clean-am: clean-generic mostlyclean-am
 
 distclean: distclean-am
 	-rm -f Makefile
@@ -425,14 +511,13 @@ info: info-am
 
 info-am:
 
-install-data-am:
-	@$(NORMAL_INSTALL)
-	$(MAKE) $(AM_MAKEFLAGS) install-data-hook
+install-data-am: install-data-local
+
 install-dvi: install-dvi-am
 
 install-dvi-am:
 
-install-exec-am:
+install-exec-am: install-pkglibexecdockerPYTHON
 
 install-html: install-html-am
 
@@ -470,76 +555,30 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-local
+uninstall-am: uninstall-pkglibexecdockerPYTHON
 
-.MAKE: install-am install-data-am install-strip
+.MAKE: install-am install-strip
 
-.PHONY: all all-am check check-am clean clean-generic clean-local \
-	cscopelist-am ctags-am distclean distclean-generic dvi dvi-am \
-	html html-am info info-am install install-am install-data \
-	install-data-am install-data-hook install-dvi install-dvi-am \
-	install-exec install-exec-am install-html install-html-am \
-	install-info install-info-am install-man install-pdf \
-	install-pdf-am install-ps install-ps-am install-strip \
-	installcheck installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-generic pdf \
-	pdf-am ps ps-am tags-am uninstall uninstall-am uninstall-local
+.PHONY: all all-am check check-am clean clean-generic cscopelist-am \
+	ctags-am distclean distclean-generic dvi dvi-am html html-am \
+	info info-am install install-am install-data install-data-am \
+	install-data-local install-dvi install-dvi-am install-exec \
+	install-exec-am install-html install-html-am install-info \
+	install-info-am install-man install-pdf install-pdf-am \
+	install-pkglibexecdockerPYTHON install-ps install-ps-am \
+	install-strip installcheck installcheck-am installdirs \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-generic pdf pdf-am ps ps-am tags-am uninstall \
+	uninstall-am uninstall-pkglibexecdockerPYTHON
 
 .PRECIOUS: Makefile
 
 
-@BUILD_DOCS_TRUE@all: $(SBG)/index.html
-
-# The beginner documents are now pre generated in the source tree
-
-# move all the relevant files into the build directory
-@BUILD_DOCS_TRUE@$(SBG).pdf:
-@BUILD_DOCS_TRUE@	mkdir -p build/en-US/xml
-@BUILD_DOCS_TRUE@	cp en-US/*.xml build/en-US/xml/
-@BUILD_DOCS_TRUE@	cp en-US/*.ent build/en-US/xml/
-@BUILD_DOCS_TRUE@	cp -R en-US/xsl build/en-US/
-@BUILD_DOCS_TRUE@	cp -R en-US/extras build/en-US/xml/
-@BUILD_DOCS_TRUE@	cp -R en-US/images build/en-US/xml/
-@BUILD_DOCS_TRUE@	cp -R en-US/Common_Content build/en-US/xml
-@BUILD_DOCS_TRUE@	cp en-US/$(SBG).pdf $(builddir)/
-
-# rely on the pdf generation to move all the necessary files into the right dirs
-@BUILD_DOCS_TRUE@$(SBG)/index.html: $(SBG).pdf
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@	xmlto --skip-validation \
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@				-x build/en-US/xsl/html.xsl -o $(SBG) html build/en-US/xml/$(SBG).xml
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@	cp -R build/en-US/xml/images $(SBG)
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@	mkdir -p $(SBG)/Common_Content
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@	cp -R build/en-US/xml/Common_Content/images $(SBG)/Common_Content
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@	cp -R build/en-US/xml/Common_Content/css $(SBG)/Common_Content
-
-@BUILD_DOCS_TRUE@clean-local:
-@BUILD_DOCS_TRUE@	rm -rf build/en-US/xml
-@BUILD_DOCS_TRUE@	rm -rf build/en-US/xsl
-@BUILD_DOCS_TRUE@	rm -f $(SBG).pdf
-@BUILD_DOCS_TRUE@	rm -rf $(SBG)
-
-@BUILD_DOCS_TRUE@install-data-hook:
-@BUILD_DOCS_TRUE@	$(MKDIR_P) $(DOC_INSTALL_DIR)
-@BUILD_DOCS_TRUE@	$(INSTALL_DATA) $(SBG).pdf $(DOC_INSTALL_DIR)
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@	$(MKDIR_P) $(DOC_INSTALL_DIR)/$(SBG)
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@	$(INSTALL_DATA) $(SBG)/*.html $(DOC_INSTALL_DIR)/$(SBG)
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@	$(MKDIR_P) $(DOC_INSTALL_DIR)/$(SBG)/images
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@	$(INSTALL_DATA) $(SBG)/images/*.png $(SBG)/images/*.svg \
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@			$(DOC_INSTALL_DIR)/$(SBG)/images
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@	$(MKDIR_P) $(DOC_INSTALL_DIR)/$(SBG)/Common_Content/css
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@	$(MKDIR_P) $(DOC_INSTALL_DIR)/$(SBG)/Common_Content/images
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@	$(INSTALL_DATA) $(SBG)/Common_Content/css/*.css \
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@			$(DOC_INSTALL_DIR)/$(SBG)/Common_Content/css
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@	$(INSTALL_DATA) $(SBG)/Common_Content/images/*.png \
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@			$(SBG)/Common_Content/images/*.svg \
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@			$(DOC_INSTALL_DIR)/$(SBG)/Common_Content/images
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@	$(MKDIR_P) $(DOC_INSTALL_DIR)/$(SBG)/xsl
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@	$(INSTALL_DATA) en-US/xsl/*.xsl \
-@BUILD_DOCS_TRUE@@BUILD_HTMLDOCS_TRUE@			$(DOC_INSTALL_DIR)/$(SBG)/xsl
-
-@BUILD_DOCS_TRUE@uninstall-local:
-@BUILD_DOCS_TRUE@	rm -f $(DOC_INSTALL_DIR)/$(SBG).pdf
-@BUILD_DOCS_TRUE@	rm -rf $(DOC_INSTALL_DIR)/$(SBG)
+@HAVE_HTTP_SUPPORT_TRUE@install-data-local:
+@HAVE_HTTP_SUPPORT_TRUE@	$(MKDIR_P) $(JSON_FILES_DEST)
+@HAVE_HTTP_SUPPORT_TRUE@	for f in $(srcdir)/*.json; do \
+@HAVE_HTTP_SUPPORT_TRUE@		$(INSTALL_DATA) "$$f" "$(JSON_FILES_DEST)"; \
+@HAVE_HTTP_SUPPORT_TRUE@	done
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

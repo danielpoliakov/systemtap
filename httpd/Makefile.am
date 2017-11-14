@@ -1,6 +1,8 @@
 # Makefile.am --- automake input file for systemtap
 
-AUTOMAKE_OPTIONS = subdir-objects
+SUBDIRS = docker
+
+AUTOMAKE_OPTIONS = no-dist foreign subdir-objects
 
 AM_CFLAGS = -Wall -Wextra -Werror -Wunused -W -Wformat=2
 AM_CXXFLAGS = -Wall -Wextra -Werror -Wunused -W -Wformat=2
