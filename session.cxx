@@ -1937,6 +1937,11 @@ systemtap_session::parse_kernel_config ()
         clog << _F("Checking \"%s\" failed with error: %s",
                    kernel_config_file.c_str(), strerror(errno)) << endl;
 	find_devel_rpms(*this, kernel_build_tree.c_str());
+        // Enable warnings, so that the rpm-installation help is sent
+        // out.  The above message is going to go to stderr anyway
+        // in the case of stap -L without a necessary -devel available.
+        // Might as well make the text more helpful.
+        this->suppress_warnings = false;
 	missing_rpm_list_print(*this, "-devel");
 	return rc;
     }
