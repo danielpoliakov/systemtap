@@ -2,52 +2,37 @@
     "distro_name" : "fedora",
     "distro_package_format" : "rpm",
     "distro_package_manager" : "dnf",
+    "distro_package_installer" : "fedora_install_packages.py",
     "docker_stages" : {
-	"stage1" : {
-	    "name" : "fedora-${DVER}-stap",
-	    "data" : [
-		"FROM fedora:${DVER}",
-		"MAINTAINER http://sourceware.org/systemtap/",
-		"",
-		"# Normally, you'd do all of the following in one RUN command.",
-		"# But, the way docker caching works is that a layer is saved",
-		"# after every command. So, by separating the kernel install",
-		"# from everything else, it lets us reuse the cached result",
-		"# of the first RUN command for handling multiple kernel",
-		"# versions.",
-		"",
-		"# Notes for the RUN command:",
-		"# - We're using 'install_weak_deps=False' so that any weak",
-		"#   dependencies (i.e. 'Suggests: pkgfoo') will not get",
-		"#   pulled in. This keeps the resulting image a bit smaller.",
-		"# - We're installing 'dnf-plugins-core' to get 'dnf",
-		"#   debuginfo-install' (which is used by the second RUN",
-		"#   command).",
-		"",
-		"RUN `# Update everything`                               && \\",
-		"     dnf -y upgrade                                     && \\",
-		"                                                           \\",
-		"    `# Install systemtap, its dependencies, etc.`       && \\",
-		"     dnf --setopt=install_weak_deps=False -y install       \\",
-		"        dnf-plugins-core systemtap                      && \\",
-		"                                                           \\",
-		"    `# Clean up`                                        && \\",
-		"     dnf -y clean all"
-	    ]
-	},
-	"stage2" : {
-	    "name" : "${UUID}",
-	    "data" : [
-		"FROM fedora-${DVER}-stap",
-		"MAINTAINER http://sourceware.org/systemtap/",
-		"RUN `# Install kernel, kernel-devel, and its debuginfo` && \\",
-		"     dnf --setopt=install_weak_deps=False -y install       \\",
-		"        kernel-$KVER kernel-devel-$KVER                 && \\",
-		"     dnf debuginfo-install -y kernel-${KVER}            && \\",
-		"                                                           \\",
-		"    `# Clean up`                                        && \\",
-		"     dnf -y clean all"
-	    ]
-	}
+	"header" : [
+	    "FROM fedora:${DVER}",
+	    "MAINTAINER http://sourceware.org/systemtap/",
+	    "",
+	    "# Notes for the RUN command:",
+	    "# - We're using 'install_weak_deps=False' so that any weak",
+	    "#   dependencies (i.e. 'Suggests: pkgfoo') will not get",
+	    "#   pulled in. This keeps the resulting image a bit smaller.",
+	    "# - We're installing 'dnf-plugins-core' to get 'dnf",
+	    "#   debuginfo-install' (which is used when installing",
+	    "#   packages).",
+	    "",
+	    "RUN `# Update everything`                               && \\",
+	    "     dnf -y upgrade                                     && \\",
+	    "                                                           \\",
+	    "    `# Install systemtap, its dependencies, etc.`       && \\",
+	    "     dnf --setopt=install_weak_deps=False -y install       \\",
+	    "        dnf-plugins-core systemtap-devel python         && \\",
+	    "                                                           \\",
+	    "    `# Clean up`                                        && \\",
+	    "     dnf -y clean all",
+	    "COPY fedora_install_packages.py /tmp/"
+	],
+	"install" : [
+	    "RUN python /tmp/fedora_install_packages.py ${PKG}"
+	],
+	"footer" : [
+	    "RUN `# Clean up`                                        && \\",
+	    "     dnf -y clean all"
+	]
     }
 }

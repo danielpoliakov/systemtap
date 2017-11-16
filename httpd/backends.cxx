@@ -34,6 +34,7 @@ public:
     int generate_module(const client_request_data *crd,
 			const vector<string> &argv,
 			const string &tmp_dir,
+			const string &uuid,
 			const string &stdout_path,
 			const string &stderr_path);
 };
@@ -41,6 +42,7 @@ public:
 int
 default_backend::generate_module(const client_request_data *crd,
 				 const vector<string> &,
+				 const string &,
 				 const string &,
 				 const string &stdout_path,
 				 const string &stderr_path)
@@ -74,6 +76,7 @@ public:
     int generate_module(const client_request_data *crd,
 			const vector<string> &argv,
 			const string &tmp_dir,
+			const string &uuid,
 			const string &stdout_path,
 			const string &stderr_path);
 
@@ -142,6 +145,7 @@ int
 local_backend:: generate_module(const client_request_data *,
 				const vector<string> &argv,
 				const string &,
+				const string &,
 				const string &stdout_path,
 				const string &stderr_path)
 {
@@ -208,6 +212,7 @@ public:
     int generate_module(const client_request_data *crd,
 			const vector<string> &argv,
 			const string &tmp_dir,
+			const string &uuid,
 			const string &stdout_path,
 			const string &stderr_path);
 
@@ -247,7 +252,7 @@ docker_backend::docker_backend()
     }
     
     docker_build_container_script_path = string(PKGLIBDIR)
-	+ "/stap_build_docker_container.py";
+	+ "/httpd/docker/stap_build_docker_container.py";
 
     datadir = string(PKGDATADIR) + "/httpd/docker";
 
@@ -312,6 +317,7 @@ int
 docker_backend::generate_module(const client_request_data *crd,
 				const vector<string> &,
 				const string &tmp_dir,
+				const string &uuid,
 				const string &stdout_path,
 				const string &stderr_path)
 {
@@ -360,11 +366,19 @@ docker_backend::generate_module(const client_request_data *crd,
     build_data_file.close();
     json_object_put(root);
 
-    // Kick off building the docker container.
+    // Kick off building the docker container. Note we're using the
+    // UUID as the docker container name. This keeps us from trying to
+    // build multiple containers with the same name at the same time.
     vector<string> docker_args;
+    docker_args.push_back("python");
     docker_args.push_back(docker_build_container_script_path);
+    docker_args.push_back("--distro-file");
     docker_args.push_back(data_files[crd->distro_name]);
+    docker_args.push_back("--build-file");
     docker_args.push_back(build_data_path);
+    docker_args.push_back("--data-dir");
+    docker_args.push_back(datadir);
+    docker_args.push_back(uuid);
     pid_t pid = stap_spawn(2, docker_args, &actions);
     clog << "spawn returned " << pid << endl;
 

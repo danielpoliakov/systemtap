@@ -13,6 +13,7 @@
 # PARTICULAR PURPOSE.
 
 @SET_MAKE@
+
 VPATH = @srcdir@
 am__is_gnu_make = { \
   if test -z '$(MAKELEVEL)'; then \
@@ -88,7 +89,8 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
-@HAVE_HTTP_SUPPORT_TRUE@am__append_1 = stap_build_docker_container.py
+@HAVE_HTTP_SUPPORT_TRUE@am__append_1 = fedora_install_packages.py
+@HAVE_HTTP_SUPPORT_TRUE@am__append_2 = stap_build_docker_container.py
 subdir = httpd/docker
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
@@ -154,10 +156,12 @@ am__uninstall_files_from_dir = { \
          $(am__cd) "$$dir" && rm -f $$files; }; \
   }
 am__py_compile = PYTHON=$(PYTHON) $(SHELL) $(py_compile)
-am__installdirs = "$(DESTDIR)$(pkglibexecdockerdir)"
+am__installdirs = "$(DESTDIR)$(pkglibexecdockerdir)" \
+	"$(DESTDIR)$(pkgdatadockerdir)"
 am__pep3147_tweak = \
   sed -e 's|\.py$$||' -e 's|[^/]*$$|__pycache__/&.*.py|'
 py_compile = $(top_srcdir)/py-compile
+DATA = $(pkgdatadocker_DATA)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
@@ -361,11 +365,14 @@ top_srcdir = @top_srcdir@
 uuid_CFLAGS = @uuid_CFLAGS@
 uuid_LIBS = @uuid_LIBS@
 AUTOMAKE_OPTIONS = no-dist foreign subdir-objects
-JSON_FILES_DEST = $(DESTDIR)$(pkgdatadir)/httpd/docker
+
+#DOCKER_DATA_DIR=$(DESTDIR)$(pkgdatadir)/httpd/docker
+pkgdatadockerdir = $(DESTDIR)$(pkgdatadir)/httpd/docker
+pkgdatadocker_DATA = $(am__append_1)
 
 # Any script in the following variable will get byte-compiled at
 # install time.
-pkglibexecdocker_PYTHON = $(am__append_1)
+pkglibexecdocker_PYTHON = $(am__append_2)
 pkglibexecdockerdir = $(pkglibexecdir)/httpd/docker
 all: all-am
 
@@ -447,6 +454,27 @@ uninstall-pkglibexecdockerPYTHON:
 	  $(am__uninstall_files_from_dir) || st=$$?; \
 	done; \
 	exit $$st
+install-pkgdatadockerDATA: $(pkgdatadocker_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(pkgdatadocker_DATA)'; test -n "$(pkgdatadockerdir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(pkgdatadockerdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(pkgdatadockerdir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(pkgdatadockerdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(pkgdatadockerdir)" || exit $$?; \
+	done
+
+uninstall-pkgdatadockerDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(pkgdatadocker_DATA)'; test -n "$(pkgdatadockerdir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(pkgdatadockerdir)'; $(am__uninstall_files_from_dir)
 tags TAGS:
 
 ctags CTAGS:
@@ -455,9 +483,9 @@ cscope cscopelist:
 
 check-am: all-am
 check: check-am
-all-am: Makefile
+all-am: Makefile $(DATA)
 installdirs:
-	for dir in "$(DESTDIR)$(pkglibexecdockerdir)"; do \
+	for dir in "$(DESTDIR)$(pkglibexecdockerdir)" "$(DESTDIR)$(pkgdatadockerdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -511,7 +539,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-data-local
+install-data-am: install-data-local install-pkgdatadockerDATA
 
 install-dvi: install-dvi-am
 
@@ -555,7 +583,8 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-pkglibexecdockerPYTHON
+uninstall-am: uninstall-pkgdatadockerDATA \
+	uninstall-pkglibexecdockerPYTHON
 
 .MAKE: install-am install-strip
 
@@ -565,19 +594,20 @@ uninstall-am: uninstall-pkglibexecdockerPYTHON
 	install-data-local install-dvi install-dvi-am install-exec \
 	install-exec-am install-html install-html-am install-info \
 	install-info-am install-man install-pdf install-pdf-am \
-	install-pkglibexecdockerPYTHON install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-generic pdf pdf-am ps ps-am tags-am uninstall \
-	uninstall-am uninstall-pkglibexecdockerPYTHON
+	install-pkgdatadockerDATA install-pkglibexecdockerPYTHON \
+	install-ps install-ps-am install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-generic pdf \
+	pdf-am ps ps-am tags-am uninstall uninstall-am \
+	uninstall-pkgdatadockerDATA uninstall-pkglibexecdockerPYTHON
 
 .PRECIOUS: Makefile
 
 
 @HAVE_HTTP_SUPPORT_TRUE@install-data-local:
-@HAVE_HTTP_SUPPORT_TRUE@	$(MKDIR_P) $(JSON_FILES_DEST)
+@HAVE_HTTP_SUPPORT_TRUE@	$(MKDIR_P) $(pkgdatadockerdir)
 @HAVE_HTTP_SUPPORT_TRUE@	for f in $(srcdir)/*.json; do \
-@HAVE_HTTP_SUPPORT_TRUE@		$(INSTALL_DATA) "$$f" "$(JSON_FILES_DEST)"; \
+@HAVE_HTTP_SUPPORT_TRUE@		$(INSTALL_DATA) "$$f" "$(pkgdatadockerdir)"; \
 @HAVE_HTTP_SUPPORT_TRUE@	done
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

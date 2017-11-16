@@ -750,7 +750,8 @@ build_info::module_build()
     for (auto it = backends.begin(); it != backends.end(); it++) {
 	if ((*it)->can_generate_module(crd)) {
 	    backend_found = true;
-	    staprc = (*it)->generate_module(crd, argv, tmp_dir, stdout_path, stderr_path);
+	    staprc = (*it)->generate_module(crd, argv, tmp_dir, get_uuid_str(),
+					    stdout_path, stderr_path);
 	    break;
 	}
     }
