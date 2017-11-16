@@ -55,6 +55,7 @@ public:
   json_object *root;
   std::string host;
   std::map<std::string, std::string> header_values;
+  std::vector<std::tuple<std::string, std::string>> localization_variables;
   enum download_type {json_type, file_type};
 
   bool download (const std::string & url, enum download_type type);
@@ -547,6 +548,27 @@ http_client::post (const string & url,
 		    CURLFORM_END);
     }
 
+  if (! http->localization_variables.empty())
+    {
+      for (vector<std::tuple<std::string, std::string>>::const_iterator i = http->localization_variables.begin();
+          i != http->localization_variables.end();
+          ++i)
+        {
+          string name = get<0>(*i);
+          string value = get<1>(*i);
+          curl_formadd (&formpost, &lastptr,
+              CURLFORM_COPYNAME, "env_var_names",
+              CURLFORM_CONTENTTYPE, "application/json",
+              CURLFORM_COPYCONTENTS, name.c_str(),
+              CURLFORM_END);
+          curl_formadd (&formpost, &lastptr,
+              CURLFORM_COPYNAME, "env_var_values",
+              CURLFORM_CONTENTTYPE, "application/json",
+              CURLFORM_COPYCONTENTS, value.c_str(),
+              CURLFORM_END);
+        }
+    }
+
   curl_easy_setopt (curl, CURLOPT_URL, url.c_str());
   curl_easy_setopt (curl, CURLOPT_HTTPHEADER, headers);
   curl_easy_setopt (curl, CURLOPT_HTTPPOST, formpost);
@@ -1022,10 +1044,10 @@ http_client_backend::add_cmd_arg (const std::string &arg)
 }
 
 void
-http_client_backend::add_localization_variable (const std::string &,
-					        const std::string &)
+http_client_backend::add_localization_variable (const std::string &name,
+					        const std::string &value)
 {
-  // FIXME: We'll probably just add to the request_parameters here.
+  http->localization_variables.push_back(make_tuple(name, value));
   return;
 }
 
