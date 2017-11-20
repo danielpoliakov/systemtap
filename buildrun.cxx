@@ -36,6 +36,8 @@ extern "C" {
 // https://bugs.gentoo.org/show_bug.cgi?id=522908
 #define WERROR ("-W" "error")
 
+#define PATH_ALLOWED_CHARS "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+,-./_"
+
 using namespace std;
 
 /* Adjust and run make_cmd to build a kernel module. */
@@ -513,7 +515,18 @@ compile_pass (systemtap_session& s)
   #if CHECK_POINTER_ARITH_PR5947
   o << "EXTRA_CFLAGS += -Wpointer-arith" << endl;
   #endif
-  o << "EXTRA_CFLAGS += -I\"" << s.runtime_path << "\"" << endl;
+
+  // If we've got a reasonable runtime path from the user, we'll just
+  // do '-IDIR'. If there are any sneaky/odd characters in it, we'll
+  // have to quote it, like '-I"DIR"'.
+  if (s.runtime_path.find_first_not_of(PATH_ALLOWED_CHARS, 0) == string::npos)
+    o << "EXTRA_CFLAGS += -I" << s.runtime_path << endl;
+  else
+    {
+      s.print_warning("quoting runtime path in the module Makefile.");
+      o << "EXTRA_CFLAGS += -I\"" << s.runtime_path << "\"" << endl;
+    }
+
   // XXX: this may help ppc toc overflow
   // o << "CFLAGS := $(subst -Os,-O2,$(CFLAGS)) -fminimal-toc" << endl;
   o << "obj-m := " << s.module_name << ".o" << endl;
