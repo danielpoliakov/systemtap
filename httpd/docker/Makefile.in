@@ -89,7 +89,16 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
-@HAVE_HTTP_SUPPORT_TRUE@am__append_1 = fedora_install_packages.py
+
+# Why aren't we putting fedora_install_package.py into
+# pkgdatadocker_PYTHON? fedora_install_package.py *is* a python
+# script, but it will only be run inside docker containers, never on
+# the host system. So, there isn't much point in compiling the script
+# for the current system.
+
+# Make sure all the JSON files get installed.
+@HAVE_HTTP_SUPPORT_TRUE@am__append_1 = fedora_install_package.py \
+@HAVE_HTTP_SUPPORT_TRUE@	$(wildcard $(srcdir)/*.json)
 @HAVE_HTTP_SUPPORT_TRUE@am__append_2 = stap_build_docker_container.py
 subdir = httpd/docker
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -365,15 +374,16 @@ top_srcdir = @top_srcdir@
 uuid_CFLAGS = @uuid_CFLAGS@
 uuid_LIBS = @uuid_LIBS@
 AUTOMAKE_OPTIONS = no-dist foreign subdir-objects
-
-#DOCKER_DATA_DIR=$(DESTDIR)$(pkgdatadir)/httpd/docker
 pkgdatadockerdir = $(DESTDIR)$(pkgdatadir)/httpd/docker
+
+# Any file in the following variable will get installed to
+# $(pkgdatadockerdir).
 pkgdatadocker_DATA = $(am__append_1)
 
 # Any script in the following variable will get byte-compiled at
 # install time.
 pkglibexecdocker_PYTHON = $(am__append_2)
-pkglibexecdockerdir = $(pkglibexecdir)/httpd/docker
+pkglibexecdockerdir = $(DESTDIR)$(pkglibexecdir)/httpd/docker
 all: all-am
 
 .SUFFIXES:
@@ -518,7 +528,6 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-@HAVE_HTTP_SUPPORT_FALSE@install-data-local:
 clean: clean-am
 
 clean-am: clean-generic mostlyclean-am
@@ -539,7 +548,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-data-local install-pkgdatadockerDATA
+install-data-am: install-pkgdatadockerDATA
 
 install-dvi: install-dvi-am
 
@@ -591,9 +600,9 @@ uninstall-am: uninstall-pkgdatadockerDATA \
 .PHONY: all all-am check check-am clean clean-generic cscopelist-am \
 	ctags-am distclean distclean-generic dvi dvi-am html html-am \
 	info info-am install install-am install-data install-data-am \
-	install-data-local install-dvi install-dvi-am install-exec \
-	install-exec-am install-html install-html-am install-info \
-	install-info-am install-man install-pdf install-pdf-am \
+	install-dvi install-dvi-am install-exec install-exec-am \
+	install-html install-html-am install-info install-info-am \
+	install-man install-pdf install-pdf-am \
 	install-pkgdatadockerDATA install-pkglibexecdockerPYTHON \
 	install-ps install-ps-am install-strip installcheck \
 	installcheck-am installdirs maintainer-clean \
@@ -603,12 +612,6 @@ uninstall-am: uninstall-pkgdatadockerDATA \
 
 .PRECIOUS: Makefile
 
-
-@HAVE_HTTP_SUPPORT_TRUE@install-data-local:
-@HAVE_HTTP_SUPPORT_TRUE@	$(MKDIR_P) $(pkgdatadockerdir)
-@HAVE_HTTP_SUPPORT_TRUE@	for f in $(srcdir)/*.json; do \
-@HAVE_HTTP_SUPPORT_TRUE@		$(INSTALL_DATA) "$$f" "$(pkgdatadockerdir)"; \
-@HAVE_HTTP_SUPPORT_TRUE@	done
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

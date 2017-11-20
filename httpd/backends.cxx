@@ -315,7 +315,7 @@ docker_backend::can_generate_module(const client_request_data *crd)
 
 int
 docker_backend::generate_module(const client_request_data *crd,
-				const vector<string> &,
+				const vector<string> &argv,
 				const string &tmp_dir,
 				const string &uuid,
 				const string &stdout_path,
@@ -422,10 +422,75 @@ docker_backend::generate_module(const client_request_data *crd,
 	client_file.close();
     }
 
+    if (rc > 0) {
+	clog << docker_build_container_script_path << " failed." << endl;
+	return -1;
+    }
+
+    // If we're here, we built the container successfully. Now start
+    // the container and run stap. First, build up the command line
+    // arguments.
+    docker_args.clear();
+    docker_args.push_back("docker");
+    docker_args.push_back("run");
+    docker_args.push_back(uuid);
+    for (auto it = argv.begin(); it != argv.end(); it++) {
+	docker_args.push_back(*it);
+    }
+    clog << "Running:";
+    for (auto it = docker_args.begin(); it != docker_args.end(); it++) {
+	clog << " " << *it;
+    }
+    clog << endl;
+
+    // Set up grabbing the output.
+    rc = posix_spawn_file_actions_init(&actions);
+    if (rc == 0) {
+	rc = posix_spawn_file_actions_addopen(&actions, 0, "/dev/null",
+					      O_RDONLY, S_IRWXU);
+    }
+    if (rc == 0) {
+	rc = posix_spawn_file_actions_addopen(&actions, 1,
+					      stdout_path.c_str(),
+					      O_WRONLY|O_CREAT, S_IRWXU);
+    }
+    if (rc == 0) {
+	rc = posix_spawn_file_actions_addopen(&actions, 2,
+					      stderr_path.c_str(),
+					      O_WRONLY|O_CREAT, S_IRWXU);
+    }
+    if (rc != 0) {
+	clog << "posix_spawn_file_actions failed: " << strerror(errno)
+	     << endl;
+	return rc;
+    }
+
+    pid = stap_spawn(2, docker_args, &actions);
+    clog << "spawn returned " << pid << endl;
+
+    // If stap_spawn() failed, no need to wait.
+    if (pid == -1) {
+	rc = errno;
+	clog << "Error in spawn: " << strerror(errno) << endl;
+	(void)posix_spawn_file_actions_destroy(&actions);
+	return rc;
+    }
+
+    // Wait on the spawned process to finish.
+    rc = stap_waitpid(0, pid);
+    if (rc < 0) {			// stap_waitpid() failed
+	clog << "waitpid failed: " << strerror(errno) << endl;
+	(void)posix_spawn_file_actions_destroy(&actions);
+	return rc;
+    }
+
+    clog << "Spawned process returned " << rc << endl;
+    (void)posix_spawn_file_actions_destroy(&actions);
+
     // Send an error message back in the stderr file.
     ofstream file;
     file.open(stderr_path, ios::out|ios::app);
-    file << "Error: Unable to actually build a module with the docker backend." << endl;;
+    file << "Error: Unable to retrieve a module with the docker backend." << endl;;
     file.close();
 
     return -1;

@@ -2,7 +2,7 @@
     "distro_name" : "fedora",
     "distro_package_format" : "rpm",
     "distro_package_manager" : "dnf",
-    "distro_package_installer" : "fedora_install_packages.py",
+    "distro_package_installer" : "fedora_install_package.py",
     "docker_stages" : {
 	"header" : [
 	    "FROM fedora:${DVER}",
@@ -25,10 +25,10 @@
 	    "                                                           \\",
 	    "    `# Clean up`                                        && \\",
 	    "     dnf -y clean all",
-	    "COPY fedora_install_packages.py /tmp/"
+	    "COPY fedora_install_package.py /tmp/"
 	],
 	"install" : [
-	    "RUN python /tmp/fedora_install_packages.py ${PKG}"
+	    "RUN python /tmp/fedora_install_package.py --name ${NAME} --pkg ${PKG} --build_id ${BUILD_ID}"
 	],
 	"footer" : [
 	    "RUN `# Clean up`                                        && \\",
