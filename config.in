@@ -22,6 +22,9 @@
 /* Define to 1 if you have the <BPatch_object.h> header file. */
 #undef HAVE_BPATCH_OBJECT_H
 
+/* Define to 1 if you have the necessary declarations in bpf.h */
+#undef HAVE_BPF_DECLS
+
 /* Define to 1 if you have the Mac OS X function CFLocaleCopyCurrent in the
    CoreFoundation framework. */
 #undef HAVE_CFLOCALECOPYCURRENT
@@ -39,6 +42,18 @@
 /* Define if the GNU dcgettext() function is already present or preinstalled.
    */
 #undef HAVE_DCGETTEXT
+
+/* Define to 1 if you have the declaration of `BPF_PROG_TYPE_KPROBE', and to 0
+   if you don't. */
+#undef HAVE_DECL_BPF_PROG_TYPE_KPROBE
+
+/* Define to 1 if you have the declaration of `BPF_PROG_TYPE_PERF_EVENT', and
+   to 0 if you don't. */
+#undef HAVE_DECL_BPF_PROG_TYPE_PERF_EVENT
+
+/* Define to 1 if you have the declaration of `BPF_PROG_TYPE_TRACEPOINT', and
+   to 0 if you don't. */
+#undef HAVE_DECL_BPF_PROG_TYPE_TRACEPOINT
 
 /* Define to 1 if Dyninst is enabled */
 #undef HAVE_DYNINST
@@ -85,9 +100,6 @@
 
 /* Define to 1 if libxml2 development libraries are installed */
 #undef HAVE_LIBXML2
-
-/* Define to 1 if you have the <linux/bpf.h> header file. */
-#undef HAVE_LINUX_BPF_H
 
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H

@@ -402,7 +402,7 @@ static int collect_stpm(const char* fpath, const struct stat*,
   return FTW_CONTINUE;
 }
 
-#ifndef HAVE_LINUX_BPF_H
+#if !HAVE_BPF_DECLS
 int
 translate_bpf_pass (systemtap_session &)
 {

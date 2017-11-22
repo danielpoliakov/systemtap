@@ -651,8 +651,8 @@ HAVE_SELINUX_FALSE
 HAVE_SELINUX_TRUE
 selinux_LIBS
 selinux_CFLAGS
-HAVE_LINUX_BPF_H_FALSE
-HAVE_LINUX_BPF_H_TRUE
+HAVE_BPF_DECLS_FALSE
+HAVE_BPF_DECLS_TRUE
 support_section_question
 HAVE_MONITOR_LIBS_FALSE
 HAVE_MONITOR_LIBS_TRUE
@@ -12279,24 +12279,31 @@ if test $stap_cv_sectionq = yes; then
   support_section_question=1
 fi
 
-for ac_header in linux/bpf.h
-do :
-  ac_fn_c_check_header_mongrel "$LINENO" "linux/bpf.h" "ac_cv_header_linux_bpf_h" "$ac_includes_default"
-if test "x$ac_cv_header_linux_bpf_h" = xyes; then :
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_LINUX_BPF_H 1
+
+$as_echo "#define HAVE_BPF_DECLS 0" >>confdefs.h
+
+ac_fn_c_check_decl "$LINENO" "BPF_PROG_TYPE_PERF_EVENT" "ac_cv_have_decl_BPF_PROG_TYPE_PERF_EVENT" "#include <linux/bpf.h>
+"
+if test "x$ac_cv_have_decl_BPF_PROG_TYPE_PERF_EVENT" = xyes; then :
+  ac_have_decl=1
+else
+  ac_have_decl=0
+fi
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_BPF_PROG_TYPE_PERF_EVENT $ac_have_decl
 _ACEOF
+if test $ac_have_decl = 1; then :
+  $as_echo "#define HAVE_BPF_DECLS 1" >>confdefs.h
 
 fi
 
-done
-
- if test "x$ac_cv_header_linux_bpf_h" = "xyes"; then
-  HAVE_LINUX_BPF_H_TRUE=
-  HAVE_LINUX_BPF_H_FALSE='#'
+ if test "x$ac_cv_have_decl_BPF_PROG_TYPE_PERF_EVENT" == "xyes"; then
+  HAVE_BPF_DECLS_TRUE=
+  HAVE_BPF_DECLS_FALSE='#'
 else
-  HAVE_LINUX_BPF_H_TRUE='#'
-  HAVE_LINUX_BPF_H_FALSE=
+  HAVE_BPF_DECLS_TRUE='#'
+  HAVE_BPF_DECLS_FALSE=
 fi
 
 
@@ -13179,8 +13186,8 @@ if test -z "${HAVE_MONITOR_LIBS_TRUE}" && test -z "${HAVE_MONITOR_LIBS_FALSE}"; 
   as_fn_error $? "conditional \"HAVE_MONITOR_LIBS\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
-if test -z "${HAVE_LINUX_BPF_H_TRUE}" && test -z "${HAVE_LINUX_BPF_H_FALSE}"; then
-  as_fn_error $? "conditional \"HAVE_LINUX_BPF_H\" was never defined.
+if test -z "${HAVE_BPF_DECLS_TRUE}" && test -z "${HAVE_BPF_DECLS_FALSE}"; then
+  as_fn_error $? "conditional \"HAVE_BPF_DECLS\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${HAVE_SELINUX_TRUE}" && test -z "${HAVE_SELINUX_FALSE}"; then

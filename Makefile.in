@@ -103,7 +103,7 @@ bin_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2)
 @BUILD_SERVER_TRUE@@BUILD_TRANSLATOR_TRUE@@HAVE_NSS_TRUE@am__append_6 = stap-start-server stap-stop-server
 @BUILD_TRANSLATOR_TRUE@@HAVE_LIBREADLINE_TRUE@am__append_7 = interactive.cxx
 @BUILD_TRANSLATOR_TRUE@@HAVE_LIBREADLINE_TRUE@am__append_8 = @READLINE_LIBS@
-@BUILD_TRANSLATOR_TRUE@@HAVE_LINUX_BPF_H_TRUE@am__append_9 = bpf-base.cxx bpf-bitset.cxx bpf-translate.cxx bpf-opt.cxx
+@BUILD_TRANSLATOR_TRUE@@HAVE_BPF_DECLS_TRUE@am__append_9 = bpf-base.cxx bpf-bitset.cxx bpf-translate.cxx bpf-opt.cxx
 @BUILD_TRANSLATOR_TRUE@@BUILD_VIRT_TRUE@am__append_10 = stapvirt
 @BUILD_TRANSLATOR_TRUE@@HAVE_AVAHI_TRUE@am__append_11 = $(avahi_CFLAGS)
 @BUILD_TRANSLATOR_TRUE@@HAVE_AVAHI_TRUE@am__append_12 = $(avahi_CFLAGS)
@@ -166,10 +166,10 @@ am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(pkglibexecdir)" \
 @BUILD_SERVER_TRUE@@BUILD_TRANSLATOR_TRUE@@HAVE_NSS_TRUE@	stap-gen-cert$(EXEEXT)
 PROGRAMS = $(bin_PROGRAMS) $(pkglibexec_PROGRAMS)
 @BUILD_TRANSLATOR_TRUE@@HAVE_LIBREADLINE_TRUE@am__objects_1 = stap-interactive.$(OBJEXT)
-@BUILD_TRANSLATOR_TRUE@@HAVE_LINUX_BPF_H_TRUE@am__objects_2 = stap-bpf-base.$(OBJEXT) \
-@BUILD_TRANSLATOR_TRUE@@HAVE_LINUX_BPF_H_TRUE@	stap-bpf-bitset.$(OBJEXT) \
-@BUILD_TRANSLATOR_TRUE@@HAVE_LINUX_BPF_H_TRUE@	stap-bpf-translate.$(OBJEXT) \
-@BUILD_TRANSLATOR_TRUE@@HAVE_LINUX_BPF_H_TRUE@	stap-bpf-opt.$(OBJEXT)
+@BUILD_TRANSLATOR_TRUE@@HAVE_BPF_DECLS_TRUE@am__objects_2 = stap-bpf-base.$(OBJEXT) \
+@BUILD_TRANSLATOR_TRUE@@HAVE_BPF_DECLS_TRUE@	stap-bpf-bitset.$(OBJEXT) \
+@BUILD_TRANSLATOR_TRUE@@HAVE_BPF_DECLS_TRUE@	stap-bpf-translate.$(OBJEXT) \
+@BUILD_TRANSLATOR_TRUE@@HAVE_BPF_DECLS_TRUE@	stap-bpf-opt.$(OBJEXT)
 @BUILD_TRANSLATOR_TRUE@@NEED_BASE_CLIENT_CODE_TRUE@am__objects_3 = stap-csclient.$(OBJEXT)
 @BUILD_TRANSLATOR_TRUE@@HAVE_NSS_TRUE@am__objects_4 = stap-nsscommon.$(OBJEXT) \
 @BUILD_TRANSLATOR_TRUE@@HAVE_NSS_TRUE@	stap-client-nss.$(OBJEXT) \

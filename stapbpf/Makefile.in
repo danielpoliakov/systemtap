@@ -91,10 +91,10 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
-@HAVE_LINUX_BPF_H_TRUE@bin_PROGRAMS = stapbpf$(EXEEXT)
-@BUILD_ELFUTILS_TRUE@@HAVE_LINUX_BPF_H_TRUE@am__append_1 = -I../include-elfutils
-@BUILD_ELFUTILS_TRUE@@HAVE_LINUX_BPF_H_TRUE@am__append_2 = -L../lib-elfutils -Wl,-rpath-link,lib-elfutils \
-@BUILD_ELFUTILS_TRUE@@HAVE_LINUX_BPF_H_TRUE@		-Wl,--enable-new-dtags,-rpath,$(pkglibdir)
+@HAVE_BPF_DECLS_TRUE@bin_PROGRAMS = stapbpf$(EXEEXT)
+@BUILD_ELFUTILS_TRUE@@HAVE_BPF_DECLS_TRUE@am__append_1 = -I../include-elfutils
+@BUILD_ELFUTILS_TRUE@@HAVE_BPF_DECLS_TRUE@am__append_2 = -L../lib-elfutils -Wl,-rpath-link,lib-elfutils \
+@BUILD_ELFUTILS_TRUE@@HAVE_BPF_DECLS_TRUE@		-Wl,--enable-new-dtags,-rpath,$(pkglibdir)
 
 subdir = stapbpf
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -115,12 +115,12 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(man8dir)"
 PROGRAMS = $(bin_PROGRAMS)
-@HAVE_LINUX_BPF_H_TRUE@am_stapbpf_OBJECTS = stapbpf-stapbpf.$(OBJEXT) \
-@HAVE_LINUX_BPF_H_TRUE@	stapbpf-bpfinterp.$(OBJEXT) \
-@HAVE_LINUX_BPF_H_TRUE@	stapbpf-libbpf.$(OBJEXT)
+@HAVE_BPF_DECLS_TRUE@am_stapbpf_OBJECTS = stapbpf-stapbpf.$(OBJEXT) \
+@HAVE_BPF_DECLS_TRUE@	stapbpf-bpfinterp.$(OBJEXT) \
+@HAVE_BPF_DECLS_TRUE@	stapbpf-libbpf.$(OBJEXT)
 stapbpf_OBJECTS = $(am_stapbpf_OBJECTS)
 am__DEPENDENCIES_1 =
-@HAVE_LINUX_BPF_H_TRUE@stapbpf_DEPENDENCIES = $(am__DEPENDENCIES_1)
+@HAVE_BPF_DECLS_TRUE@stapbpf_DEPENDENCIES = $(am__DEPENDENCIES_1)
 stapbpf_LINK = $(CXXLD) $(stapbpf_CXXFLAGS) $(CXXFLAGS) \
 	$(stapbpf_LDFLAGS) $(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
@@ -433,18 +433,17 @@ AM_CPPFLAGS = -D_GNU_SOURCE -I$(srcdir)/../includes \
 	-DSYSCONFDIR='"$(sysconfdir)"' -DPKGDATADIR='"${pkgdatadir}"' \
 	-DPKGLIBDIR='"$(pkglibexecdir)"' -DLOCALEDIR='"$(localedir)"'
 AM_LDFLAGS = @PIELDFLAGS@
-@HAVE_LINUX_BPF_H_TRUE@man_MANS = stapbpf.8
-@HAVE_LINUX_BPF_H_TRUE@stapbpf_SOURCES = stapbpf.cxx bpfinterp.cxx libbpf.c
-@HAVE_LINUX_BPF_H_TRUE@stapbpf_CPPFLAGS = $(AM_CPPFLAGS) \
-@HAVE_LINUX_BPF_H_TRUE@	$(am__append_1)
-@HAVE_LINUX_BPF_H_TRUE@stapbpf_CFLAGS = $(AM_CFLAGS)
-@HAVE_LINUX_BPF_H_TRUE@stapbpf_CXXFLAGS = $(AM_CXXFLAGS)
-@HAVE_LINUX_BPF_H_TRUE@stapbpf_LDFLAGS = $(AM_LDFLAGS) $(am__append_2)
-@HAVE_LINUX_BPF_H_TRUE@stapbpf_LDADD = $(stapbpf_LIBS) -lpthread
+@HAVE_BPF_DECLS_TRUE@man_MANS = stapbpf.8
+@HAVE_BPF_DECLS_TRUE@stapbpf_SOURCES = stapbpf.cxx bpfinterp.cxx libbpf.c
+@HAVE_BPF_DECLS_TRUE@stapbpf_CPPFLAGS = $(AM_CPPFLAGS) $(am__append_1)
+@HAVE_BPF_DECLS_TRUE@stapbpf_CFLAGS = $(AM_CFLAGS)
+@HAVE_BPF_DECLS_TRUE@stapbpf_CXXFLAGS = $(AM_CXXFLAGS)
+@HAVE_BPF_DECLS_TRUE@stapbpf_LDFLAGS = $(AM_LDFLAGS) $(am__append_2)
+@HAVE_BPF_DECLS_TRUE@stapbpf_LDADD = $(stapbpf_LIBS) -lpthread
 
 # Arrange for the top-level git_version.h to be regenerated at every "make".
-@HAVE_LINUX_BPF_H_TRUE@BUILT_SOURCES = git_version.stamp
-@HAVE_LINUX_BPF_H_TRUE@CLEANFILES = 
+@HAVE_BPF_DECLS_TRUE@BUILT_SOURCES = git_version.stamp
+@HAVE_BPF_DECLS_TRUE@CLEANFILES = 
 all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -745,7 +744,7 @@ maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
 	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
-@HAVE_LINUX_BPF_H_FALSE@install-exec-hook:
+@HAVE_BPF_DECLS_FALSE@install-exec-hook:
 clean: clean-am
 
 clean-am: clean-binPROGRAMS clean-generic mostlyclean-am
@@ -836,18 +835,18 @@ uninstall-man: uninstall-man8
 
 .PRECIOUS: Makefile
 
-@HAVE_LINUX_BPF_H_TRUE@git_version.stamp ../git_version.h:
-@HAVE_LINUX_BPF_H_TRUE@	$(MAKE) -C .. $(notdir $@)
+@HAVE_BPF_DECLS_TRUE@git_version.stamp ../git_version.h:
+@HAVE_BPF_DECLS_TRUE@	$(MAKE) -C .. $(notdir $@)
 
 # Why the "id -u" condition?  This way, an unprivileged user can run
 # make install, and have "sudo stap ...." or "sudo stapbpf ...." work later.
-@HAVE_LINUX_BPF_H_TRUE@install-exec-hook:
-@HAVE_LINUX_BPF_H_TRUE@	if [ `id -u` -eq 0 ]; then \
-@HAVE_LINUX_BPF_H_TRUE@		getent group stapusr >/dev/null || groupadd -g 156 -r stapusr 2>/dev/null || groupadd -r stapusr; \
-@HAVE_LINUX_BPF_H_TRUE@		getent group stapusr >/dev/null \
-@HAVE_LINUX_BPF_H_TRUE@		&& chgrp stapusr "$(DESTDIR)$(bindir)/stapbpf" \
-@HAVE_LINUX_BPF_H_TRUE@		&& chmod 04110 "$(DESTDIR)$(bindir)/stapbpf"; \
-@HAVE_LINUX_BPF_H_TRUE@	fi
+@HAVE_BPF_DECLS_TRUE@install-exec-hook:
+@HAVE_BPF_DECLS_TRUE@	if [ `id -u` -eq 0 ]; then \
+@HAVE_BPF_DECLS_TRUE@		getent group stapusr >/dev/null || groupadd -g 156 -r stapusr 2>/dev/null || groupadd -r stapusr; \
+@HAVE_BPF_DECLS_TRUE@		getent group stapusr >/dev/null \
+@HAVE_BPF_DECLS_TRUE@		&& chgrp stapusr "$(DESTDIR)$(bindir)/stapbpf" \
+@HAVE_BPF_DECLS_TRUE@		&& chmod 04110 "$(DESTDIR)$(bindir)/stapbpf"; \
+@HAVE_BPF_DECLS_TRUE@	fi
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

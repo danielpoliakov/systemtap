@@ -62,7 +62,7 @@ stap_SOURCES += interactive.cxx
 stap_LDADD += @READLINE_LIBS@
 endif
 
-if HAVE_LINUX_BPF_H
+if HAVE_BPF_DECLS
 stap_SOURCES += bpf-base.cxx bpf-bitset.cxx bpf-translate.cxx bpf-opt.cxx
 endif
 

@@ -780,8 +780,12 @@ if test $stap_cv_sectionq = yes; then
 fi
 
 dnl Check if we have <linux/bpf.h> for bpf backend.
-AC_CHECK_HEADERS(linux/bpf.h)
-AM_CONDITIONAL(HAVE_LINUX_BPF_H, [test "x$ac_cv_header_linux_bpf_h" = "xyes"])
+AC_DEFINE([HAVE_BPF_DECLS], [0], [Define to 1 if you have the necessary declarations in bpf.h])
+AC_CHECK_DECLS([BPF_PROG_TYPE_PERF_EVENT],
+               [AC_DEFINE([HAVE_BPF_DECLS], [1])],
+               [],
+               [#include <linux/bpf.h>])
+AM_CONDITIONAL(HAVE_BPF_DECLS, [test "x$ac_cv_have_decl_BPF_PROG_TYPE_PERF_EVENT" == "xyes"])
 
 AC_CONFIG_FILES([includes/sys/sdt-config.h po/Makefile.in])
 
