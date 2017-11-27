@@ -70,6 +70,7 @@ public:
   void get_buildid (string fname);
   void get_kernel_buildid (void);
   long get_response_code (void);
+  static int trace (CURL *, curl_infotype type, unsigned char *data, size_t size, void *);
 
 private:
   size_t get_header (void *ptr, size_t size, size_t nitems);
@@ -165,6 +166,69 @@ http_client::get_file (void *ptr, size_t size, size_t nitems, std::FILE * stream
 }
 
 
+// Trace sent and received packets
+
+int
+http_client::trace(CURL *, curl_infotype type, unsigned char *data, size_t size, void *)
+{
+  string text;
+
+  switch(type)
+  {
+  case CURLINFO_TEXT:
+    clog << "== Info: " << data;
+    return 0;
+
+  case CURLINFO_HEADER_OUT:
+    text = "=> Send header";
+    break;
+  case CURLINFO_DATA_OUT:
+    text = "=> Send data";
+    break;
+  case CURLINFO_HEADER_IN:
+    text = "<= Recv header";
+    break;
+  case CURLINFO_DATA_IN:
+    text = "<= Recv data";
+    break;
+  default:
+    return 0;
+  }
+
+  size_t i;
+  size_t c;
+
+  const unsigned int width = 64;
+
+  clog << text << " " << size << " bytes (" << showbase << hex << size << ")" << dec << noshowbase << endl;
+
+  for (i = 0; i < size; i += width)
+    {
+
+      clog << setw(4) << setfill('0') << hex << i << dec << setfill(' ') << ": ";
+
+      for (c = 0; (c < width) && (i + c < size); c++)
+        {
+          if ((i + c + 1 < size) && data[i + c] == '\r' && data[i + c + 1] == '\n')
+            {
+              i += (c + 2 - width);
+              break;
+            }
+
+          clog << (char)(isprint (data[i + c]) ? data[i + c] : '.');
+          if ((i + c + 2 < size) && data[i + c + 1] == '\r' && data[i + c + 2] == '\n')
+            {
+              i += (c + 3 - width);
+              break;
+            }
+        }
+      clog << endl;
+    }
+
+  return 0;
+}
+
+
 // Do a download of type TYPE from URL
 
 bool
@@ -176,8 +240,11 @@ http_client::download (const std::string & url, http_client::download_type type)
     curl_easy_reset (curl);
   curl = curl_easy_init ();
   curl_global_init (CURL_GLOBAL_ALL);
-  if (s.verbose >= 4)
-    curl_easy_setopt (curl, CURLOPT_VERBOSE, 1L);
+  if (s.verbose > 2)
+    {
+      curl_easy_setopt (curl, CURLOPT_VERBOSE, 1L);
+      curl_easy_setopt (curl, CURLOPT_DEBUGFUNCTION, trace);
+    }
   curl_easy_setopt (curl, CURLOPT_URL, url.c_str ());
   curl_easy_setopt (curl, CURLOPT_NOSIGNAL, 1); //Prevent "longjmp causes uninitialized stack frame" bug
   curl_easy_setopt (curl, CURLOPT_ACCEPT_ENCODING, "deflate");
@@ -550,7 +617,7 @@ http_client::post (const string & url,
 
   if (! http->localization_variables.empty())
     {
-      for (vector<std::tuple<std::string, std::string>>::const_iterator i = http->localization_variables.begin();
+      for (auto i = http->localization_variables.begin();
           i != http->localization_variables.end();
           ++i)
         {
@@ -572,22 +639,6 @@ http_client::post (const string & url,
   curl_easy_setopt (curl, CURLOPT_URL, url.c_str());
   curl_easy_setopt (curl, CURLOPT_HTTPHEADER, headers);
   curl_easy_setopt (curl, CURLOPT_HTTPPOST, formpost);
-
-  // Mostly for debugging
-  if (s.verbose >= 4)
-    {
-      curl_easy_setopt (curl, CURLOPT_VERBOSE, 1L);
-      CURL *db_curl = curl_easy_init();
-      clog << "BEGIN dump post data" << endl;
-      curl_easy_setopt(db_curl, CURLOPT_URL, "http://httpbin.org/post");
-      curl_easy_setopt (db_curl, CURLOPT_HTTPHEADER, headers);
-      curl_easy_setopt (db_curl, CURLOPT_HTTPPOST, formpost);
-      CURLcode res = curl_easy_perform (db_curl);
-      if (res != CURLE_OK)
-        clog << "curl_easy_perform() failed: " << curl_easy_strerror (res) << endl;
-      clog << "END dump post data" << endl;
-      curl_easy_cleanup (db_curl);
-    }
 
   CURLM *multi_handle = curl_multi_init();
   curl_multi_add_handle (multi_handle, curl);
