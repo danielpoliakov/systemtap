@@ -182,11 +182,11 @@ module.function, .statement	process.mark, process.plt	module.function\fI*\fP
 process.function, .statement	begin, end, error, never	process.function\fI*\fP
 process.mark\fI*\fP	timer
 \.function.callee	perf
-	procfs
-\fBAUTO-GENERATED-DWARF\fP	kernel.statement.absolute
-	kernel.data
-kernel.trace	kprobe.function
-	process.statement.absolute
+python2, python3	procfs
+	kernel.statement.absolute
+\fBAUTO-GENERATED-DWARF\fP	kernel.data
+	kprobe.function
+kernel.trace	process.statement.absolute
 	process.begin, .end
 	netfilter
 	java
@@ -586,7 +586,9 @@ Poznamenejme, že operátor
 se nepoužívá pro odkaz na člena struktury.  Jak pro odkaz na člena struktury, tak pro
 dereferenci ukazatele se používá symbol
 .IR \->
-neboť operátor "." je vyhrazen pro spojení řetězců.
+neboť operátor "." je vyhrazen pro spojení řetězců.  Poznamenejme, že pro přímé
+dereferencování ukazatele se doporučuje použít funkcí {kernel,user}_{char,int,...}($p).
+Více v sekci stapfuncs(5).
 .TP
 $return
 je přístupný jen v .return sondách funkcí, které mají deklarovanou návratovou
@@ -665,8 +667,9 @@ stap \-DKRETACTIVE=NNNN
 Pro pohodlí uživatele jsou v ".return" sondách přístupné i jiné kontextové
 proměnné, než jen $return.  Jde zejména o parametry volání funkce.  V tomto
 případě ale jde o \fBkopie\fP (snapshot) vytvořené v momentě vstupu do funkce.
-Lokální proměnné funkce obecně \fBnejsou\fP dostupné, neboť ty v době vytváření
-"snapshotu" neexistovaly.
+(Lokální proměnné funkce obecně \fBnejsou\fP dostupné, neboť ty v době vytváření
+"snapshotu" neexistovaly.)  Vhodným způsobem přístupu k těmto proměnným je
+.IR @entry($var) .
 .PP
 Při vstupu do funkce je možno uložit pomocné hodnoty pro pozdější využití v
 .return sondách pomocí operátoru
@@ -770,20 +773,23 @@ process(PID).insn.block
 process("FULLPATH").insn.block
 .ESAMPLE
 .PP
-A
-.B .begin
+
+.B process.begin
 sonda je aktivována při vytvoření nového procesu daného PID, nebo FULLPATH.
-A
-.B .thread.begin
+Navíc je tato sonda volána jedenkrát z kontextu každého procesu, který
+za běhu systemtap skriptu vznikne.  To je užitečné pro udržování seznamu
+běžících procesů.
+
+.B process.thread.begin
 sonda je aktivována při vytvoření nového vlákna daného PID, nebo FULLPATH.
-A
-.B .end
+
+.B process.end
 sonda je aktivována při ukončení procesu daného PID, nebo FULLPATH.
-A
-.B .thread.end
+
+.B process.thread.end
 sonda je aktivována při ukončení vlákna daného PID, nebo FULLPATH.
-A
-.B .syscall
+
+.B process.syscall
 sonda je aktivována když vlákno daného PID nebo FULLPATH zavolá systémové
 volání.  Číslo systémového volání je přístupné v kontextové proměnné
 .BR $syscall
@@ -791,18 +797,18 @@ a prvních 6 funkčních argumentů v kontextových proměnných
 .BR $argN
 (ex. $arg1, $arg2, ...).
 Sonda
-.B .syscall.return
+.B process.syscall.return
 sonda je aktivována když se vlákno daného PID nebo FULLPATH vrací ze systémového
 volání.  Číslo systémového volání je přístupné v kontextové proměnné
 .BR $syscall
 a návratová hodnota systémového volání pak v rámci kontextové proměnné
 .BR $return .
 Sonda
-.B .insn
+.B process.insn
 je aktivována pro každou atomickou instrukci procesu PID nebo
 FULLPATH.
 Sonda
-.B .insn.block
+.B process.insn.block
 je aktivována pro blok instrukcí procesu daného PID nebo
 FULLPATH.
 .PP
@@ -963,7 +969,25 @@ Kontextové proměnné definované v java sondách zahrnují
 .IR $arg1
 až
 .IR $arg10
-a značí 1 - 10 parametrů metody řetězcového, nebo celočíselného typu.
+(pro až 10 prvních parametrů metody), jakožto ukazatele na řetězce,
+které lze podle potřeby předhodit ke zpracování funkci toString().
+
+Proměnné
+.IR arg1
+až
+.IR arg10
+zpřístupňují zmíněné argumenty metody přímo jakožto řetězce získané prostřednictvím
+.IR user_string_warn() .
+
+.PP
+Ve starších verzích systemtapu (3.1 a níže) obsahovaly
+.IR $arg1
+až
+.IR $arg10
+buďto celá čísla, nebo ukazatele na řetězce, v závislosti na typu
+odpovídajících objektů.  Toto historické chování lze použít v režimu
+.I stap --compatible=3.0 .
+
 
 .SS PROCFS
 
@@ -1000,7 +1024,10 @@ Pokud není
 .I PATH
 určeno (tak jako u posledních dvou variant výše), pak
 .I PATH
-nabývá výchozí hodnoty "command".
+nabývá výchozí hodnoty "command".   Název souboru "__stdin" se vnitřně používá v "input"
+sondách a neměl by se používat v roli
+.I PATH
+procfs sond; viz sekce INPUT níže.
 .PP
 Když uživatel čte /proc/systemtap/MODNAME/PATH, aktivuje se
 procfs
@@ -1046,6 +1073,39 @@ procfs.read.maxsize(1024) {
     $value .= "jiný dlouhý řetězec..."
 }
 .ESAMPLE
+
+.SS INPUT
+
+Tyto sondy zpřístupňují standardní vstup skriptu v době jeho běhu.
+Překladač podporuje dvě varianty této rodiny sond:
+
+.SAMPLE
+input.char
+input.line
+.ESAMPLE
+
+.BR input.char
+se aktivuje po každém přečtení znaku ze standardního vstupu.  Dotyčný znak je
+pak dostupný prostřednictvím proměnné
+.IR char .
+Nehraje zde roli žádná vyrovnávací paměť.
+
+.BR input.line
+Znaky načtené ze standardního vstupu se ukládají do vyrovnávací paměti až do
+okamžiku načtení znaku nového řádku.  Po načtení celého řádku se tento včetně
+ukončovacího znaku stane dostupným prostřednictvím proměnné
+.IR line .
+Při tom maximální délka řádku je MAXSTRINGLEN.  Znaky přesahující MAXSTRINGLEN
+se do
+.IR line
+nedostanou.
+
+.PP
+Tyto input sondy jsou ve skutečnosti přezdívkami pro
+.BR procfs("__stdin").write .
+Pokud uživatelský skript obsahuje procfs sondu, neměl by využívat "__stdin" jako
+argument "procfs" sond.
+Sondy "input" nefungují při použití -F a --remote voleb.
 
 .SS SONDY 'NETFILTER HOOKS'
 
@@ -1232,10 +1292,10 @@ Tato skupina sond slouží k nastavení hardwarových bodů zastavení pro daný
 globální symbol jádra.  Příslušné sondy sestávají ze tří komponent:
 
 1.
-.BR virtuální adresa" / "jméno
-zkoumaného symbolu jádra se předává jako argument této třídě sond.  Podporovány
-jsou pouze sondy pro proměnné v datovém segmentu.  Analýzu lokálních proměnných
-nelze provést.
+.BR virtuální
+adresa" / "jméno zkoumaného symbolu jádra se předává jako argument této třídě
+sond.  Podporovány jsou pouze sondy pro proměnné v datovém segmentu.  Analýzu
+lokálních proměnných nelze provést.
 
 2.  Způsob přístupu :
 a. sonda
@@ -1303,7 +1363,63 @@ vynechá jméno procesu, pokusí se ho překladač odvodit z \-c.  Událost lze 
 použitím '.counter'.  Obslužná rutina perf sondy se pro .counter nezavolá,
 ale počitadlo lze číst pomocí následující syntaxe:
 .TP
-   process("PROCESS").statement("func@file") {stat <<< @perf("NAME")} 
+   process("PROC").statement("func@file") {stat <<< @perf("NAME")} 
+
+.SS PYTHON
+S použitím speciálního python modulu je možné analyzovat python 2 a python 3 funkce.
+K tomu je potřeba mít nainstalované ladicí informace pro příslušný python.
+Zmíněný modul lze použít takto:
+.SAMPLE
+stap foo.stp -c "python -m HelperSDT foo.py"
+.ESAMPLE
+Příslušné sondy potom vypadají takto:
+.SAMPLE
+python2.module("MPATTERN").function("PATTERN")
+python2.module("MPATTERN").function("PATTERN").call
+python2.module("MPATTERN").function("PATTERN").return
+python3.module("MPATTERN").function("PATTERN")
+python3.module("MPATTERN").function("PATTERN").call
+python3.module("MPATTERN").function("PATTERN").return
+.ESAMPLE
+Výše zmíněná ukázka obsahuje následující modifikátory:
+.RS
+.TP
+\fB.function\fR
+Umístí sondu na začátek funkce určené jménem, pokud není prostřednictvím
+PATTERN určeno jinak.  Funkční parametry jsou dostupné jako kontextové
+proměnné.
+.TP
+\fB.call\fR
+Umístí sondu na začátek funkce určené jménem.  Funkční parametry jsou
+dostupné jako kontextové proměnné.
+.TP
+\fB.return\fR
+Umístí sondu těsně \fBpřed\fR návrat z funkce určené jménem.  Parametry
+funkce, jakož i lokální, či globální proměnné jsou dostupné
+prostřednictvím kontextových proměnných.
+.RE
+.PP
+PATTERN představuje řetězcový literál, který určuje pozici v python
+programu.  Skládá se ze tří částí:
+.IP \(bu 4
+První částí je jméno funkce (například "foo"), nebo metody (například
+"bar.baz").  V této části lze používat také zástupné symboly "*" a "?".
+.IP \(bu 4
+Druhá část je volitelná a začíná znakem "@".  Za ní následuje cesta
+k souboru, který obsahuje danou funkci/metodu.  Zde lze taktéž použít
+zástupné symboly "*" a "?".   Pro vyhledávání ze vezme v potaz "python
+path".
+.IP \(bu 4
+Poslední, třetí volitelnou částí, je speecifikace čísla řádku ve
+zdrojovém souboru.  Číslo řádku se zapisuje za dvojtečku ":", nebo
+plus "+".  V případě dvojtečky se číslo řádku interpretuje jako
+absolutní číslo řádku, v případě plusu jako relativní vzhledem k
+deklaraci funkce.  Všechny řádky dané funkce lze označit zápisem ":*".
+Rozsah řádků se zapíše jako ":x\-y", či ":x,y\-z".
+.PP
+MPATTERN zastupuje název python modulu, nebo skriptu, který se na
+python modul odkazuje.  I zde lze použít zástupné znaky "*" a "?".
+Daný název souboru se hledá v rámci "python path".
 
 
 .SH PŘÍKLADY

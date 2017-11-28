@@ -8,6 +8,14 @@ Chyby, které se mohou vyskytnout během procesní fáze 2 mají řadu příčin
 ty nejobvyklejší patří:
 
 .TP
+chybějící ladicí informace
+Skript potřebuje ladicí informace pro lokalizaci sondážního bodu, ale ladicí
+informace nejsou doustupné.  Více podrobností naleznete v manuálových stránkách
+.IR error::dwarf (7stap)
+a
+.IR warning::debuginfo (7stap).
+
+.TP
 nedostupná třída sondážních bodů
 Některé sondážní body jsou specifické pro verzi, architekturu, nebo konfiguraci.
 Například sondy pro uživatelské procesy

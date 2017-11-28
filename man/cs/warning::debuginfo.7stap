@@ -22,10 +22,11 @@ warning::debuginfo \- varování ohledně chybějících ladicích informací
 
 .SH POPIS
 Pro mnoho symbolických sondážních operací potřebuje systemtap ladicí informace
-DWARF.  Obvykle jsou ladicí informace potřeba pro nalezení sond pro funkce,
-příkazy, nebo kontextové proměnné.  Ladicí informace se mohou nacházet buď přímo
-v binárních souborech, nebo mohou být odděleny do samostatných souborů, které
-se hledají v závislosti na nastavení proměnné prostředí
+DWARF generované kompilátorem při použití \fICFLAGS \-g\fP.  Obvykle jsou ladicí
+informace potřeba pro nalezení sond pro funkce, příkazy, nebo kontextové proměnné.
+Ladicí informace se mohou nacházet buď přímo v binárních souborech, nebo mohou
+být odděleny do samostatných souborů, které se hledají v závislosti na nastavení
+proměnné prostředí
 .IR SYSTEMTAP_DEBUGINFO_PATH .
 .PP
 
@@ -126,6 +127,7 @@ centralizovány.  V tomto případě použijte volbu
 .SH VIZ TÉŽ
 .nh
 .nf
+.IR gcc (1),
 .IR stap (1),
 .IR stappaths (7),
 .IR stap-server (8),
