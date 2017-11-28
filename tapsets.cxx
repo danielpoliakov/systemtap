@@ -11270,6 +11270,9 @@ static vector<string> tracepoint_extra_decls (systemtap_session& s,
       they_live.push_back ("struct f2fs_sb_info;");
       they_live.push_back ("struct extent_info;");
       they_live.push_back ("struct extent_node;");
+      they_live.push_back ("struct super_block;");
+      they_live.push_back ("struct buffer_head;");
+      they_live.push_back ("struct bio;");
     }
 
   if (header.find("radeon") != string::npos)
