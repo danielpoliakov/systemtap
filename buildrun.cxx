@@ -135,12 +135,6 @@ static vector<string>
 make_make_cmd(systemtap_session& s, const string& dir)
 {
   vector<string> mc = make_any_make_cmd(s, dir, "modules");
-  if (s.keep_tmpdir)
-    {
-      string E_source = s.translated_source.substr(s.translated_source.find_last_of("/")+1);
-      E_source.at(E_source.length() - 1) = 'i'; // overwrite the last character
-      mc.push_back(E_source);
-    }
   return mc;
 }
 
@@ -590,6 +584,12 @@ compile_pass (systemtap_session& s)
 
   // Run make
   vector<string> make_cmd = make_make_cmd(s, s.tmpdir);
+  if (s.keep_tmpdir)
+    {
+      string E_source = s.translated_source.substr(s.translated_source.find_last_of("/")+1);
+      E_source.at(E_source.length() - 1) = 'i'; // overwrite the last character
+      make_cmd.push_back(E_source);
+    }
   rc = run_make_cmd(s, make_cmd);
   if (rc)
     s.set_try_server ();
