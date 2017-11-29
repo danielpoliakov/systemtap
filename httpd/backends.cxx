@@ -121,6 +121,7 @@ local_backend::local_backend()
     get_distro_info(info);
     if (! info.empty()) {
 	distro_name = info[0];
+	transform(distro_name.begin(), distro_name.end(), distro_name.begin(), ::tolower);
     }
 
     // Get the current arch name.
