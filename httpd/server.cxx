@@ -20,6 +20,7 @@ extern "C"
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <json-c/json.h>
 }
 
 using namespace std;
@@ -29,6 +30,35 @@ get_key_values(void *cls, enum MHD_ValueKind /*kind*/,
 	       const char *key, const char *value)
 {
     post_params_t *params = static_cast<post_params_t *>(cls);
+    if (value[0] == '{')
+      {
+        enum json_tokener_error json_error;
+        json_object *root = json_tokener_parse_verbose (value, &json_error);
+        if (root == NULL)
+          {
+            clog << json_tokener_error_desc (json_error);
+            return MHD_NO;
+          }
+
+        json_object_object_foreach(root, jkey, jval)
+          {
+            if (json_object_get_type(jval) == json_type_array)
+              {
+                for (int i = 0; i < json_object_array_length (jval); i++)
+                  {
+                    json_object *jarrval = json_object_array_get_idx(jval, i);
+                    const char* jvalue = json_object_get_string(jarrval);
+                    (*params)[jkey].push_back(jvalue ? jvalue : "");
+                  }
+              }
+            else
+              {
+                const char* jvalue = json_object_get_string(jval);
+                (*params)[jkey].push_back(jvalue ? jvalue : "");
+              }
+          }
+        return MHD_YES;
+      }
 
     (*params)[key].push_back(value ? value : "");
     return MHD_YES;

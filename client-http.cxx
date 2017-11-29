@@ -113,8 +113,6 @@ http_client::get_data (void *ptr, size_t size, size_t nitems)
       enum json_tokener_error json_error;
       root = json_tokener_parse_verbose (data.c_str(), &json_error);
 
-      if (s.verbose >= 3)
-        clog << json_object_to_json_string (root) << endl;
       if (root == NULL)
         throw SEMANTIC_ERROR (json_tokener_error_desc (json_error));
     }
@@ -534,18 +532,40 @@ http_client::post (const string & url,
   int still_running = false;
   struct curl_httppost *formpost = NULL;
   struct curl_httppost *lastptr = NULL;
+  struct json_object *jobj = json_object_new_object();
 
-  headers = curl_slist_append (headers, "Expect:");
-
-  for (auto it = request_parameters.begin ();
-      it != request_parameters.end (); ++it)
+  string previous_parm_type;
+  string previous_json_data;
+  auto it = request_parameters.begin ();
+  while (it != request_parameters.end ())
     {
       string parm_type = get<0>(*it);
       string parm_data = get<1>(*it);
-      curl_formadd (&formpost, &lastptr,
-		    CURLFORM_COPYNAME, parm_type.c_str(),
-		    CURLFORM_COPYCONTENTS, parm_data.c_str(),
-		    CURLFORM_END);
+      struct json_object *json_data = json_object_new_string(parm_data.c_str());
+      if (parm_type == previous_parm_type)
+        {
+          // convert original singleton to an array
+          struct json_object *jarr = json_object_new_array();
+          json_data = json_object_new_string(previous_json_data.c_str());
+          json_object_array_add(jarr, json_data);
+          while (parm_type == previous_parm_type)
+            {
+              json_data = json_object_new_string(parm_data.c_str());
+              json_object_array_add(jarr, json_data);
+              previous_parm_type = parm_type;
+              previous_json_data = parm_data;
+              it++;
+              parm_type = get<0>(*it);
+              parm_data = get<1>(*it);
+            }
+          json_object_object_add(jobj, previous_parm_type.c_str(), jarr);
+          continue;
+        }
+      else
+        json_object_object_add(jobj, parm_type.c_str(), json_data);
+      previous_parm_type = parm_type;
+      previous_json_data = parm_data;
+      it++;
     }
 
   // Fill in the file upload field; libcurl will load data from the
@@ -591,29 +611,25 @@ http_client::post (const string & url,
   //
   // So, the items are arranged by index - item N in each array are
   // related information.
+  struct json_object *file_pkg = json_object_new_array();
+  struct json_object *file_name = json_object_new_array();
+  struct json_object *file_id = json_object_new_array();
   int bid_idx = 0;
+
   for (auto it = modules.begin (); it != modules.end (); ++it, ++bid_idx)
     {
       string pkg = (*it);
       string buildid_file = std::get<0>(buildids[bid_idx]);
       string buildid = std::get<1>(buildids[bid_idx]);
 
-      curl_formadd (&formpost, &lastptr,
-		    CURLFORM_COPYNAME, "file_pkg",
-		    CURLFORM_CONTENTTYPE, "application/json",
-		    CURLFORM_COPYCONTENTS, pkg.c_str(),
-		    CURLFORM_END);
-      curl_formadd (&formpost, &lastptr,
-		    CURLFORM_COPYNAME, "file_name",
-		    CURLFORM_CONTENTTYPE, "application/json",
-		    CURLFORM_COPYCONTENTS, buildid_file.c_str(),
-		    CURLFORM_END);
-      curl_formadd (&formpost, &lastptr,
-		    CURLFORM_COPYNAME, "file_id",
-		    CURLFORM_CONTENTTYPE, "application/json",
-		    CURLFORM_COPYCONTENTS, buildid.c_str(),
-		    CURLFORM_END);
+      json_object_array_add(file_pkg, json_object_new_string(pkg.c_str()));
+      json_object_array_add(file_name, json_object_new_string(buildid_file.c_str()));
+      json_object_array_add(file_id, json_object_new_string(buildid.c_str()));
     }
+  json_object_object_add(jobj, "file_pkg", file_pkg);
+  json_object_object_add(jobj, "file_name", file_name);
+  json_object_object_add(jobj, "file_id", file_id);
+
 
   if (! http->localization_variables.empty())
     {
@@ -623,18 +639,19 @@ http_client::post (const string & url,
         {
           string name = get<0>(*i);
           string value = get<1>(*i);
-          curl_formadd (&formpost, &lastptr,
-              CURLFORM_COPYNAME, "env_var_names",
-              CURLFORM_CONTENTTYPE, "application/json",
-              CURLFORM_COPYCONTENTS, name.c_str(),
-              CURLFORM_END);
-          curl_formadd (&formpost, &lastptr,
-              CURLFORM_COPYNAME, "env_var_values",
-              CURLFORM_CONTENTTYPE, "application/json",
-              CURLFORM_COPYCONTENTS, value.c_str(),
-              CURLFORM_END);
+          json_object_object_add(jobj, name.c_str(), json_object_new_string(value.c_str()));
         }
     }
+
+  curl_formadd (&formpost, &lastptr,
+      CURLFORM_COPYNAME, "command_environment",
+      CURLFORM_CONTENTTYPE, "application/json",
+      CURLFORM_COPYCONTENTS,
+      json_object_to_json_string_ext (jobj, JSON_C_TO_STRING_PLAIN),
+      CURLFORM_END);
+  json_object_put(jobj);
+
+  headers = curl_slist_append (headers, "Expect:");
 
   curl_easy_setopt (curl, CURLOPT_URL, url.c_str());
   curl_easy_setopt (curl, CURLOPT_HTTPHEADER, headers);
