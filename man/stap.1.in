@@ -774,6 +774,10 @@ below for more information.
 Shorthand for \fI\-\-runtime=dyninst\fR.
 
 .TP
+.BI \-\-bpf
+Shorthand for \fI\-\-runtime=bpf\fR.
+
+.TP
 .BI \-\-save-uprobes
 On machines that require SystemTap to build its own uprobes module (kernels
 prior to version 3.5), this option instructs SystemTap to also save a copy of

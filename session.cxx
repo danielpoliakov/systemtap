@@ -498,6 +498,9 @@ systemtap_session::version ()
 #ifdef HAVE_DYNINST
        << " DYNINST"
 #endif
+#ifdef HAVE_BPF_DECLS
+       << " BPF"
+#endif
 #ifdef HAVE_JAVA
        << " JAVA"
 #endif
@@ -645,6 +648,10 @@ systemtap_session::usage (int exitcode)
     "   --dyninst\n"
     "              shorthand for --runtime=dyninst\n"
 #endif /* HAVE_DYNINST */
+#ifdef HAVE_BPF_DECLS
+    "   --bpf\n"
+    "              shorthand for --runtime=bpf\n"
+#endif /* HAVE_BPF_DECLS */
     "   --prologue-searching[=WHEN]\n"
     "              prologue-searching for function probes\n"
     "   --privilege=PRIVILEGE_LEVEL\n"
@@ -1544,6 +1551,11 @@ systemtap_session::parse_cmdline (int argc, char * const argv [])
             return 1;
           break;
 
+	case LONG_OPT_RUNTIME_BPF:
+          if (!parse_cmdline_runtime ("bpf"))
+            return 1;
+          break;
+
         case LONG_OPT_BENCHMARK_SDT:
           // XXX This option is secret, not supported, subject to change at our whim
           benchmark_sdt_threads = thread::hardware_concurrency();
@@ -1658,8 +1670,14 @@ systemtap_session::parse_cmdline_runtime (const string& opt_runtime)
     runtime_mode = kernel_runtime;
   else if (opt_runtime == string("bpf"))
     {
+#ifndef HAVE_BPF_DECLS
+      cerr << _("ERROR: --runtime=bpf unavailable; this build lacks BPF feature") << endl;
+      version();
+      return false;
+#else
       runtime_mode = bpf_runtime;
       use_cache = use_script_cache = false;
+#endif
     }
   else if (opt_runtime == string("dyninst"))
     {
