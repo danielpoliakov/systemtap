@@ -18,7 +18,7 @@ stappaths \- systemtap configurable file paths
 ..
 
 .SH DESCRIPTION
-This manual page was generated on @DATE@ for systemtap @VERSION@.
+This manual page was generated for systemtap @VERSION@.
 The following section will list the main paths in systemtap that are 
 important to know and may be required to reference.
 .TP

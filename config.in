@@ -1,8 +1,5 @@
 /* config.in.  Generated from configure.ac by autoheader.  */
 
-/* Configuration/build date */
-#undef DATE
-
 /* Define to 1 if translation of program messages to the user's native
    language is requested. */
 #undef ENABLE_NLS
@@ -43,17 +40,9 @@
    */
 #undef HAVE_DCGETTEXT
 
-/* Define to 1 if you have the declaration of `BPF_PROG_TYPE_KPROBE', and to 0
-   if you don't. */
-#undef HAVE_DECL_BPF_PROG_TYPE_KPROBE
-
 /* Define to 1 if you have the declaration of `BPF_PROG_TYPE_PERF_EVENT', and
    to 0 if you don't. */
 #undef HAVE_DECL_BPF_PROG_TYPE_PERF_EVENT
-
-/* Define to 1 if you have the declaration of `BPF_PROG_TYPE_TRACEPOINT', and
-   to 0 if you don't. */
-#undef HAVE_DECL_BPF_PROG_TYPE_TRACEPOINT
 
 /* Define to 1 if Dyninst is enabled */
 #undef HAVE_DYNINST

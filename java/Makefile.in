@@ -231,7 +231,6 @@ CXXCPP = @CXXCPP@
 CXXDEPMODE = @CXXDEPMODE@
 CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
-DATE = @DATE@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 DYNINST_CXXFLAGS = @DYNINST_CXXFLAGS@
@@ -672,8 +671,8 @@ maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
 	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
-@HAVE_JAVA_FALSE@uninstall-local:
 @HAVE_JAVA_FALSE@install-exec-local:
+@HAVE_JAVA_FALSE@uninstall-local:
 @HAVE_JAVA_FALSE@install-data-local:
 clean: clean-am
 

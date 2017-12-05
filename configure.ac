@@ -596,12 +596,6 @@ AC_SUBST(stapbpf_LIBS)
 AC_MSG_NOTICE([staprun will link $staprun_LIBS])
 AC_MSG_NOTICE([stapbpf will link $stapbpf_LIBS])
 
-
-dnl Plop in the build (configure) date
-date=`date +%Y-%m-%d`
-AC_DEFINE_UNQUOTED(DATE, "$date", [Configuration/build date])
-AC_SUBST(DATE, "$date")
-
 # Before PR4037, we used to arrange to pass CFLAGS+=-m64 for a staprun
 # being compiled on 32-bit userspace but running against 64-bit kernels.
 # This is no longer necessary.

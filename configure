@@ -685,7 +685,6 @@ HAVE_DYNINST_TRUE
 DYNINST_LDFLAGS
 DYNINST_CXXFLAGS
 CXXCPP
-DATE
 stapbpf_LIBS
 staprun_LIBS
 stap_LIBS
@@ -11449,16 +11448,6 @@ fi
 $as_echo "$as_me: staprun will link $staprun_LIBS" >&6;}
 { $as_echo "$as_me:${as_lineno-$LINENO}: stapbpf will link $stapbpf_LIBS" >&5
 $as_echo "$as_me: stapbpf will link $stapbpf_LIBS" >&6;}
-
-
-date=`date +%Y-%m-%d`
-
-cat >>confdefs.h <<_ACEOF
-#define DATE "$date"
-_ACEOF
-
-DATE="$date"
-
 
 # Before PR4037, we used to arrange to pass CFLAGS+=-m64 for a staprun
 # being compiled on 32-bit userspace but running against 64-bit kernels.
