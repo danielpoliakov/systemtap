@@ -122,9 +122,13 @@ timer_derived_probe_group::emit_module_decls (systemtap_session& s)
   s.op->newline(-1) << "};";
   s.op->newline();
 
-  s.op->newline() << "static void enter_timer_probe (unsigned long val) {";
+  s.op->newline() << "static void enter_timer_probe (stp_timer_callback_parameter_t val) {";
+  s.op->newline() << "#if defined(TIMER_TRACE_FLAGMASK)";
+  s.op->newline(1) << "struct stap_timer_probe* stp = container_of(val, struct stap_timer_probe, timer_list);";
+  s.op->newline(-1) << "#else";
   s.op->newline(1) << "struct stap_timer_probe* stp = & stap_timer_probes [val];";
-  s.op->newline() << "if ((atomic_read (session_state()) == STAP_SESSION_STARTING) ||";
+  s.op->newline(-1) << "#endif";
+  s.op->newline(1) << "if ((atomic_read (session_state()) == STAP_SESSION_STARTING) ||";
   s.op->newline() << "    (atomic_read (session_state()) == STAP_SESSION_RUNNING))";
   s.op->newline(1) << "mod_timer (& stp->timer_list, jiffies + ";
   emit_interval (s.op);
@@ -148,9 +152,11 @@ timer_derived_probe_group::emit_module_init (systemtap_session& s)
   s.op->newline() << "for (i=0; i<" << probes.size() << "; i++) {";
   s.op->newline(1) << "struct stap_timer_probe* stp = & stap_timer_probes [i];";
   s.op->newline() << "probe_point = stp->probe->pp;";
-  s.op->newline() << "init_timer (& stp->timer_list);";
-  s.op->newline() << "stp->timer_list.function = & enter_timer_probe;";
+
+  s.op->newline() << "timer_setup (& stp->timer_list, enter_timer_probe, 0);";
+  s.op->newline() << "#if !defined(TIMER_TRACE_FLAGMASK)";
   s.op->newline() << "stp->timer_list.data = i;"; // NB: important!
+  s.op->newline() << "#endif";
   // copy timer renew calculations from above :-(
   s.op->newline() << "stp->timer_list.expires = jiffies + ";
   emit_interval (s.op);

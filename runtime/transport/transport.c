@@ -311,7 +311,7 @@ static void _stp_detach(void)
 }
 
 
-static void _stp_ctl_work_callback(unsigned long val);
+static void _stp_ctl_work_callback(stp_timer_callback_parameter_t unused);
 
 /*
  * Called when stapio opens the control channel.
@@ -320,13 +320,12 @@ static void _stp_attach(void)
 {
 	dbug_trans(1, "attach\n");
 	_stp_pid = current->pid;
-  if (_stp_namespaces_pid < 1)
-    _stp_namespaces_pid = _stp_pid;
+	if (_stp_namespaces_pid < 1)
+		_stp_namespaces_pid = _stp_pid;
 	_stp_transport_data_fs_overwrite(0);
-	init_timer(&_stp_ctl_work_timer);
+
+	timer_setup(&_stp_ctl_work_timer, _stp_ctl_work_callback, 0);
 	_stp_ctl_work_timer.expires = jiffies + STP_CTL_TIMER_INTERVAL;
-	_stp_ctl_work_timer.function = _stp_ctl_work_callback;
-	_stp_ctl_work_timer.data= 0;
 	add_timer(&_stp_ctl_work_timer);
 }
 
@@ -341,7 +340,7 @@ static void _stp_attach(void)
  *	notified. Reschedules itself if someone is still attached
  *	to the cmd channel.
  */
-static void _stp_ctl_work_callback(unsigned long val)
+static void _stp_ctl_work_callback(stp_timer_callback_parameter_t unused)
 {
 	int do_io = 0;
 	unsigned long flags;

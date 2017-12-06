@@ -34,7 +34,7 @@
 #include <linux/compat.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
-#include <linux/timer.h>
+#include "timer_compatibility.h"
 #include <linux/delay.h>
 #include <linux/profile.h>
 #include <linux/rcupdate.h>

@@ -168,10 +168,10 @@ __stp_time_smp_callback(void *val)
 
 /* The timer callback is in a softIRQ -- interrupts enabled. */
 static void
-__stp_time_timer_callback(unsigned long val)
+__stp_time_timer_callback(stp_timer_callback_parameter_t unused)
 {
     stp_time_t *time =__stp_time_local_update();
-    (void) val;
+    (void) unused;
 
     /* PR6481: make sure IRQs are enabled before resetting the timer
        (IRQs are disabled and then reenabled in
@@ -200,9 +200,8 @@ __stp_init_time(void *info)
     time->freq = __stp_get_freq();
     __stp_time_local_update();
 
-    init_timer(&time->timer);
+    timer_setup(&time->timer, __stp_time_timer_callback, 0);
     time->timer.expires = jiffies + STP_TIME_SYNC_INTERVAL;
-    time->timer.function = __stp_time_timer_callback;
 
 #ifndef STAPCONF_ADD_TIMER_ON
     add_timer(&time->timer);

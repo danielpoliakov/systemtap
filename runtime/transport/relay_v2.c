@@ -30,7 +30,7 @@
 #include <linux/debugfs.h>
 #include <linux/mm.h>
 #include <linux/relay.h>
-#include <linux/timer.h>
+#include "../linux/timer_compatibility.h"
 #include "../uidgid_compatibility.h"
 #include "relay_compat.h"
 
@@ -120,7 +120,7 @@ static void __stp_relay_wakeup_readers(struct rchan_buf *buf)
 		wake_up_interruptible(&buf->read_wait);
 }
 
-static void __stp_relay_wakeup_timer(unsigned long val)
+static void __stp_relay_wakeup_timer(stp_timer_callback_parameter_t unused)
 {
 #ifdef STP_BULKMODE
 	int i;
@@ -151,10 +151,8 @@ static void __stp_relay_wakeup_timer(unsigned long val)
 static void __stp_relay_timer_init(void)
 {
 	atomic_set(&_stp_relay_data.wakeup, 0);
-	init_timer(&_stp_relay_data.timer);
+	timer_setup(&_stp_relay_data.timer, __stp_relay_wakeup_timer, 0);
 	_stp_relay_data.timer.expires = jiffies + STP_RELAY_TIMER_INTERVAL;
-	_stp_relay_data.timer.function = __stp_relay_wakeup_timer;
-	_stp_relay_data.timer.data = 0;
 	add_timer(&_stp_relay_data.timer);
 	smp_mb();
 }
