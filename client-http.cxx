@@ -55,7 +55,7 @@ public:
   json_object *root;
   std::string host;
   std::map<std::string, std::string> header_values;
-  std::vector<std::tuple<std::string, std::string>> localization_variables;
+  std::vector<std::tuple<std::string, std::string>> env_vars;
   enum download_type {json_type, file_type};
 
   bool download (const std::string & url, enum download_type type);
@@ -197,12 +197,16 @@ http_client::trace(CURL *, curl_infotype type, unsigned char *data, size_t size,
   size_t c;
 
   const unsigned int width = 64;
+  // Packet contents exceeding this size are probably downloaded file components
+  const unsigned int max_size = 0x2000;
 
   clog << text << " " << size << " bytes (" << showbase << hex << size << ")" << dec << noshowbase << endl;
 
+   if (size > max_size)
+     return 0;
+
   for (i = 0; i < size; i += width)
     {
-
       clog << setw(4) << setfill('0') << hex << i << dec << setfill(' ') << ": ";
 
       for (c = 0; (c < width) && (i + c < size); c++)
@@ -611,36 +615,37 @@ http_client::post (const string & url,
   //
   // So, the items are arranged by index - item N in each array are
   // related information.
-  struct json_object *file_pkg = json_object_new_array();
-  struct json_object *file_name = json_object_new_array();
-  struct json_object *file_id = json_object_new_array();
   int bid_idx = 0;
 
+  struct json_object *jarr = json_object_new_array();
   for (auto it = modules.begin (); it != modules.end (); ++it, ++bid_idx)
     {
+      struct json_object *jfobj = json_object_new_object();
       string pkg = (*it);
-      string buildid_file = std::get<0>(buildids[bid_idx]);
-      string buildid = std::get<1>(buildids[bid_idx]);
+      string name = std::get<0>(buildids[bid_idx]);
+      string build_id = std::get<1>(buildids[bid_idx]);
 
-      json_object_array_add(file_pkg, json_object_new_string(pkg.c_str()));
-      json_object_array_add(file_name, json_object_new_string(buildid_file.c_str()));
-      json_object_array_add(file_id, json_object_new_string(buildid.c_str()));
+      json_object_object_add (jfobj, "file_name", json_object_new_string (name.c_str()));
+      json_object_object_add (jfobj, "file_pkg", json_object_new_string (pkg.c_str()));
+      json_object_object_add (jfobj, "file_id", json_object_new_string (build_id.c_str()));
+      json_object_array_add (jarr, jfobj);
     }
-  json_object_object_add(jobj, "file_pkg", file_pkg);
-  json_object_object_add(jobj, "file_name", file_name);
-  json_object_object_add(jobj, "file_id", file_id);
+  json_object_object_add(jobj, "file_info", jarr);
 
 
-  if (! http->localization_variables.empty())
+  if (! http->env_vars.empty())
     {
-      for (auto i = http->localization_variables.begin();
-          i != http->localization_variables.end();
+      struct json_object *jlvobj = json_object_new_object();
+      for (auto i = http->env_vars.begin();
+          i != http->env_vars.end();
           ++i)
         {
           string name = get<0>(*i);
           string value = get<1>(*i);
-          json_object_object_add(jobj, name.c_str(), json_object_new_string(value.c_str()));
+          json_object_object_add (jlvobj, name.c_str(), json_object_new_string(value.c_str()));
         }
+      if (http->env_vars.size())
+        json_object_object_add (jobj, "env_vars", jlvobj);
     }
 
   curl_formadd (&formpost, &lastptr,
@@ -1115,7 +1120,7 @@ void
 http_client_backend::add_localization_variable (const std::string &name,
 					        const std::string &value)
 {
-  http->localization_variables.push_back(make_tuple(name, value));
+  http->env_vars.push_back(make_tuple(name, value));
   return;
 }
 

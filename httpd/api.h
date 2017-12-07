@@ -36,6 +36,7 @@ public:
     std::vector<std::string> cmd_args;
     std::vector<std::string> files;
     std::vector<std::shared_ptr<struct file_info> > file_info;
+    std::vector<std::string> env_vars;
     unsigned verbose;
 };
 

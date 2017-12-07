@@ -379,6 +379,9 @@ response build_collection_rh::POST(const request &req)
 	else if (it->first == "file_pkg") {
 	    file_pkg = it->second;
 	}
+	else if (it->first == "env_vars") {
+	    crd->env_vars = it->second;
+	}
 	// Notice we silently ignore any "extra" parameters.
     }
 

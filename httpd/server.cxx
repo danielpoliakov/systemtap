@@ -40,22 +40,56 @@ get_key_values(void *cls, enum MHD_ValueKind /*kind*/,
             return MHD_NO;
           }
 
-        json_object_object_foreach(root, jkey, jval)
+        json_object_object_foreach (root, jkey, jval)
           {
-            if (json_object_get_type(jval) == json_type_array)
+            switch (json_object_get_type (jval)) {
+            case json_type_array:
               {
-                for (int i = 0; i < json_object_array_length (jval); i++)
-                  {
-                    json_object *jarrval = json_object_array_get_idx(jval, i);
-                    const char* jvalue = json_object_get_string(jarrval);
-                    (*params)[jkey].push_back(jvalue ? jvalue : "");
+                for (int i = 0; i < json_object_array_length (jval); i++) {
+                  json_object *jarrval = json_object_array_get_idx (jval, i);
+                  const char* jvalue = json_object_get_string (jarrval);
+                  switch (json_object_get_type (jarrval)) {
+                    case json_type_string:
+                      // this handles e.g. "cmd_args":["-v","path.stp"]
+                      {
+                        (*params)[jkey].push_back(jvalue ? jvalue : "");
+                        break;
+                      }
+                    case json_type_object:
+                      // this handles e.g. "file_info":[{"file_name":"a", "file_pkg":"b", "file_id":"9"}]
+                      {
+                        json_object_object_foreach (jarrval, jsubkey, jsubval)
+                          {
+                            (*params)[jsubkey].push_back(json_object_get_string (jsubval));
+                          }
+                        break;
+                      }
+                    default:
+                      break;
                   }
+                }
+                break;
               }
-            else
+            case json_type_object:
               {
-                const char* jvalue = json_object_get_string(jval);
-                (*params)[jkey].push_back(jvalue ? jvalue : "");
+                // this handles e.g. "local vars":{"LANG":"en_US.UTF-8","LC_MESSAGES":"en_US.UTF-8"}
+                json_object_object_foreach (jval, jsubkey, jsubval)
+                  {
+                    string assign = autosprintf ("%s=%s", jsubkey, json_object_get_string (jsubval));
+                    (*params)[jkey].push_back(assign);
+                  }
+                break;
               }
+            case json_type_string:
+              {
+                // this handles e.g. "kver":"4.13.15-300.fc27.x86_64"
+                const char* jvalue = json_object_get_string (jval);
+                (*params)[jkey].push_back(jvalue ? jvalue : "");
+                break;
+              }
+            default:
+              break;
+            }
           }
         return MHD_YES;
       }

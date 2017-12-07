@@ -143,7 +143,7 @@ local_backend::can_generate_module(const client_request_data *crd)
 }
 
 int
-local_backend:: generate_module(const client_request_data *,
+local_backend:: generate_module(const client_request_data *crd,
 				const vector<string> &argv,
 				const string &,
 				const string &,
@@ -178,7 +178,10 @@ local_backend:: generate_module(const client_request_data *,
 
     // Kick off stap.
     pid_t pid;
-    pid = stap_spawn(2, argv, &actions);
+    if (crd->env_vars.size() > 0)
+      pid = stap_spawn(2, argv, &actions, crd->env_vars);
+    else
+      pid = stap_spawn(2, argv, &actions);
     clog << "spawn returned " << pid << endl;
 
     // If stap_spawn() failed, no need to wait.
@@ -434,6 +437,10 @@ docker_backend::generate_module(const client_request_data *crd,
     docker_args.clear();
     docker_args.push_back("docker");
     docker_args.push_back("run");
+    for (size_t i = 0; i < crd->env_vars.size(); ++i) {
+        string env_opt = autosprintf ("-e %s", crd->env_vars[i].c_str());
+        docker_args.push_back(env_opt);
+    }
     docker_args.push_back(uuid);
     for (auto it = argv.begin(); it != argv.end(); it++) {
 	docker_args.push_back(*it);
