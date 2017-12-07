@@ -18,7 +18,7 @@ stappaths \- důležitá umístění souborů a adresářů systemtapu
 ..
 
 .SH POPIS
-Tato manuálová stránka byla vygenerována @DATE@ pro systemtap @VERSION@.
+Tato manuálová stránka byla vygenerována pro systemtap @VERSION@.
 Následuje seznam důležitých umístění souborů a adresářů.
 
 .TP
