@@ -613,7 +613,11 @@ probe signal.pending = kernel.function("do_sigpending").call !,
 {
     name = "pending"
     sigset_add=@choose_defined($set, $uset)
-    sigset_size=$sigsetsize
+
+    # Note that this isn't 100% correct if $sigsetsize doesn't
+    # exist (in the case of newer do_sigpending() calls). Instead,
+    # we're returning the default size of a sigset_t.
+    sigset_size=@choose_defined($sigsetsize, @cast_sizeof("sigset_t"))
 }
 
 /**

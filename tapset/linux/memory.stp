@@ -1,7 +1,7 @@
 // memory/vm related tapset
 // Copyright (C) 2005, 2006 IBM Corp.
 // Copyright (C) 2006 Intel Corporation.
-// Copyright (C) 2014 Red Hat Inc.
+// Copyright (C) 2014-2017 Red Hat Inc.
 //
 // This file is part of systemtap, and is free software.  You can
 // redistribute it and/or modify it under the terms of the GNU General
@@ -368,7 +368,9 @@ probe vm.oom_kill = kernel.function("oom_kill_process") !,
 	__GFP_BITMASKS(__GFP_HIGH)
 	__GFP_BITMASKS(__GFP_IO)
 	__GFP_BITMASKS(__GFP_FS)
+#ifdef __GFP_COLD
 	__GFP_BITMASKS(__GFP_COLD)
+#endif
 	__GFP_BITMASKS(__GFP_NOWARN)
 #ifdef __GFP_RETRY_MAYFAIL
 	__GFP_BITMASKS(__GFP_RETRY_MAYFAIL)

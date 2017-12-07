@@ -1262,18 +1262,26 @@ probe nfsd.proc4.rename = kernel.function("nfsd4_rename").call !,
 	fh = & @nfsd4_compound_state($cstate)->save_fh
 	tfh = & @nfsd4_compound_state($cstate)->current_fh
 
-	filelen = $rename->rn_snamelen
-	filename = kernel_string_n($rename->rn_sname, $rename->rn_snamelen)	
-	tlen = $rename->rn_tnamelen
-	tname = kernel_string_n($rename->rn_tname, $rename->rn_tnamelen)
+	if (@defined($rename)) {
+		filelen = $rename->rn_snamelen
+		filename = kernel_string_n($rename->rn_sname,
+					   $rename->rn_snamelen)
+		tlen = $rename->rn_tnamelen
+		tname = kernel_string_n($rename->rn_tname, $rename->rn_tnamelen)
+	} else {
+		filelen = $u->rename->rn_snamelen
+		filename = kernel_string_n($u->rename->rn_sname,
+					   $u->rename->rn_snamelen)
+		tlen = $u->rename->rn_tnamelen
+		tname = kernel_string_n($u->rename->rn_tname,
+					$u->rename->rn_tnamelen)
+	}
 
 	uid = __rqstp_uid($rqstp)
 	gid = __rqstp_gid($rqstp)
 
 	name = "nfsd.proc4.rename"
-	argstr = sprintf("%s to %s", 
-		kernel_string_n($rename->rn_sname, $rename->rn_snamelen),
-		kernel_string_n($rename->rn_tname, $rename->rn_tnamelen))
+	argstr = sprintf("%s to %s", filename, tname)
 } 
 
 probe nfsd.proc4.rename.return =
