@@ -42,11 +42,11 @@
  * type, 'stp_timer_callback_parameter_t'.
  *
  * If code needs to figure out the difference between the old and new
- * interface, it should test the TIMER_TRACE_FLAGMASK define (which
- * only exists in the new interface).
+ * interface, it should test the init_timer define (which only exists
+ * in the old new interface).
  */
 
-#if defined(TIMER_TRACE_FLAGMASK) 
+#if !defined(init_timer) 
 /* This is the >= 4.15 kernel interface. */
 
 typedef struct timer_list * stp_timer_callback_parameter_t;

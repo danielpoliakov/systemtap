@@ -123,7 +123,7 @@ timer_derived_probe_group::emit_module_decls (systemtap_session& s)
   s.op->newline();
 
   s.op->newline() << "static void enter_timer_probe (stp_timer_callback_parameter_t val) {";
-  s.op->newline() << "#if defined(TIMER_TRACE_FLAGMASK)";
+  s.op->newline() << "#if !defined(init_timer)";
   s.op->newline(1) << "struct stap_timer_probe* stp = container_of(val, struct stap_timer_probe, timer_list);";
   s.op->newline(-1) << "#else";
   s.op->newline(1) << "struct stap_timer_probe* stp = & stap_timer_probes [val];";
@@ -154,7 +154,7 @@ timer_derived_probe_group::emit_module_init (systemtap_session& s)
   s.op->newline() << "probe_point = stp->probe->pp;";
 
   s.op->newline() << "timer_setup (& stp->timer_list, enter_timer_probe, 0);";
-  s.op->newline() << "#if !defined(TIMER_TRACE_FLAGMASK)";
+  s.op->newline() << "#if defined(init_timer)";
   s.op->newline() << "stp->timer_list.data = i;"; // NB: important!
   s.op->newline() << "#endif";
   // copy timer renew calculations from above :-(
