@@ -325,36 +325,64 @@ docker_backend::generate_module(const client_request_data *crd,
 				const string &stdout_path,
 				const string &stderr_path)
 {
-    // FIXME: Here we'll need to generate a docker file, run docker to
-    // create the container (and get all the right requirements
-    // installed), copy any files over, then finally run "docker exec"
-    // to actually run stap.
-
-    // Handle capturing stdout and stderr (along with using /dev/null
-    // for stdin).
-    posix_spawn_file_actions_t actions;
-    string docker_stdout_path = string(tmp_dir) + "/docker_stdout";
-    string docker_stderr_path = string(tmp_dir) + "/docker_stderr";
-    int rc = posix_spawn_file_actions_init(&actions);
+    // Handle capturing stap's stdout and stderr (along with using
+    // /dev/null for stdin).
+    posix_spawn_file_actions_t stap_actions;
+    int rc = posix_spawn_file_actions_init(&stap_actions);
     if (rc == 0) {
-	rc = posix_spawn_file_actions_addopen(&actions, 0, "/dev/null",
+	rc = posix_spawn_file_actions_addopen(&stap_actions, 0, "/dev/null",
 					      O_RDONLY, S_IRWXU);
     }
     if (rc == 0) {
-	rc = posix_spawn_file_actions_addopen(&actions, 1,
-					      docker_stdout_path.c_str(),
-					      O_WRONLY|O_CREAT|O_EXCL,
-					      S_IRWXU);
+	rc = posix_spawn_file_actions_addopen(&stap_actions, 1,
+					      stdout_path.c_str(),
+					      O_WRONLY|O_CREAT, S_IRWXU);
     }
     if (rc == 0) {
-	rc = posix_spawn_file_actions_addopen(&actions, 2,
-					      docker_stderr_path.c_str(),
-					      O_WRONLY|O_CREAT|O_EXCL,
-					      S_IRWXU);
+	rc = posix_spawn_file_actions_addopen(&stap_actions, 2,
+					      stderr_path.c_str(),
+					      O_WRONLY|O_CREAT, S_IRWXU);
     }
     if (rc != 0) {
 	clog << "posix_spawn_file_actions failed: " << strerror(errno)
 	     << endl;
+	return rc;
+    }
+
+    // Handle capturing docker's stdout and stderr (along with using
+    // /dev/null for stdin). If the client requested it, just use
+    // stap's stdout/stderr files.
+    posix_spawn_file_actions_t docker_actions, *docker_actions_p;
+    rc = posix_spawn_file_actions_init(&docker_actions);
+    if (crd->verbose >= 3) {
+	docker_actions_p = &stap_actions;
+    }
+    else {
+	string docker_stdout_path, docker_stderr_path;
+	docker_stdout_path = string(tmp_dir) + "/docker_stdout";
+	docker_stderr_path = string(tmp_dir) + "/docker_stderr";
+
+	if (rc == 0) {
+	    rc = posix_spawn_file_actions_addopen(&docker_actions, 0,
+						  "/dev/null",
+						  O_RDONLY, S_IRWXU);
+	}
+	if (rc == 0) {
+	    rc = posix_spawn_file_actions_addopen(&docker_actions, 1,
+						  docker_stdout_path.c_str(),
+						  O_WRONLY|O_CREAT, S_IRWXU);
+	}
+	if (rc == 0) {
+	    rc = posix_spawn_file_actions_addopen(&docker_actions, 2,
+						  docker_stderr_path.c_str(),
+						  O_WRONLY|O_CREAT, S_IRWXU);
+	}
+	docker_actions_p = &docker_actions;
+    }
+    if (rc != 0) {
+	clog << "posix_spawn_file_actions failed: " << strerror(errno)
+	     << endl;
+	(void)posix_spawn_file_actions_destroy(&stap_actions);
 	return rc;
     }
 
@@ -383,14 +411,15 @@ docker_backend::generate_module(const client_request_data *crd,
     docker_args.push_back("--data-dir");
     docker_args.push_back(datadir);
     docker_args.push_back(uuid);
-    pid_t pid = stap_spawn(2, docker_args, &actions);
+    pid_t pid = stap_spawn(2, docker_args, docker_actions_p);
     clog << "spawn returned " << pid << endl;
 
     // If stap_spawn() failed, no need to wait.
     if (pid == -1) {
 	rc = errno;
 	clog << "Error in spawn: " << strerror(errno) << endl;
-	(void)posix_spawn_file_actions_destroy(&actions);
+	(void)posix_spawn_file_actions_destroy(&stap_actions);
+	(void)posix_spawn_file_actions_destroy(&docker_actions);
 	return rc;
     }
 
@@ -398,38 +427,22 @@ docker_backend::generate_module(const client_request_data *crd,
     rc = stap_waitpid(0, pid);
     if (rc < 0) {			// stap_waitpid() failed
 	clog << "waitpid failed: " << strerror(errno) << endl;
-	(void)posix_spawn_file_actions_destroy(&actions);
+	(void)posix_spawn_file_actions_destroy(&stap_actions);
+	(void)posix_spawn_file_actions_destroy(&docker_actions);
 	return rc;
     }
 
     clog << "Spawned process returned " << rc << endl;
-    (void)posix_spawn_file_actions_destroy(&actions);
-
-    // If the client requested it, append the docker build output to
-    // the client's stdout/stderr files.
-    if (crd->verbose >= 3) {
-	ifstream docker_file;
-	ofstream client_file;
-
-	// Copy over stdout data.
-	docker_file.open(docker_stdout_path, ios::in);
-	client_file.open(stdout_path, ios::out|ios::app);
-	client_file << docker_file.rdbuf();
-	docker_file.close();
-	client_file.close();
-
-	// Copy over stderr data.
-	docker_file.open(docker_stderr_path, ios::in);
-	client_file.open(stderr_path, ios::out|ios::app);
-	client_file << docker_file.rdbuf();
-	docker_file.close();
-	client_file.close();
-    }
-
     if (rc > 0) {
 	clog << docker_build_container_script_path << " failed." << endl;
 	return -1;
     }
+
+    // We need a unique name for the container image that "docker run
+    // stap ..." will create, so grab another uuid.
+    uuid_t uuid2;
+    uuid_generate(uuid2);
+    string uuid2_str = get_uuid_representation(uuid2);
 
     // If we're here, we built the container successfully. Now start
     // the container and run stap. First, build up the command line
@@ -437,10 +450,19 @@ docker_backend::generate_module(const client_request_data *crd,
     docker_args.clear();
     docker_args.push_back("docker");
     docker_args.push_back("run");
+    docker_args.push_back("--name");
+    docker_args.push_back(uuid2_str);
     for (size_t i = 0; i < crd->env_vars.size(); ++i) {
         string env_opt = autosprintf ("-e %s", crd->env_vars[i].c_str());
         docker_args.push_back(env_opt);
     }
+
+    // When running "stap --tmpdir=/tmp/FOO", your current directory
+    // needs to be /tmp/FOO for stap to run successfully (for some odd
+    // reason).
+    docker_args.push_back("-w");
+    docker_args.push_back(tmp_dir);
+
     docker_args.push_back(uuid);
     for (auto it = argv.begin(); it != argv.end(); it++) {
 	docker_args.push_back(*it);
@@ -450,37 +472,15 @@ docker_backend::generate_module(const client_request_data *crd,
 	clog << " " << *it;
     }
     clog << endl;
-
-    // Set up grabbing the output.
-    rc = posix_spawn_file_actions_init(&actions);
-    if (rc == 0) {
-	rc = posix_spawn_file_actions_addopen(&actions, 0, "/dev/null",
-					      O_RDONLY, S_IRWXU);
-    }
-    if (rc == 0) {
-	rc = posix_spawn_file_actions_addopen(&actions, 1,
-					      stdout_path.c_str(),
-					      O_WRONLY|O_CREAT, S_IRWXU);
-    }
-    if (rc == 0) {
-	rc = posix_spawn_file_actions_addopen(&actions, 2,
-					      stderr_path.c_str(),
-					      O_WRONLY|O_CREAT, S_IRWXU);
-    }
-    if (rc != 0) {
-	clog << "posix_spawn_file_actions failed: " << strerror(errno)
-	     << endl;
-	return rc;
-    }
-
-    pid = stap_spawn(2, docker_args, &actions);
+    pid = stap_spawn(2, docker_args, &stap_actions);
     clog << "spawn returned " << pid << endl;
 
     // If stap_spawn() failed, no need to wait.
     if (pid == -1) {
 	rc = errno;
 	clog << "Error in spawn: " << strerror(errno) << endl;
-	(void)posix_spawn_file_actions_destroy(&actions);
+	(void)posix_spawn_file_actions_destroy(&stap_actions);
+	(void)posix_spawn_file_actions_destroy(&docker_actions);
 	return rc;
     }
 
@@ -488,20 +488,69 @@ docker_backend::generate_module(const client_request_data *crd,
     rc = stap_waitpid(0, pid);
     if (rc < 0) {			// stap_waitpid() failed
 	clog << "waitpid failed: " << strerror(errno) << endl;
-	(void)posix_spawn_file_actions_destroy(&actions);
+	(void)posix_spawn_file_actions_destroy(&stap_actions);
+	(void)posix_spawn_file_actions_destroy(&docker_actions);
 	return rc;
     }
 
+    // Here we need to grab any results.
     clog << "Spawned process returned " << rc << endl;
-    (void)posix_spawn_file_actions_destroy(&actions);
+    if (rc != 0) {
+	clog << "docker run failed." << endl;
+	(void)posix_spawn_file_actions_destroy(&stap_actions);
+	(void)posix_spawn_file_actions_destroy(&docker_actions);
+	return rc;
+    }
 
-    // Send an error message back in the stderr file.
-    ofstream file;
-    file.open(stderr_path, ios::out|ios::app);
-    file << "Error: Unable to retrieve a module with the docker backend." << endl;;
-    file.close();
+    docker_args.clear();
+    docker_args.push_back("docker");
+    docker_args.push_back("cp");
+    docker_args.push_back(uuid2_str + ":" + tmp_dir);
+    docker_args.push_back("/tmp");
+    clog << "Running:";
+    for (auto it = docker_args.begin(); it != docker_args.end(); it++) {
+	clog << " " << *it;
+    }
+    clog << endl;
 
-    return -1;
+    pid = stap_spawn(2, docker_args, docker_actions_p);
+    clog << "spawn returned " << pid << endl;
+
+    // If stap_spawn() failed, no need to wait.
+    if (pid == -1) {
+	rc = errno;
+	clog << "Error in spawn: " << strerror(errno) << endl;
+	(void)posix_spawn_file_actions_destroy(&stap_actions);
+	(void)posix_spawn_file_actions_destroy(&docker_actions);
+	return rc;
+    }
+
+    // Wait on the spawned process to finish.
+    rc = stap_waitpid(0, pid);
+    if (rc < 0) {			// stap_waitpid() failed
+	clog << "waitpid failed: " << strerror(errno) << endl;
+	(void)posix_spawn_file_actions_destroy(&stap_actions);
+	(void)posix_spawn_file_actions_destroy(&docker_actions);
+	return rc;
+    }
+
+    // FIXME: CLEANUP NEEDED!
+    //
+    // OK, at this point we've created a container, run stap,
+    // and copied out any result. Let's do a little cleanup and delete
+    // the last layer. We'll leave (for now) the container will all
+    // the files, but delete the layer that got created as stap was
+    // run (since there is no reuse there).
+    //
+    // docker rm/rmi uuid2_str
+
+    clog << "Spawned process returned " << rc << endl;
+    (void)posix_spawn_file_actions_destroy(&stap_actions);
+    (void)posix_spawn_file_actions_destroy(&docker_actions);
+    if (rc != 0) {
+	clog << "docker cp failed." << endl;
+    }
+    return rc;
 }
 
 void

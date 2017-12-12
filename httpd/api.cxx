@@ -26,11 +26,9 @@ extern "C" {
 #include <errno.h>
 #include <glob.h>
 #include <sched.h>
-#include <uuid/uuid.h>
-#include <json-c/json_object.h>
 }
 
-static string get_uuid_representation(const uuid_t uuid)
+string get_uuid_representation(const uuid_t uuid)
 {
     ostringstream os;
 
