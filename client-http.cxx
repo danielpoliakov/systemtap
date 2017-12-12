@@ -538,6 +538,10 @@ http_client::post (const string & url,
   struct curl_httppost *lastptr = NULL;
   struct json_object *jobj = json_object_new_object();
 
+  // Add parameter info
+  // "cmd_args": ["script\/\/path\/linetimes.stp","-v","-v",
+  //              "-c\/path\/bench.x","--","process(\"\/path\/bench.x\")","main"]
+
   string previous_parm_type;
   string previous_json_data;
   auto it = request_parameters.begin ();
@@ -589,32 +593,15 @@ http_client::post (const string & url,
                     CURLFORM_END);
     }
 
-  // Here we're adding the package information. We'd like to do
-  // something like (in JSON):
-  //
-  //   "package_info": [ { "package": "kernel-4.14.0-0.rc4.git4.1.fc28.x86_64",
-  //                       "filename": "kernel",
-  //                       "id": "ef7210ee3a447c798c3548102b82665f03ef241f" },
-  //                     { "package": "foo-1.1.x86_64",
-  //                       "filename": "/usr/bin/foo",
-  //                       "id": "deadbeef" }
-  //                   ]
-  //
-  // For each file, we've got the package it came from and its build
-  // id.
-  //
-  // But we can't do that in POST form data (or in libcurl). So
-  // instead, we'll turn those arrays inside out. The package
-  // information will look like:
-  //
-  //   "file_pkg": [ "kernel-4.14.0-0.rc4.git4.1.fc28.x86_64",
-  //                 "foo-1.1.x86_64" ],
-  //   "file_name": [ "kernel", "/usr/bin/foo" ],
-  //   "file_id": [ "ef7210ee3a447c798c3548102b82665f03ef241f",
-  //                "deadbeef" ]
-  //
-  // So, the items are arranged by index - item N in each array are
-  // related information.
+  // Add package info
+  //   "file_info": [ { "file_pkg": "kernel-4.14.0-0.rc4.git4.1.fc28.x86_64",
+  //                       "file_name": "kernel",
+  //                       "build_id": "ef7210ee3a447c798c3548102b82665f03ef241f" },
+  //                  { "file_pkg": "foo-1.1.x86_64",
+  //                       "file_name": "/usr/bin/foo",
+  //                       "build_id": "deadbeef" }
+  //                ]
+
   int bid_idx = 0;
 
   struct json_object *jarr = json_object_new_array();
@@ -627,11 +614,14 @@ http_client::post (const string & url,
 
       json_object_object_add (jfobj, "file_name", json_object_new_string (name.c_str()));
       json_object_object_add (jfobj, "file_pkg", json_object_new_string (pkg.c_str()));
-      json_object_object_add (jfobj, "file_id", json_object_new_string (build_id.c_str()));
+      json_object_object_add (jfobj, "build_id", json_object_new_string (build_id.c_str()));
       json_object_array_add (jarr, jfobj);
     }
   json_object_object_add(jobj, "file_info", jarr);
 
+
+  // Add environment variables info
+  // "env_vars": {"LANG":"en_US.UTF-8","LC_MESSAGES":"en_US.UTF-8"}
 
   if (! http->env_vars.empty())
     {

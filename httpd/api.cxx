@@ -345,7 +345,7 @@ response build_collection_rh::POST(const request &req)
 
     // Gather up the info we need.
     vector<string> file_name;
-    vector<string> file_id;
+    vector<string> build_id;
     vector<string> file_pkg;
     for (auto it = req.params.begin(); it != req.params.end(); it++) {
 	if (it->first == "kver") {
@@ -368,8 +368,8 @@ response build_collection_rh::POST(const request &req)
 	else if (it->first == "distro_version") {
 	    crd->distro_version = it->second[0];
 	}
-	else if (it->first == "file_id") {
-	    file_id = it->second;
+	else if (it->first == "build_id") {
+	    build_id = it->second;
 	}
 	else if (it->first == "file_name") {
 	    file_name = it->second;
@@ -384,8 +384,8 @@ response build_collection_rh::POST(const request &req)
     }
 
     // Combine the file info fields.
-    if (! file_name.empty() || ! file_id.empty() || ! file_pkg.empty()) {
-	if (file_name.size() != file_id.size()
+    if (! file_name.empty() || ! build_id.empty() || ! file_pkg.empty()) {
+	if (file_name.size() != build_id.size()
 	    || file_name.size() != file_pkg.size()) {
 	    // Return an error.
 	    clog << "400 - bad request (1)" << endl;
@@ -397,7 +397,7 @@ response build_collection_rh::POST(const request &req)
 	    auto finfo = make_shared<struct file_info>();
 	    finfo->name = file_name[i];
 	    finfo->pkg = file_pkg[i];
-	    finfo->build_id = file_id[i];
+	    finfo->build_id = build_id[i];
 	    crd->file_info.push_back(finfo);
 	}
     }
