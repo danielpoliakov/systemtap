@@ -56,7 +56,7 @@ get_key_values(void *cls, enum MHD_ValueKind /*kind*/,
                         break;
                       }
                     case json_type_object:
-                      // this handles e.g. "file_info":[{"file_name":"a", "file_pkg":"b", "file_id":"9"}]
+                      // this handles e.g. "file_info":[{"file_name":"a", "file_pkg":"b", "build_id":"9"}]
                       {
                         json_object_object_foreach (jarrval, jsubkey, jsubval)
                           {
