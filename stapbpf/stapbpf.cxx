@@ -658,7 +658,7 @@ init_internal_globals()
   long val = 0;
 
   if (bpf_update_elem(map_fds[globals::internal_map_idx],
-                     (void*)&key, (void*)&val, BPF_EXIST) != 0)
+                     (void*)&key, (void*)&val, BPF_ANY) != 0)
     fatal("Error updating pid: %s\n", errno);
 }
 
