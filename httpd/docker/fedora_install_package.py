@@ -11,6 +11,8 @@ import os.path
 import sys
 import subprocess
 import re
+import string
+import platform
 
 def which(cmd):
     """Find the full path of a command."""
@@ -48,17 +50,21 @@ class PkgSystem(object):
         # distro/release (like looking at /etc/redhat-release).
         #
         # Note that it isn't an error if we can't figure out the
-        # distroy/release - we may not need that information.
+        # distro/release - we may not need that information.
         lsb_release = which("lsb_release")
         if lsb_release != None:
             try:
-                self.__distro_id = subprocess.check_output([lsb_release, "-is"])
+                self.__distro_id = string.strip(subprocess.check_output([lsb_release, "-is"]))
             except subprocess.CalledProcessError:
                 pass
             try:
-                self.__release = subprocess.check_output([lsb_release, "-rs"])
+                self.__release = string.strip(subprocess.check_output([lsb_release, "-rs"]))
             except subprocess.CalledProcessError:
                 pass
+        if self.__distro_id == None:
+            self.__distro_id = platform.linux_distribution()[0]
+        if self.__release == None:
+            self.__release = platform.linux_distribution()[1]
 
         #
         # Make sure we know the base package manager the system uses.
@@ -125,19 +131,75 @@ class PkgSystem(object):
         if self.__wget_path is None or self.__distro_id is None \
            or self.__distro_id.lower() != "fedora":
             _eprint("Can't download package '%s'" % pkg_nvr)
-            sys.exit(1)
+            return 0
 
-        # FIXME: work on this later...
-        _eprint("Can't download package '%s'" % pkg_nvr)
-        sys.exit(1)
+        # Try downloading the package from koji, Fedora's build system.
+        nvra_regexp = re.compile('^(\w+)-([^-]+)-([^-]+)\.(\w+)$')
+        match = nvra_regexp.match(pkg_nvr)
+        if not match:
+            _eprint("Can't parse package nvr '%s'" % pkg_nvr)
+            return 0
+
+        pkg_name = match.group(1)
+        pkg_version = match.group(2)
+        pkg_release = match.group(3)
+        pkg_arch = match.group(4)
 
         # Build up the koji url. Koji urls look like:
-        # http://kojipkgs.fedoraproject.org/packages/NAME/VER/RELEASE/ARCH/RPM_FILENAME
+        # http://kojipkgs.fedoraproject.org/packages/NAME/VER/RELEASE/ARCH/
+        koji_url = ("http://kojipkgs.fedoraproject.org/packages/%s/%s/%s/%s"
+                    % (pkg_name, pkg_version, pkg_release, pkg_arch))
+        _eprint("URL: '%s'" % koji_url)
 
-        #url = "http://kojipkgs.fedoraproject.org/packages/%s/%s/%s/%s/%s"
+        # Download the entire arch directory. Here's a description of
+        # wget's arguments:
+        #
+        #   --quiet: Don't display progress.
+        #   -nH: No host directories (i.e. get rid of the host name in
+        #        the download directory name).
+        #   --cut-dirs=4: Ignore 4 directory components.
+        #   -r: Turn on recursive retrieving.
+        #   -l 1: Maximum recursion depth is 1.
+        #
+        if subprocess.call(['wget', '--quiet', '-nH', '--cut-dirs=4',
+                            '-r', '-l', '1', koji_url]) != 0:
+            _eprint("Can't download package '%s'" % pkg_nvr)
+            return 0
 
-        # try downloading the package from koji, Fedora's build system.
-        #rc = subprocess.call([self.__wget_path, ?]
+        # OK, now we've got a directory which contains all the RPMs
+        # for package 'foo'. We can't just do a "dnf install RPM",
+        # because (for example) the 'kernel' RPM requires the
+        # 'kernel-core' and 'kernel-firmware' RPMs. We might be able
+        # to install all the RPMs we just downloaded, but besides
+        # being overkill, it is theoretically possible that they might
+        # conflict somehow.
+        #
+        # So, instead we'll create a local repo that then yum/dnf can
+        # use when looking for RPMs.
+
+        # First create the repo file.
+        local_repo_path = '/etc/yum.repos.d/local.repo'
+        if not os.path.exists(local_repo_path):
+            f = open(local_repo_path, 'w')
+            f.write('[local]\n')
+            f.write('name=Local repository\n')
+            f.write('baseurl=file:///root/%s\n' % pkg_arch)
+            f.write('enabled=1\n')
+            f.write('gpgcheck=0\n')
+            f.write('type=rpm\n')
+            f.close();
+
+        # Next run 'createrepo_c' on the directory.
+        if subprocess.call(['createrepo_c', '--quiet', pkg_arch]) != 0:
+            _eprint("Can't run createrepo_c")
+            return 0
+
+        # Finally run the package manager to install the package.
+        if subprocess.call([self.__pkgmgr_path, 'install', '-y',
+                            pkg_nvr]) != 0:
+            _eprint("Can't install '%s'" % pkg_nvr)
+            return 0
+
         if self.__verbose:
             print("Package %s downloaded and installed." % pkg_nvr)
         return 1
@@ -174,6 +236,9 @@ def main():
         _eprint("Error: '--name', '--pkg', and '--build_id' are required arguments.")
         _usage()
 
+    # Make sure we're in /root.
+    os.chdir('/root')
+
     packages = []
     packages.append([pkg_name, pkg_nvr, pkg_build_id])
 
@@ -205,7 +270,7 @@ def main():
         if pkgsys.pkg_download_and_install(pkg_nvr, pkg_build_id):
             continue
 
-        _eprint("Can't find package '%s'" % pkgname)
+        _eprint("Can't find package '%s'" % pkg_name)
         sys.exit(1)
 
     if verbose:
