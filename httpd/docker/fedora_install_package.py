@@ -15,9 +15,6 @@ import platform
 import getopt
 import shutil
 
-local_repo_path = ''
-local_rpm_dir = ''
-
 def which(cmd):
     """Find the full path of a command."""
     for path in os.environ["PATH"].split(os.pathsep):
@@ -38,6 +35,8 @@ class PkgSystem(object):
     __pkgr_path = None
     __pkgmgr_path = None
     __wget_path = None
+    __local_repo_path = ''
+    __local_rpm_dir = ''
 
     def __init__(self, verbose):
         __verbose = verbose
@@ -87,30 +86,45 @@ class PkgSystem(object):
         # it since we may not need it.
         self.__wget_path = which("wget")
 
-    def pkg_exists(self, pkg_nvr, pkg_build_id):
+    def build_id_is_valid(self, name, build_id):
+        """Return true if the 'name' matches the build id."""
+        # First, make sure the build id symbolic link exists. This has
+        # to be an exact match.
+        build_id_path = '/usr/lib/debug/.build-id/' + build_id[:2] \
+                        + '/' + build_id[2:]
+        if not os.path.exists(build_id_path):
+            if self.__verbose:
+                print("Build id %s doesn't exist." % build_id)
+            return 0
+
+        # Now we know the build id exists. But, does it point to the
+        # correct file?
+        sym_target = os.path.basename(os.readlink(build_id_path))
+        if name == 'kernel':
+            name = 'vmlinux'
+        if sym_target != name:
+            if self.__verbose:
+                print("Build id %s doesn't match '%s'." % build_id, name)
+            return 0
+        return 1
+
+    def pkg_exists(self, name, pkg_nvr, build_id):
         """Return true if the package and its debuginfo exists."""
         if subprocess.call([self.__pkgr_path, "-qi", pkg_nvr]) != 0:
             return 0
-        if not pkg_build_id:
+        if not build_id:
             if self.__verbose:
                 print("Package %s already exists on the system." % pkg_nvr)
             return 1
-        # Note we're looking for an exact match with a build id
-        # here.
-        build_id_path = '/usr/lib/debug/.build-id/' + pkg_build_id[:2] \
-                        + '/' + pkg_build_id[2:]
-        if os.path.exists(build_id_path):
-            if self.__verbose:
-                print("Package %s already exists on the system." % pkg_nvr)
-            return 1
-        return 0
 
-    def pkg_install(self, pkg_nvr, pkg_build_id):
+        return self.build_id_is_valid(name, build_id)
+
+    def pkg_install(self, name, pkg_nvr, build_id):
         """Install a package and its debuginfo."""
         if subprocess.call([self.__pkgmgr_path, 'install', '-y',
                             pkg_nvr]) != 0:
             return 0
-        if not pkg_build_id:
+        if not build_id:
             if self.__verbose:
                 print("Package %s installed." % pkg_nvr)
             return 1
@@ -118,15 +132,12 @@ class PkgSystem(object):
                             '-y', pkg_nvr]) != 0:
             return 0
 
-        # FIXME: What do we do here in the case where the debuginfo
-        # install works, but the build ids don't match? sys.exit(1)
-        if self.__verbose:
-            print("Package %s and its debuginfo installed." % pkg_nvr)
-        return 1
+        # OK, at this point we know the package and its debuginfo has
+        # been installed. Validiate the build id.
+        return self.build_id_is_valid(name, build_id)
 
-    def pkg_download_and_install(self, pkg_nvr, pkg_build_id):
+    def pkg_download_and_install(self, name, pkg_nvr, build_id):
         """Manually download and install a package."""
-        global local_repo_path, local_rpm_dir
         # If we're not on Fedora, we don't know how to get the
         # package.
         if self.__wget_path is None or self.__distro_id is None \
@@ -179,13 +190,13 @@ class PkgSystem(object):
         # use when looking for RPMs.
 
         # First create the repo file.
-        local_repo_path = '/etc/yum.repos.d/local.repo'
-        local_rpm_dir = '/root/%s' % pkg_arch
-        if not os.path.exists(local_repo_path):
-            repo_file = open(local_repo_path, 'w')
+        self.__local_repo_path = '/etc/yum.repos.d/local.repo'
+        self.__local_rpm_dir = '/root/%s' % pkg_arch
+        if not os.path.exists(self.__local_repo_path):
+            repo_file = open(self.__local_repo_path, 'w')
             repo_file.write('[local]\n')
             repo_file.write('name=Local repository\n')
-            repo_file.write('baseurl=file://%s\n' % local_rpm_dir)
+            repo_file.write('baseurl=file://%s\n' % self.__local_rpm_dir)
             repo_file.write('enabled=1\n')
             repo_file.write('gpgcheck=0\n')
             repo_file.write('type=rpm\n')
@@ -196,15 +207,16 @@ class PkgSystem(object):
             _eprint("Can't run createrepo_c")
             return 0
 
-        # Finally run the package manager to install the package.
-        if subprocess.call([self.__pkgmgr_path, 'install', '-y',
-                            pkg_nvr]) != 0:
-            _eprint("Can't install '%s'" % pkg_nvr)
-            return 0
+        # At this point we should be set up to let the package manager
+        # install the package.
+        return self.pkg_install(name, pkg_nvr, build_id)
 
-        if self.__verbose:
-            print("Package %s downloaded and installed." % pkg_nvr)
-        return 1
+    def cleanup(self):
+        """Perform cleanup (if necessary)."""
+        if self.__local_repo_path:
+            os.remove(self.__local_repo_path)
+        if self.__local_rpm_dir:
+            shutil.rmtree(self.__local_rpm_dir)
 
 def _usage():
     """Display command-line usage."""
@@ -215,9 +227,9 @@ def _usage():
 def _handle_command_line():
     """Process command line."""
     verbose = 0
-    pkg_name = ''
+    name = ''
     pkg_nvr = ''
-    pkg_build_id = ''
+    build_id = ''
 
     # Make sure the command line looks reasonable.
     if len(sys.argv) < 4:
@@ -231,27 +243,27 @@ def _handle_command_line():
         if opt == '-v':
             verbose += 1
         elif opt == '--name':
-            pkg_name = value
+            name = value
         elif opt == '--pkg':
             pkg_nvr = value
         elif opt == '--build_id':
-            pkg_build_id = value
+            build_id = value
     if pargs:
         _usage()
-    if not pkg_name or not pkg_nvr or not pkg_build_id:
+    if not name or not pkg_nvr or not build_id:
         _eprint("Error: '--name', '--pkg', and '--build_id' are required arguments.")
         _usage()
-    return (verbose, pkg_name, pkg_nvr, pkg_build_id)
+    return (verbose, name, pkg_nvr, build_id)
 
 def main():
     """Main function."""
-    (verbose, pkg_name, pkg_nvr, pkg_build_id) = _handle_command_line()
+    (verbose, name, pkg_nvr, build_id) = _handle_command_line()
 
     # Make sure we're in /root.
     os.chdir('/root')
 
     packages = []
-    packages.append([pkg_name, pkg_nvr, pkg_build_id])
+    packages.append([name, pkg_nvr, build_id])
 
     # If the package name is 'kernel', we've got to do some special
     # processing. We also want to install the matching kernel-devel
@@ -260,38 +272,35 @@ def main():
     # Note that we have to handle/recognize kernel variants, like
     # 'kernel-PAE' or 'kernel-debug'.
     kernel_regexp = re.compile(r'^kernel(-\w+)?')
-    match = kernel_regexp.match(pkg_name)
+    match = kernel_regexp.match(name)
     if match:
-        devel_name = pkg_name + '-devel'
-        devel_nvr = re.sub(pkg_name, devel_name, pkg_nvr)
+        devel_name = name + '-devel'
+        devel_nvr = re.sub(name, devel_name, pkg_nvr)
         packages.append([devel_name, devel_nvr, ''])
 
     pkgsys = PkgSystem(verbose)
-    for (pkg_name, pkg_nvr, pkg_build_id) in packages:
+    for (name, pkg_nvr, build_id) in packages:
         # Is the correct package version already installed?
-        if pkgsys.pkg_exists(pkg_nvr, pkg_build_id):
+        if pkgsys.pkg_exists(name, pkg_nvr, build_id):
             continue
 
         # Try using the package manager to install the package
-        if pkgsys.pkg_install(pkg_nvr, pkg_build_id):
+        if pkgsys.pkg_install(name, pkg_nvr, build_id):
             continue
 
         # As a last resort, try downloading and installing the package
         # manually.
-        if pkgsys.pkg_download_and_install(pkg_nvr, pkg_build_id):
+        if pkgsys.pkg_download_and_install(name, pkg_nvr, build_id):
             continue
 
-        _eprint("Can't find package '%s'" % pkg_name)
+        _eprint("Can't find package '%s'" % pkg_nvr)
         sys.exit(1)
 
     if verbose:
         print("All packages installed.")
 
-    # Cleanup, if needed.
-    if local_repo_path:
-        os.remove(local_repo_path)
-    if local_rpm_dir:
-        shutil.rmtree(local_rpm_dir)
+    # Perform cleanup, if needed.
+    pkgsys.cleanup()
 
     sys.exit(0)
 
