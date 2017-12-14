@@ -13,6 +13,10 @@ import subprocess
 import re
 import platform
 import getopt
+import shutil
+
+local_repo_path = ''
+local_rpm_dir = ''
 
 def which(cmd):
     """Find the full path of a command."""
@@ -122,6 +126,7 @@ class PkgSystem(object):
 
     def pkg_download_and_install(self, pkg_nvr, pkg_build_id):
         """Manually download and install a package."""
+        global local_repo_path, local_rpm_dir
         # If we're not on Fedora, we don't know how to get the
         # package.
         if self.__wget_path is None or self.__distro_id is None \
@@ -175,11 +180,12 @@ class PkgSystem(object):
 
         # First create the repo file.
         local_repo_path = '/etc/yum.repos.d/local.repo'
+        local_rpm_dir = '/root/%s' % pkg_arch
         if not os.path.exists(local_repo_path):
             repo_file = open(local_repo_path, 'w')
             repo_file.write('[local]\n')
             repo_file.write('name=Local repository\n')
-            repo_file.write('baseurl=file:///root/%s\n' % pkg_arch)
+            repo_file.write('baseurl=file://%s\n' % local_rpm_dir)
             repo_file.write('enabled=1\n')
             repo_file.write('gpgcheck=0\n')
             repo_file.write('type=rpm\n')
@@ -280,6 +286,13 @@ def main():
 
     if verbose:
         print("All packages installed.")
+
+    # Cleanup, if needed.
+    if local_repo_path:
+        os.remove(local_repo_path)
+    if local_rpm_dir:
+        shutil.rmtree(local_rpm_dir)
+
     sys.exit(0)
 
 if __name__ == '__main__':
