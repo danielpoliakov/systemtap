@@ -11,8 +11,8 @@ import os.path
 import sys
 import subprocess
 import re
-import string
 import platform
+import getopt
 
 def which(cmd):
     """Find the full path of a command."""
@@ -25,12 +25,6 @@ def which(cmd):
 def _eprint(*args, **kwargs):
     """Print to stderr."""
     print(*args, file=sys.stderr, **kwargs)
-
-def _usage():
-    """Display command-line usage."""
-    _eprint("Usage: %s [-v] --name NAME --pkg PACKAGE --build_id BUILD_ID"
-            % sys.argv[0])
-    sys.exit(1)
 
 class PkgSystem(object):
     "A class to hide the details of package management."
@@ -54,16 +48,18 @@ class PkgSystem(object):
         lsb_release = which("lsb_release")
         if lsb_release != None:
             try:
-                self.__distro_id = string.strip(subprocess.check_output([lsb_release, "-is"]))
+                self.__distro_id = subprocess.check_output([lsb_release, "-is"])
+                self.__distro_id = self.__distro_id.strip()
             except subprocess.CalledProcessError:
                 pass
             try:
-                self.__release = string.strip(subprocess.check_output([lsb_release, "-rs"]))
+                self.__release = subprocess.check_output([lsb_release, "-rs"])
+                self.__release = self.__release.strip()
             except subprocess.CalledProcessError:
                 pass
-        if self.__distro_id == None:
+        if self.__distro_id is None:
             self.__distro_id = platform.linux_distribution()[0]
-        if self.__release == None:
+        if self.__release is None:
             self.__release = platform.linux_distribution()[1]
 
         #
@@ -91,7 +87,7 @@ class PkgSystem(object):
         """Return true if the package and its debuginfo exists."""
         if subprocess.call([self.__pkgr_path, "-qi", pkg_nvr]) != 0:
             return 0
-        if len(pkg_build_id) == 0:
+        if not pkg_build_id:
             if self.__verbose:
                 print("Package %s already exists on the system." % pkg_nvr)
             return 1
@@ -110,7 +106,7 @@ class PkgSystem(object):
         if subprocess.call([self.__pkgmgr_path, 'install', '-y',
                             pkg_nvr]) != 0:
             return 0
-        if len(pkg_build_id) == 0:
+        if not pkg_build_id:
             if self.__verbose:
                 print("Package %s installed." % pkg_nvr)
             return 1
@@ -134,7 +130,7 @@ class PkgSystem(object):
             return 0
 
         # Try downloading the package from koji, Fedora's build system.
-        nvra_regexp = re.compile('^(\w+)-([^-]+)-([^-]+)\.(\w+)$')
+        nvra_regexp = re.compile(r'^(\w+)-([^-]+)-([^-]+)\.(\w+)$')
         match = nvra_regexp.match(pkg_nvr)
         if not match:
             _eprint("Can't parse package nvr '%s'" % pkg_nvr)
@@ -180,14 +176,14 @@ class PkgSystem(object):
         # First create the repo file.
         local_repo_path = '/etc/yum.repos.d/local.repo'
         if not os.path.exists(local_repo_path):
-            f = open(local_repo_path, 'w')
-            f.write('[local]\n')
-            f.write('name=Local repository\n')
-            f.write('baseurl=file:///root/%s\n' % pkg_arch)
-            f.write('enabled=1\n')
-            f.write('gpgcheck=0\n')
-            f.write('type=rpm\n')
-            f.close();
+            repo_file = open(local_repo_path, 'w')
+            repo_file.write('[local]\n')
+            repo_file.write('name=Local repository\n')
+            repo_file.write('baseurl=file:///root/%s\n' % pkg_arch)
+            repo_file.write('enabled=1\n')
+            repo_file.write('gpgcheck=0\n')
+            repo_file.write('type=rpm\n')
+            repo_file.close()
 
         # Next run 'createrepo_c' on the directory.
         if subprocess.call(['createrepo_c', '--quiet', pkg_arch]) != 0:
@@ -204,11 +200,18 @@ class PkgSystem(object):
             print("Package %s downloaded and installed." % pkg_nvr)
         return 1
 
-def main():
-    """Main function."""
-    import getopt
+def _usage():
+    """Display command-line usage."""
+    _eprint("Usage: %s [-v] --name NAME --pkg PACKAGE --build_id BUILD_ID"
+            % sys.argv[0])
+    sys.exit(1)
 
+def _handle_command_line():
+    """Process command line."""
     verbose = 0
+    pkg_name = ''
+    pkg_nvr = ''
+    pkg_build_id = ''
 
     # Make sure the command line looks reasonable.
     if len(sys.argv) < 4:
@@ -218,9 +221,6 @@ def main():
     except getopt.GetoptError as err:
         _eprint("Error: %s" % err)
         _usage()
-    pkg_name = ''
-    pkg_nvr = ''
-    pkg_build_id = ''
     for (opt, value) in opts:
         if opt == '-v':
             verbose += 1
@@ -232,9 +232,14 @@ def main():
             pkg_build_id = value
     if pargs:
         _usage()
-    if len(pkg_name) == 0 or len(pkg_nvr) == 0 or len(pkg_build_id) == 0:
+    if not pkg_name or not pkg_nvr or not pkg_build_id:
         _eprint("Error: '--name', '--pkg', and '--build_id' are required arguments.")
         _usage()
+    return (verbose, pkg_name, pkg_nvr, pkg_build_id)
+
+def main():
+    """Main function."""
+    (verbose, pkg_name, pkg_nvr, pkg_build_id) = _handle_command_line()
 
     # Make sure we're in /root.
     os.chdir('/root')
@@ -245,10 +250,10 @@ def main():
     # If the package name is 'kernel', we've got to do some special
     # processing. We also want to install the matching kernel-devel
     # (along with the debuginfo).
-    # 
+    #
     # Note that we have to handle/recognize kernel variants, like
     # 'kernel-PAE' or 'kernel-debug'.
-    kernel_regexp = re.compile('^kernel(-\w+)?')
+    kernel_regexp = re.compile(r'^kernel(-\w+)?')
     match = kernel_regexp.match(pkg_name)
     if match:
         devel_name = pkg_name + '-devel'
