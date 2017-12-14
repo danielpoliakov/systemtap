@@ -1,5 +1,7 @@
 #! /usr/bin/python
 
+"""Build a docker file and container based on a JSON template."""
+
 from __future__ import print_function
 import json
 import os
@@ -15,11 +17,12 @@ def _eprint(*args, **kwargs):
 
 def _usage():
     """Display command-line usage."""
-    _eprint("Usage: %s [-v] --distro-file DISTRO_JSON_FILE --build-file DATA_JSON_FILE --data-dir DATA_DIR DOCKER_TAG" % sys.argv[0])
+    _eprint('Usage: %s [-v] --distro-file DISTRO_JSON_FILE'
+            ' --build-file DATA_JSON_FILE --data-dir DATA_DIR DOCKER_TAG'
+            % sys.argv[0])
     sys.exit(1)
 
-def main():
-    """Main function."""
+def _handle_command_line():
     import getopt
 
     verbose = 0
@@ -44,70 +47,83 @@ def main():
             ivars['BUILD_FILE'] = value
         elif opt == '--data-dir':
             ivars['DATA_DIR'] = value
-            
+
     if len(pargs) != 1:
         _eprint("No DOCKER_TAG specified.")
         _usage()
-    if not 'DISTRO_FILE' in ivars or not 'BUILD_FILE' in ivars \
-       or not 'DATA_DIR' in ivars:
+    if 'DISTRO_FILE' not in ivars or 'BUILD_FILE' not in ivars \
+       or 'DATA_DIR' not in ivars:
         _eprint("Arguments '--distro-file', '--build-file', and '--data-dir' are required.")
         _usage()
     ivars['DOCKER_TAG'] = pargs[0]
+    return (verbose, ivars)
 
-    # Create a temporary directory for our use.
-    tmpdir_path = tempfile.mkdtemp()
-    #FIXME!!!
-    #tmpdir_path = os.getcwd()
-
+def _load_distro_file(distro_path):
     # Read in the distro file.
     try:
-        jfile = open(ivars['DISTRO_FILE'])
+        jfile = open(distro_path)
     except (OSError, IOError) as err:
-        _eprint("Error opening file %s: %s" % (ivars['DISTRO_FILE'], err))
+        _eprint("Error opening file %s: %s" % (distro_path, err))
         sys.exit(1)
     try:
         distro_json = json.load(jfile)
     except ValueError as err:
         _eprint("Error: Invalid JSON input in file %s: %s"
-                % (ivars['DISTRO_FILE'], err))
-        jfile.close()
-        sys.exit(1)
-    jfile.close()
-
-    # Read in the build file.
-    try:
-        jfile = open(ivars['BUILD_FILE'])
-    except (OSError, IOError) as err:
-        _eprint("Error opening file %s: %s" % (ivars['BUILD_FILE'], err))
-        sys.exit(1)
-    try:
-        build_json = json.load(jfile)
-    except ValueError as err:
-        _eprint("Error: Invalid JSON input in file %s: %s"
-                % (ivars['BUILD_FILE'], err))
+                % (distro_path, err))
         jfile.close()
         sys.exit(1)
     jfile.close()
 
     # We need to validate the distro JSON data here, making sure we've
     # got everything we need.
-    if not 'docker_stages' in distro_json:
-        _eprint("Error: Missing 'docker_stages' data in %s."
-                % ivars['DISTRO_FILE'])
+    if 'docker_stages' not in distro_json:
+        _eprint("Error: Missing 'docker_stages' data in %s." % distro_path)
         sys.exit(1)
-    if not 'distro_package_installer' in distro_json:
+    if 'distro_package_installer' not in distro_json:
         _eprint("Error: Missing 'distro_package_installer' data in %s."
-                % ivars['DISTRO_FILE'])
+                % distro_path)
         sys.exit(1)
-    
+    return distro_json
+
+def _load_build_file(build_path):
+    # Read in the build file.
+    try:
+        jfile = open(build_path)
+    except (OSError, IOError) as err:
+        _eprint("Error opening file %s: %s" % (build_path, err))
+        sys.exit(1)
+    try:
+        build_json = json.load(jfile)
+    except ValueError as err:
+        _eprint("Error: Invalid JSON input in file %s: %s"
+                % (build_path, err))
+        jfile.close()
+        sys.exit(1)
+    jfile.close()
+
     # We need to validate the build JSON data here, making sure we've
     # got everything we need.
-    if not 'file_info' in build_json:
-        _eprint("Error: Missing 'file_info' data in %s." % ivars['BUILD_FILE'])
+    if 'file_info' not in build_json:
+        _eprint("Error: Missing 'file_info' data in %s." % build_path)
         sys.exit(1)
-    if not 'distro_version' in build_json:
-        _eprint("Error: Missing 'distro_version' data in %s." % ivars['BUILD_FILE'])
+    if 'distro_version' not in build_json:
+        _eprint("Error: Missing 'distro_version' data in %s." % build_path)
         sys.exit(1)
+    return build_json
+
+def main():
+    """Main function."""
+
+    (verbose, ivars) = _handle_command_line()
+
+    # Create a temporary directory for our use.
+    tmpdir_path = tempfile.mkdtemp()
+
+    # Read the distro file.
+    distro_json = _load_distro_file(ivars['DISTRO_FILE'])
+
+    # Read the build file.
+    build_json = _load_build_file(ivars['BUILD_FILE'])
     ivars['DVER'] = build_json['distro_version']
 
     # If we've got a distro-specific script needed to install
@@ -128,16 +144,15 @@ def main():
         # information we've got. Why aren't we using docker's 'ARG'
         # directive? There are places, like in 'FROM' directives, that
         # you can't use 'ARG' variables. So, we're rolling our own.
-        orig_dockerfile_data = string.join(distro_json['docker_stages']['header'], '\n')
-        orig_dockerfile_data += '\n'
-        template = string.Template(orig_dockerfile_data)
+        orig_data = '\n'.join(distro_json['docker_stages']['header'])
+        orig_data += '\n'
+        template = string.Template(orig_data)
         dockerfile_data = template.substitute(ivars)
-        
+
     # Now add an item for each file to be installed.
-    orig_install_data = string.join(distro_json['docker_stages']['install'],
-                                    '\n')
-    orig_install_data += '\n'
-    template = string.Template(orig_install_data)
+    orig_data = '\n'.join(distro_json['docker_stages']['install'])
+    orig_data += '\n'
+    template = string.Template(orig_data)
     for file_info in build_json['file_info']:
         ivars['NAME'] = file_info['name']
         ivars['PKG'] = file_info['pkg']
@@ -146,9 +161,9 @@ def main():
 
     if 'footer' in distro_json['docker_stages']:
         # See the 'header' discussion for why we're doing this.
-        orig_dockerfile_data = string.join(distro_json['docker_stages']['footer'], '\n')
-        orig_dockerfile_data += '\n'
-        template = string.Template(orig_dockerfile_data)
+        orig_data = '\n'.join(distro_json['docker_stages']['footer'])
+        orig_data += '\n'
+        template = string.Template(orig_data)
         dockerfile_data += template.substitute(ivars)
 
     # Write the dockerfile data to a file.
@@ -169,11 +184,11 @@ def main():
            % (ivars['DOCKER_TAG'], dockerfile_path, tmpdir_path))
     if verbose:
         print("Running: %s" % cmd)
-    rc = os.system(cmd)
-    if rc != 0:
-        if os.WIFEXITED(rc):
-            rc = os.WEXITSTATUS(rc)
-        _eprint("Error: \"%s\" failed, status %d" % (cmd, rc))
+    cmd_rc = os.system(cmd)
+    if cmd_rc != 0:
+        if os.WIFEXITED(cmd_rc):
+            cmd_rc = os.WEXITSTATUS(cmd_rc)
+        _eprint("Error: \"%s\" failed, status %d" % (cmd, cmd_rc))
         sys.exit(1)
 
 if __name__ == '__main__':
