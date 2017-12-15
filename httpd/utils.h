@@ -10,7 +10,14 @@
 #define __UTILS_H__
 
 #include <string>
+#include <vector>
 
 std::string get_uuid();
+
+int
+execute_and_capture(int verbose,
+		    const std::vector<std::string> &args,
+		    const std::vector<std::string> &env_vars,
+		    std::string stdout_path, std::string stderr_path);
 
 #endif /* __UTILS_H__ */
