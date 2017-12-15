@@ -14,7 +14,6 @@
 #include <vector>
 extern "C" {
 #include <json-c/json_object.h>
-#include <uuid/uuid.h>
 }
 
 struct file_info
@@ -41,7 +40,7 @@ public:
     unsigned verbose;
 };
 
-std::string get_uuid_representation(const uuid_t uuid);
+std::string get_uuid();
 
 //extern bool
 //api_handler(const char *url, const map<string, string> &url_args,

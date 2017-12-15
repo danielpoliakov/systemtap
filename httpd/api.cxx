@@ -26,12 +26,15 @@ extern "C" {
 #include <errno.h>
 #include <glob.h>
 #include <sched.h>
+#include <uuid/uuid.h>
 }
 
-string get_uuid_representation(const uuid_t uuid)
+string get_uuid()
 {
+    uuid_t uuid;
     ostringstream os;
 
+    uuid_generate(uuid);
     os << hex << setfill('0');
     for (const unsigned char *ptr = uuid; ptr < uuid + sizeof(uuid_t); ptr++)
         os << setw(2) << (unsigned int)*ptr;
@@ -42,10 +45,7 @@ class resource
 {
 public:
     resource(string resource_base) {
-	uuid_t uuid;
-
-	uuid_generate(uuid);
-	uuid_str = get_uuid_representation(uuid);
+	uuid_str = get_uuid();
 	uri = resource_base + uuid_str;
     }
 

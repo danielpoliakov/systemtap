@@ -440,9 +440,7 @@ docker_backend::generate_module(const client_request_data *crd,
 
     // We need a unique name for the container image that "docker run
     // stap ..." will create, so grab another uuid.
-    uuid_t uuid2;
-    uuid_generate(uuid2);
-    string uuid2_str = get_uuid_representation(uuid2);
+    string uuid2_str = get_uuid();
 
     // If we're here, we built the container successfully. Now start
     // the container and run stap. First, build up the command line
