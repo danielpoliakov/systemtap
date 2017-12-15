@@ -10,6 +10,7 @@
 #include <iostream>
 #include <fstream>
 #include "../util.h"
+#include "utils.h"
 
 extern "C" {
 #include <sys/types.h>

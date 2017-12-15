@@ -11,10 +11,10 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include <iomanip>
 #include "../util.h"
 #include "backends.h"
 #include "../cmdline.h"
+#include "utils.h"
 
 extern "C" {
 #include <unistd.h>
@@ -26,19 +26,6 @@ extern "C" {
 #include <errno.h>
 #include <glob.h>
 #include <sched.h>
-#include <uuid/uuid.h>
-}
-
-string get_uuid()
-{
-    uuid_t uuid;
-    ostringstream os;
-
-    uuid_generate(uuid);
-    os << hex << setfill('0');
-    for (const unsigned char *ptr = uuid; ptr < uuid + sizeof(uuid_t); ptr++)
-        os << setw(2) << (unsigned int)*ptr;
-    return os.str();
 }
 
 class resource

@@ -40,8 +40,6 @@ public:
     unsigned verbose;
 };
 
-std::string get_uuid();
-
 //extern bool
 //api_handler(const char *url, const map<string, string> &url_args,
 //	    const char *method, ostringstream &output);
