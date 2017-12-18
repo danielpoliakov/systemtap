@@ -1,6 +1,6 @@
 #! /bin/bash
 LANG=C; export LANG
-check_error() { if test $1 != 0; then echo $2; exit $1; fi }
+check_error() { if test $1 != 0; then printf "\n$2\n"; exit $1; fi }
 
 prep_rpm_based() {
 # uname -r can produce different kinds of output:
@@ -35,10 +35,12 @@ if [ "$NEEDED" != "" ]; then
     if [ `id -u` = "0" ]; then #attempt to install
         yum install -y --enablerepo=\* $NEEDED
         if expr "$NEEDED" : ".*debuginfo.*" >/dev/null;
-        then debuginfo-install -y $KERNEL-$KERN_REV.$KERN_ARCH;
+        then
+            debuginfo-install -y $KERNEL-$KERN_REV.$KERN_ARCH;
         fi
         rpm -q $NEEDED
-        check_error $? "problem installing rpm(s) $NEEDED"
+        rc=$?
+        check_error $rc "problem installing rpm(s) $NEEDED\nin case of file conflicts, try again after # yum erase $KERNEL-debuginfo"
     fi
 fi
 }
