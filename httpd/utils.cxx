@@ -54,13 +54,13 @@ execute_and_capture(int verbose, const vector<string> &args,
     if (rc == 0) {
 	rc = posix_spawn_file_actions_addopen(&actions, 1,
 					      stdout_path.c_str(),
-					      O_WRONLY|O_CREAT,
+					      O_WRONLY|O_CREAT|O_APPEND,
 					      S_IRWXU);
     }
     if (rc == 0) {
 	rc = posix_spawn_file_actions_addopen(&actions, 2,
 					      stderr_path.c_str(),
-					      O_WRONLY|O_CREAT,
+					      O_WRONLY|O_CREAT|O_APPEND,
 					      S_IRWXU);
     }
     if (rc != 0) {
