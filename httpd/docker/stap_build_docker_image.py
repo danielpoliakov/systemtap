@@ -1,6 +1,6 @@
 #! /usr/bin/python
 
-"""Build a docker file and container based on a JSON template."""
+"""Build a docker file and container image based on a JSON template."""
 
 from __future__ import print_function
 import json
@@ -139,6 +139,7 @@ def main():
             _eprint("Error: copy failed: %s" % err)
             sys.exit(1)
 
+    dockerfile_data = ''
     if 'header' in distro_json['docker_stages']:
         # Now treat the data as a template, and substitute the
         # information we've got. Why aren't we using docker's 'ARG'
@@ -147,7 +148,7 @@ def main():
         orig_data = '\n'.join(distro_json['docker_stages']['header'])
         orig_data += '\n'
         template = string.Template(orig_data)
-        dockerfile_data = template.substitute(ivars)
+        dockerfile_data += template.substitute(ivars)
 
     # Now add an item for each file to be installed.
     orig_data = '\n'.join(distro_json['docker_stages']['install'])
@@ -174,7 +175,7 @@ def main():
     print("created file in %s\n" % tmpdir_path)
 
     # At this point we've created the docker file. Actually
-    # build the docker container. Arguments:
+    # build the docker container image. Arguments:
     #
     #   -t TAG:  Repository names (and optionally with tags) to be
     #            applied to the resulting image in case of success.

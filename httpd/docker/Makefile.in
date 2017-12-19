@@ -99,7 +99,7 @@ target_triplet = @target@
 # Make sure all the JSON files get installed.
 @HAVE_HTTP_SUPPORT_TRUE@am__append_1 = fedora_install_package.py \
 @HAVE_HTTP_SUPPORT_TRUE@	$(wildcard $(srcdir)/*.json)
-@HAVE_HTTP_SUPPORT_TRUE@am__append_2 = stap_build_docker_container.py
+@HAVE_HTTP_SUPPORT_TRUE@am__append_2 = stap_build_docker_image.py
 subdir = httpd/docker
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
@@ -136,7 +136,7 @@ am__can_run_installinfo = \
     n|no|NO) false;; \
     *) (install-info --version) >/dev/null 2>&1;; \
   esac
-am__pkglibexecdocker_PYTHON_DIST = stap_build_docker_container.py
+am__pkglibexecdocker_PYTHON_DIST = stap_build_docker_image.py
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \

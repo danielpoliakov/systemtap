@@ -201,7 +201,7 @@ docker_backend::docker_backend()
     }
     
     docker_build_container_script_path = string(PKGLIBDIR)
-	+ "/httpd/docker/stap_build_docker_container.py";
+	+ "/httpd/docker/stap_build_docker_image.py";
 
     datadir = string(PKGDATADIR) + "/httpd/docker";
 

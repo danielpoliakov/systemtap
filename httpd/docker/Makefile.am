@@ -24,6 +24,6 @@ pkgdatadocker_DATA += fedora_install_package.py
 # Make sure all the JSON files get installed.
 pkgdatadocker_DATA += $(wildcard $(srcdir)/*.json)
 
-pkglibexecdocker_PYTHON += stap_build_docker_container.py
+pkglibexecdocker_PYTHON += stap_build_docker_image.py
 
 endif
