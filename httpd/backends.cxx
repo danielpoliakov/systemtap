@@ -295,9 +295,11 @@ docker_backend::generate_module(const client_request_data *crd,
     build_data_file.close();
     json_object_put(root);
 
-    // Kick off building the docker container. Note we're using the
-    // UUID as the docker container name. This keeps us from trying to
-    // build multiple containers with the same name at the same time.
+    string stap_image_uuid = uuid;
+
+    // Kick off building the docker image. Note we're using the UUID
+    // as the docker image name. This keeps us from trying to build
+    // multiple images with the same name at the same time.
     vector<string> docker_args;
     docker_args.push_back("python");
     docker_args.push_back(docker_build_container_script_path);
@@ -307,7 +309,7 @@ docker_backend::generate_module(const client_request_data *crd,
     docker_args.push_back(build_data_path);
     docker_args.push_back("--data-dir");
     docker_args.push_back(datadir);
-    docker_args.push_back(uuid);
+    docker_args.push_back(stap_image_uuid);
 
     int rc = execute_and_capture(2, docker_args, crd->env_vars,
 				 docker_stdout_path, docker_stderr_path);
@@ -317,9 +319,50 @@ docker_backend::generate_module(const client_request_data *crd,
 	return -1;
     }
 
-    // We need a unique name for the container image that "docker run
-    // stap ..." will create, so grab another uuid.
-    string uuid2_str = get_uuid();
+    // The client can optionally send over a "client.zip" file, which
+    // was unziped up in build_info::module_build(). If it exists, we
+    // need to copy those files down into the container image before
+    // we run stap.
+    for (auto i = crd->files.begin(); i != crd->files.end(); i++) {
+	if (*i == "client.zip") {
+	    // First, create a docker file.
+	    string docker_file_path = crd->base_dir + "/files.docker";
+	    ofstream docker_file;
+	    docker_file.open(docker_file_path, ios::out);
+	    docker_file << "FROM " << stap_image_uuid << endl;
+	    docker_file << "MAINTAINER http://sourceware.org/systemtap/"
+			<< endl;
+	    docker_file << "COPY . " << tmp_dir << "/" << endl;
+	    docker_file.close();
+	    // Grab another uuid.
+	    stap_image_uuid = get_uuid();
+
+	    // FIXME: cleanup?
+
+	    // Now run "docker build" with that docker file.
+	    docker_args.clear();
+	    docker_args.push_back("docker");
+	    docker_args.push_back("build");
+	    docker_args.push_back("-t");
+	    docker_args.push_back(stap_image_uuid);
+	    docker_args.push_back("-f");
+	    docker_args.push_back(docker_file_path);
+	    docker_args.push_back(crd->base_dir);
+
+	    rc = execute_and_capture(2, docker_args, crd->env_vars,
+				     docker_stdout_path, docker_stderr_path);
+	    clog << "Spawned process returned " << rc << endl;
+	    if (rc != 0) {
+		clog << "docker build failed." << endl;
+		return -1;
+	    }
+	    break;
+	}
+    }
+
+    // We need a unique name for the container that "docker run stap
+    // ..." will create, so grab another uuid.
+    string stap_container_uuid = get_uuid();
 
     // If we're here, we built the container successfully. Now start
     // the container and run stap. First, build up the command line
@@ -328,7 +371,7 @@ docker_backend::generate_module(const client_request_data *crd,
     docker_args.push_back("docker");
     docker_args.push_back("run");
     docker_args.push_back("--name");
-    docker_args.push_back(uuid2_str);
+    docker_args.push_back(stap_container_uuid);
     for (size_t i = 0; i < crd->env_vars.size(); ++i) {
         string env_opt = autosprintf ("-e %s", crd->env_vars[i].c_str());
         docker_args.push_back(env_opt);
@@ -340,7 +383,7 @@ docker_backend::generate_module(const client_request_data *crd,
     docker_args.push_back("-w");
     docker_args.push_back(tmp_dir);
 
-    docker_args.push_back(uuid);
+    docker_args.push_back(stap_image_uuid);
     for (auto it = argv.begin(); it != argv.end(); it++) {
 	docker_args.push_back(*it);
     }
@@ -358,7 +401,7 @@ docker_backend::generate_module(const client_request_data *crd,
     docker_args.clear();
     docker_args.push_back("docker");
     docker_args.push_back("cp");
-    docker_args.push_back(uuid2_str + ":" + tmp_dir);
+    docker_args.push_back(stap_container_uuid + ":" + tmp_dir);
     docker_args.push_back("/tmp");
     rc = execute_and_capture(2, docker_args, crd->env_vars,
 			     docker_stdout_path, docker_stderr_path);
@@ -371,13 +414,13 @@ docker_backend::generate_module(const client_request_data *crd,
 
     // FIXME: CLEANUP NEEDED!
     //
-    // OK, at this point we've created a container, run stap,
-    // and copied out any result. Let's do a little cleanup and delete
-    // the last layer. We'll leave (for now) the container will all
-    // the files, but delete the layer that got created as stap was
-    // run (since there is no reuse there).
+    // OK, at this point we've created a container, run stap, and
+    // copied out any result. Let's do a little cleanup and delete the
+    // last layer. We'll leave (for now) the container with all the
+    // files, but delete the layer that got created as stap was run
+    // (since there is no reuse there).
     //
-    // docker rm/rmi uuid2_str
+    // docker rm/rmi stap_container_uuid
 }
 
 void
