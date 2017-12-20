@@ -270,6 +270,9 @@ docker_backend::generate_module(const client_request_data *crd,
 				const string &stdout_path,
 				const string &stderr_path)
 {
+    vector<string> images_to_remove;
+    vector<string> containers_to_remove;
+
     // Handle capturing docker's stdout and stderr (along with using
     // /dev/null for stdin). If the client requested it, just use
     // stap's stdout/stderr files.
@@ -337,8 +340,6 @@ docker_backend::generate_module(const client_request_data *crd,
 	    // Grab another uuid.
 	    stap_image_uuid = get_uuid();
 
-	    // FIXME: cleanup?
-
 	    // Now run "docker build" with that docker file.
 	    docker_args.clear();
 	    docker_args.push_back("docker");
@@ -356,6 +357,9 @@ docker_backend::generate_module(const client_request_data *crd,
 		clog << "docker build failed." << endl;
 		return -1;
 	    }
+
+	    // We want to remove the image that we just built.
+	    images_to_remove.push_back(stap_image_uuid);
 	    break;
 	}
     }
@@ -372,9 +376,9 @@ docker_backend::generate_module(const client_request_data *crd,
     docker_args.push_back("run");
     docker_args.push_back("--name");
     docker_args.push_back(stap_container_uuid);
-    for (size_t i = 0; i < crd->env_vars.size(); ++i) {
-        string env_opt = autosprintf ("-e %s", crd->env_vars[i].c_str());
-        docker_args.push_back(env_opt);
+    for (auto i = crd->env_vars.begin(); i < crd->env_vars.end(); ++i) {
+        docker_args.push_back("-e");
+        docker_args.push_back(*i);
     }
 
     // When running "stap --tmpdir=/tmp/FOO", your current directory
@@ -388,32 +392,30 @@ docker_backend::generate_module(const client_request_data *crd,
 	docker_args.push_back(*it);
     }
 
-    rc = execute_and_capture(2, docker_args, crd->env_vars,
-			     stdout_path, stderr_path);
+    int saved_rc = execute_and_capture(2, docker_args, crd->env_vars,
+				       stdout_path, stderr_path);
     clog << "Spawned process returned " << rc << endl;
     if (rc != 0) {
 	clog << "docker run failed." << endl;
-	return -1;
     }
 
-    // At this point we've built the container and run stap
-    // successfully. Grab the results (if any) from the container.
-    docker_args.clear();
-    docker_args.push_back("docker");
-    docker_args.push_back("cp");
-    docker_args.push_back(stap_container_uuid + ":" + tmp_dir);
-    docker_args.push_back("/tmp");
-    rc = execute_and_capture(2, docker_args, crd->env_vars,
-			     docker_stdout_path, docker_stderr_path);
-    clog << "Spawned process returned " << rc << endl;
-    if (rc != 0) {
-	clog << "docker cp failed." << endl;
-	return -1;
+    if (saved_rc == 0) {
+	// At this point we've built the container and run stap
+	// successfully. Grab the results (if any) from the container.
+	docker_args.clear();
+	docker_args.push_back("docker");
+	docker_args.push_back("cp");
+	docker_args.push_back(stap_container_uuid + ":" + tmp_dir);
+	docker_args.push_back("/tmp");
+	rc = execute_and_capture(2, docker_args, crd->env_vars,
+				 docker_stdout_path, docker_stderr_path);
+	clog << "Spawned process returned " << rc << endl;
+	if (rc != 0) {
+	    clog << "docker cp failed." << endl;
+	}
     }
-    return 0;
+    containers_to_remove.push_back(stap_container_uuid);
 
-    // FIXME: CLEANUP NEEDED!
-    //
     // OK, at this point we've created a container, run stap, and
     // copied out any result. Let's do a little cleanup and delete the
     // last layer. We'll leave (for now) the container with all the
@@ -421,6 +423,62 @@ docker_backend::generate_module(const client_request_data *crd,
     // (since there is no reuse there).
     //
     // docker rm/rmi stap_container_uuid
+    //
+    // Note that we have to remove the containers first, because they
+    // depend on the images.
+
+    // FIXME: MORE CLEANUP NEEDED!
+    //
+    // Note that we're not removing the initial docker image we built,
+    // so if the user turns right around again and builds another
+    // script that image will get reused. But, that initial docker
+    // image never gets deleted currently. The "docker images" command
+    // knows when an image was created, but not the last time it was
+    // used.
+    //
+    // We might be able to tie in the information from "docker ps -a",
+    // which lists all containers, and when they were created. Since
+    // the containers are short-lived (they just exist to run "stap"),
+    // their creation date is really the last used date of the related
+    // image. But, of course we delete that container at the end of
+    // every run so that info gets deleted. In theory we could leave
+    // that container around and every so often run a python script
+    // that puts the two bits of information together and deletes
+    // images and containers that haven't been used in a while.
+
+    if (! containers_to_remove.empty()) {
+	docker_args.clear();
+	docker_args.push_back("docker");
+	docker_args.push_back("rm");
+	for (auto i = containers_to_remove.begin();
+	     i != containers_to_remove.end(); i++) {
+	    docker_args.push_back(*i);
+	}
+	rc = execute_and_capture(2, docker_args, crd->env_vars,
+				 docker_stdout_path, docker_stderr_path);
+	// Note that we're ignoring any errors here.
+	clog << "Spawned process returned " << rc << endl;
+	if (rc != 0) {
+	    clog << "docker rm failed." << endl;
+	}
+    }
+    if (! images_to_remove.empty()) {
+	docker_args.clear();
+	docker_args.push_back("docker");
+	docker_args.push_back("rmi");
+	for (auto i = images_to_remove.begin(); i != images_to_remove.end();
+	     i++) {
+	    docker_args.push_back(*i);
+	}
+	rc = execute_and_capture(2, docker_args, crd->env_vars,
+				 docker_stdout_path, docker_stderr_path);
+	// Note that we're ignoring any errors here.
+	clog << "Spawned process returned " << rc << endl;
+	if (rc != 0) {
+	    clog << "docker rmi failed." << endl;
+	}
+    }
+    return saved_rc;
 }
 
 void
