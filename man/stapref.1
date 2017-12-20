@@ -68,13 +68,13 @@ Associative Arrays
 
 Context Variables
 \[bu] \fB$\fRvar
-\[bu] \fB$\fRvar\fB$\fR (pretty printed string form)
+\[bu] \fB$\fRvar\fB$\fR  \fI(pretty printed string form)\fP
 
 Binary numeric operators
-\[bu] \fB* / % + \- << >> & ^ | && ||\fR
+\[bu] \fB* / % + \- << >> >>> & ^ | && ||\fR
 
 Binary string operators
-\[bu] \fB.\fR (string concatenation)
+\[bu] \fB.\fR \fI(string concatenation)\fP
 
 Numeric assignment operators
 \[bu] \fB= += -= *= /= %= >>= <<= &= ^= |= \fR
@@ -98,7 +98,7 @@ Grouping operator
 \[bu] \fB(\fR expression \fB)\fR
 
 Array operators
-\[bu] array\fB[\fRindex\fB]\fR (array read/write)
+\[bu] array\fB[\fRindex\fB]\fR \fI(array read/write)\fP
 \[bu] [index] \fB\in\fR array
 
 Aggregation operator
@@ -110,9 +110,9 @@ Statements
 Jump Statements
 \[bu] \fBcontinue\fR
 \[bu] \fBbreak\fR
-\[bu] \fBnext\fR
-\[bu] \fBreturn\fR expression
-\[bu] \fBtry\fR statement \fBcatch\fR (message)
+\[bu] \fBnext\fR  \fI(early return from a probe)\fP
+\[bu] \fBreturn\fR expression \fI(from a function)\fP
+\[bu] \fBtry\fR statement \fBcatch\fR (message) statement
 .ESAMPLE
 .SAMPLE
 Selection Statements
