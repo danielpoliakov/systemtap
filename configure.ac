@@ -921,7 +921,7 @@ AS_IF([test "x$enable_http" = "xyes"],
 
    dnl If we have all of the libraries (and the json-c library), we could
    dnl build the httpd web compilation service.
-   AS_IF([test "x$have_libmicrohttpd" == "xtrue" -a "x$have_libuuid" == "xtrue" -a "x$have_libcurl" == "xtrue" -a "x$have_jsonc" == "xyes"], [have_http_support=yes])])
+   AS_IF([test "x$have_libmicrohttpd" == "xtrue" -a "x$have_libuuid" == "xtrue" -a "x$have_libcurl" == "xtrue" -a "x$have_jsonc" == "xyes" -a "x$have_nss" == "xyes"], [have_http_support=yes])])
 
 AS_IF([test "x$have_http_support" = "xyes"],
   [AC_DEFINE([HAVE_HTTP_SUPPORT], [1],

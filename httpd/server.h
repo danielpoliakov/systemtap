@@ -1,5 +1,5 @@
 // systemtap compile-server web api server header 
-// Copyright (C) 2017 Red Hat Inc.
+// Copyright (C) 2017-2018 Red Hat Inc.
 //
 // This file is part of systemtap, and is free software.  You can
 // redistribute it and/or modify it under the terms of the GNU General
@@ -72,7 +72,7 @@ public:
     void wait();
     void stop();
 
-    server(uint16_t port);
+    server(uint16_t port, std::string &cert_db_path);
 
     ~server()
     {
@@ -81,6 +81,7 @@ public:
 
     void add_request_handler(const string &url_path_re,
 			     request_handler &handler);
+    const std::string & get_cert_db_path() const { return cert_db_path; }
 
 private:
     condition_variable running_cv;
@@ -88,6 +89,7 @@ private:
     uint16_t port;
     struct MHD_Daemon *dmn_ipv4;
     // FIXME: IPv6 support needed
+    std::string cert_db_path;
 
     // FIXME: should this be a map?
     vector<tuple<string, request_handler *>> request_handlers;

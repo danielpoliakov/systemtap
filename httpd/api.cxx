@@ -1,5 +1,5 @@
 // systemtap compile-server web api server
-// Copyright (C) 2017 Red Hat Inc.
+// Copyright (C) 2017-2018 Red Hat Inc.
 //
 // This file is part of systemtap, and is free software.  You can
 // redistribute it and/or modify it under the terms of the GNU General
@@ -15,6 +15,8 @@
 #include "backends.h"
 #include "../cmdline.h"
 #include "utils.h"
+#include "../nsscommon.h"
+#include "../privilege.h"
 
 extern "C" {
 #include <unistd.h>
@@ -27,6 +29,8 @@ extern "C" {
 #include <glob.h>
 #include <sched.h>
 }
+
+static server *httpd = NULL;
 
 class resource
 {
@@ -603,6 +607,7 @@ build_info::parse_cmd_args(void)
     optind = 1;
     unsigned perpass_verbose[5] = { 0 };
     unsigned verbose = 0;
+    privilege_t privilege = pr_highest; // Until specified otherwise.
     while (true) {
 	int grc = getopt_long(argc, argv, STAP_SHORT_OPTIONS,
 			      stap_long_options, NULL);
@@ -623,6 +628,22 @@ build_info::parse_cmd_args(void)
 		}
 	    }
 	    break;
+	case LONG_OPT_PRIVILEGE:
+	    if (strcmp(optarg, "stapdev") == 0)
+		privilege = pr_stapdev;
+	    else if (strcmp(optarg, "stapsys") == 0)
+		privilege = pr_stapsys;
+	    else if (strcmp(optarg, "stapusr") == 0)
+		privilege = pr_stapusr;
+	    else {
+		// FIXME: what to do here?
+		cerr << _F("Invalid argument '%s' for --privilege", optarg) << endl;
+		privilege = pr_highest;
+	    }
+	    break;
+	case LONG_OPT_UNPRIVILEGED:
+	    privilege = pr_unprivileged;
+	    break;
 	default:
 	    // We silently ignore all options we aren't interested in.
 	    break;
@@ -635,6 +656,8 @@ build_info::parse_cmd_args(void)
     // back to the client.
     crd->verbose = perpass_verbose[1];
     cerr << "Verbose level: " << crd->verbose << endl;
+    crd->privilege = privilege;
+    cerr << "Privilege: " << crd->privilege << endl;
 }
 
 void *
@@ -783,6 +806,15 @@ build_info::module_build()
 	    }
 	    globfree(&globber);
 	}
+
+	// If we've got a module, it might need signing.
+	if (! module_path.empty()
+	    && (pr_contains(crd->privilege, pr_stapusr)
+		|| pr_contains(crd->privilege, pr_stapsys))) {
+	    clog << "Signing file..." << endl;
+	    sign_file(httpd->get_cert_db_path(), server_cert_nickname(),
+		      module_path, module_path + ".sgn");
+	}
     }
 
     result_info *ri = new result_info(staprc, stdout_path, stderr_path,
@@ -853,10 +885,14 @@ void api_cleanup()
     }
 }
 
-void api_add_request_handlers(server &httpd)
+void api_add_request_handlers(server &http)
 {
-    httpd.add_request_handler("/builds$", builds_rh);
-    httpd.add_request_handler("/builds/([0-9a-f]+)$", build_rh);
-    httpd.add_request_handler("/results/([0-9a-f]+)$", result_rh);
-    httpd.add_request_handler("/results/([^/]+)/([^/]+)$", result_file_rh);
+    // Remember the server.
+    httpd = &http;
+    
+    // Add the request handlers.
+    http.add_request_handler("/builds$", builds_rh);
+    http.add_request_handler("/builds/([0-9a-f]+)$", build_rh);
+    http.add_request_handler("/results/([0-9a-f]+)$", result_rh);
+    http.add_request_handler("/results/([^/]+)/([^/]+)$", result_file_rh);
 }

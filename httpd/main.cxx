@@ -1,5 +1,5 @@
 // systemtap compile-server web api server
-// Copyright (C) 2017 Red Hat Inc.
+// Copyright (C) 2017-2018 Red Hat Inc.
 //
 // This file is part of systemtap, and is free software.  You can
 // redistribute it and/or modify it under the terms of the GNU General
@@ -10,6 +10,7 @@
 #include "api.h"
 #include <iostream>
 #include "../util.h"
+#include "nss_funcs.h"
 
 extern "C" {
 #include <string.h>
@@ -93,15 +94,18 @@ setup_main_signals(pthread_t *tid)
 // FIXME: the default port of 1234 was just chosen at random. A better
 // port default needs to be chosen.
 static uint16_t port = 1234;
+static string cert_db_path;
 
 void
 parse_cmdline(int argc, char *const argv[])
 {
     enum {
 	LONG_OPT_PORT = 256,
+	LONG_OPT_SSL,
     };
     static struct option long_options[] = {
         { "port", 1, NULL, LONG_OPT_PORT },
+        { "ssl", 1, NULL, LONG_OPT_SSL },
         { NULL, 0, NULL, 0 }
     };
     while (true) {
@@ -126,6 +130,9 @@ parse_cmdline(int argc, char *const argv[])
 	    }
 	    port = (uint16_t)port_tmp;
 	    break;
+	  case LONG_OPT_SSL:
+	    cert_db_path = optarg;
+	    break;
 	  default:
 	    break;
 	}
@@ -145,8 +152,12 @@ main(int argc, char *const argv[])
 
     parse_cmdline(argc, argv);
 
+    // Initialize NSS.
+    if (nss_init(cert_db_path) != 0)
+	return 1;
+
     // Create the server and ask the api to register its handlers.
-    httpd = new server(port);
+    httpd = new server(port, cert_db_path);
     api_add_request_handlers(*httpd);
 
     // Wait for the server to shut itself down.
@@ -158,5 +169,9 @@ main(int argc, char *const argv[])
 
     // Ask the api to do its cleanup.
     api_cleanup();
+
+    // Shutdown NSS.
+    nss_shutdown(cert_db_path);
+
     return 0;
 }

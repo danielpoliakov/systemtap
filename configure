@@ -12851,7 +12851,7 @@ $as_echo "yes" >&6; }
 	have_libcurl=true
 fi
 
-         if test "x$have_libmicrohttpd" == "xtrue" -a "x$have_libuuid" == "xtrue" -a "x$have_libcurl" == "xtrue" -a "x$have_jsonc" == "xyes"; then :
+         if test "x$have_libmicrohttpd" == "xtrue" -a "x$have_libuuid" == "xtrue" -a "x$have_libcurl" == "xtrue" -a "x$have_jsonc" == "xyes" -a "x$have_nss" == "xyes"; then :
   have_http_support=yes
 fi
 fi

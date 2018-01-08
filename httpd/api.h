@@ -1,5 +1,5 @@
 // systemtap compile-server web api header
-// Copyright (C) 2017 Red Hat Inc.
+// Copyright (C) 2017-2018 Red Hat Inc.
 //
 // This file is part of systemtap, and is free software.  You can
 // redistribute it and/or modify it under the terms of the GNU General
@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 extern "C" {
+#include "../privilege.h"
 #include <json-c/json_object.h>
 }
 
@@ -38,6 +39,7 @@ public:
     std::vector<std::shared_ptr<struct file_info> > file_info;
     std::vector<std::string> env_vars;
     unsigned verbose;
+    privilege_t privilege;
 };
 
 //extern bool

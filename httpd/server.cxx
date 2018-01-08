@@ -1,5 +1,5 @@
 // systemtap compile-server web api server
-// Copyright (C) 2017 Red Hat Inc.
+// Copyright (C) 2017-2018 Red Hat Inc.
 //
 // This file is part of systemtap, and is free software.  You can
 // redistribute it and/or modify it under the terms of the GNU General
@@ -158,7 +158,11 @@ struct connection_info
 void
 connection_info::post_files_cleanup()
 {
-    post_dir.clear();
+    // Note that we can't remove the post_dir here, it is too
+    // soon. We'll let the api layer handle it.
+    if (! post_dir.empty()) {
+	post_dir.clear();
+    }
     for (auto i = post_files.begin(); i != post_files.end(); i++) {
 	if (! i->second.empty()) {
 	    for (auto j = i->second.begin(); j != i->second.end();
@@ -328,7 +332,8 @@ response base_dir_rh::GET(const request &)
 
 base_dir_rh base_rh("base dir");
 
-server::server(uint16_t port) : port(port), dmn_ipv4(NULL)
+server::server(uint16_t port, string &cert_db_path)
+    : port(port), dmn_ipv4(NULL), cert_db_path(cert_db_path)
 {
     add_request_handler("/$", base_rh);
     start();
