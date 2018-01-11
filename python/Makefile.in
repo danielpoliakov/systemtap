@@ -381,7 +381,7 @@ AM_CPPFLAGS = -I$(srcdir)/../includes \
 # install time.
 pkglibexecpython_PYTHON = 
 pkglibexecpython_DATA = $(am__append_1)
-pkglibexecpythondir = $(DESTDIR)$(pkglibexecdir)/python
+pkglibexecpythondir = $(pkglibexecdir)/python
 all: all-am
 
 .SUFFIXES:

@@ -14,7 +14,7 @@ pkglibexecpython_PYTHON =
 
 pkglibexecpython_DATA =
 
-pkglibexecpythondir = $(DESTDIR)$(pkglibexecdir)/python
+pkglibexecpythondir = $(pkglibexecdir)/python
 
 if HAVE_PYTHON_PROBES
 
