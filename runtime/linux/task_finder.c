@@ -283,12 +283,16 @@ stap_register_task_finder_target(struct stap_task_finder_target *new_tgt)
 }
 
 static int
-stap_utrace_detach(struct task_struct *tsk,
-		   const struct utrace_engine_ops *ops)
+__stap_utrace_detach(struct task_struct *tsk,
+		     const struct utrace_engine_ops *ops,
+		     int *ops_matched)
 {
 	struct utrace_engine *engine;
 	struct mm_struct *mm;
 	int rc = 0;
+
+	if (ops_matched)
+		*ops_matched = 0;
 
 	// Ignore invalid tasks.
 	if (tsk == NULL || tsk->pid <= 0)
@@ -331,6 +335,8 @@ stap_utrace_detach(struct task_struct *tsk,
 		rc = EFAULT;
 	}
 	else {
+		if (ops_matched)
+			*ops_matched = 1;
 		rc = utrace_control(tsk, engine, UTRACE_DETACH);
 		switch (rc) {
 		case 0:			/* success */
@@ -363,6 +369,13 @@ stap_utrace_detach(struct task_struct *tsk,
 	return rc;
 }
 
+static int
+stap_utrace_detach(struct task_struct *tsk,
+		   const struct utrace_engine_ops *ops)
+{
+	return __stap_utrace_detach(tsk, ops, NULL);
+}
+
 static void
 stap_utrace_detach_ops(struct utrace_engine_ops *ops)
 {
@@ -370,42 +383,66 @@ stap_utrace_detach_ops(struct utrace_engine_ops *ops)
 	struct utrace_engine *engine;
 	pid_t pid = 0;
 	int rc = 0;
+	int ops_matched;
+	int iterations = 0;
 
-	// Notice we're not calling get_task_mm() in this loop. In
-	// every other instance when calling do_each_thread, we avoid
-	// tasks with no mm, because those are kernel threads.  So,
-	// why is this function different?  When a thread is in the
-	// process of dying, its mm gets freed.  Then, later the
-	// thread gets in the dying state and the thread's
-	// UTRACE_EVENT(DEATH) event handler gets called (if any).
+	// We're going to do the detach in a loop. Why?
+	// do_each_thread() presents a snapshot of the list of
+	// processes on the system. If the system is currently
+	// creating lots of processes, we'll miss some during this
+	// loop (especially since utrace_barrier() can wait for a
+	// handler to finish).
 	//
-	// If a thread is in this "mortally wounded" state - no mm
-	// but not dead - and at that moment this function is called,
-	// we'd miss detaching from it if we were checking to see if
-	// it had an mm.
+	// So, we'll repeat the loop until we longer find any
+	// processes that have this ops attached to it.
+	do {
+		// Notice we're not calling get_task_mm() in this
+		// loop. In every other instance when calling
+		// do_each_thread, we avoid tasks with no mm, because
+		// those are kernel threads.  So, why is this function
+		// different?  When a thread is in the process of
+		// dying, its mm gets freed.  Then, later the thread
+		// gets in the dying state and the thread's
+		// UTRACE_EVENT(DEATH) event handler gets called (if
+		// any).
+		//
+		// If a thread is in this "mortally wounded" state -
+		// no mm but not dead - and at that moment this
+		// function is called, we'd miss detaching from it if
+		// we were checking to see if it had an mm.
 
-	rcu_read_lock();
-	do_each_thread(grp, tsk) {
+		ops_matched = 0;
+		rcu_read_lock();
+		do_each_thread(grp, tsk) {
+			int matched = 0;
 #ifdef PF_KTHREAD
-		// Ignore kernel threads.  On systems without
-		// PF_KTHREAD, we're ok, since kernel threads won't be
-		// matched by the stap_utrace_detach() call.
-		if (tsk->flags & PF_KTHREAD)
-			continue;
+			// Ignore kernel threads.  On systems without
+			// PF_KTHREAD, we're ok, since kernel threads
+			// won't be matched by the
+			// __stap_utrace_detach() call.
+			if (tsk->flags & PF_KTHREAD)
+				continue;
 #endif
 
-		/* Notice we're purposefully ignoring errors from
-		 * stap_utrace_detach().  Even if we got an error on
-		 * this task, we need to keep detaching from other
-		 * tasks.  But warn, we might be unloading and dangling
-		 * engines are bad news. */
-		rc = stap_utrace_detach(tsk, ops);
-		if (rc != 0)
-			_stp_error("stap_utrace_detach returned error %d on pid %d", rc, tsk->pid);
-		WARN_ON(rc != 0);
-	} while_each_thread(grp, tsk);
-	rcu_read_unlock();
-	debug_task_finder_report();
+			/* Notice we're purposefully ignoring errors
+			 * from __stap_utrace_detach().  Even if we
+			 * got an error on this task, we need to keep
+			 * detaching from other tasks.  But warn, we
+			 * might be unloading and dangling engines are
+			 * bad news. */
+			rc = __stap_utrace_detach(tsk, ops, &matched);
+			if (rc != 0)
+				_stp_error("stap_utrace_detach returned error %d on pid %d", rc, tsk->pid);
+			WARN_ON(rc != 0);
+			ops_matched |= matched;
+		} while_each_thread(grp, tsk);
+		rcu_read_unlock();
+		debug_task_finder_report();
+		iterations++;
+	} while (ops_matched && iterations < 10);
+#ifdef DEBUG_TASK_FINDER
+	_stp_dbug(__FUNCTION__, __LINE__, "took %d attempts\n", iterations);
+#endif
 }
 
 static void
@@ -980,12 +1017,12 @@ __stp_utrace_task_finder_report_clone(enum utrace_resume_action action,
 #endif
 	int rc;
 
+	__stp_tf_handler_start();
 	if (atomic_read(&__stp_task_finder_state) != __STP_TF_RUNNING) {
 		debug_task_finder_detach();
+		__stp_tf_handler_end();
 		return UTRACE_DETACH;
 	}
-
-	__stp_tf_handler_start();
 
 	// On clone, attach to the child.
 	rc = __stp_utrace_attach(child, engine->ops, 0,
@@ -1034,12 +1071,12 @@ __stp_utrace_task_finder_report_exec(enum utrace_resume_action action,
 	struct stap_task_finder_target *tgt;
 	int found_node = 0;
 
+	__stp_tf_handler_start();
 	if (atomic_read(&__stp_task_finder_state) != __STP_TF_RUNNING) {
 		debug_task_finder_detach();
+		__stp_tf_handler_end();
 		return UTRACE_DETACH;
 	}
-
-	__stp_tf_handler_start();
 
 	// If the original task was "interesting",
 	// __stp_utrace_task_finder_target_exec() will handle calling
@@ -1101,12 +1138,12 @@ __stp_utrace_task_finder_target_exec(enum utrace_resume_action action,
 	struct stap_task_finder_target *tgt = engine->data;
 	int rc;
 
+	__stp_tf_handler_start();
 	if (atomic_read(&__stp_task_finder_state) != __STP_TF_RUNNING) {
 		debug_task_finder_detach();
+		__stp_tf_handler_end();
 		return UTRACE_DETACH;
 	}
-
-	__stp_tf_handler_start();
 
 	// We'll hardcode this as a process end.  If a thread
 	// calls exec() (which it isn't supposed to), the kernel
@@ -1123,8 +1160,8 @@ __stp_utrace_task_finder_target_exec(enum utrace_resume_action action,
 	// __stp_utrace_attach_match_tsk() to figure out if the
 	// exec'ed program is "interesting".
 
-	__stp_tf_handler_end();
 	debug_task_finder_detach();
+	__stp_tf_handler_end();
 	return UTRACE_DETACH;
 }
 
@@ -1144,12 +1181,13 @@ __stp_utrace_task_finder_target_exit(struct utrace_engine *engine,
 #endif
 	struct stap_task_finder_target *tgt = engine->data;
 
+	__stp_tf_handler_start();
 	if (atomic_read(&__stp_task_finder_state) != __STP_TF_RUNNING) {
 		debug_task_finder_detach();
+		__stp_tf_handler_end();
 		return UTRACE_DETACH;
 	}
 
-	__stp_tf_handler_start();
 	// The first implementation of this added a
 	// UTRACE_EVENT(DEATH) handler to
 	// __stp_utrace_task_finder_ops.  However, dead threads don't
@@ -1163,8 +1201,8 @@ __stp_utrace_task_finder_target_exit(struct utrace_engine *engine,
 		__stp_call_callbacks(tgt, tsk, 0, (tsk->pid == tsk->tgid));
 	}
 
-	__stp_tf_handler_end();
 	debug_task_finder_detach();
+	__stp_tf_handler_end();
 	return UTRACE_DETACH;
 }
 
@@ -1332,17 +1370,18 @@ __stp_utrace_task_finder_target_quiesce(enum utrace_resume_action action,
 	struct stap_task_finder_target *tgt = engine->data;
 	int rc;
 
+	__stp_tf_handler_start();
 	if (atomic_read(&__stp_task_finder_state) != __STP_TF_RUNNING) {
 		debug_task_finder_detach();
+		__stp_tf_handler_end();
 		return UTRACE_DETACH;
 	}
 
 	if (tgt == NULL || tsk == NULL) {
 		debug_task_finder_detach();
+		__stp_tf_handler_end();
 		return UTRACE_DETACH;
 	}
-
-	__stp_tf_handler_start();
 
 	// Turn off quiesce handling
 	rc = utrace_set_events(tsk, engine,
@@ -1418,13 +1457,17 @@ __stp_utrace_task_finder_target_syscall_entry(enum utrace_resume_action action,
 	int is_mprotect = 0;
 	int is_munmap = 0;
 
+	__stp_tf_handler_start();
 	if (atomic_read(&__stp_task_finder_state) != __STP_TF_RUNNING) {
 		debug_task_finder_detach();
+		__stp_tf_handler_end();
 		return UTRACE_DETACH;
 	}
 
-	if (tgt == NULL)
+	if (tgt == NULL) {
+		__stp_tf_handler_end();
 		return UTRACE_RESUME;
+	}
 
 	// See if syscall is one we're interested in.  On x86_64, this
 	// is a potentially expensive operation (since we have to
@@ -1442,20 +1485,23 @@ __stp_utrace_task_finder_target_syscall_entry(enum utrace_resume_action action,
 				     ? 1 : 0);
 		}
 	}
-	if (!is_mmap_or_mmap2 && !is_mprotect && !is_munmap)
+	if (!is_mmap_or_mmap2 && !is_mprotect && !is_munmap) {
+		__stp_tf_handler_end();
 		return UTRACE_RESUME;
+	}
 
 	// The syscall is one we're interested in, but do we have a
 	// handler for it?
 	if ((is_mmap_or_mmap2 && tgt->mmap_events == 0)
 	    || (is_mprotect && tgt->mprotect_events == 0)
-	    || (is_munmap && tgt->munmap_events == 0))
+	    || (is_munmap && tgt->munmap_events == 0)) {
+		__stp_tf_handler_end();
 		return UTRACE_RESUME;
+	}
 
 	// Save the needed arguments.  Note that for mmap, we really
 	// just need the return value, so there is no need to save
 	// any arguments.
-	__stp_tf_handler_start();
 	if (is_munmap) {
 		// We need 2 arguments for munmap()
 		syscall_get_arguments(tsk, regs, 0, 2, args);
@@ -1501,23 +1547,28 @@ __stp_utrace_task_finder_target_syscall_exit(enum utrace_resume_action action,
 	unsigned long rv;
 	struct __stp_tf_map_entry *entry;
 
+	__stp_tf_handler_start();
 	if (atomic_read(&__stp_task_finder_state) != __STP_TF_RUNNING) {
 		debug_task_finder_detach();
+		__stp_tf_handler_end();
 		return UTRACE_DETACH;
 	}
 
-	if (tgt == NULL)
+	if (tgt == NULL) {
+		__stp_tf_handler_end();
 		return UTRACE_RESUME;
+	}
 
 	// See if we can find saved syscall info.  If we can, it must
 	// be one of the syscalls we are interested in (and we must
 	// have callbacks to call for it).
 	entry = __stp_tf_get_map_entry(tsk);
-	if (entry == NULL)
+	if (entry == NULL) {
+		__stp_tf_handler_end();
 		return UTRACE_RESUME;
+	}
 
 	// Get return value
-	__stp_tf_handler_start();
 	rv = syscall_get_return_value(tsk, regs);
 
 	dbug_task_vma(1,
@@ -1547,8 +1598,8 @@ __stp_utrace_task_finder_target_syscall_exit(enum utrace_resume_action action,
 					      entry->arg1, entry->arg2);
 	}
 
-	__stp_tf_handler_end();
 	__stp_tf_remove_map_entry(entry);
+	__stp_tf_handler_end();
 	return UTRACE_RESUME;
 }
 
