@@ -33,7 +33,7 @@
 %{!?with_openssl: %global with_openssl 0}
 %endif
 %{!?with_pyparsing: %global with_pyparsing 0%{?fedora} >= 18 || 0%{?rhel} >= 7}
-%{!?with_python3: %global with_python3 0%{?fedora} >= 23}
+%{!?with_python3: %global with_python3 0%{?fedora} >= 23 || 0%{?rhel} > 7}
 %{!?with_python2_probes: %global with_python2_probes 1}
 %{!?with_python3_probes: %global with_python3_probes 0%{?fedora} >= 23}
 %{!?with_httpd: %global with_httpd 0}
