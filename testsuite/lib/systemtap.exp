@@ -220,6 +220,48 @@ proc print_systemtap_version {} {
 }
 
 
+# Check for the optional 'stapusr', 'stapsys', and 'stapdev' users
+# (and make sure they belong to the correct groups).
+proc systemtap_check_users {} {
+    global systemtap_stapusr_user_exists
+    global systemtap_stapsys_user_exists
+    global systemtap_stapdev_user_exists
+	     
+    # If we have the optional 'stapusr' user, does he belong to the
+    # 'stapusr' group (and not the 'stapdev' or 'stapsys' groups)?
+    set systemtap_stapusr_user_exists 0
+    if {! [catch {exec /usr/bin/id -nG stapusr} user_info]} {
+	if {[regexp {.*stapusr.*} "$user_info"]
+	    && ! [regexp {.*stapsys.*} "$user_info"]
+	    && ! [regexp {.*stapdev.*} "$user_info"]} {
+	    set systemtap_stapusr_user_exists 1
+	}
+    }
+
+    # If we have the optional 'stapsys' user, does he belong to the
+    # 'stapusr' and 'stapsys' groups (and not the 'stapdev' group)?
+    set systemtap_stapsys_user_exists 0
+    if {! [catch {exec /usr/bin/id -nG stapsys} user_info]} {
+	if {[regexp {.*stapusr.*} "$user_info"]
+	    && [regexp {.*stapsys.*} "$user_info"]
+	    && ! [regexp {.*stapdev.*} "$user_info"]} {
+	    set systemtap_stapsys_user_exists 1
+	}
+    }
+
+    # If we have the optional 'stapdev' user, does he belong to the
+    # 'stapusr' and 'stapdev' groups (it doesn't really matter about
+    # the 'stapsys' group)?
+    set systemtap_stapdev_user_exists 0
+    if {! [catch {exec /usr/bin/id -nG stapdev} user_info]} {
+	if {[regexp {.*stapusr.*} "$user_info"]
+	    && [regexp {.*stapdev.*} "$user_info"]} {
+	    set systemtap_stapdev_user_exists 1
+	}
+    }
+}
+
+
 proc setup_systemtap_environment {} {
     global srcdir env server_pid systemtap_dyninst_p
     global systemtap_nss_p systemtap_java_p
@@ -345,6 +387,7 @@ proc setup_systemtap_environment {} {
       set kill_needs_doubledash 0
     }
 
+    systemtap_check_users
     arch_compile_init
     return 1
 }
@@ -383,6 +426,9 @@ proc shutdown_server {} {
     } else {
 	verbose -log "shutdown_server: no servers (after $waited tries)"
     }
+
+    # Cleanup the custom server namespace (if needed).
+    server_ns_cleanup
 }
 
 # Set up the environment so that tests will be performed using the systemtap

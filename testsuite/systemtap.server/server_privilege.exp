@@ -1,0 +1,368 @@
+# Let's try testing with optional users that only have certain
+# privileges. This will allow us to do more privilege/signing
+# testing.
+
+set test "server_privilege"
+if {! [installtest_p]} { untested $test; return }
+if {! [nss_p]} { untested "$test (no NSS)"; return }
+
+# Note we have to be root.
+set effective_uid [exec /usr/bin/id -u]
+if {$effective_uid != 0} { untested "$test (must be root)"; return }
+
+proc compile_with_privilege { test_name privilege script } {
+    global server_spec srcdir
+
+    set cmd [concat stap -p4 $privilege --use-server=$server_spec $script ]
+    send_log "executing: $cmd\n"
+    set failed 1
+    set module_name ''
+    eval spawn $cmd
+    expect {
+	-timeout 150
+	-re {^stap_[^ \t\r\n]*\.ko\r\n} {
+	    set module_name [string trim "$expect_out(0,string)" \r\n]
+	    set failed 0
+	    exp_continue
+	}
+	-re {^.*\r\n} { exp_continue }
+	timeout { 
+	    kill -INT -[exp_pid] 2
+	}
+    }
+    catch {close}
+    set rc [wait -i $spawn_id]
+    set rc [lindex $rc 3]
+    set module_exists 0
+    set subtest "module compile"
+    if {$rc == 0 && $failed == 0 && [string length $module_name]} {
+	pass "$test_name ($subtest)"
+
+	# Make sure that the module and module signature were
+	# returned. The module signature isn't required for 'stapdev'
+	# privilege.
+	if { $privilege eq "--privilege=stapdev" } {
+	    set subtest "module exists"
+	    if {[file exists $module_name]} {
+		set module_exists 1
+		pass "$test_name ($subtest)"
+	    } else {
+		fail "$test_name ($subtest)"
+	    }
+	} else {
+	    set subtest "module and signature exist"
+	    set module_sig "${module_name}.sgn"
+	    if {[file exists $module_name] && [file exists $module_sig] } {
+		set module_exists 1
+		pass "$test_name ($subtest)"
+	    } else {
+		fail "$test_name ($subtest)"
+	    }
+	}
+    } else {
+	fail "$test_name ($subtest)"
+    }
+    return [list $module_exists $module_name]
+}
+
+# If we don't have any of the optional users, we could just quit. But,
+# we'll go on and make sure the module compilation works.
+systemtap_check_users
+
+# Now start our own server.
+if {! [setup_server]} {
+    untested "$test (server start failure)"
+    return
+}
+
+## We only want to change the system's trusted signer list in our mount
+## namespace, not in the real system.
+set subtest "adding trusted signer"
+set cmd "stap --trust-servers=signer,no-prompt --use-server=$server_spec"
+lassign [server_ns_as_root $cmd] rc output
+if {$rc == 0} {
+    pass "$test - $subtest"
+} else {
+    fail "$test - $subtest"
+}
+
+# OK, now we've got a server. Use it to compile an unprivileged module
+set subtest "unprivileged compile"
+set full_test "$test - $subtest"
+lassign [compile_with_privilege $full_test "--unprivileged" \
+	     $srcdir/systemtap.server/hello.stp] module_exists module_name
+
+# Make sure we can load the module. This will verify that the
+# signature is correct and trusted.
+if {$module_exists} {
+    set module_path [exec pwd]/$module_name
+    set unprivileged_module_path $module_path
+
+    # All the users should be able to load this module.
+    set subtest "stapusr unprivileged module run"
+    set cmd "staprun $module_path"
+    if {$systemtap_stapusr_user_exists} {
+	lassign [server_ns_as_user "stapusr" $cmd] rc output
+	if {$rc == 0} {
+	    pass "$test - $subtest"
+	} else {
+	    fail "$test - $subtest"
+	}
+    } else {
+	untested "$test - $subtest"
+    }
+    set subtest "stapsys unprivileged module run"
+    if {$systemtap_stapsys_user_exists} {
+	lassign [server_ns_as_user "stapsys" $cmd] rc output
+	if {$rc == 0} {
+	    pass "$test - $subtest"
+	} else {
+	    fail "$test - $subtest"
+	}
+    } else {
+	untested "$test - $subtest"
+    }
+    set subtest "stapdev unprivileged module run"
+    if {$systemtap_stapdev_user_exists} {
+	lassign [server_ns_as_user "stapdev" $cmd] rc output
+	if {$rc == 0} {
+	    pass "$test - $subtest"
+	} else {
+	    fail "$test - $subtest"
+	}
+    } else {
+	untested "$test - $subtest"
+    }
+}
+
+# Now compile a module using '--privilege=stapusr'. This should be the
+# same thing as '--unprivileged'.
+set subtest "stapusr privilege compile"
+set full_test "$test - $subtest"
+lassign [compile_with_privilege $full_test "--privilege=stapusr" \
+	     $srcdir/systemtap.server/test.stp] module_exists module_name
+
+# Make sure we can load the module. This will verify that the
+# signature is correct and trusted.
+if {$module_exists} {
+    set module_path [exec pwd]/$module_name
+    set stapusr_module_path $module_path
+
+    # All the users should be able to load this module.
+    set subtest "stapusr --privilege=stapusr module run"
+    set cmd "staprun $module_path"
+    if {$systemtap_stapusr_user_exists} {
+	lassign [server_ns_as_user "stapusr" $cmd] rc output
+	if {$rc == 0} {
+	    pass "$test - $subtest"
+	} else {
+	    fail "$test - $subtest"
+	}
+    } else {
+	untested "$test - $subtest"
+    }
+    set subtest "stapsys --privilege=stapusr module run"
+    if {$systemtap_stapsys_user_exists} {
+	lassign [server_ns_as_user "stapsys" $cmd] rc output
+	if {$rc == 0} {
+	    pass "$test - $subtest"
+	} else {
+	    fail "$test - $subtest"
+	}
+    } else {
+	untested "$test - $subtest"
+    }
+    set subtest "stapdev --privilege=stapusr module run"
+    if {$systemtap_stapdev_user_exists} {
+	lassign [server_ns_as_user "stapdev" $cmd] rc output
+	if {$rc == 0} {
+	    pass "$test - $subtest"
+	} else {
+	    fail "$test - $subtest"
+	}
+    } else {
+	untested "$test - $subtest"
+    }
+}
+
+# Now compile a module using '--privilege=stapsys'.
+set subtest "stapsys privilege compile"
+set full_test "$test - $subtest"
+lassign [compile_with_privilege $full_test "--privilege=stapsys" \
+	     $srcdir/systemtap.server/hello.stp ] module_exists module_name
+
+# Make sure we can load the module. This will verify that the
+# signature is correct and trusted.
+if {$module_exists} {
+    set module_path [exec pwd]/$module_name
+    # Only the stapsys and stapdev users should be able to load this
+    # module.
+    set subtest "stapusr --privilege=stapsys module run"
+    set cmd "staprun $module_path"
+    if {$systemtap_stapusr_user_exists} {
+	lassign [server_ns_as_user "stapusr" $cmd] rc output
+	if {$rc == 0} {
+	    fail "$test - $subtest"
+	} else {
+	    pass "$test - $subtest"
+	}
+    } else {
+	untested "$test - $subtest"
+    }
+    set subtest "stapsys --privilege=stapsys module run"
+    if {$systemtap_stapsys_user_exists} {
+	lassign [server_ns_as_user "stapsys" $cmd] rc output
+	if {$rc == 0} {
+	    pass "$test - $subtest"
+	} else {
+	    fail "$test - $subtest"
+	}
+    } else {
+	untested "$test - $subtest"
+    }
+    set subtest "stapdev --privilege=stapsys module run"
+    if {$systemtap_stapdev_user_exists} {
+	lassign [server_ns_as_user "stapdev" $cmd] rc output
+	if {$rc == 0} {
+	    pass "$test - $subtest"
+	} else {
+	    fail "$test - $subtest"
+	}
+    } else {
+	untested "$test - $subtest"
+    }
+}
+
+# Now compile a module using '--privilege=stapdev'. Note that
+# 'stapdev' compiles don't need a module signature.
+set subtest "stapdev privilege compile"
+set full_test "$test - $subtest"
+lassign [compile_with_privilege $full_test "--privilege=stapdev" \
+	     $srcdir/systemtap.server/hello.stp ] module_exists module_name
+
+# Make sure we can load the module.
+if {$module_exists} {
+    set module_path [exec pwd]/$module_name
+    # Only the stapdev user should be able to load this module.
+    set subtest "stapusr --privilege=stapdev module run"
+    set cmd "staprun $module_path"
+    if {$systemtap_stapusr_user_exists} {
+	lassign [server_ns_as_user "stapusr" $cmd] rc output
+	if {$rc == 0} {
+	    fail "$test - $subtest"
+	} else {
+	    pass "$test - $subtest"
+	}
+    } else {
+	untested "$test - $subtest"
+    }
+    set subtest "stapsys --privilege=stapdev module run"
+    if {$systemtap_stapsys_user_exists} {
+	lassign [server_ns_as_user "stapsys" $cmd] rc output
+	if {$rc == 0} {
+	    fail "$test - $subtest"
+	} else {
+	    pass "$test - $subtest"
+	}
+    } else {
+	untested "$test - $subtest"
+    }
+    set subtest "stapdev --privilege=stapdev module run"
+    if {$systemtap_stapdev_user_exists} {
+	lassign [server_ns_as_user "stapdev" $cmd] rc output
+	if {$rc == 0} {
+	    pass "$test - $subtest"
+	} else {
+	    fail "$test - $subtest"
+	}
+    } else {
+	untested "$test - $subtest"
+    }
+}
+
+# Let's try changing the module and signature file and make sure the
+# verifcation fails. There isn't any point in trying this if we don't
+# have the modules we need or the 'stapusr' or 'stapsys' optional
+# users don't exist.
+set subtest "module verification"
+if {([info exists unprivileged_module_path]
+     && [info exists stapusr_module_path])
+    && ($systemtap_stapusr_user_exists || $systemtap_stapsys_user_exists)} {
+
+    # Use the shell to change the signature. This writes
+    # 0xdeadbeef at byte 10. (We could probably do this in tcl
+    # with 'binary format' and 'binary scan', but this was
+    # easier.
+    set rc 1
+    set unprivileged_module_sig_path "${unprivileged_module_path}.sgn"
+    if {$rc == 0} {
+	set cmd {printf '\\xdeadbeef' | dd of=${unprivileged_module_sig_path} bs=1 seek=10 conv=notrunc}
+	verbose -log "running: [subst $cmd]"
+	set rc 0
+	if {[catch {eval exec $cmd} output]} {
+	    # non-zero exit status, get it:
+	    if {[lindex $::errorCode 0] eq "CHILDSTATUS"} {
+		set rc [lindex $::errorCode 2]
+	    }
+	}
+	if {$rc != 0} {
+	    verbose -log "$output"
+	    fail "$test - $subtest (file change)"
+	    set rc 1
+	} else {
+	    pass "$test - $subtest (file change)"
+	    set rc 0
+	}
+    }
+
+    if {$systemtap_stapusr_user_exists} {
+	set user "stapusr"
+    } else {
+	set user "stapsys"
+    }
+
+    # Now that we've changed the signature, try to run the module (which
+    # should fail). Note that we only need to run the module once with
+    # either stapusr or stapsys.
+    if {$rc == 0} {
+	set subtest "loading module with change signature"
+	set cmd "staprun $unprivileged_module_path"
+	lassign [server_ns_as_user $user $cmd] rc output
+	# This *should* fail, since we munged the signature.
+	if {$rc == 0} {
+	    fail "$test - $subtest"
+	} else {
+	    pass "$test - $subtest"
+	}
+    }
+
+    # Now lets change the module and see if we can load it. However,
+    # changing the module is tricky. If for some reason the module
+    # verifcation succeeds, if we've changed some random bits in the
+    # module, we could cause the kernel to crash. So, instead, we'll
+    # use the signature file for the 'stapusr' module with the
+    # unprivileged module.
+    set stapusr_module_sig_path "${stapusr_module_path}.sgn"
+    set subtest "module rename"
+    verbose -log "renaming $stapusr_module_sig_path $unprivileged_module_sig_path"
+    if {! [catch {file rename -force $stapusr_module_sig_path \
+		    $unprivileged_module_sig_path}]} {
+	pass "$test - $subtest"
+
+	set subtest "loading module with mismatched signature"
+	set cmd "staprun $unprivileged_module_path"
+	lassign [server_ns_as_user $user $cmd] rc output
+	# This *should* fail, since the module and signature don't match.
+	if {$rc == 0} {
+	    fail "$test - $subtest"
+	} else {
+	    pass "$test - $subtest"
+	}
+    } else {
+	fail "$test - $subtest"
+    }
+} else {
+    untested "$test - $subtest"
+}
+
+shutdown_server

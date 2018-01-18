@@ -1,0 +1,137 @@
+# When testing the systemtap server, we don't want to modify the real
+# system configuration (like adding trusted signers). So, instead
+# we'll use a mount namespace. This will allow us to mount a directory
+# on top of the real system cert database directory and only processes
+# that use this mount namespace will see our temporary system cert
+# database directory. See unshare(1) and mount_namespaces(7) for more
+# details.
+#
+# One note. Fedora 27 (the current Fedora at the time of this writeup)
+# has the capability of creating persistent namespaces, which would
+# simplify the following logic a bit. However, neither the RHEL6 or
+# RHEL7 versions of 'unshare' support this. So, we'll do this the
+# harder way.
+#
+# There are two main functions provided by this file:
+# 'server_ns_as_root' and 'server_ns_as_user'. These allow the caller
+# to run commands (as either 'root' or a specified user) in the custom
+# mount namespace.
+#
+# Note that you have to be root to call these functions. Why? It might
+# be possible to call them as non-root using 'sudo'. But, the quoting
+# is really tricky now, and that would just complicate matters
+# even further. So, we're taking the easy way out.
+
+# Setup the server_ns configuration. This function is called by 
+# 'server_ns_as_root' and 'server_ns_as_user' (so the setup is only
+# done if those routines that need it are called).
+proc server_ns_setup {} {
+    global env systemtap_orig_cert_db_dir systemtap_new_cert_db_dir
+
+    # We need to be root so that the temporary directory is owned by
+    # root.
+    set effective_uid [exec /usr/bin/id -u]
+    if {$effective_uid != 0} {
+	verbose -log "server_ns_setup: non-root user"
+	return 1
+    }
+
+    # If we've already created the directory, just return.
+    if {[info exists systemtap_orig_cert_db_dir]
+	&& [string length $systemtap_orig_cert_db_dir]
+	&& [info exists systemtap_new_cert_db_dir]
+	&& [string length $systemtap_orig_cert_db_dir]} {
+	return 0
+    }
+
+    # Create a new directory to bind mount on top of
+    # ${SYSCONFDIR}/systemtap.
+    if {! [info exists env(SYSCONFDIR)]
+	|| [string length $env(SYSCONFDIR)] == 0} {
+	verbose -log "server_ns_setup: no SYSCONFDIR!"
+	return 1
+    }
+
+    # Note that the db path actually ends up under
+    # SYSCONFDIR/systemtap/staprun, but for some reason stap doesn't
+    # like us bind mounting that directory. So, we'll use the parent
+    # directory.
+    set systemtap_orig_cert_db_dir "$env(SYSCONFDIR)/systemtap"
+
+    # Create a temporary cert dtatabase path. This directory must be
+    # owned by root. We delete this when shutting down the server.
+    if {[catch {exec mktemp -d} systemtap_new_cert_db_dir]} {
+	verbose -log "server_ns_setup - Failed to create temporary cert db directory: $systemtap_new_cert_db_dir"
+	unset systemtap_new_cert_db_dir
+	return 1
+    }
+    verbose -log "server_ns_setup - orig cert db dir: $systemtap_orig_cert_db_dir"
+    verbose -log "server_ns_setup - new cert db dir: $systemtap_new_cert_db_dir"
+    return 0
+}
+
+# Clean up the server_ns configuration. This function is called by 
+# 'shutdown_server' (and is careful not to do anyting if
+# server_ns_setup hasn't been called).
+proc server_ns_cleanup {} {
+    global systemtap_new_cert_db_dir
+    if {[info exists systemtap_new_cert_db_dir]
+	&& [string length $systemtap_new_cert_db_dir]
+	&& [file exists $systemtap_new_cert_db_dir]} {
+	catch {exec rm -rf $systemtap_new_cert_db_dir}
+	unset systemtap_new_cert_db_dir
+    }
+}
+
+# server_ns_as_root: run 'command' in a custom mount
+# namespace as root. Returns a list of [ RETURN_STATUS OUTPUT ].
+proc server_ns_as_root { command } {
+    global systemtap_orig_cert_db_dir systemtap_new_cert_db_dir
+
+    if {[server_ns_setup]} { return [list 1 "server_ns_setup failure"] }
+
+    # We're root (otherwise server_ns_setup would have failed). We're going
+    # to call "unshare" to create a new mount namespace. This will
+    # allow us to mount our temporary directory on top of the real
+    # system cert db.
+    set cmd {unshare --mount bash -c "mount --bind $systemtap_new_cert_db_dir $systemtap_orig_cert_db_dir && $command"}
+    verbose -log "running: [subst $cmd]"
+    set rc 0
+    if {[catch {eval exec $cmd} output]} {
+	# non-zero exit status, get it:
+	if {[lindex $::errorCode 0] eq "CHILDSTATUS"} {
+	    set rc [lindex $::errorCode 2]
+	}
+    }
+    verbose -log "RC: $rc"
+    verbose -log "$output"
+
+    return [list $rc $output]
+}
+
+# server_ns_as_user: run 'command' in a custom mount namespace as user
+# 'user'. Returns a list of [ RETURN_STATUS OUTPUT ].
+proc server_ns_as_user { user command } {
+    global systemtap_orig_cert_db_dir systemtap_new_cert_db_dir
+
+    if {[server_ns_setup]} { return [list 1 "server_ns_setup failure"] }
+
+    # We're root (otherwise server_ns_setup would have failed). We're going
+    # to call "unshare" to create a new mount namespace. This will
+    # allow us to mount our temporary directory on top of the real
+    # system cert db. We're also going to run the caller's command as
+    # the specified user (using 'su').
+    set cmd {unshare --mount bash -c "mount --bind $systemtap_new_cert_db_dir $systemtap_orig_cert_db_dir && su -l -s /bin/sh $user -c '$command'"}
+    verbose -log "running: [subst $cmd]"
+    set rc 0
+    if {[catch {eval exec $cmd} output]} {
+	# non-zero exit status, get it:
+	if {[lindex $::errorCode 0] eq "CHILDSTATUS"} {
+	    set rc [lindex $::errorCode 2]
+	}
+    }
+    verbose -log "RC: $rc"
+    verbose -log "$output"
+
+    return [list $rc $output]
+}

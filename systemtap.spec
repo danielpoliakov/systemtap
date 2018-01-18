@@ -717,6 +717,15 @@ getent passwd stap-server >/dev/null || \
   useradd -c "Systemtap Compile Server" -u 155 -g stap-server -d %{_localstatedir}/lib/stap-server -r -s /sbin/nologin stap-server 2>/dev/null || \
   useradd -c "Systemtap Compile Server" -g stap-server -d %{_localstatedir}/lib/stap-server -r -s /sbin/nologin stap-server
 
+%pre testsuite
+getent passwd stapusr >/dev/null || \
+    useradd -c "Systemtap 'stapusr' User" -g stapusr -r -s /sbin/nologin stapusr
+getent passwd stapsys >/dev/null || \
+    useradd -c "Systemtap 'stapsys' User" -g stapsys -G stapusr -r -s /sbin/nologin stapsys
+getent passwd stapdev >/dev/null || \
+    useradd -c "Systemtap 'stapdev' User" -g stapdev -G stapusr -r -s /sbin/nologin stapdev
+exit 0
+
 %post server
 
 # We have some duplication between the %files listings for the
