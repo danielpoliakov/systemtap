@@ -67,7 +67,6 @@ proc compile_with_privilege { test_name privilege script } {
 
 # If we don't have any of the optional users, we could just quit. But,
 # we'll go on and make sure the module compilation works.
-systemtap_check_users
 
 # Now start our own server.
 if {! [setup_server]} {

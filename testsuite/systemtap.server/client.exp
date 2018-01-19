@@ -1,9 +1,12 @@
 # In this test, we are using arrays as sets. The key itself does not matter,
 # only the value
 
-# many of these tests use as_root
-if {! [installtest_p]} { return }
-if {! [nss_p]} { return }
+if {! [installtest_p]} { untested "client"; return }
+if {! [nss_p]} { untested "client (no nss)"; return }
+
+# Note we have to be root (to get the namespace to work correctly).
+set effective_uid [exec /usr/bin/id -u]
+if {$effective_uid != 0} { untested "client (must be root)"; return }
 
 # Let's start with a clean slate in terms of trust.
 exec rm -fr $env(SYSTEMTAP_DIR)/ssl
@@ -154,8 +157,36 @@ proc list_servers { TEST_NAME SERVER_SPEC args } {
     }
 }
 
-# There may be other servers running. Let's keep track of
-# them.
+# Test the --list-servers option and return an array of the servers
+# found in the custom namespace.
+proc ns_list_servers { TEST_NAME SERVER_SPEC args } {
+    set failed 0
+    set n 0
+    array unset ::servers
+    set cmd "stap --list-servers=$SERVER_SPEC $args"
+    send_log "executing: $cmd\n"
+    lassign [server_ns_as_root $cmd] rc output
+    if {$rc == 0} {
+	# The command succeeded. Search the output for the servers.
+	foreach line [split $output \n] {
+	    if {[regexp {^ host=(.*)$} $line match server]} {
+		set ::servers($n) $server
+		incr n
+	    } elseif {[regexp "^Systemtap Compile Server Status for '${SERVER_SPEC}'$" $line]
+		       || [regexp {^No servers found$} $line]
+		       || [regexp {^No certificate found in database .*$} $line]} {
+		# Ignore this output
+	    } else {
+		verbose -log "unexpected output: $line"
+	    }
+	}
+	pass "$TEST_NAME"
+    } else {
+	fail "$TEST_NAME"
+    }
+}
+
+# There may be other servers running. Let's keep track of them.
 #
 # Sometimes, we'll see a server running from the last test, if it
 # hasn't quite died yet. So, make sure we get the same result twice.
@@ -218,12 +249,13 @@ array set existing_online_servers [array get servers]
 # Now start our own server and make sure we can work with it.
 if {! [setup_server] || $avahi_ok_p != 1} {
     untested "Compile-server client tests against a server"
-    return;
+    return
 }
 
-# Our server should now appear online, separate from the previously discovered
-# online servers. Note that our server could generate serveral listings because
-# it could appear at more than one ip address,
+# Our server should now appear online, separate from the previously
+# discovered online servers. Note that our server could generate
+# serveral listings because it could appear at more than one ip
+# address,
 list_servers "List current online servers" online
 array unset current_online_servers
 array set current_online_servers [array get servers]
@@ -240,8 +272,8 @@ if {[array size new_online_servers] > 0} {
     fail "$test"
 }
 
-# Our server should now be trusted, separate from the previously discovered
-# trusted servers.
+# Our server should now be trusted, separate from the previously
+# discovered trusted servers.
 list_servers "List current trusted servers" online,trusted
 array unset current_trusted_servers
 array set current_trusted_servers [array get servers]
@@ -258,10 +290,10 @@ if {[array size new_trusted_servers] > 0} {
     fail "$test"
 }
 
-# The new servers should automatically be trusted, so the new_trusted_servers
-# array should be a subset of the new_online_servers array, but not necessarily
-# vice-versa, since new servers may have come online independently of our
-# testing.
+# The new servers should automatically be trusted, so the
+# new_trusted_servers array should be a subset of the
+# new_online_servers array, but not necessarily vice-versa, since new
+# servers may have come online independently of our testing.
 set test "Verify new trusted server list"
 if {[array_in new_trusted_servers new_online_servers]} {
     pass "$test"
@@ -273,8 +305,8 @@ if {[array_in new_trusted_servers new_online_servers]} {
 array unset our_servers
 array set our_servers [array get new_trusted_servers]
 
-# The new servers should not be trusted as signers so there should be no new
-# signing servers.
+# The new servers should not be trusted as signers so there should be
+# no new signing servers.
 list_servers "List current signing servers" signer
 array unset current_signing_servers
 array set current_signing_servers [array get servers]
@@ -295,11 +327,9 @@ if {[regexp {^ host=([^ ]*).*} $our_servers(0) match host_name]} {
 }
 
 # Compile and run a simple hello test, selecting the server automatically
-if {[installtest_p]} then {
-    set test "Hello from server"
-    set rc [stap_run_batch $srcdir/systemtap.server/hello.stp $use_server]
-    if {$rc == 0} { pass $test } else { fail $test }
-}
+set test "Hello from server"
+set rc [stap_run_batch $srcdir/systemtap.server/hello.stp $use_server]
+if {$rc == 0} { pass $test } else { fail $test }
 
 set cmd [concat stap --trust-servers=ssl,revoke,no-prompt --use-server=$host_name]
 send_log "executing: $cmd\n"
@@ -364,8 +394,9 @@ if {[array size new_trusted_servers] > 0} {
     fail "$test"
 }
 
-# The new_trusted_servers array should now match the our_servers array, since
-# the our_servers array is a copy of the original new_trusted_servers array.
+# The new_trusted_servers array should now match the our_servers
+# array, since the our_servers array is a copy of the original
+# new_trusted_servers array.
 set test "New trusted servers matches after reinstatement by ip address"
 if {[array_equal new_trusted_servers our_servers]} {
     pass "$test"
@@ -381,8 +412,8 @@ if {[array_equal new_trusted_servers our_servers]} {
 	}
 }
 
-# Trust our server as a module signer. This must be done as root. Specify
-# the server by certificate serial number.
+# Trust our server as a module signer. This must be done as root and
+# in the namespace. Specify the server by certificate serial number.
 set test "Server has certificate serial number"
 if {[regexp {^.*certinfo="([^ ]*)".*} $our_servers(0) match cert_info]} {
     pass $test
@@ -390,17 +421,49 @@ if {[regexp {^.*certinfo="([^ ]*)".*} $our_servers(0) match cert_info]} {
     fail $test
 }
 
-# Even though this action must be performed as root, Do not perform it if we
-# are already root, since it alters the state of the install tree. See PR 11442.
-# The related tests should then be expected failures.
-set effective_pid [exec /usr/bin/id -u]
-if {$effective_pid != 0} {
-    set cmd [concat [exec which stap] --trust-servers=signer,no-prompt --use-server=$cert_info]
-    eval as_root { $cmd }
+# Grab the existing trusted signers in the namespace. There should be
+# none (since we're starting with a clean slate).
+set test "Namespace existing signer servers"
+ns_list_servers "List namespace existing signing servers" signer
+array unset ns_existing_signing_servers
+array set ns_existing_signing_servers [array get servers]
+if {[array size ns_existing_signing_servers] == 0} {
+    pass $test
+} else {
+    fail $test
 }
 
-# Our server should now be trusted as a signer, separate from the previously
-# discovered trusted signing servers.
+# We only want to change the system's trusted signer list in our mount
+# namespace, not in the real system.
+set test "Adding trusted signer (in a namespace)"
+set cmd "stap --trust-servers=signer,no-prompt --use-server=$cert_info"
+lassign [server_ns_as_root $cmd] rc output
+if {$rc == 0} {
+    pass "$test"
+} else {
+    fail "$test"
+}
+
+# Our server should now be trusted as a signer (but only in our namespace).
+ns_list_servers "List namespace current online signing servers" online,signer
+array unset ns_current_signing_servers
+array set ns_current_signing_servers [array get servers]
+
+# The current list of signing servers in the namespace should have
+# changed.
+array_diff ns_current_signing_servers ns_existing_signing_servers
+array unset ns_new_signing_servers
+array set ns_new_signing_servers [array get diff]
+set test "New namespace signing servers"
+if {[array size ns_new_signing_servers] > 0} {
+    pass "$test"
+} else {
+    fail "$test"
+}
+
+# The current list of signing servers shouldn't have changed in the
+# real system (since the list of servers in the real system and in the
+# namespace should be separate).
 list_servers "List current online signing servers" online,signer
 array unset current_signing_servers
 array set current_signing_servers [array get servers]
@@ -408,62 +471,28 @@ array set current_signing_servers [array get servers]
 array_diff current_signing_servers existing_signing_servers
 array unset new_signing_servers
 array set new_signing_servers [array get diff]
-
 set test "New signing servers"
-if {$effective_pid == 0} {
-    setup_xfail *-*-*
-}
-if {[array size new_signing_servers] > 0} {
+if {[array size new_signing_servers] == 0} {
     pass "$test"
 } else {
-    fail "$test"
-}
-
-# The new_signing_servers array should now match the our_servers array, since
-# the we specified our server by certificate serial number so that we don't
-# accidentally trust another server on the same host.
-set test "Number of new signing servers matches"
-if {$effective_pid == 0} {
-    setup_xfail *-*-*
-}
-if {[array size new_signing_servers] == [array size our_servers]} {
-    pass "$test"
-    set test "New signing servers matches"
-    if {$effective_pid == 0} {
-	setup_xfail *-*-*
-    }
-    if {[array_equal new_signing_servers our_servers]} {
-	pass "$test"
-    } else {
-	fail "$test"
-	verbose -log "new_signing_servers:"
-	foreach {index value} [array get new_signing_servers] {
-	    verbose -log "  index: $index, value: $value" 
-	}
-	verbose -log "our_servers:"
-	foreach {index value} [array get our_servers] {
-	    verbose -log "  index: $index, value: $value" 
-	}
-    }
-} else {
-    fail "$test"
-    set test "New signing servers matches"
-    if {$effective_pid == 0} {
-	setup_xfail *-*-*
-    }
     fail "$test"
 }
 
 set test "Server has port number"
-if {[regexp {^.*port=([^ ]*).*} $our_servers(0) match port_num]} {
+if {[regexp {^.*port=([^ ]*).*} $ns_new_signing_servers(0) match port_num]} {
     pass $test
 } else {
     fail $test
 }
 
 foreach privilege {"--unprivileged" "--privilege=stapusr" "--privilege=stapsys"} {
-    # Compile a simple test using an unprivileged setting. This will ask the server to
-    # check and sign the module. Specify the server using host name and port.
+    # Compile a simple test using an unprivileged setting. This will
+    # ask the server to check and sign the module. Specify the server
+    # using host name and port.
+    #
+    # Notice we can use the server directly, and don't need to be in
+    # the namespace. We'll need to be in the namespace when trying to
+    # run the compiled module.
     set test "Compile module using server with $privilege"
     set failed 1
     set module_name ""
@@ -510,62 +539,44 @@ foreach privilege {"--unprivileged" "--privilege=stapusr" "--privilege=stapsys"}
 	set no_signature 1
     }
 
-    # Make sure we can load the module. This will verify that the signature
-    # is correct and trusted.
-    # There must be a module to load.
-    if {$no_module == 0} {
-	set expect_failure 1
-	# If we are root, we can load anything.
-	if {$effective_pid == 0} {
-	    set expect_failure 0
-	} else {
-	    set id_info [exec /usr/bin/id]
-	    # Not root, so we must be a member of stapusr.
-	    if {[regexp {.*\(stapusr\).*} "$id_info"]} {
-		# Members of stapdev can load an unsigned module.
-		if {[regexp {.*\(stapdev\).*} "$id_info"]} {
-		    set expect_failure 0
-		} else {
-		    # Otherwise, the module must be signed.
-		    if {$no_signature == 0} {
-			# We must have the necessary credentials. We already know that we are
-			# stapusr. See if we need to be stapsys.
-			if {$privilege == "--privilege=stapsys"} {
-			    if {[regexp {.*\(stapsys\).*} "$id_info"]} {
-				set expect_failure 0
-			    }
-			} else {
-			    # stapusr is good enough.
-			    set expect_failure 0
-			}
-		    }
-		}
-	    }    
-	}
-	if {$expect_failure} {
+    # Make sure we can load the module. This will verify that the
+    # signature is correct and trusted.  There must be a module to
+    # load.
+    #
+    # Note that we must do this in the namespace, since only there can
+    # the signature be verified.
+    #
+    # We're going to use the optional 'stapusr' and 'stapsys' users,
+    # if they exist.
+    set test "Load and run signed module when trusted with $privilege"
+    set user ""
+    if {$privilege == "--privilege=stapsys"} {
+	if {$systemtap_stapsys_user_exists} {
+	    set user "stapsys"
+	} elseif {$systemtap_stapusr_user_exists} {
+	    set user "stapusr"
 	    setup_xfail *-*-*
 	}
+    } else {
+	if {$systemtap_stapusr_user_exists} {
+	    set user "stapusr"
+	}
     }
-    set test "Load and run signed module when trusted with $privilege"
-    if {$no_module == 1 || ! [installtest_p]} {
+
+    if {$no_module == 1 || $no_signature == 1 || [string length $user] == 0} {
 	untested "$test"
     } else {
 	set failed 1
-	set cmd [concat staprun $module_name]
-	send_log "executing: $cmd\n"
-	eval spawn $cmd
-	expect {
-	    -timeout 150
-	    -re {^Hello From Server\r\n} {
-		set failed 0
-		exp_continue
-	    }
-	    timeout { 
-		kill -INT -[exp_pid] 2
-		set failed 1
+	set module_path [exec pwd]/$module_name
+	set cmd [concat staprun $module_path]
+	lassign [server_ns_as_user $user $cmd] rc output
+	if {$rc == 0} {
+	    foreach line [split $output \n] {
+		if {[regexp {^Hello From Server$} $line]} {
+		    set failed 0
+		}
 	    }
 	}
-	catch {close}; catch {wait}
 	if {$failed == 0} {
 	    pass "$test"
 	} else {
@@ -574,66 +585,50 @@ foreach privilege {"--unprivileged" "--privilege=stapusr" "--privilege=stapsys"}
     }
 }
 
-# Revoke trust in our server as a module signer. This must be done as root.
-# Specify the server by certificate serial number so that we don't accidentally
-# revoke trust in a previously trusted server.
-# Even though this action must be performed as root, Do not perform it if we
-# are already root, since it alters the state of the install tree. See PR 11442.
-if {$effective_pid != 0} {
-    set cmd [concat [exec which stap] --trust-servers=revoke,signer,no-prompt --use-server=$cert_info]
-    eval as_root { $cmd }
-}
-
-# Our server should no longer be trusted as a signer
-list_servers "List current signing servers after revokation" signer
-array unset current_signing_servers
-array set current_signing_servers [array get servers]
-
-set test "No longer trusted as a signer after revokation"
-if {[array_in current_signing_servers existing_signing_servers]} {
+# Revoke trust in our server as a module signer in the namespace.
+# Specify the server by certificate serial number to ensure we're
+# revoking trust in the correct server.
+set test "Revoking trusted signer (in a namespace)"
+set cmd [concat stap --trust-servers=revoke,signer,no-prompt --use-server=$cert_info]
+lassign [server_ns_as_root $cmd] rc output
+if {$rc == 0} {
     pass "$test"
 } else {
     fail "$test"
 }
 
-# Since our server is no longer a trusted signer, attempting
-# to load and run the module now should fail unless we
-# are root or a member of the groups stapdev and stapusr.
-if {$no_module == 0} {
-    set expect_failure 1
-    if {[exec /usr/bin/id -u] == 0} {
-	set expect_failure 0
-    } else {
-	if {[regexp {.*\(stapdev\).*} "$id_info"]} {
-	    if {[regexp {.*\(stapusr\).*} "$id_info"]} {
-		set expect_failure 0
+# Our server should no longer be trusted as a signer in the namespace.
+ns_list_servers "List namespace current signing servers after revokation " signer
+array unset ns_current_signing_servers
+array set ns_current_signing_servers [array get servers]
+
+set test "No longer trusted as a signer after revokation"
+if {[array_in ns_current_signing_servers ns_existing_signing_servers]} {
+    pass "$test"
+} else {
+    fail "$test"
+}
+
+# Since our server is no longer a trusted signer, attempting to load
+# and run the module now should fail (when run as 'stapsys' in the
+# namespace). We have to use the 'stapsys' user since the last module
+# compiled used "--privilege=stapsys".
+set test "Load and run signed module when not trusted"
+if {$no_module == 1 || !$systemtap_stapsys_user_exists} {
+    untested "$test"
+} else {
+    setup_xfail *-*-*
+    set failed 1
+    set module_path [exec pwd]/$module_name
+    set cmd [concat staprun $module_path]
+    lassign [server_ns_as_user "stapsys" $cmd] rc output
+    if {$rc == 0} {
+	foreach line [split $output \n] {
+	    if {[regexp {^Hello From Server$} $line]} {
+		set failed 0
 	    }
 	}
     }
-    if {$expect_failure} {
-	setup_xfail *-*-*
-    }
-}
-set test "Load and run signed module when not trusted"
-if {$no_module == 1 || ! [installtest_p]} {
-    untested "$test"
-} else {
-    set failed 1
-    set cmd [concat staprun $module_name]
-    send_log "executing: $cmd\n"
-    eval spawn $cmd
-    expect {
-	-timeout 150
-	-re {^Hello From Server\r\n} {
-	    set failed 0
-	    exp_continue;
-	}
-	timeout { 
-	    kill -INT -[exp_pid] 2
-	    set failed 1
-	}
-    }
-    catch {close}; catch {wait}
     if {$failed == 0} {
 	pass "$test"
     } else {
