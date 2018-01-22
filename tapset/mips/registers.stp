@@ -207,6 +207,7 @@ function _stp_arg:long (argnum:long, sign_extend:long, truncate:long) {
 		val = u_register("a2")
 	else if (argnum == 4)
 		val = u_register("a3")
+%( CONFIG_64BIT == "y" %?
 	else if (argnum == 5)
 		val = u_register("a4")
 	else if (argnum == 6)
@@ -215,6 +216,11 @@ function _stp_arg:long (argnum:long, sign_extend:long, truncate:long) {
 		val = u_register("a6")
 	else if (argnum == 8)
 		val = u_register("a7")
+%:
+	# FIXME: Code needed here that knows how to access MIPS
+	# o32/n32 arguments off a kernel stack and a user stack.
+	assert(sprintf("Cannot access arg(%d)", argnum))
+%)
 
 	if (truncate) {
 		if (sign_extend)
