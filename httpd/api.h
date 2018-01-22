@@ -12,6 +12,7 @@
 #include "server.h"
 #include <string>
 #include <vector>
+#include <memory>
 extern "C" {
 #include "../privilege.h"
 #include <json-c/json_object.h>
