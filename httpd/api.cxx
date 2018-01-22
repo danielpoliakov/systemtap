@@ -30,7 +30,15 @@ extern "C" {
 #include <sched.h>
 }
 
+using namespace std;
+
 static server *httpd = NULL;
+
+struct result_file_info
+{
+    string path;
+    mode_t mode;
+};
 
 class resource
 {
@@ -70,11 +78,9 @@ protected:
 class result_info : public resource
 {
 public:
-    result_info(int rc, string &out_path, string &err_path, string &mp,
-		mode_t mm)
+    result_info(int rc, string &out_path, string &err_path)
 	: resource("/results/"), rc(rc), stdout_path(out_path),
-	  stderr_path(err_path), module_path(mp), module_mode(mm),
-	  status_code(0)
+	  stderr_path(err_path), status_code(0)
     {
 	size_t found = stdout_path.find_last_of("/");
 	if (found != string::npos) {
@@ -83,10 +89,6 @@ public:
 	found = stderr_path.find_last_of("/");
 	if (found != string::npos) {
 	    stderr_file = stderr_path.substr(found + 1);
-	}
-	found = module_path.find_last_of("/");
-	if (found != string::npos) {
-	    module_file = module_path.substr(found + 1);
 	}
     }
     result_info(unsigned int status_code, string content)
@@ -98,15 +100,30 @@ public:
     void generate_response(response &r);
     void generate_file_response(response &r, string &f);
 
+    void add_file(string &path, mode_t mode)
+    {
+	size_t found = path.find_last_of("/");
+	string file_name;
+
+	if (found != string::npos) {
+	    file_name = path.substr(found + 1);
+	}
+	else {
+	    file_name = path;
+	}
+	struct result_file_info *rfi = new struct result_file_info;
+	rfi->path = path;
+	rfi->mode = mode;
+	files[file_name] = rfi;
+    }
+
 protected:
     int rc;
     string stdout_path;
     string stdout_file;
     string stderr_path;
     string stderr_file;
-    string module_path;
-    string module_file;
-    mode_t module_mode;
+    map<string, struct result_file_info *> files;
 
     unsigned int status_code;
     string content;
@@ -195,11 +212,18 @@ void result_info::generate_response(response &r)
 	// Here we output any extra files, like a module. For each
 	// file print the location and mode (in decimal, since JSON
 	// doesn't do octal).
-	if (!module_file.empty()) {
-	    os << "," << endl << "  \"files\": [";
-	    os << endl << "    { \"location\": \""
-	       << uri + '/' + module_file
-	       << "\", \"mode\": " << module_mode << " }";
+	if (!files.empty()) {
+	    os << "," << endl << "  \"files\": [" << endl;
+	    bool first = true;
+	    for (auto it = files.begin(); it != files.end(); it++) {
+		if (!first)
+		    os << "," << endl;
+		else
+		    first = false;
+		os << "    { \"location\": \""
+		   << uri + '/' + it->first
+		   << "\", \"mode\": " << it->second->mode << " }";
+	    }
 	    os << endl << "  ]";
 	}
     }
@@ -225,8 +249,11 @@ void result_info::generate_file_response(response &r, string &file)
 	else if (!stderr_path.empty() && file == stderr_file) {
 	    path = stderr_path;
 	}
-	else if (!module_file.empty() && file == module_file) {
-	    path = module_path;
+	else if (!files.empty()) {
+	    auto it = files.find(file);
+	    if (it != files.end()) {
+		path = it->second->path;
+	    }
 	}
     }
 
@@ -780,6 +807,7 @@ build_info::module_build()
     // See if we built a module.
     string module_path;
     mode_t module_mode = 0;
+    string module_sign_path;
     if (staprc == 0) {
 	glob_t globber;
 	string pattern = string(tmp_dir) + "/*.ko";
@@ -812,13 +840,31 @@ build_info::module_build()
 	    && (pr_contains(crd->privilege, pr_stapusr)
 		|| pr_contains(crd->privilege, pr_stapsys))) {
 	    clog << "Signing file..." << endl;
+	    module_sign_path = module_path + ".sgn";
 	    sign_file(httpd->get_cert_db_path(), server_cert_nickname(),
-		      module_path, module_path + ".sgn");
+		      module_path, module_sign_path);
 	}
     }
 
-    result_info *ri = new result_info(staprc, stdout_path, stderr_path,
-				      module_path, module_mode);
+    result_info *ri = new result_info(staprc, stdout_path, stderr_path);
+    if (! module_path.empty()) {
+	ri->add_file(module_path, module_mode);
+	if (! module_sign_path.empty()) {
+	    // We've got a module signature. Also figure out the file
+	    // mode by calling stat().
+	    struct stat stbuf;
+	    mode_t mode = 0;
+	    if (stat(module_sign_path.c_str(), &stbuf) == 0) {
+		mode = stbuf.st_mode & 07777;
+	    }
+	    else {
+		module_sign_path.clear();
+	    }
+	    if (! module_sign_path.empty()) {
+		ri->add_file(module_sign_path, mode);
+	    }
+	}
+    }
     set_result(ri);
     return NULL;
 }
