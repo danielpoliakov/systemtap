@@ -11,6 +11,7 @@
 #include <iomanip>
 #include "utils.h"
 #include "../util.h"
+#include "../nsscommon.h"
 
 extern "C" {
 #include <uuid/uuid.h>
@@ -21,6 +22,17 @@ extern "C" {
 }
 
 using namespace std;
+
+// Message handling - server_error messages are printed to stderr or
+// logged.
+void
+server_error(const string &msg)
+{
+    if (log_ok())
+	log(msg);
+    else
+	cerr << msg << endl << flush;
+}
 
 string
 get_uuid()
@@ -64,8 +76,8 @@ execute_and_capture(int verbose, const vector<string> &args,
 					      S_IRWXU);
     }
     if (rc != 0) {
-	clog << "posix_spawn_file_actions failed: " << strerror(errno)
-	     << endl;
+	server_error(_F("posix_spawn_file_actions failed: %s",
+			strerror(errno)));
 	return rc > 0 ? -rc : rc;
     }
 
@@ -75,12 +87,12 @@ execute_and_capture(int verbose, const vector<string> &args,
       pid = stap_spawn(verbose, args, &actions, env_vars);
     else
       pid = stap_spawn(verbose, args, &actions);
-    clog << "spawn returned " << pid << endl;
+    server_error(_F("spawn returned %d", pid));
 
     // If stap_spawn() failed, no need to wait.
     if (pid == -1) {
 	rc = errno;
-	clog << "Error in spawn: " << strerror(errno) << endl;
+	server_error(_F("Error in spawn: %s", strerror(errno)));
 	(void)posix_spawn_file_actions_destroy(&actions);
 	return rc > 0 ? -rc : rc;
     }
@@ -88,8 +100,9 @@ execute_and_capture(int verbose, const vector<string> &args,
     // Wait on the spawned process to finish.
     rc = stap_waitpid(0, pid);
     if (rc < 0) {			// stap_waitpid() failed
-	clog << "waitpid failed: " << strerror(errno) << endl;
+	server_error(_F("waitpid failed: %s", strerror(errno)));
     }
     (void)posix_spawn_file_actions_destroy(&actions);
     return rc;
 }
+

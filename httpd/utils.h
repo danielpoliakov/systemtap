@@ -12,6 +12,9 @@
 #include <string>
 #include <vector>
 
+void
+server_error(const std::string &msg);
+
 std::string get_uuid();
 
 int

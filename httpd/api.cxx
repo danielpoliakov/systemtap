@@ -235,7 +235,7 @@ void result_info::generate_file_response(response &r, string &file)
 {
     // We don't want to serve any old file (which would be a security
     // hole), only the files we told the user about.
-    clog << "Trying to retrieve file '" << file << "'" << endl;
+    server_error(_F("Trying to retrieve file '%s'", file.c_str()));
     string path;
     r.status_code = 200;
     {
@@ -258,12 +258,12 @@ void result_info::generate_file_response(response &r, string &file)
     }
 
     if (!path.empty()) {
-	cerr << "File requested:  " << file << endl;
-	cerr << "Served from   :  " << path << endl;
+	server_error(_F("File requested:  %s", file.c_str()));
+	server_error(_F("Served from   :  %s", path.c_str()));
 	r.file = path;
     }
     else {
-	cerr << "Couldn't find file" << endl;
+	server_error("Couldn't find file");
 	r = get_404_response();
     }
 }
@@ -321,7 +321,7 @@ void build_info::start_module_build()
 	lock_guard<mutex> lock(res_mutex);
 	if (builder_thread_running) {
 	    // This really shouldn't happen. Error out.
-	    cerr << "Mulitple attempts to build moulde." << endl;
+	    server_error("Mulitple attempts to build module.");
 	    return;
 	}
 	builder_thread_running = true;
@@ -329,7 +329,7 @@ void build_info::start_module_build()
 
     /* Create a thread to handle the module build. */
     if (pthread_create(&builder_tid, NULL, module_build_shim, this) < 0) {
-	cerr << "Failed to create thread: " << strerror(errno) << endl;
+	server_error(_F("Failed to create thread: %s", strerror(errno)));
 	exit(1);
     }
 }
@@ -355,7 +355,7 @@ response build_collection_rh::POST(const request &req)
     client_request_data *crd = new struct client_request_data;
     if (crd == NULL) {
 	// Return an error.
-	clog << "500 - internal server error" << endl;
+	server_error("500 - internal server error");
 	response error500(500);
 	error500.content = "<h1>Internal server error, memory allocation failed.</h1>";
 	return error500;
@@ -406,7 +406,7 @@ response build_collection_rh::POST(const request &req)
 	if (file_name.size() != build_id.size()
 	    || file_name.size() != file_pkg.size()) {
 	    // Return an error.
-	    clog << "400 - bad request (1)" << endl;
+	    server_error("400 - bad request (1)");
 	    response error400(400);
 	    error400.content = "<h1>Bad request</h1>";
 	    return error400;
@@ -421,12 +421,12 @@ response build_collection_rh::POST(const request &req)
     }
 
     if (! req.files.empty()) {
-	clog << "Files received:" << endl;
+	server_error("Files received:");
 	crd->base_dir = req.base_dir;
 	for (auto i = req.files.begin(); i != req.files.end(); i++) {
 	    for (auto j = i->second.begin(); j != i->second.end();
 		 j++) {
-		clog << *j << endl;
+		server_error(*j);
 		crd->files.push_back(*j);
 	    }
 	}
@@ -436,7 +436,7 @@ response build_collection_rh::POST(const request &req)
     if (crd->kver.empty() || crd->arch.empty() || crd->cmd_args.empty()
 	|| crd->distro_name.empty() || crd->distro_version.empty()) {
 	// Return an error.
-	clog << "400 - bad request (2)" << endl;
+	server_error("400 - bad request (2)");
 	response error400(400);
 	error400.content = "<h1>Bad request</h1>";
 	return error400;
@@ -455,7 +455,7 @@ response build_collection_rh::POST(const request &req)
     b->start_module_build();
 
     // Return a 202 response.
-    clog << "Returning a 202" << endl;
+    server_error("Returning a 202");
     response resp(202);
     resp.headers["Location"] = b->get_uri();
     resp.headers["Retry-After"] = "10";
@@ -472,7 +472,7 @@ public:
 
 response individual_build_rh::GET(const request &req)
 {
-    clog << "individual_build_rh::GET" << endl;
+    server_error("individual_build_rh::GET");
 
     // matches[0] is the entire string '/builds/XXXX'. matches[1] is
     // just the buildid 'XXXX'.
@@ -491,7 +491,7 @@ response individual_build_rh::GET(const request &req)
     }
 
     if (b == NULL) {
-	clog << "Couldn't find build '" << buildid << "'" << endl;
+	server_error(_F("Couldn't find build '%s'", buildid.c_str()));
 	return get_404_response();
     }
 
@@ -510,7 +510,7 @@ public:
 
 response individual_result_rh::GET(const request &req)
 {
-    clog << "individual_result_rh::GET" << endl;
+    server_error("individual_result_rh::GET");
 
     // matches[0] is the entire string '/results/XXXX'. matches[1] is
     // just the id_str 'XXXX'.
@@ -529,7 +529,7 @@ response individual_result_rh::GET(const request &req)
     }
 
     if (ri == NULL) {
-	clog << "Couldn't find result id '" << id_str << "'" << endl;
+	server_error(_F("Couldn't find result id '%s'", id_str.c_str()));
 	return get_404_response();
     }
 
@@ -548,7 +548,7 @@ public:
 
 response result_file_rh::GET(const request &req)
 {
-    clog << "result_file_rh::GET" << endl;
+    server_error("result_file_rh::GET");
 
     // matches[0] is the entire string
     // '/results/XXXX/FILE'. matches[1] is the result uuid string
@@ -569,7 +569,7 @@ response result_file_rh::GET(const request &req)
     }
 
     if (ri == NULL) {
-	clog << "Couldn't find result id '" << id_str << "'" << endl;
+	server_error(_F("Couldn't find result id '%s'", id_str.c_str()));
 	return get_404_response();
     }
 
@@ -664,7 +664,8 @@ build_info::parse_cmd_args(void)
 		privilege = pr_stapusr;
 	    else {
 		// FIXME: what to do here?
-		cerr << _F("Invalid argument '%s' for --privilege", optarg) << endl;
+		server_error(_F("Invalid argument '%s' for --privilege",
+				optarg));
 		privilege = pr_highest;
 	    }
 	    break;
@@ -682,9 +683,9 @@ build_info::parse_cmd_args(void)
     // pass 2 verbose level as the level of verbosity to report things
     // back to the client.
     crd->verbose = perpass_verbose[1];
-    cerr << "Verbose level: " << crd->verbose << endl;
+    server_error(_F("Verbose level: %d", crd->verbose));
     crd->privilege = privilege;
-    cerr << "Privilege: " << crd->privilege << endl;
+    server_error(_F("Privilege: %d", crd->privilege));
 }
 
 void *
@@ -704,7 +705,7 @@ build_info::module_build()
 	    int rc = stap_system (2, zip_argv);
 	    if (rc != 0) {
 		// Return an error.
-		clog << "unzip failed: " << rc << endl;
+		server_error(_F("unzip failed: %d", rc));
 		result_info *ri = new result_info(400,
 						  "<h1>Bad request</h1>");
 		set_result(ri);
@@ -724,7 +725,7 @@ build_info::module_build()
     tmp_dir = mkdtemp(tmp_dir_template);
     if (tmp_dir == NULL) {
 	// Return an error.
-	clog << "mkdtemp failed: " << strerror(errno) << endl;
+	server_error(_F("mkdtemp failed: %s", strerror(errno)));
 	result_info *ri = new result_info(500,
 					  "<h1>Internal server error, mkdtemp failed.</h1>");
 	set_result(ri);
@@ -753,7 +754,7 @@ build_info::module_build()
     if (!crd->base_dir.empty()) {
 	if (unshare(CLONE_FS) < 0) {
 	    // Return an error.
-	    clog << "Error in unshare: " << strerror(errno) << endl;
+	    server_error(_F("Error in unshare: %s", strerror(errno)));
 	    result_info *ri = new result_info(500,
 					      "<h1>Internal server error, unshare failed.</h1>");
 	    set_result(ri);
@@ -761,7 +762,7 @@ build_info::module_build()
 	}
 	if (chdir(crd->base_dir.c_str()) < 0) {
 	    // Return an error.
-	    clog << "Error in chdir: " << strerror(errno) << endl;
+	    server_error(_F("Error in chdir: %s", strerror(errno)));
 	    result_info *ri = new result_info(500,
 					      "<h1>Internal server error, chdir failed.</h1>");
 	    set_result(ri);
@@ -797,8 +798,8 @@ build_info::module_build()
     // If none of the backends can handle the request, send an error.
     if (!backend_found) {
 	// Return an error.
-	clog << "Error: No backends can satisfy this request, returning a 501."
-	     << endl;
+	server_error("Error: No backends can satisfy this request,"
+		     " returning a 501.");
 	result_info *ri = new result_info(501, "<h1>Not implemented.</h1>");
 	set_result(ri);
 	return NULL;
@@ -813,12 +814,12 @@ build_info::module_build()
 	string pattern = string(tmp_dir) + "/*.ko";
 	int rc = glob(pattern.c_str(), GLOB_ERR, NULL, &globber);
 	if (rc) {
-	    clog << "Unable to find a module in " << tmp_dir << endl;
+	    server_error(_F("Unable to find a module in %s", tmp_dir));
 	}
 	else {
 	    if (globber.gl_pathc != 1) {
-		clog << "Too many modules (" << globber.gl_pathc << ") in "
-		     << tmp_dir << endl;
+		server_error(_F("Too many modules (%ld) in %s",
+				(long)globber.gl_pathc, tmp_dir));
 	    }
 	    else {
 		module_path = globber.gl_pathv[0];
@@ -839,7 +840,7 @@ build_info::module_build()
 	if (! module_path.empty()
 	    && (pr_contains(crd->privilege, pr_stapusr)
 		|| pr_contains(crd->privilege, pr_stapsys))) {
-	    clog << "Signing file..." << endl;
+	    server_error("Signing file...");
 	    module_sign_path = module_path + ".sgn";
 	    sign_file(httpd->get_cert_db_path(), server_cert_nickname(),
 		      module_path, module_sign_path);

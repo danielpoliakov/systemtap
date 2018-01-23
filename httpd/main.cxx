@@ -11,6 +11,8 @@
 #include <iostream>
 #include "../util.h"
 #include "nss_funcs.h"
+#include "utils.h"
+#include "../nsscommon.h"
 
 extern "C" {
 #include <string.h>
@@ -33,7 +35,7 @@ signal_thread(void *arg)
 
 	s = read(signal_fd, &si, sizeof(si));
 	if (s != sizeof(si)) {
-	    cerr << "signal fd read error: "<< strerror(errno) << endl;
+	    server_error(_F("signal fd read error: %s", strerror(errno)));
 	    continue;
 	}
 
@@ -53,7 +55,7 @@ signal_thread(void *arg)
 	    // waitpid() to work properly.
 	}
 	else {
-	    cerr << "Got unhandled signal " << si.ssi_signo << endl;
+	    server_error(_F("Got unhandled signal %d", si.ssi_signo));
 	}
     }
     close(signal_fd);
@@ -79,14 +81,14 @@ setup_main_signals(pthread_t *tid)
      * signals. */
     int signal_fd = signalfd(-1, &s, SFD_CLOEXEC);
     if (signal_fd < 0) {
-	cerr << "Failed to create signal file descriptor: "
-	     << strerror(errno) << endl;
+	server_error(_F("Failed to create signal file descriptor: %s",
+			strerror(errno)));
 	exit(1);
     }
 
     /* Let the special signal thread handle signals. */
     if (pthread_create(tid, NULL, signal_thread, (void *)(long)signal_fd) < 0) {
-	cerr << "Failed to create thread: " << strerror(errno) << endl;
+	server_error(_F("Failed to create thread: %s", strerror(errno)));
 	exit(1);
     }
 }
@@ -102,10 +104,12 @@ parse_cmdline(int argc, char *const argv[])
     enum {
 	LONG_OPT_PORT = 256,
 	LONG_OPT_SSL,
+	LONG_OPT_LOG,
     };
     static struct option long_options[] = {
         { "port", 1, NULL, LONG_OPT_PORT },
         { "ssl", 1, NULL, LONG_OPT_SSL },
+        { "log", 1, NULL, LONG_OPT_LOG },
         { NULL, 0, NULL, 0 }
     };
     while (true) {
@@ -119,13 +123,13 @@ parse_cmdline(int argc, char *const argv[])
 	    errno = 0;
 	    port_tmp = strtoul(optarg, &num_endptr, 10);
 	    if (*num_endptr != '\0') {
-		cerr << (_F("%s: cannot parse number '--port=%s'", argv[0],
-			    optarg)) << endl;
+		server_error(_F("%s: cannot parse number '--port=%s'", argv[0],
+				optarg));
 		exit(1);
 	    }
 	    if (errno != 0 || port_tmp > 65535) {
-		cerr << (_F("%s: invalid entry: port must be between 0 and 65535 '--port=%s'",
-			    argv[0], optarg)) << endl;
+		server_error(_F("%s: invalid entry: port must be between"
+				" 0 and 65535 '--port=%s'", argv[0], optarg));
 		exit(1);
 	    }
 	    port = (uint16_t)port_tmp;
@@ -133,13 +137,15 @@ parse_cmdline(int argc, char *const argv[])
 	  case LONG_OPT_SSL:
 	    cert_db_path = optarg;
 	    break;
+	  case LONG_OPT_LOG:
+	    start_log(optarg);
+	    break;
 	  default:
 	    break;
 	}
     }
     for (int i = optind; i < argc; i++) {
-	cerr << (_F("%s: unrecognized argument '%s'", argv[0], argv[i]))
-	     << endl;
+	server_error(_F("%s: unrecognized argument '%s'", argv[0], argv[i]));
     }
 }
 
@@ -173,5 +179,6 @@ main(int argc, char *const argv[])
     // Shutdown NSS.
     nss_shutdown(cert_db_path);
 
+    end_log();
     return 0;
 }

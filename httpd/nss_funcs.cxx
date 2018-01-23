@@ -9,6 +9,7 @@
 #include "../nsscommon.h"
 #include "nss_funcs.h"
 #include <iostream>
+#include "utils.h"
 
 extern "C" {
 #include <prinit.h>
@@ -21,7 +22,7 @@ extern "C"
 void
 nsscommon_error(const char *msg, int logit __attribute ((unused)))
 {
-  clog << msg << endl;
+  server_error(msg);
 }
 
 int

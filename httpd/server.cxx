@@ -10,6 +10,7 @@
 #include <iostream>
 #include <string>
 #include "../util.h"
+#include "utils.h"
 
 extern "C"
 {
@@ -36,7 +37,7 @@ get_key_values(void *cls, enum MHD_ValueKind /*kind*/,
         json_object *root = json_tokener_parse_verbose (value, &json_error);
         if (root == NULL)
           {
-            clog << json_tokener_error_desc (json_error);
+	    server_error(json_tokener_error_desc (json_error));
             return MHD_NO;
           }
 
@@ -207,10 +208,8 @@ connection_info::postdataiterator(enum MHD_ValueKind kind,
 				  size_t size)
 {
     if (filename && key) {
-	clog << __FUNCTION__ << ":" << __LINE__
-	     << ": key='" << key
-	     << "', filename='" << filename 
-	     << ", size=" << size << endl;
+	server_error(_F("key='%s', filename='%s', size=%ld", key, filename,
+			size));
 
 	// If we've got a filename, we need a temporary directory to
 	// put it in. Otherwise if we're handling multiple requests at
@@ -320,7 +319,7 @@ response base_dir_rh::GET(const request &)
     response r(0);
     ostringstream os;
 
-    clog << "base_dir_rh::GET" << endl;
+    server_error("base_dir_rh::GET");
     r.status_code = 200;
     r.content_type = "application/json";
     os << "{" << endl;
@@ -420,8 +419,8 @@ server::access_handler(struct MHD_Connection *connection,
 
     struct request rq_info;
     request_handler *rh = NULL;
-    clog << "Looking for a matching request handler match with '"
-	 << url_str << "'..." << endl;
+    server_error(_F("Looking for a matching request handler match with '%s'...",
+		    url_str.c_str()));
     {
 	// Use a lock_guard to ensure the mutex gets released even if an
 	// exception is thrown.
@@ -433,7 +432,7 @@ server::access_handler(struct MHD_Connection *connection,
 	    string url_path_re = get<0>(*it);
 	    if (regexp_match(url_str, url_path_re, rq_info.matches) == 0) {
 		rh = get<1>(*it);
-		clog << "Found a match with '" << rh->name << "'" << endl;
+		server_error(_F("Found a match with '%s'", rh->name.c_str()));
 		break;
 	    }
 	}
@@ -577,7 +576,7 @@ void
 server::stop()
 {
     if (dmn_ipv4 != NULL) {
-	clog << "Stopping daemon..." << endl;
+	server_error("Stopping daemon...");
 	MHD_stop_daemon(dmn_ipv4);
 	dmn_ipv4 = NULL;
         running_cv.notify_all(); // notify waiters

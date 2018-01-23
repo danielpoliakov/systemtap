@@ -291,7 +291,7 @@ docker_backend::generate_module(const client_request_data *crd,
     // file(s) knows what it is supposed to be doing).
     string build_data_path = string(tmp_dir) + "/build_data.json";
     struct json_object *root = crd->get_json_object();
-    clog << "JSON data: " << json_object_to_json_string(root) << endl;
+    server_error(_F("JSON data: %s", json_object_to_json_string(root)));
     ofstream build_data_file;
     build_data_file.open(build_data_path, ios::out);
     build_data_file << json_object_to_json_string(root);
@@ -316,9 +316,10 @@ docker_backend::generate_module(const client_request_data *crd,
 
     int rc = execute_and_capture(2, docker_args, crd->env_vars,
 				 docker_stdout_path, docker_stderr_path);
-    clog << "Spawned process returned " << rc << endl;
+    server_error(_F("Spawned process returned %d", rc));
     if (rc != 0) {
-	clog << docker_build_container_script_path << " failed." << endl;
+	server_error(_F("%s failed.",
+			docker_build_container_script_path.c_str()));
 	return -1;
     }
 
@@ -352,9 +353,9 @@ docker_backend::generate_module(const client_request_data *crd,
 
 	    rc = execute_and_capture(2, docker_args, crd->env_vars,
 				     docker_stdout_path, docker_stderr_path);
-	    clog << "Spawned process returned " << rc << endl;
+	    server_error(_F("Spawned process returned %d", rc));
 	    if (rc != 0) {
-		clog << "docker build failed." << endl;
+		server_error("docker build failed.");
 		return -1;
 	    }
 
@@ -394,9 +395,9 @@ docker_backend::generate_module(const client_request_data *crd,
 
     int saved_rc = execute_and_capture(2, docker_args, crd->env_vars,
 				       stdout_path, stderr_path);
-    clog << "Spawned process returned " << rc << endl;
+    server_error(_F("Spawned process returned %d", rc));
     if (rc != 0) {
-	clog << "docker run failed." << endl;
+	server_error("docker run failed.");
     }
 
     if (saved_rc == 0) {
@@ -409,9 +410,9 @@ docker_backend::generate_module(const client_request_data *crd,
 	docker_args.push_back("/tmp");
 	rc = execute_and_capture(2, docker_args, crd->env_vars,
 				 docker_stdout_path, docker_stderr_path);
-	clog << "Spawned process returned " << rc << endl;
+	server_error(_F("Spawned process returned %d", rc));
 	if (rc != 0) {
-	    clog << "docker cp failed." << endl;
+	    server_error("docker cp failed.");
 	}
     }
     containers_to_remove.push_back(stap_container_uuid);
@@ -457,9 +458,9 @@ docker_backend::generate_module(const client_request_data *crd,
 	rc = execute_and_capture(2, docker_args, crd->env_vars,
 				 docker_stdout_path, docker_stderr_path);
 	// Note that we're ignoring any errors here.
-	clog << "Spawned process returned " << rc << endl;
+	server_error(_F("Spawned process returned %d", rc));
 	if (rc != 0) {
-	    clog << "docker rm failed." << endl;
+	    server_error("docker rm failed.");
 	}
     }
     if (! images_to_remove.empty()) {
@@ -473,9 +474,9 @@ docker_backend::generate_module(const client_request_data *crd,
 	rc = execute_and_capture(2, docker_args, crd->env_vars,
 				 docker_stdout_path, docker_stderr_path);
 	// Note that we're ignoring any errors here.
-	clog << "Spawned process returned " << rc << endl;
+	server_error(_F("Spawned process returned %d", rc));
 	if (rc != 0) {
-	    clog << "docker rmi failed." << endl;
+	    server_error("docker rmi failed.");
 	}
     }
     return saved_rc;
