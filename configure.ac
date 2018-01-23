@@ -169,12 +169,14 @@ AS_IF([test "x$enable_sdt_probes" != xno], [
 dnl We're now requiring *some* C++11, using RHEL6 (gcc 4.4.7) as a baseline.
 dnl This is too strict about __cplusplus for gcc < 4.7, so we have a manual fallback.
 AX_CXX_COMPILE_STDCXX(11, noext, optional)
+have_cxx0x="no"
 AS_IF([test "x$HAVE_CXX11" != x1],[
   AC_LANG_PUSH(C++)
   AX_CHECK_COMPILE_FLAG([-std=c++0x], [
       AC_MSG_NOTICE([Compiling with -std=c++0x])
       CXX="$CXX -std=c++0x"
       HAVE_CXX11=1
+      have_cxx0x="yes"
     ], [
       AC_MSG_ERROR([A compiler with C++11 support is required.])
     ])
@@ -746,7 +748,7 @@ AM_CONDITIONAL([HAVE_PYTHON_PROBES],
   [test "x$have_python2_support" = "xyes" -o "x$have_python3_support" = "xyes"])
 
 dnl Check for presence of json-c and ncurses for use in monitor mode
-PKG_CHECK_MODULES([jsonc], [json-c >= 0.12], [have_jsonc=yes], [have_jsonc=no])
+PKG_CHECK_MODULES([jsonc], [json-c >= 0.11], [have_jsonc=yes], [have_jsonc=no])
 PKG_CHECK_MODULES([ncurses], [ncurses], [have_ncurses=yes], [have_ncurses=no])
 AM_CONDITIONAL([HAVE_MONITOR_LIBS], [test "${have_jsonc}" == "yes" -a "${have_ncurses}" == "yes"])
 if test "${have_jsonc}" == "yes" -a "${have_ncurses}" == yes; then
@@ -919,9 +921,10 @@ AS_IF([test "x$enable_http" = "xyes"],
    dnl Do we have the curl library?
    PKG_CHECK_MODULES([libcurl], [libcurl >= 7.19.7], [have_libcurl=true], [have_libcurl=false])
 
-   dnl If we have all of the libraries (and the json-c library), we could
-   dnl build the httpd web compilation service.
-   AS_IF([test "x$have_libmicrohttpd" == "xtrue" -a "x$have_libuuid" == "xtrue" -a "x$have_libcurl" == "xtrue" -a "x$have_jsonc" == "xyes" -a "x$have_nss" == "xyes"], [have_http_support=yes])])
+   dnl If we have all of the libraries, the json-c and nss libraries,
+   dnl and full C++11 support, we could build the httpd web
+   dnl compilation service.
+   AS_IF([test "x$have_libmicrohttpd" == "xtrue" -a "x$have_libuuid" == "xtrue" -a "x$have_libcurl" == "xtrue" -a "x$have_jsonc" == "xyes" -a "x$have_nss" == "xyes" -a "x$have_cxx0x" == "xno"], [have_http_support=yes])])
 
 AS_IF([test "x$have_http_support" = "xyes"],
   [AC_DEFINE([HAVE_HTTP_SUPPORT], [1],
