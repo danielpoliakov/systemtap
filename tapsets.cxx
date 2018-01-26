@@ -3723,7 +3723,7 @@ synthetic_embedded_deref_call(dwflpp& dw, location_context &ctx,
 
   // If this code snippet uses a precomputed pointer,
   // pass that as the first argument.
-  if (pointer)
+  if (pointer && dw.sess.runtime_mode != systemtap_session::bpf_runtime)
     {
       assert(ctx.pointer);
       fdecl->formal_args.push_back(ctx.pointer);
@@ -10606,6 +10606,11 @@ struct tracepoint_arg
   bool usable, used, isptr;
   Dwarf_Die type_die;
   tracepoint_arg(const string& tracepoint_name, Dwarf_Die *arg);
+
+  // used with --runtime=bpf
+  int size;
+  int offset;
+  bool is_signed;
 };
 
 struct tracepoint_derived_probe: public derived_probe
@@ -10621,7 +10626,9 @@ struct tracepoint_derived_probe: public derived_probe
   vector <struct tracepoint_arg> args;
 
   void build_args(dwflpp& dw, Dwarf_Die& func_die);
+  void build_args_for_bpf(dwflpp& dw, Dwarf_Die& struct_die);
   void getargs (std::list<std::string> &arg_set) const;
+  //void get_member_sizes(Dwarf_Die *struct_die);
   void join_group (systemtap_session& s);
   void print_dupe_stamp(ostream& o);
 };
@@ -10629,6 +10636,9 @@ struct tracepoint_derived_probe: public derived_probe
 
 struct tracepoint_derived_probe_group: public generic_dpg<tracepoint_derived_probe>
 {
+  friend bool sort_for_bpf(tracepoint_derived_probe_group *t,
+                           sort_for_bpf_probe_arg_vector &v);
+
   void emit_module_decls (systemtap_session& s);
   void emit_module_init (systemtap_session& s);
   void emit_module_exit (systemtap_session& s);
@@ -10731,6 +10741,9 @@ tracepoint_var_expanding_visitor::visit_target_symbol_arg (target_symbol* e)
       bool userspace_p = false;
       location_context ctx(e, e2);
       ctx.userspace_p = userspace_p;
+
+      if (dw.sess.runtime_mode == systemtap_session::bpf_runtime)
+        ctx.adapt_pointer_to_bpf(arg->size, arg->offset, arg->is_signed);
 
       Dwarf_Die endtype;
       dw.literal_stmt_for_pointer (ctx, &arg->type_die, ctx.e, lvalue, &endtype);
@@ -10865,7 +10878,10 @@ tracepoint_derived_probe::tracepoint_derived_probe (systemtap_session& s,
   this->sole_location()->components = comps;
 
   // fill out the available arguments in this tracepoint
-  build_args(dw, func_die);
+  if (s.runtime_mode == systemtap_session::bpf_runtime)
+    build_args_for_bpf(dw, func_die);
+  else
+    build_args(dw, func_die);
 
   // determine which header defined this tracepoint
   string decl_file = dwarf_decl_file(&func_die);
@@ -10884,16 +10900,35 @@ tracepoint_derived_probe::tracepoint_derived_probe (systemtap_session& s,
   var_expand_const_fold_loop (sess, this->body, v);
 
   for (unsigned i = 0; i < args.size(); i++)
-    if (args[i].used)
-      {
-	vardecl* v = new vardecl;
-	v->name = "__tracepoint_arg_" + args[i].name;
-	v->tok = this->tok;
-	v->set_arity(0, this->tok);
-	v->type = pe_long;
-	v->synthetic = true;
-	this->locals.push_back (v);
-      }
+    {
+      if (!args[i].used)
+        continue;
+
+      if (s.runtime_mode == systemtap_session::bpf_runtime)
+        {
+          bpf_context_vardecl* v = new bpf_context_vardecl;
+          v->name = "__tracepoint_arg_" + args[i].name;
+          v->tok = this->tok;
+          v->set_arity(0, this->tok);
+          v->type = pe_long;
+          v->synthetic = true;
+          v->size = args[i].size;
+          v->offset = args[i].offset;
+
+          this->locals.push_back(v);
+        }
+      else
+        {
+          vardecl* v = new vardecl;
+          v->name = "__tracepoint_arg_" + args[i].name;
+	  v->tok = this->tok;
+	  v->set_arity(0, this->tok);
+	  v->type = pe_long;
+	  v->synthetic = true;
+
+          this->locals.push_back (v);
+        }
+    }
 
   if (sess.verbose > 2)
     clog << "tracepoint-based " << name() << " tracepoint='" << tracepoint_name << "'" << endl;
@@ -10961,6 +10996,83 @@ resolve_pointer_type(Dwarf_Die& die, bool& isptr)
     }
 }
 
+static bool
+is_signed_type(Dwarf_Die *die)
+{
+  switch (dwarf_tag(die))
+    {
+    case DW_TAG_base_type:
+      {
+        Dwarf_Attribute attr;
+        Dwarf_Word encoding = (Dwarf_Word) -1;
+        dwarf_formudata (dwarf_attr_integrate (die, DW_AT_encoding, &attr),
+                         &encoding);
+        return encoding == DW_ATE_signed || encoding == DW_ATE_signed_char;
+      }
+    case DW_TAG_typedef:
+    case DW_TAG_const_type:
+    case DW_TAG_volatile_type:
+    case DW_TAG_restrict_type:
+      // iterate on the referent type
+      return (dwarf_attr_die(die, DW_AT_type, die)
+              && is_signed_type(die));
+
+    default:
+      // should we consider other types too?
+      return false;
+    }
+}
+
+static int
+get_byte_size(Dwarf_Die *die, const char *probe_name)
+{
+  Dwarf_Attribute attr;
+  Dwarf_Word size;
+
+  if (dwarf_attr(die, DW_AT_byte_size, &attr) == NULL)
+    {
+      Dwarf_Word count = 1;
+      Dwarf_Die type;
+      Dwarf_Die child;
+
+      if (dwarf_tag(die) == DW_TAG_array_type)
+        {
+          count = 0;
+
+          if (dwarf_child(die, &child) != 0)
+            throw SEMANTIC_ERROR(_F("cannot resolve size of array %s for probe %s",
+                                    dwarf_diename(die), probe_name));
+
+          do
+            if (dwarf_tag(&child) == DW_TAG_subrange_type)
+              {
+                if (dwarf_attr(&child, DW_AT_upper_bound, &attr) != NULL)
+                  {
+                     dwarf_formudata(&attr, &count);
+                     count++;
+                  }
+                else if (dwarf_attr(&child, DW_AT_count, &attr) != NULL)
+                  dwarf_formudata(&attr, &count);
+                else
+                  SEMANTIC_ERROR(_F("array %s for probe %s has unknown size",
+                                    dwarf_diename(die), probe_name));
+              }
+          while (dwarf_siblingof(&child, &child) == 0);
+        }
+      // Do any other types require special handling?
+
+      if (dwarf_attr_die(die, DW_AT_type, &type) == NULL)
+        throw (SEMANTIC_ERROR(
+               _F("cannot get byte size of type '%s' for tracepoint '%s'",
+                  dwarf_diename(die), probe_name)));
+
+      return count * get_byte_size(&type, probe_name);
+    }
+
+  dwarf_formudata(&attr, &size);
+  return size;
+
+}
 
 static bool
 resolve_tracepoint_arg_type(tracepoint_arg& arg)
@@ -10983,7 +11095,8 @@ resolve_tracepoint_arg_type(tracepoint_arg& arg)
 
 
 tracepoint_arg::tracepoint_arg(const string& tracepoint_name, Dwarf_Die *arg)
-: usable(false), used(false), isptr(false), type_die()
+: usable(false), used(false), isptr(false), type_die(), size(-1),
+  offset(-1), is_signed(false)
 {
   name = dwarf_diename(arg) ?: "";
 
@@ -11000,6 +11113,7 @@ tracepoint_arg::tracepoint_arg(const string& tracepoint_name, Dwarf_Die *arg)
 
   usable = resolve_tracepoint_arg_type(*this);
 }
+
 
 
 void
@@ -11021,6 +11135,39 @@ tracepoint_derived_probe::build_args(dwflpp&, Dwarf_Die& func_die)
             }
         }
     while (dwarf_siblingof(&arg, &arg) == 0);
+}
+
+void
+tracepoint_derived_probe::build_args_for_bpf(dwflpp&, Dwarf_Die& struct_die)
+{
+  Dwarf_Die member;
+
+  if (dwarf_child(&struct_die, &member) == 0)
+    do
+      if (dwarf_tag(&member) == DW_TAG_member)
+        {
+          Dwarf_Die type;
+          Dwarf_Attribute attr;
+          Dwarf_Word off;
+          tracepoint_arg arg(dwarf_diename(&member), &member);
+
+          if (dwarf_attr(&member, DW_AT_data_member_location, &attr) == NULL
+              || dwarf_formudata(&attr, &off) != 0)
+            throw (SEMANTIC_ERROR
+                   (_F("cannot get offset attribute for variable '%s' of tracepoint '%s'",
+                       dwarf_diename(&member), tracepoint_name.c_str())));
+
+          dwarf_attr_die(&member, DW_AT_type, &type);
+          arg.is_signed = is_signed_type(&type);
+          arg.size = get_byte_size(&type, tracepoint_name.c_str());
+
+          // 8 must be added to the offset to account for padding at
+          // the beginning of the struct which the arg will be read
+          arg.offset = off + 8;
+
+          args.push_back(arg);
+        }
+    while (dwarf_siblingof(&member, &member) == 0);
 }
 
 void
@@ -11659,11 +11806,16 @@ struct tracepoint_query : public base_query
   void handle_query_module();
   int handle_query_cu(Dwarf_Die * cudie);
   int handle_query_func(Dwarf_Die * func);
+  int handle_query_type(Dwarf_Die * type);
   void query_library (const char *) {}
   void query_plt (const char *, size_t) {}
 
   static int tracepoint_query_cu (Dwarf_Die * cudie, tracepoint_query * q);
   static int tracepoint_query_func (Dwarf_Die * func, tracepoint_query * q);
+  static int tracepoint_query_type (Dwarf_Die * type,
+                                    bool has_inner_types,
+                                    const std::string& prefix,
+                                    tracepoint_query * q);
 
   tracepoint_query(dwflpp & dw, const string & tracepoint,
                    probe * base_probe, probe_point * base_loc,
@@ -11781,6 +11933,10 @@ tracepoint_query::handle_query_cu(Dwarf_Die * cudie)
   dw.focus_on_cu (cudie);
   dw.mod_info->get_symtab();
 
+  // look at each type to see if it's a tracepoint
+  if (dw.sess.runtime_mode == dw.sess.systemtap_session::bpf_runtime)
+    return dwflpp::iterate_over_globals (cudie, tracepoint_query_type, this);
+
   // look at each function to see if it's a tracepoint
   string function = "stapprobe_" + tracepoint;
   return dw.iterate_over_functions (tracepoint_query_func, this, function);
@@ -11823,6 +11979,43 @@ tracepoint_query::handle_query_func(Dwarf_Die * func)
   return DWARF_CB_OK;
 }
 
+int
+tracepoint_query::handle_query_type(Dwarf_Die * type)
+{
+  Dwarf_Die struct_die = *type;
+
+  if (!dwarf_hasattr(type, DW_AT_name))
+    return DWARF_CB_OK;
+
+  std::string name(dwarf_diename(type));
+
+  if (!dw.function_name_matches_pattern(name, "stapprobe_" + tracepoint)
+      || startswith(name, "stapprobe_template_"))
+    return DWARF_CB_OK;
+
+  name = name.substr(10);
+
+  // get the corresponding structure die
+  while (dwarf_tag(&struct_die) == DW_TAG_typedef)
+    {
+      if (dwarf_attr_die(&struct_die, DW_AT_type, &struct_die) == NULL)
+        throw SEMANTIC_ERROR(_F("Unable to resolve base type of %s for probe %s\n",
+                                name.c_str(), tracepoint.c_str()));
+    }
+
+  assert(dwarf_tag(&struct_die) == DW_TAG_structure_type);
+
+  // check for duplicates -- sometimes tracepoint headers may be indirectly
+  // included in more than one of our tracequery modules.
+  if (!probed_names.insert(name).second)
+    return DWARF_CB_OK;
+
+  derived_probe *dp = new tracepoint_derived_probe(dw.sess, dw, struct_die,
+                                                   current_system, name,
+                                                   base_probe, base_loc);
+  results.push_back(dp);
+  return DWARF_CB_OK;
+}
 
 int
 tracepoint_query::tracepoint_query_cu (Dwarf_Die * cudie, tracepoint_query * q)
@@ -11837,6 +12030,18 @@ tracepoint_query::tracepoint_query_func (Dwarf_Die * func, tracepoint_query * q)
 {
   if (pending_interrupts) return DWARF_CB_ABORT;
   return q->handle_query_func(func);
+}
+
+int
+tracepoint_query::tracepoint_query_type (Dwarf_Die *type, bool has_inner_types,
+                                         const std::string& prefix, tracepoint_query *q)
+{
+  // needed to match signature of dwflpp::iterate_over_globals callback
+  (void) has_inner_types;
+  (void) prefix;
+
+  if (pending_interrupts) return DWARF_CB_ABORT;
+  return q->handle_query_type(type);
 }
 
 
@@ -11946,31 +12151,80 @@ tracepoint_builder::get_tracequery_modules(systemtap_session& s,
       osrc << "#ifdef CONFIG_TRACEPOINTS" << endl;
       osrc << "#include <linux/tracepoint.h>" << endl;
 
-      // the kernel has changed this naming a few times, previously TPPROTO,
-      // TP_PROTO, TPARGS, TP_ARGS, etc.  so let's just dupe the latest.
-      osrc << "#ifndef PARAMS" << endl;
-      osrc << "#define PARAMS(args...) args" << endl;
-      osrc << "#endif" << endl;
+      if (s.runtime_mode != systemtap_session::bpf_runtime)
+        {
+          // the kernel has changed this naming a few times, previously TPPROTO,
+          // TP_PROTO, TPARGS, TP_ARGS, etc.  so let's just dupe the latest.
+          osrc << "#ifndef PARAMS" << endl;
+          osrc << "#define PARAMS(args...) args" << endl;
+          osrc << "#endif" << endl;
 
-      // override DECLARE_TRACE to synthesize probe functions for us
-      osrc << "#undef DECLARE_TRACE" << endl;
-      osrc << "#define DECLARE_TRACE(name, proto, args) \\" << endl;
-      osrc << "  void stapprobe_##name(proto) {}" << endl;
+          // override DECLARE_TRACE to synthesize probe functions for us
+          osrc << "#undef DECLARE_TRACE" << endl;
+          osrc << "#define DECLARE_TRACE(name, proto, args) \\" << endl;
+          osrc << "  void stapprobe_##name(proto) {}" << endl;
 
-      // 2.6.35 added the NOARGS variant, but it's the same for us
-      osrc << "#undef DECLARE_TRACE_NOARGS" << endl;
-      osrc << "#define DECLARE_TRACE_NOARGS(name) \\" << endl;
-      osrc << "  DECLARE_TRACE(name, void, )" << endl;
+          // 2.6.35 added the NOARGS variant, but it's the same for us
+          osrc << "#undef DECLARE_TRACE_NOARGS" << endl;
+          osrc << "#define DECLARE_TRACE_NOARGS(name) \\" << endl;
+          osrc << "  DECLARE_TRACE(name, void, )" << endl;
 
-      // 2.6.38 added the CONDITION variant, which can also just redirect
-      osrc << "#undef DECLARE_TRACE_CONDITION" << endl;
-      osrc << "#define DECLARE_TRACE_CONDITION(name, proto, args, cond) \\" << endl;
-      osrc << "  DECLARE_TRACE(name, PARAMS(proto), PARAMS(args))" << endl;
+          // 2.6.38 added the CONDITION variant, which can also just redirect
+          osrc << "#undef DECLARE_TRACE_CONDITION" << endl;
+          osrc << "#define DECLARE_TRACE_CONDITION(name, proto, args, cond) \\" << endl;
+          osrc << "  DECLARE_TRACE(name, PARAMS(proto), PARAMS(args))" << endl;
 
-      // older tracepoints used DEFINE_TRACE, so redirect that too
-      osrc << "#undef DEFINE_TRACE" << endl;
-      osrc << "#define DEFINE_TRACE(name, proto, args) \\" << endl;
-      osrc << "  DECLARE_TRACE(name, PARAMS(proto), PARAMS(args))" << endl;
+          // older tracepoints used DEFINE_TRACE, so redirect that too
+          osrc << "#undef DEFINE_TRACE" << endl;
+          osrc << "#define DEFINE_TRACE(name, proto, args) \\" << endl;
+          osrc << "  DECLARE_TRACE(name, PARAMS(proto), PARAMS(args))" << endl;
+        }
+      else
+        {
+          // Similar to above, but instantiates structs instead of functions.
+          // The members will become tracepoint args.
+          osrc << "#undef __field" << endl;
+          osrc << "#define __field(type, item) type item;" << endl;
+
+          osrc << "#undef __field_desc" << endl;
+          osrc << "#define __field_desc(type, container, item) type item;" << endl;
+
+          osrc << "#undef __array" << endl;
+          osrc << "#define __array(type, item, size) type item[size];" << endl;
+
+          osrc << "#undef __array_desc" << endl;
+          osrc << "#define __array_desc(type, container, item, size) type item[size];" << endl;
+
+          osrc << "#undef __dynamic_array" << endl;
+          osrc << "#define __dynamic_array(type, item, len) u32 item;" << endl;
+
+          osrc << "#undef __string" << endl;
+          osrc << "#define __string(item, src) __dynamic_array(char, item, -1)" << endl;
+
+          osrc << "#undef __bitmask" << endl;
+          osrc << "#define __bitmask(item, nr_bits) __dynamic_array(char, item, -1)" << endl;
+
+          osrc << "#undef TP_STRUCT__entry" << endl;
+          osrc << "#define TP_STRUCT__entry(args...) args" << endl;
+
+          osrc << "#undef DECLARE_EVENT_CLASS" << endl;
+          osrc << "#define DECLARE_EVENT_CLASS(name, proto, args, tstruct, assign, print) \\" << endl;
+          osrc << "  struct stapprobe_template_##name { tstruct };" << endl;
+
+          // typedef helps us access template's debuginfo when given name's debuginfo
+          osrc << "#undef DEFINE_EVENT" << endl;
+          osrc << "#define DEFINE_EVENT(template, name, proto, args) \\" << endl;
+          osrc << "  typedef struct stapprobe_template_##template stapprobe_##name; \\" << endl;
+          osrc << "  stapprobe_##name stapprobe_inst_##name;" << endl;
+
+          osrc << "#undef TRACE_EVENT" << endl;
+          osrc << "#define TRACE_EVENT(name, proto, args, tstruct, assign, print) \\" << endl;
+          osrc << "  struct stapprobe_##name { tstruct } stapprobe_##name;" << endl;
+
+          osrc << "#undef TRACE_EVENT_CONDITION" << endl;
+          osrc << "#define TRACE_EVENT_CONDITION(name, proto, args, cond, tstruct, assign, print) \\" << endl;
+          osrc << " struct stapprobe_##name { tstruct } stapprobe_##name;" << endl;
+        }
 
       // add the specified decls/#includes
       for (unsigned z=0; z<short_decls.size(); z++)
@@ -12200,6 +12454,22 @@ tracepoint_builder::build(systemtap_session& s,
     }
 }
 
+bool
+sort_for_bpf(tracepoint_derived_probe_group *t,
+             sort_for_bpf_probe_arg_vector &v)
+{
+  if (!t)
+    return false;
+
+  for (auto i = t->probes.begin(); i != t->probes.end(); ++i)
+    {
+      tracepoint_derived_probe *p = *i;
+      v.push_back(std::pair<derived_probe *, std::string>
+                  (p, "trace/" + p->tracepoint_system + "/" + p->tracepoint_name));
+    }
+
+  return true;
+}
 
 // ------------------------------------------------------------------------
 //  Standard tapset registry.

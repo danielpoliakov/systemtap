@@ -652,6 +652,13 @@ struct vardecl_builtin: public vardecl
 {
 };
 
+struct bpf_context_vardecl: public vardecl
+{
+  int size;
+  int offset;
+  bool is_signed;
+};
+
 struct statement;
 struct functiondecl: public symboldecl
 {

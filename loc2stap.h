@@ -85,6 +85,7 @@ public:
   expression *new_plus_const(expression *, int64_t);
   expression *save_expression(expression *);
   symbol *frame_location();
+  void adapt_pointer_to_bpf(int size, int offset, bool is_signed);
 
   location *translate(const Dwarf_Op *expr, size_t len, size_t start,
 		      location *input, bool may_use_fb, bool computing_value);

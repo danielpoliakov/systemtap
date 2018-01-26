@@ -1427,6 +1427,25 @@ array_stride (Dwarf_Die *typedie)
   return pointer_stride (&die_mem);
 }
 
+void
+location_context::adapt_pointer_to_bpf(int size, int offset, bool is_signed)
+{
+  vardecl *old = this->pointer;
+  bpf_context_vardecl *v = new bpf_context_vardecl;
+
+  v->type = pe_long;
+  v->tok = old->tok;
+  v->name = old->name;
+  v->size = size;
+  v->offset = offset;
+  v->is_signed = is_signed;
+
+  this->pointer = v;
+
+  old->tok = NULL;
+  delete old;
+}
+
 /* Determine the maximum size of a base type, from some DIE in the CU.  */
 static Dwarf_Word
 max_fetch_size (Dwarf_Die *die)

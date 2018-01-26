@@ -90,6 +90,7 @@ static Elf_Data *prog_end;
 
 #define DEBUGFS		"/sys/kernel/debug/tracing/"
 #define KPROBE_EVENTS	DEBUGFS "kprobe_events"
+#define EVENTS          DEBUGFS "events"
 
 static void unregister_kprobes(const size_t nprobes);
 
@@ -132,9 +133,23 @@ struct perf_data
   { }
 };
 
+struct trace_data
+{
+  string system;
+  string name;
+  int prog_fd;
+  int event_id;
+  int event_fd;
+
+  trace_data(char *s, char *n, int fd)
+    : system(s), name(n), prog_fd(fd), event_id(-1), event_fd(-1)
+  { }
+};
+
 static std::vector<kprobe_data> kprobes;
 static std::vector<timer_data> timers;
 static std::vector<perf_data> perf_probes;
+static std::vector<trace_data> tracepoint_probes;
 
 static void __attribute__((noreturn))
 fatal(const char *str, ...)
@@ -211,6 +226,8 @@ prog_load(Elf_Data *data, const char *name)
     prog_type = BPF_PROG_TYPE_KPROBE;
   else if (strncmp(name, "timer", 5) == 0)
     prog_type = BPF_PROG_TYPE_PERF_EVENT;
+  else if (strncmp(name, "trace", 5) == 0)
+    prog_type = BPF_PROG_TYPE_TRACEPOINT;
   else if (strncmp(name, "perf", 4) == 0)
     {
       if (name[5] == '2' && name[6] == '/')
@@ -391,6 +408,23 @@ collect_timer(const char *name, unsigned name_idx, unsigned fd_idx)
 }
 
 static void
+collect_tracepoint(const char *name, unsigned name_idx, unsigned fd_idx)
+{
+  char tp_system[512];
+  char tp_name[512];
+
+  int res = sscanf(name, "trace/%[^/]/%s", tp_system, tp_name);
+  if (res != 2 || strlen(name) > 512)
+    fatal("unable to parse name of probe %u section %u\n", name_idx, fd_idx);
+
+  int fd = -1;
+  if (fd_idx >= prog_fds.size() || (fd = prog_fds[fd_idx]) < 0)
+    fatal("probe %u section %u not loaded\n", name_idx, fd_idx);
+
+  tracepoint_probes.push_back(trace_data(tp_system, tp_name, fd));
+}
+
+static void
 kprobe_collect_from_syms(Elf_Data *sym_data, Elf_Data *str_data)
 {
   Elf64_Sym *syms = static_cast<Elf64_Sym *>(sym_data->d_buf);
@@ -555,6 +589,100 @@ unregister_kprobes(const size_t nprobes)
 		i, strerror(errno));
     }
   close(fd);
+}
+
+static void
+unregister_tracepoints(const size_t nprobes)
+{
+  for (size_t i = 0; i < nprobes; ++i)
+    close(tracepoint_probes[i].event_fd);
+}
+
+static void
+register_tracepoints()
+{
+  size_t nprobes = tracepoint_probes.size();
+  if (nprobes == 0)
+    return;
+
+  for (size_t i = 0; i < nprobes; ++i)
+    {
+      trace_data &t = tracepoint_probes[i];
+      char fnbuf[PATH_MAX];
+      ssize_t len = snprintf(fnbuf, sizeof(fnbuf),
+			     DEBUGFS "events/%s/%s/id",
+                             t.system.c_str(), t.name.c_str());
+      if ((size_t)len >= sizeof(bpf_log_buf))
+	{
+	  fprintf(stderr, "Buffer overflow creating probe %zu\n", i);
+	  goto fail;
+	}
+
+      int fd = open(fnbuf, O_RDONLY);
+      if (fd < 0)
+	{
+	  fprintf(stderr, "Error opening probe event id %zu: %s\n",
+		  i, strerror(errno));
+
+          if (errno == ENOENT)
+            fprintf(stderr, "\"%s/%s\" could not be found in %s\n",
+                    t.system.c_str(), t.name.c_str(), EVENTS);
+
+	  goto fail;
+	}
+
+      char msgbuf[128];
+      len = read(fd, msgbuf, sizeof(msgbuf) - 1);
+      if (len < 0)
+	{
+	  fprintf(stderr, "Error reading probe event id %zu: %s\n",
+		  i, strerror(errno));
+	  goto fail;
+	}
+      close(fd);
+
+      msgbuf[len] = 0;
+      t.event_id = atoi(msgbuf);
+    }
+
+  // ??? Iterate to enable on all cpus, each with a different group_fd.
+  {
+    perf_event_attr peattr;
+
+    memset(&peattr, 0, sizeof(peattr));
+    peattr.size = sizeof(peattr);
+    peattr.type = PERF_TYPE_TRACEPOINT;
+    peattr.sample_type = PERF_SAMPLE_RAW;
+    peattr.sample_period = 1;
+    peattr.wakeup_events = 1;
+
+    for (size_t i = 0; i < nprobes; ++i)
+      {
+	trace_data &t = tracepoint_probes[i];
+        peattr.config = t.event_id;
+
+        int fd = perf_event_open(&peattr, -1, 0, group_fd, 0);
+        if (fd < 0)
+	  {
+	    fprintf(stderr, "Error opening probe id %zu: %s\n",
+		    i, strerror(errno));
+	    goto fail;
+	  }
+        t.event_fd = fd;
+
+        if (ioctl(fd, PERF_EVENT_IOC_SET_BPF, t.prog_fd) < 0)
+	  {
+	    fprintf(stderr, "Error installing bpf for probe id %zu: %s\n",
+		    i, strerror(errno));
+	    goto fail;
+	  }
+      }
+  }
+  return;
+
+ fail:
+  unregister_tracepoints(nprobes);
+  exit(1);
 }
 
 static void
@@ -865,6 +993,8 @@ load_bpf_file(const char *module)
 
   // Record all other probes
   for (unsigned i = 1; i < shnum; ++i) {
+    if (strncmp(sh_name[i], "trace", 5) == 0)
+      collect_tracepoint(sh_name[i], i, i);
     if (strncmp(sh_name[i], "perf", 4) == 0)
       collect_perf(sh_name[i], i, i);
     if (strncmp(sh_name[i], "timer", 5) == 0)
@@ -1038,6 +1168,7 @@ main(int argc, char **argv)
 
   register_kprobes();
   register_timers();
+  register_tracepoints();
   register_perf();
 
   // Run the begin probes.
@@ -1071,6 +1202,7 @@ main(int argc, char **argv)
   unregister_kprobes(kprobes.size());
   unregister_timers(timers.size());
   unregister_perf(perf_probes.size());
+  unregister_tracepoints(tracepoint_probes.size());
 
   // Run the end+error probes.
   if (prog_end)

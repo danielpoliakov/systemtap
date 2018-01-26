@@ -206,6 +206,7 @@ struct bpf_unparser : public throwing_visitor
   void emit_store(expression *dest, value *src);
   value *emit_expr(expression *e);
   value *emit_bool(expression *e);
+  value *emit_context_var(bpf_context_vardecl *v);
   value *parse_reg(const std::string &str, embeddedcode *s);
 
   void add_prologue();
@@ -1092,11 +1093,69 @@ bpf_unparser::visit_assignment (assignment* e)
   result = r;
 }
 
+value *
+bpf_unparser::emit_context_var(bpf_context_vardecl *v)
+{
+  // similar to visit_target_deref but the size/offset info
+  // is given in v->size/v->offset instead of an expression.
+  value *d = this_prog.new_reg();
+
+  if (v->size > 8)
+    {
+      // Compute a pointer but do not dereference. Needed
+      // for array context variables.
+      this_prog.mk_binary (this_ins, BPF_ADD, d, this_in_arg0,
+                           this_prog.new_imm(v->offset));
+
+      return d;
+    }
+
+  value *frame = this_prog.lookup_reg(BPF_REG_10);
+
+  this_prog.mk_binary (this_ins, BPF_ADD, this_prog.lookup_reg(BPF_REG_3),
+                       this_in_arg0, this_prog.new_imm(v->offset));
+  this_prog.mk_mov (this_ins, this_prog.lookup_reg(BPF_REG_2),
+                    this_prog.new_imm(v->size));
+  this_prog.mk_binary (this_ins, BPF_ADD, this_prog.lookup_reg(BPF_REG_1),
+                       frame, this_prog.new_imm(-v->size));
+  this_prog.use_tmp_space (v->size);
+
+  this_prog.mk_call (this_ins, BPF_FUNC_probe_read, 3);
+
+  int opc;
+  switch (v->size)
+    {
+    case 1: opc = BPF_B; break;
+    case 2: opc = BPF_H; break;
+    case 4: opc = BPF_W; break;
+    case 8: opc = BPF_DW; break;
+
+    default: assert(0);
+    }
+
+  this_prog.mk_ld (this_ins, opc, d, frame, -v->size);
+
+  if (v->is_signed && v->size < 8)
+    {
+      value *sh = this_prog.new_imm ((8 - v->size) * 8);
+      this_prog.mk_binary (this_ins, BPF_LSH, d, d, sh);
+      this_prog.mk_binary (this_ins, BPF_ARSH, d, d, sh);
+    }
+
+  return d;
+}
+
 void
 bpf_unparser::visit_symbol (symbol *s)
 {
   vardecl *v = s->referent;
-  assert (v->arity == 0);
+  assert (v->arity < 1);
+
+  if (bpf_context_vardecl *c = dynamic_cast<bpf_context_vardecl*>(v))
+    {
+      result = emit_context_var(c);
+      return;
+    }
 
   auto g = glob.globals.find (v);
   if (g != glob.globals.end())
@@ -2020,7 +2079,7 @@ translate_probe(program &prog, globals &glob, derived_probe *dp)
   // we don't implement that at the moment.  Nor is it easy to support
   // inserting a new start block that would enable retroactively saving
   // this only when needed.
-  u.this_in_arg0 = prog.new_reg();
+  u.this_in_arg0 = prog.lookup_reg(BPF_REG_6);
   prog.mk_mov(u.this_ins, u.this_in_arg0, prog.lookup_reg(BPF_REG_1));
 
   u.add_prologue();
@@ -2349,6 +2408,21 @@ translate_bpf_pass (systemtap_session& s)
                        s.timer_derived_probes, timer_v);
 
           for (auto i = timer_v.begin(); i != timer_v.end(); ++i)
+            {
+              t = i->first->tok;
+              program p;
+              translate_probe(p, glob, i->first);
+              p.generate();
+              output_probe(eo, p, i->second, SHF_ALLOC);
+            }
+        }
+
+      if (s.tracepoint_derived_probes)
+        {
+          sort_for_bpf_probe_arg_vector trace_v;
+          sort_for_bpf(s.tracepoint_derived_probes, trace_v);
+
+          for (auto i = trace_v.begin(); i != trace_v.end(); ++i)
             {
               t = i->first->tok;
               program p;

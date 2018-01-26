@@ -405,6 +405,23 @@ struct dwflpp
                                  callers);
     }
 
+  template<typename T>
+  static int iterate_over_globals (Dwarf_Die *cu_die,
+                                   int (* callback)(Dwarf_Die*,
+                                                    bool,
+                                                    const std::string&,
+                                                    T*),
+                                   T *data)
+    {
+      // See comment block in iterate_over_modules()
+      return iterate_over_globals<void>(cu_die,
+                                        (int (*)(Dwarf_Die*,
+                                                 bool,
+                                                 const std::string&,
+                                                 void*))callback,
+                                        (void*)data);
+    }
+
   GElf_Shdr * get_section(std::string section_name, GElf_Shdr *shdr_mem,
                           Elf **elf_ret=NULL);
 
@@ -528,23 +545,6 @@ private:
   static int global_alias_caching_callback(Dwarf_Die *die, bool has_inner_types,
                                            const std::string& prefix, cu_type_cache_t *cache);
   static int global_alias_caching_callback_cus(Dwarf_Die *die, dwflpp *dw);
-
-  template<typename T>
-  static int iterate_over_globals (Dwarf_Die *cu_die,
-                                   int (* callback)(Dwarf_Die*,
-                                                    bool,
-                                                    const std::string&,
-                                                    T*),
-                                   T *data)
-    {
-      // See comment block in iterate_over_modules()
-      return iterate_over_globals<void>(cu_die,
-                                        (int (*)(Dwarf_Die*,
-                                                 bool,
-                                                 const std::string&,
-                                                 void*))callback,
-                                        (void*)data);
-    }
 
   template<typename T>
   static int iterate_over_types (Dwarf_Die *top_die,
