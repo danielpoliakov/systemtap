@@ -648,6 +648,7 @@ int stp_main_loop(void)
   if (rc != 0) {
     perror ("Unable to send STP_READY");
     cleanup_and_exit(0, rc);
+    /* NOTREACHED */
   }
 
   flags = fcntl(control_channel, F_GETFL);
@@ -695,12 +696,28 @@ int stp_main_loop(void)
 
     if (pending_interrupts) {
          int btype = STP_EXIT;
-         int rc = write(control_channel, &btype, sizeof(btype));
+         int rc;
+
+	 /* If 'load_only' is set, we don't want to send STP_EXIT,
+	  * which would cause any 'probe end' processing to be
+	  * done. Instead, we'll just detach by calling
+	  * cleanup_and_exit(). This should let the module continue to
+	  * run. */
+	 if (load_only)
+	   {
+	     cleanup_and_exit(load_only /* = detach */, 0);
+	     /* NOTREACHED */
+	   }
+
+         rc = write(control_channel, &btype, sizeof(btype));
          dbug(2, "signal-triggered %d exit rc %d\n", pending_interrupts, rc);
-         if (monitor || (pending_interrupts > 2)) /* user mashing on ^C multiple times */
-                 cleanup_and_exit (load_only /* = detach */, 0);
+         if (monitor || (pending_interrupts > 2))
+	   { /* user mashing on ^C multiple times */
+	     cleanup_and_exit (load_only /* = detach */, 0);
+	     /* NOTREACHED */
+	   }
          else
-                 {} /* await STP_EXIT reply message to kill staprun */
+           {} /* await STP_EXIT reply message to kill staprun */
     }
 
     /* If the runtime does not implement select() on the command
@@ -719,6 +736,7 @@ int stp_main_loop(void)
       if (nb >= 0 || (errno != EINTR && errno != EAGAIN)) {
         _perr(_("Unexpected EOF in read (nb=%ld)"), (long)nb);
         cleanup_and_exit(0, 1);
+	/* NOTREACHED */
       }
 
       if (!select_supported) {
@@ -736,6 +754,7 @@ int stp_main_loop(void)
 	  {
 	    _perr(_("Unexpected error in select"));
 	    cleanup_and_exit(0, 1);
+	    /* NOTREACHED */
 	  }
       }
       continue;
@@ -750,6 +769,7 @@ int stp_main_loop(void)
       if (write_realtime_data(recvbuf.payload.data, nb)) {
         _perr(_("write error (nb=%ld)"), (long)nb);
         cleanup_and_exit(0, 1);
+	/* NOTREACHED */
       }
       break;
 #endif
@@ -841,8 +861,10 @@ int stp_main_loop(void)
         dbug(2, "got STP_EXIT\n");
         if (monitor)
                 monitor_exited();
-        else
+        else {
                 cleanup_and_exit(0, error_detected);
+		/* NOTREACHED */
+	}
         /* monitor mode exit handled elsewhere, later. */
         break;
       }
@@ -863,6 +885,7 @@ int stp_main_loop(void)
           if (target_cmd)
             kill(target_pid, SIGKILL);
           cleanup_and_exit(0, 1);
+	  /* NOTREACHED */
         } else if (target_cmd) {
           dbug(1, "detaching pid %d\n", target_pid);
 #if WORKAROUND_BZ467568
@@ -878,6 +901,7 @@ int stp_main_loop(void)
               if (target_cmd)
                 kill(target_pid, SIGKILL);
               cleanup_and_exit(0, 1);
+	      /* NOTREACHED */
             }
 #endif
         }
@@ -901,20 +925,24 @@ int stp_main_loop(void)
         struct _stp_msg_start ts;
         struct _stp_msg_ns_pid nspid;
         if (use_old_transport) {
-          if (init_oldrelayfs() < 0)
+	  if (init_oldrelayfs() < 0) {
             cleanup_and_exit(0, 1);
+	    /* NOTREACHED */
+	  }
         } else {
           if (init_relayfs() < 0)
             cleanup_and_exit(0, 1);
+	    /* NOTREACHED */
         }
 
         if (target_namespaces_pid > 0) {
           nspid.target = target_namespaces_pid;
           rc = send_request(STP_NAMESPACES_PID, &nspid, sizeof(nspid));
           if (rc != 0) {
-	          perror ("Unable to send STP_NAMESPACES_PID");
-	          cleanup_and_exit (1, rc);
-	        }
+	    perror ("Unable to send STP_NAMESPACES_PID");
+	    cleanup_and_exit (1, rc);
+	    /* NOTREACHED */
+	  }
         }
 
         ts.target = target_pid;
@@ -922,9 +950,12 @@ int stp_main_loop(void)
 	if (rc != 0) {
 	  perror ("Unable to send STP_START");
 	  cleanup_and_exit(0, rc);
+	  /* NOTREACHED */
 	}
-        if (load_only)
+        if (load_only) {
           cleanup_and_exit(1, 0);
+	  /* NOTREACHED */
+	}
         break;
       }
     default:

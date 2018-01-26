@@ -598,7 +598,10 @@ void monitor_input(void)
               break;
             case 'q':
               if (monitor_state == exited)
-                cleanup_and_exit(0, 0 /* error_detected unavailable here */ );
+	        {
+		  cleanup_and_exit(0, 0 /* error_detected unavailable here */ );
+		  /* NOTREACHED */
+		}
               else
                 write_command("quit");
               break;

@@ -1,0 +1,145 @@
+set test "attach_detach"
+if {![installtest_p]} { untested $test; return }
+
+set test_script { "
+    probe begin { printf(\"begin probe fired\\n\") }
+    probe timer.s(5) { printf(\"timer probe fired\\n\") }
+    probe end { printf(\"end probe fired\\n\") }
+" }
+
+# First, compile a module.
+stap_compile $test 1 $test_script -m attach_detach
+
+# stap_compile does pass/fail, but doesn't return a status. So, if
+# attach_detach.ko exists, it worked.
+if {! [file exists attach_detach.ko]} {
+    return
+}
+
+# Load the module and detach.
+set subtest "initial load"
+spawn staprun -L attach_detach.ko
+set fail 0
+set pass 0
+expect {
+    -timeout 120
+    -re "^begin probe fired\r\n" { incr fail; exp_continue }
+    -re "^\r\n" { exp_continue }
+    -re "^Disconnecting from systemtap module.\r\n" {
+	incr pass; exp_continue
+    }
+    -re "^To reconnect, type \"staprun -A attach_detach\"\r\n" {
+	incr pass
+    }
+    eof { fail "$test ($subtest) - EOF"; incr fail }
+    timeout { fail "$test ($subtest) - unexpected timeout"; incr fail }
+}
+catch {close}; catch {wait}
+
+if {$fail == 0 && $pass == 2} {
+    pass "$test ($subtest) - disconnect seen"
+} else {
+    fail "$test ($subtest) - begin seen ($fail $pass)"
+}
+
+# Make sure the module is still loaded.
+if {[catch { exec lsmod | grep attach_detach >/dev/null }]} {
+    fail "$test ($subtest) - module still present"
+    return
+}
+pass "$test ($subtest) - module still present"
+
+# Attach to the module, then use SIGQUIT to detach again.
+set subtest "attach and SIGQUIT"
+spawn staprun -A attach_detach
+set fail 0
+set pass 0
+set timer_probe_seen 0
+expect {
+    -timeout 120
+    -re "^begin probe fired\r\n" { incr pass; exp_continue }
+    -re "^end probe fired\r\n" { incr fail; exp_continue }
+    -re "^timer probe fired\r\n" {
+	if {!$timer_probe_seen} {
+	    set timer_probe_seen 1
+	    incr pass
+
+	    # Send our staprun process a SIGQUIT, to make it detach.
+	    kill SIGQUIT [exp_pid]
+	}
+	exp_continue
+    }
+    -re "^\r\n" { exp_continue }
+    -re "^Disconnecting from systemtap module.\r\n" {
+	incr pass; exp_continue
+    }
+    -re "^To reconnect, type \"staprun -A attach_detach\"\r\n" {
+	incr pass
+    }
+    eof { fail "$test ($subtest) - EOF"; incr fail }
+    timeout { fail "$test ($subtest) - unexpected timeout"; incr fail }
+}    
+catch {close}; catch {wait}
+
+if {$fail == 0 && $pass == 4} {
+    pass "$test ($subtest) - disconnect seen"
+} else {
+    fail "$test ($subtest) - no disconnect seen ($fail $pass)"
+}
+
+# Make sure the module is still loaded.
+if {[catch { exec lsmod | grep attach_detach >/dev/null}]} {
+    fail "$test ($subtest) - module still present"
+    return
+}
+pass "$test ($subtest) - module still present"
+
+# Attach one last time, then use SIGTERM to unload the module and quit.
+set subtest "attach and SIGTERM"
+spawn staprun -A attach_detach
+set fail 0
+set pass 0
+set timer_probe_seen 0
+expect {
+    -timeout 120
+    -re "^begin probe fired\r\n" { incr fail; exp_continue }
+    -re "^end probe fired\r\n" { incr pass }
+    -re "^timer probe fired\r\n" {
+	if {!$timer_probe_seen} {
+	    set timer_probe_seen 1
+	    incr pass
+
+	    # Send our staprun process a SIGTERM, to make it quit and
+	    # unload.
+	    kill SIGTERM [exp_pid]
+	}
+	exp_continue
+    }
+    -re "^\r\n" { exp_continue }
+    -re "^Disconnecting from systemtap module.\r\n" {
+	incr fail; exp_continue
+    }
+    -re "^To reconnect, type \"staprun -A attach_detach\"\r\n" {
+	incr fail; exp_continue
+    }
+    eof { fail "$test ($subtest) - EOF"; incr fail }
+    timeout { fail "$test ($subtest) - unexpected timeout"; incr fail }
+}    
+catch {close}; catch {wait}
+
+if {$fail == 0 && $pass == 2} {
+    pass "$test ($subtest) - quit seen"
+} else {
+    fail "$test ($subtest) - no quit seen ($fail $pass)"
+}
+
+# Make sure the module isn't still loaded.
+if {[catch { exec lsmod | grep attach_detach >/dev/null}]} {
+    pass "$test ($subtest) - module is gone"
+} else {
+    fail "$test ($subtest) - module is gone"
+
+    # If for some odd reason the module is still loaded, try to unload
+    # it.
+    catch { exec staprun -d attach_detach }
+}
