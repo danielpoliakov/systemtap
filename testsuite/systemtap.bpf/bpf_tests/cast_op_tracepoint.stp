@@ -1,0 +1,16 @@
+// Test nested @casts. If this script compiles and runs then the test passes.
+probe begin {
+	printf("BEGIN\n")
+}
+
+probe kernel.trace("timer_start") {
+	printf("%d\n", @cast(@cast($timer, "timer_list", "kernel<linux/timer.h>")->function, "u_int8_t", "kernel<linux/types.h>")[2])
+}
+
+probe timer.s(1) {
+	exit()
+}
+
+probe end {
+	printf("END PASS\n")
+}

@@ -1,4 +1,4 @@
-global flag, y, z, x
+global flag
 
 probe begin {
 	printf("BEGIN\n")

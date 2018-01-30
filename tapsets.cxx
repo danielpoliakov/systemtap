@@ -3723,7 +3723,7 @@ synthetic_embedded_deref_call(dwflpp& dw, location_context &ctx,
 
   // If this code snippet uses a precomputed pointer,
   // pass that as the first argument.
-  if (pointer && dw.sess.runtime_mode != systemtap_session::bpf_runtime)
+  if (pointer)
     {
       assert(ctx.pointer);
       fdecl->formal_args.push_back(ctx.pointer);
@@ -4732,6 +4732,13 @@ dwarf_cast_query::handle_query_module()
 
   location_context ctx(&e, e.operand);
   ctx.userspace_p = userspace_p;
+
+  // ctx may require extra information for --runtime=bpf
+  symbol *s;
+  bpf_context_vardecl *v;
+  if ((s = dynamic_cast<symbol *>(e.operand))
+      && (v = dynamic_cast<bpf_context_vardecl *>(s->referent)))
+    ctx.adapt_pointer_to_bpf(v->size, v->offset, v->is_signed);
 
   Dwarf_Die endtype;
   bool ok = false;
@@ -10721,6 +10728,17 @@ tracepoint_var_expanding_visitor::visit_target_symbol_arg (target_symbol* e)
       sym->tok = e->tok;
       sym->name = "__tracepoint_arg_" + arg->name;
       sym->type_details = make_shared<exp_type_dwarf>(&dw, &arg->type_die, false, false);
+
+      if (sess.runtime_mode == systemtap_session::bpf_runtime)
+        {
+          bpf_context_vardecl *v = new bpf_context_vardecl;
+
+          v->size = arg->size;
+          v->offset = arg->offset;
+          v->is_signed = arg->is_signed;
+          sym->referent = v;
+        }
+
       provide (sym);
     }
   else
