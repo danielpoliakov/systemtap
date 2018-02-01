@@ -134,7 +134,7 @@ class _PypProvider(_HeaderCreator):
         varname_spec = varname + Optional("[" + array_size + "]")
         struct_decl = Group(oneOf("struct union") + varname + Suppress(nestedExpr('{','}')) + semi)
         enum_decl = Group("enum" + varname + Suppress(nestedExpr('{','}')) + semi)
-        member_decl = Group((Optional(oneOf("struct unsigned const")) + type_name)
+        member_decl = Group((Optional(oneOf("struct unsigned const")) + type_name + Optional(Keyword("const")))
                             + Optional(Word("*"), default="") + Optional(varname_spec))
         struct_typedef = Group(Literal("typedef") + Literal("struct") + varname
                                + Suppress(nestedExpr('{','}'))) + Optional(varname) + semi
