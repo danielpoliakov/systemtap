@@ -14,14 +14,13 @@
 #include "session.h"
 #include "csclient.h"
 #include "cscommon.h"
+#include "nss-server-info.h"
 #include <string>
 #include <vector>
 
 // Utility functions
 void nss_client_query_server_status (systemtap_session &s);
 void nss_client_manage_server_trust (systemtap_session &s);
-
-struct compile_server_info;
 
 class nss_client_backend : public client_backend
 {
@@ -61,6 +60,10 @@ private:
   void show_server_compatibility () const;
 };
 
+int
+client_connect (const compile_server_info &server,
+		const char* infileName, const char* outfileName,
+		const char* trustNewServer);
 #endif	// HAVE_NSS
 
 #endif	// CLIENT_NSS_H

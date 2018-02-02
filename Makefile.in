@@ -109,7 +109,7 @@ bin_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2)
 @BUILD_TRANSLATOR_TRUE@@HAVE_AVAHI_TRUE@am__append_12 = $(avahi_CFLAGS)
 @BUILD_TRANSLATOR_TRUE@@HAVE_AVAHI_TRUE@am__append_13 = $(avahi_LIBS)
 @BUILD_TRANSLATOR_TRUE@@NEED_BASE_CLIENT_CODE_TRUE@am__append_14 = csclient.cxx
-@BUILD_TRANSLATOR_TRUE@@HAVE_NSS_TRUE@am__append_15 = nsscommon.cxx client-nss.cxx cscommon.cxx
+@BUILD_TRANSLATOR_TRUE@@HAVE_NSS_TRUE@am__append_15 = nsscommon.cxx client-nss.cxx cscommon.cxx nss-server-info.cxx
 @BUILD_TRANSLATOR_TRUE@@HAVE_NSS_TRUE@am__append_16 = $(nss_CFLAGS) -DSTAP
 @BUILD_TRANSLATOR_TRUE@@HAVE_NSS_TRUE@am__append_17 = $(nss_CFLAGS)
 @BUILD_TRANSLATOR_TRUE@@HAVE_NSS_TRUE@am__append_18 = $(nss_CFLAGS)
@@ -173,7 +173,8 @@ PROGRAMS = $(bin_PROGRAMS) $(pkglibexec_PROGRAMS)
 @BUILD_TRANSLATOR_TRUE@@NEED_BASE_CLIENT_CODE_TRUE@am__objects_3 = stap-csclient.$(OBJEXT)
 @BUILD_TRANSLATOR_TRUE@@HAVE_NSS_TRUE@am__objects_4 = stap-nsscommon.$(OBJEXT) \
 @BUILD_TRANSLATOR_TRUE@@HAVE_NSS_TRUE@	stap-client-nss.$(OBJEXT) \
-@BUILD_TRANSLATOR_TRUE@@HAVE_NSS_TRUE@	stap-cscommon.$(OBJEXT)
+@BUILD_TRANSLATOR_TRUE@@HAVE_NSS_TRUE@	stap-cscommon.$(OBJEXT) \
+@BUILD_TRANSLATOR_TRUE@@HAVE_NSS_TRUE@	stap-nss-server-info.$(OBJEXT)
 @BUILD_TRANSLATOR_TRUE@@HAVE_HTTP_SUPPORT_TRUE@am__objects_5 = stap-client-http.$(OBJEXT)
 @BUILD_TRANSLATOR_TRUE@am_stap_OBJECTS = stap-main.$(OBJEXT) \
 @BUILD_TRANSLATOR_TRUE@	stap-session.$(OBJEXT) \
@@ -996,6 +997,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stap-loc2stap.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stap-main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stap-mdfour.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stap-nss-server-info.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stap-nsscommon.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stap-parse.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stap-privilege.Po@am__quote@
@@ -1755,6 +1757,20 @@ stap-cscommon.obj: cscommon.cxx
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='cscommon.cxx' object='stap-cscommon.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stap_CPPFLAGS) $(CPPFLAGS) $(stap_CXXFLAGS) $(CXXFLAGS) -c -o stap-cscommon.obj `if test -f 'cscommon.cxx'; then $(CYGPATH_W) 'cscommon.cxx'; else $(CYGPATH_W) '$(srcdir)/cscommon.cxx'; fi`
+
+stap-nss-server-info.o: nss-server-info.cxx
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stap_CPPFLAGS) $(CPPFLAGS) $(stap_CXXFLAGS) $(CXXFLAGS) -MT stap-nss-server-info.o -MD -MP -MF $(DEPDIR)/stap-nss-server-info.Tpo -c -o stap-nss-server-info.o `test -f 'nss-server-info.cxx' || echo '$(srcdir)/'`nss-server-info.cxx
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stap-nss-server-info.Tpo $(DEPDIR)/stap-nss-server-info.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='nss-server-info.cxx' object='stap-nss-server-info.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stap_CPPFLAGS) $(CPPFLAGS) $(stap_CXXFLAGS) $(CXXFLAGS) -c -o stap-nss-server-info.o `test -f 'nss-server-info.cxx' || echo '$(srcdir)/'`nss-server-info.cxx
+
+stap-nss-server-info.obj: nss-server-info.cxx
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stap_CPPFLAGS) $(CPPFLAGS) $(stap_CXXFLAGS) $(CXXFLAGS) -MT stap-nss-server-info.obj -MD -MP -MF $(DEPDIR)/stap-nss-server-info.Tpo -c -o stap-nss-server-info.obj `if test -f 'nss-server-info.cxx'; then $(CYGPATH_W) 'nss-server-info.cxx'; else $(CYGPATH_W) '$(srcdir)/nss-server-info.cxx'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stap-nss-server-info.Tpo $(DEPDIR)/stap-nss-server-info.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='nss-server-info.cxx' object='stap-nss-server-info.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stap_CPPFLAGS) $(CPPFLAGS) $(stap_CXXFLAGS) $(CXXFLAGS) -c -o stap-nss-server-info.obj `if test -f 'nss-server-info.cxx'; then $(CYGPATH_W) 'nss-server-info.cxx'; else $(CYGPATH_W) '$(srcdir)/nss-server-info.cxx'; fi`
 
 stap-client-http.o: client-http.cxx
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stap_CPPFLAGS) $(CPPFLAGS) $(stap_CXXFLAGS) $(CXXFLAGS) -MT stap-client-http.o -MD -MP -MF $(DEPDIR)/stap-client-http.Tpo -c -o stap-client-http.o `test -f 'client-http.cxx' || echo '$(srcdir)/'`client-http.cxx

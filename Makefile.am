@@ -137,7 +137,7 @@ stap_SOURCES += csclient.cxx
 endif
 
 if HAVE_NSS
-stap_SOURCES += nsscommon.cxx client-nss.cxx cscommon.cxx
+stap_SOURCES += nsscommon.cxx client-nss.cxx cscommon.cxx nss-server-info.cxx
 stap_CFLAGS += $(nss_CFLAGS) -DSTAP
 stap_CXXFLAGS += $(nss_CFLAGS)
 stap_CPPFLAGS += $(nss_CFLAGS)
