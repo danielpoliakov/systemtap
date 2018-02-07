@@ -214,10 +214,7 @@ Group: Development/System
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
 Requires: systemtap-devel = %{version}-%{release}
-# On RHEL[45], /bin/mktemp comes from the 'mktemp' package.  On newer
-# distributions, /bin/mktemp comes from the 'coreutils' package.  To
-# avoid a specific RHEL[45] Requires, we'll do a file-based require.
-Requires: nss /bin/mktemp
+Requires: nss coreutils
 Requires: zip unzip
 Requires(pre): shadow-utils
 Requires(post): chkconfig
