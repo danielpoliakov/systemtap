@@ -1,0 +1,27 @@
+global flag = 1
+probe begin {
+	printf("BEGIN\n")
+}
+
+// check whether x, y or z are wrongly overwritten by a reg alloc bug.
+probe kernel.trace("sched_switch") {
+	x = 1
+	y = 2
+	z = 3
+
+	printf("%d\n", $next_comm[0]);
+
+	if (x != 1 || y != 2 || z != 3)
+		flag = 0
+}
+
+probe timer.s(5) {
+	exit()
+}
+
+probe end {
+	if (flag)
+	        printf("END PASS\n")
+	else
+		printf("END FAIL\n")
+}

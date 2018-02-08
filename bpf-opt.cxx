@@ -600,13 +600,33 @@ reg_alloc(program &p)
       for (unsigned j = i + 1; j < nregs; ++j)
 	{
 	  unsigned r2 = ordered[j - MAX_BPF_REG];
-	  if (partition[r2] == r2 && !igraph.test(r1, r2))
-	    {
-	      partition[r2] = r1;
-	      igraph.merge(r1, r2);
-	      life.cross_call[r1] |= life.cross_call[r2];
-	    }
-	}
+
+	  if (partition[r2] == r2)
+            {
+              bool interferes = false;
+
+              // check for interference between r1, r2 and any
+              // registers already merged with either r1 or r2.
+              for (unsigned k = MAX_BPF_REG; k < nregs; ++k)
+                {
+                  unsigned r3 = ordered[k - MAX_BPF_REG];
+
+                  if ((partition[r3] == r1 && igraph.test(r2, r3))
+                      || (partition[r3] == r2 && igraph.test(r1, r3)))
+                    {
+                      interferes = true;
+                      break;
+                    }
+                }
+
+              if (!interferes)
+                {
+                  partition[r2] = r1;
+	          igraph.merge(r1, r2);
+	          life.cross_call[r1] |= life.cross_call[r2];
+                }
+            }
+        }
     }
 
   // Finally, perform a simplistic register allocation by
