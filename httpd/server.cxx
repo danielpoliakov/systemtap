@@ -11,6 +11,7 @@
 #include <string>
 #include "../util.h"
 #include "utils.h"
+#include "nss_funcs.h"
 
 extern "C"
 {
@@ -22,6 +23,7 @@ extern "C"
 #include <fcntl.h>
 #include <limits.h>
 #include <json-c/json.h>
+#include <sys/utsname.h>
 }
 
 using namespace std;
@@ -309,21 +311,39 @@ request_handler::DELETE(const request &)
 class base_dir_rh : public request_handler
 {
 public:
-    base_dir_rh(string n) : request_handler(n) {}
+    base_dir_rh(string n);
 
     response GET(const request &req);
+    string arch;
+    string cert_info;
 };
+
+base_dir_rh::base_dir_rh(string n) : request_handler(n)
+{
+    // Get the current arch name.
+    struct utsname buf;
+    (void)uname(&buf);
+    arch = buf.machine;
+}
 
 response base_dir_rh::GET(const request &)
 {
     response r(0);
     ostringstream os;
 
+    // Get own certificate information (if needed). Note that we can't
+    // call nss_get_server_cert_info() in the base_dir_rh class
+    // constructor, since NSS hasn't been initialized at that point.
+    if (cert_info.empty())
+	cert_info = nss_get_server_cert_info();
+
     server_error("base_dir_rh::GET");
     r.status_code = 200;
     r.content_type = "application/json";
     os << "{" << endl;
-    os << "  \"version\": \"" VERSION "\"" << endl;
+    os << "  \"version\": \"" VERSION "\"," << endl;
+    os << "  \"arch\": \"" << arch << "\"," << endl;
+    os << "  \"cert_info\": \"" << cert_info << "\"" << endl;
     os << "}" << endl;
     r.content = os.str();
     return r;

@@ -42,6 +42,8 @@ public:
   void add_mok_fingerprint(const std::string &fingerprint);
   int finalize_mok_fingerprints();
 
+  void fill_in_server_info (compile_server_info &) { return; };
+
   int package_request ();
   int find_and_connect_to_server ();
   int unpack_response ();

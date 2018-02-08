@@ -14,7 +14,9 @@
 #include "cscommon.h"
 #include "csclient.h"
 #include "client-nss.h"
+#ifdef HAVE_HTTP_SUPPORT
 #include "client-http.h"
+#endif
 #include "util.h"
 #include "stap-probe.h"
 
@@ -29,18 +31,25 @@ extern "C" {
 
 using namespace std;
 
-int
-compile_server_client::passes_0_4 ()
+client_backend *
+nss_get_client_backend (systemtap_session &s)
 {
   // Use the correct backend.
 #ifdef HAVE_HTTP_SUPPORT
   if (! s.http_servers.empty())
-      backend = new http_client_backend (s);
+    return new http_client_backend (s);
 #endif
 #if HAVE_NSS
-  if (backend == NULL)
-      backend = new nss_client_backend (s);
+  return new nss_client_backend (s);
 #endif
+  return NULL;
+}
+
+int
+compile_server_client::passes_0_4 ()
+{
+  // Use the correct backend.
+  backend = nss_get_client_backend (s);
   if (backend == NULL)
     {
       clog << _("Using a compile server backend failed.") << endl;

@@ -1121,4 +1121,40 @@ http_client_backend::add_mok_fingerprint (const std::string &)
   return;
 }
 
+void
+http_client_backend::fill_in_server_info (compile_server_info &info)
+{
+  // Try to connect to the server. We'll try to grab the base
+  // directory of the server just to see if we can make a
+  // connection.
+  string host_spec = info.host_specification ();
+  if (host_spec.empty())
+    return;
+
+  string url = host_spec + "/";
+  if (http->download (url, http->json_type))
+    {
+      json_object *ver_obj;
+      json_bool jfound;
+
+      // Get the server version number.
+      jfound = json_object_object_get_ex (http->root, "version", &ver_obj);
+      if (jfound)
+	info.version = json_object_get_string(ver_obj);
+
+      // Get the server arch.
+      jfound = json_object_object_get_ex (http->root, "arch", &ver_obj);
+      if (jfound)
+	info.sysinfo = json_object_get_string(ver_obj);
+
+      // Get the server certificate info.
+      jfound = json_object_object_get_ex (http->root, "cert_info", &ver_obj);
+      if (jfound)
+	info.certinfo = json_object_get_string(ver_obj);
+
+      // If the download worked, this server is obviously online.
+      nss_add_online_server_info (s, info);
+  }
+}
+
 #endif /* HAVE_HTTP_SUPPORT */

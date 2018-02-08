@@ -9,7 +9,8 @@
 #define CSCLIENT_H
 
 #include "cscommon.h"
-#include "string"
+#include "nss-server-info.h"
+#include <string>
 
 class client_backend
 {
@@ -36,6 +37,8 @@ public:
 
   virtual void add_mok_fingerprint(const std::string &fingerprint) = 0;
   virtual int finalize_mok_fingerprints() = 0;
+
+  virtual void fill_in_server_info (compile_server_info &info) = 0;
 
   std::string server_tmpdir;
   cs_protocol_version server_version;
@@ -68,5 +71,8 @@ private:
 
   std::string client_tmpdir;
 };
+
+// Return the appropriate client backend for the current session.
+client_backend *nss_get_client_backend (systemtap_session &s);
 
 #endif // CSCLIENT_H

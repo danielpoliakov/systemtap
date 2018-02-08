@@ -48,6 +48,7 @@ struct compile_server_info
   bool hasAddress () const;
   unsigned short setAddressPort (unsigned short port);
   bool isComplete () const;
+  std::string host_specification () const;
 
   bool operator== (const compile_server_info &that) const;
 
@@ -105,6 +106,9 @@ void
 nss_add_server_info (const std::vector<compile_server_info> &source,
 		     std::vector<compile_server_info> &target);
 
+void
+nss_add_online_server_info (systemtap_session &s,
+			    const compile_server_info &info);
 #endif	// HAVE_NSS
 
 #endif	// CSINFO_H

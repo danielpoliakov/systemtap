@@ -12,6 +12,7 @@
 #include <string>
 
 extern int nss_init(std::string &cert_db_path);
+extern std::string nss_get_server_cert_info();
 extern void nss_shutdown(std::string &cert_db_path);
 
 #endif	/* __NSS_H__ */

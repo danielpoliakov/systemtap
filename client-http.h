@@ -43,6 +43,7 @@ public:
   void add_mok_fingerprint(const std::string &fingerprint);
   int finalize_mok_fingerprints() { return 0; };
 
+  void fill_in_server_info (compile_server_info &info);
 
   // FIXME: The 'request_parameters' data item isn't right. This means
   // we can only add string parameters, not numeric parameters. We

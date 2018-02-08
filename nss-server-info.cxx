@@ -110,6 +110,42 @@ compile_server_info::isComplete () const
   return this->hasAddress () && port != 0;
 }
 
+string 
+compile_server_info::host_specification () const
+{
+  ostringstream host_spec;
+  if (!this->isComplete())
+      return host_spec.str();
+
+  if (! this->host_name.empty ())
+      host_spec << this->host_name;
+  else if (this->hasAddress())
+    {
+      PRStatus prStatus;
+      switch (this->address.raw.family)
+	{
+	case PR_AF_INET:
+	case PR_AF_INET6:
+	  {
+#define MAX_NETADDR_SIZE 46 // from the NSPR API reference.
+	    char buf[MAX_NETADDR_SIZE];
+	    prStatus = PR_NetAddrToString(&this->address, buf, sizeof (buf));
+	    if (prStatus == PR_SUCCESS) {
+	      host_spec << buf;
+	      break;
+	    }
+	  }
+	  break;
+	default:
+	  // Do nothing.
+	  break;
+	}
+    }
+  if (! host_spec.str().empty())
+      host_spec << ":" << this->port;
+  return host_spec.str();
+}
+
 bool
 compile_server_info::operator== (const compile_server_info &that) const
 {
@@ -983,13 +1019,18 @@ query_server_status (systemtap_session &s, const string &status_string)
     working_string = "specified";
 
   // If the query is "specified" and no servers have been specified
-  // (i.e. --use-server not used or used with no argument), then
-  // use the default query.
+  // (i.e. '--use-server' and/or '--use-http-server' not used or used
+  // with no argument), then use the default query.
+  //
   // TODO: This may not be necessary. The underlying queries should handle
   //       "specified" properly.
-  if (working_string == "specified" &&
-      (s.specified_servers.empty () ||
-       (s.specified_servers.size () == 1 && s.specified_servers[0].empty ())))
+  if (working_string == "specified"
+      && (s.specified_servers.empty ()
+	  || (s.specified_servers.size () == 1
+	      && s.specified_servers[0].empty ()))
+      && (s.http_servers.empty()
+	  || (s.http_servers.size () == 1
+	      && s.http_servers[0].empty ())))
     working_string = default_server_spec (s);
 
   int pmask = server_spec_to_pmask (working_string);
@@ -1536,7 +1577,7 @@ nss_get_specified_server_info (
 
       // If --use-server was not specified at all, then return info for the
       // default server list.
-      if (s.specified_servers.empty ())
+      if (s.specified_servers.empty () && s.http_servers.empty ())
 	{
 	  if (s.verbose >= 3)
 	    clog << _("No servers specified") << endl;
@@ -1545,14 +1586,21 @@ nss_get_specified_server_info (
 	}
       else
 	{
-	  // Iterate over the specified servers. For each specification, add to
-	  // the list of servers.
-	  unsigned num_specified_servers = s.specified_servers.size ();
-	  for (unsigned i = 0; i < num_specified_servers; ++i)
-	    {
-	      string &server = s.specified_servers[i];
+	  // Iterate over the specified servers. For each
+	  // specification, add to the list of servers.
+	  vector<string> &server_list = (! s.http_servers.empty ()
+					 ? s.http_servers
+					 : s.specified_servers);
+	  client_backend *backend = nss_get_client_backend (s);
+	  if (backend->initialize () != 0)
+	    return;
 
-	      // If no specific server(s) specified, then use the default servers.
+	  for (auto it = server_list.begin (); it != server_list.end (); ++it)
+	    {
+	      string &server = *it;
+
+	      // If no specific server(s) specified, then use the
+	      // default servers.
 	      if (server.empty ())
 		{
 		  if (s.verbose >= 3)
@@ -1562,18 +1610,21 @@ nss_get_specified_server_info (
 		  continue;
 		}
 
-	      // Determine what has been specified. Servers may be specified by:
+	      // Determine what has been specified. Servers may be
+	      // specified by:
 	      // - domain{:port}
 	      // - certificate-serial-number{:port}
               // - IPv4-address{:port}
               // - IPv6-address{:port}
 	      // where items within {} are optional.
-	      // Check for IPv6 addresses first. It reduces the amount of checking necessary for
-	      // certificate serial numbers.
+	      //
+	      // Check for IPv6 addresses first. It reduces the amount
+	      // of checking necessary for certificate serial numbers.
 	      compile_server_info server_info;
 	      vector<compile_server_info> resolved_servers;
-	      if (isIPv6 (server, server_info) || isIPv4 (server, server_info) ||
-		  isCertSerialNumber (server, server_info))
+	      if (isIPv6 (server, server_info)
+		  || isIPv4 (server, server_info)
+		  || isCertSerialNumber (server, server_info))
 		{
 		  // An address or cert serial number has been specified.
 		  // No resolution is needed.
@@ -1586,22 +1637,31 @@ nss_get_specified_server_info (
 		}
 	      else
 		{
-		  clog << _F("Invalid server specification for --use-server: %s", server.c_str())
+		  clog << _F("Invalid server specification: %s", server.c_str())
 		       << endl;
 		  continue;
 		}
 
-	      // Now examine the server(s) identified and add them to the list of specified
-	      // servers.
+	      // Now examine the server(s) identified and add them to
+	      // the list of specified servers.
 	      vector<compile_server_info> known_servers;
 	      vector<compile_server_info> new_servers;
-	      for (vector<compile_server_info>::iterator i = resolved_servers.begin();
+	      for (auto i = resolved_servers.begin();
 		   i != resolved_servers.end();
 		   ++i)
 		{
 		  // If this item was fully specified, then just add it.
-		  if (i->fully_specified)
+		  if (i->fully_specified) {
+		    // In this instance, "fully specified" means
+		    // address and port. At this point we haven't
+		    // tried to contact the server to get online
+		    // information, certificate information,
+		    // etc. Certain server types need us to connect to
+		    // the server directly to get this information.
+		    if (backend)
+		      backend->fill_in_server_info (*i);
 		    nss_add_server_info (*i, new_servers);
+		  }
 		  else {
 		    // It was not fully specified, so we need additional info. Try
 		    // to get it by matching what we have against other known servers.
@@ -1777,7 +1837,8 @@ nss_get_or_keep_compatible_server_info (
       assert (! servers[i].empty ());
 
       // Check the target of the server.
-      if (servers[i].sysinfo != s.kernel_release + " " + s.architecture)
+      if (servers[i].sysinfo != s.kernel_release + " " + s.architecture
+	  || servers[i].sysinfo != s.architecture)
 	{
 	  // Target platform mismatch.
 	  servers.erase (servers.begin () + i);
@@ -2444,6 +2505,12 @@ merge_server_info (
     target.certinfo = source.certinfo;
 }
 
+void
+nss_add_online_server_info (systemtap_session &s,
+			    const compile_server_info &info)
+{
+  nss_add_server_info (info, cscache(s)->online_servers);
+}
 #endif // HAVE_NSS
 
 /* vim: set sw=2 ts=8 cino=>4,n-2,{2,^-2,t0,(0,u0,w1,M1 : */

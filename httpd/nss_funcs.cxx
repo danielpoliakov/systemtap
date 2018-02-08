@@ -7,6 +7,7 @@
 // later version.
 
 #include "../nsscommon.h"
+#include "../cscommon.h"
 #include "nss_funcs.h"
 #include <iostream>
 #include "utils.h"
@@ -50,6 +51,23 @@ nss_init(string &cert_db_path)
     }
 
     return 0;
+}
+
+string
+nss_get_server_cert_info()
+{
+    CERTCertificate *cert = PK11_FindCertFromNickname (server_cert_nickname (),
+						       NULL);
+    string cert_info;
+    if (cert == NULL) {
+	server_error (_("Unable to find our certificate in the database"));
+	nssError ();
+    }
+    else {
+	// Get the certificate serial number
+	cert_info = get_cert_serial_number(cert);
+    }
+    return cert_info;
 }
 
 void

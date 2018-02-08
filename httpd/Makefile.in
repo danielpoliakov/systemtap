@@ -122,7 +122,8 @@ am__dirstamp = $(am__leading_dot)dirstamp
 @HAVE_HTTP_SUPPORT_TRUE@	../stap_httpd-util.$(OBJEXT) \
 @HAVE_HTTP_SUPPORT_TRUE@	../stap_httpd-cmdline.$(OBJEXT) \
 @HAVE_HTTP_SUPPORT_TRUE@	../stap_httpd-nsscommon.$(OBJEXT) \
-@HAVE_HTTP_SUPPORT_TRUE@	../stap_httpd-privilege.$(OBJEXT)
+@HAVE_HTTP_SUPPORT_TRUE@	../stap_httpd-privilege.$(OBJEXT) \
+@HAVE_HTTP_SUPPORT_TRUE@	../stap_httpd-cscommon.$(OBJEXT)
 stap_httpd_OBJECTS = $(am_stap_httpd_OBJECTS)
 am__DEPENDENCIES_1 =
 @HAVE_HTTP_SUPPORT_TRUE@stap_httpd_DEPENDENCIES =  \
@@ -413,7 +414,7 @@ AM_CPPFLAGS = -D_GNU_SOURCE -I$(srcdir)/../includes \
 	-DSYSCONFDIR='"$(sysconfdir)"' -DPKGDATADIR='"${pkgdatadir}"' \
 	-DPKGLIBDIR='"$(pkglibexecdir)"' -DLOCALEDIR='"$(localedir)"'
 AM_LDFLAGS = @PIELDFLAGS@
-@HAVE_HTTP_SUPPORT_TRUE@stap_httpd_SOURCES = main.cxx server.cxx api.cxx backends.cxx utils.cxx nss_funcs.cxx ../util.cxx ../cmdline.cxx ../nsscommon.cxx ../privilege.cxx
+@HAVE_HTTP_SUPPORT_TRUE@stap_httpd_SOURCES = main.cxx server.cxx api.cxx backends.cxx utils.cxx nss_funcs.cxx ../util.cxx ../cmdline.cxx ../nsscommon.cxx ../privilege.cxx ../cscommon.cxx
 @HAVE_HTTP_SUPPORT_TRUE@stap_httpd_CFLAGS = $(AM_CFLAGS) $(nss_CFLAGS)
 @HAVE_HTTP_SUPPORT_TRUE@stap_httpd_CXXFLAGS = $(AM_CXXFLAGS) $(nss_CFLAGS)
 @HAVE_HTTP_SUPPORT_TRUE@stap_httpd_CPPFLAGS = $(AM_CPPFLAGS) $(nss_CFLAGS)
@@ -513,6 +514,8 @@ clean-pkglibexecPROGRAMS:
 	../$(DEPDIR)/$(am__dirstamp)
 ../stap_httpd-privilege.$(OBJEXT): ../$(am__dirstamp) \
 	../$(DEPDIR)/$(am__dirstamp)
+../stap_httpd-cscommon.$(OBJEXT): ../$(am__dirstamp) \
+	../$(DEPDIR)/$(am__dirstamp)
 
 stap-httpd$(EXEEXT): $(stap_httpd_OBJECTS) $(stap_httpd_DEPENDENCIES) $(EXTRA_stap_httpd_DEPENDENCIES) 
 	@rm -f stap-httpd$(EXEEXT)
@@ -526,6 +529,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@../$(DEPDIR)/stap_httpd-cmdline.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@../$(DEPDIR)/stap_httpd-cscommon.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../$(DEPDIR)/stap_httpd-nsscommon.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../$(DEPDIR)/stap_httpd-privilege.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../$(DEPDIR)/stap_httpd-util.Po@am__quote@
@@ -691,6 +695,20 @@ stap_httpd-nss_funcs.obj: nss_funcs.cxx
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='../privilege.cxx' object='../stap_httpd-privilege.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stap_httpd_CPPFLAGS) $(CPPFLAGS) $(stap_httpd_CXXFLAGS) $(CXXFLAGS) -c -o ../stap_httpd-privilege.obj `if test -f '../privilege.cxx'; then $(CYGPATH_W) '../privilege.cxx'; else $(CYGPATH_W) '$(srcdir)/../privilege.cxx'; fi`
+
+../stap_httpd-cscommon.o: ../cscommon.cxx
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stap_httpd_CPPFLAGS) $(CPPFLAGS) $(stap_httpd_CXXFLAGS) $(CXXFLAGS) -MT ../stap_httpd-cscommon.o -MD -MP -MF ../$(DEPDIR)/stap_httpd-cscommon.Tpo -c -o ../stap_httpd-cscommon.o `test -f '../cscommon.cxx' || echo '$(srcdir)/'`../cscommon.cxx
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) ../$(DEPDIR)/stap_httpd-cscommon.Tpo ../$(DEPDIR)/stap_httpd-cscommon.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='../cscommon.cxx' object='../stap_httpd-cscommon.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stap_httpd_CPPFLAGS) $(CPPFLAGS) $(stap_httpd_CXXFLAGS) $(CXXFLAGS) -c -o ../stap_httpd-cscommon.o `test -f '../cscommon.cxx' || echo '$(srcdir)/'`../cscommon.cxx
+
+../stap_httpd-cscommon.obj: ../cscommon.cxx
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stap_httpd_CPPFLAGS) $(CPPFLAGS) $(stap_httpd_CXXFLAGS) $(CXXFLAGS) -MT ../stap_httpd-cscommon.obj -MD -MP -MF ../$(DEPDIR)/stap_httpd-cscommon.Tpo -c -o ../stap_httpd-cscommon.obj `if test -f '../cscommon.cxx'; then $(CYGPATH_W) '../cscommon.cxx'; else $(CYGPATH_W) '$(srcdir)/../cscommon.cxx'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) ../$(DEPDIR)/stap_httpd-cscommon.Tpo ../$(DEPDIR)/stap_httpd-cscommon.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='../cscommon.cxx' object='../stap_httpd-cscommon.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stap_httpd_CPPFLAGS) $(CPPFLAGS) $(stap_httpd_CXXFLAGS) $(CXXFLAGS) -c -o ../stap_httpd-cscommon.obj `if test -f '../cscommon.cxx'; then $(CYGPATH_W) '../cscommon.cxx'; else $(CYGPATH_W) '$(srcdir)/../cscommon.cxx'; fi`
 
 # This directory's subdirectories are mostly independent; you can cd
 # into them and run 'make' without going through this Makefile.

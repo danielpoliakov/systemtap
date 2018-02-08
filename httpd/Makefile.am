@@ -18,7 +18,7 @@ AM_LDFLAGS = @PIELDFLAGS@
 if HAVE_HTTP_SUPPORT
 pkglibexec_PROGRAMS = stap-httpd
 
-stap_httpd_SOURCES = main.cxx server.cxx api.cxx backends.cxx utils.cxx nss_funcs.cxx ../util.cxx ../cmdline.cxx ../nsscommon.cxx ../privilege.cxx
+stap_httpd_SOURCES = main.cxx server.cxx api.cxx backends.cxx utils.cxx nss_funcs.cxx ../util.cxx ../cmdline.cxx ../nsscommon.cxx ../privilege.cxx ../cscommon.cxx
 stap_httpd_CFLAGS = $(AM_CFLAGS) $(nss_CFLAGS)
 stap_httpd_CXXFLAGS = $(AM_CXXFLAGS) $(nss_CFLAGS)
 stap_httpd_CPPFLAGS = $(AM_CPPFLAGS) $(nss_CFLAGS)
