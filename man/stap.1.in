@@ -347,9 +347,27 @@ Instead of running a probe script, just list all available probe
 points matching the given single probe point.  The pattern may include
 wildcards and aliases, but not comma-separated multiple probe points.
 The process result code will indicate failure if there are no matches.
+.SAMPLE
+% stap -e 'probe syscall.* { }'
+[...]
+% stap -l 'syscall.*'
+syscall.accept
+[...]
+syscall.writev
+.ESAMPLE
 .TP
 .BI \-L " PROBE"
-Similar to "\-l", but list probe points and script-level local variables.
+Similar to "\-l", but list matching probe points plus their available context variables.
+.SAMPLE
+% stap -L 'process("/lib64/libpython*.so.*").mark("*")'
+process("/usr/lib64/libpython2.7.so.1.0").mark("function__entry") $arg1:long $arg2:long $arg3:long
+process("/usr/lib64/libpython2.7.so.1.0").mark("function__return") $arg1:long $arg2:long $arg3:long
+process("/usr/lib64/libpython3.6m.so.1.0").mark("function__entry") $arg1:long $arg2:long $arg3:long
+process("/usr/lib64/libpython3.6m.so.1.0").mark("function__return") $arg1:long $arg2:long $arg3:long
+process("/usr/lib64/libpython3.6m.so.1.0").mark("gc__done") $arg1:long
+process("/usr/lib64/libpython3.6m.so.1.0").mark("gc__start") $arg1:long
+process("/usr/lib64/libpython3.6m.so.1.0").mark("line") $arg1:long $arg2:long $arg3:long
+.ESAMPLE
 .TP
 .BI \-F
 Without \-o option, load module and start probes, then detach from the module
