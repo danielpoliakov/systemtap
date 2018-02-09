@@ -1189,7 +1189,7 @@ done
 - Upstream release.
 
 * Mon Jul 07 2014 Josh Stone <jistone@redhat.com>
-- Flip with_dyninst to an %ifarch whitelist.
+- Flip with_dyninst to an %%ifarch whitelist.
 
 * Wed Apr 30 2014 Jonathan Lebon <jlebon@redhat.com> - 2.5-1
 - Upstream release.
