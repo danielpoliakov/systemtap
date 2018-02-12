@@ -450,6 +450,12 @@ proc setup_server { args } {
     }
 
     # Make sure that stap can find the server.
+    #
+    # Why is the server immediately trusted as an SSL peer without
+    # running "stap --trust-servers=ssl ..."? The server is always
+    # trusted by the user that started it. Technically, the
+    # certificates get saved under ~/.systemtap/ssl (of the user that
+    # started the server).
     set waited 0
     set use_server --use-server
     set res 0
