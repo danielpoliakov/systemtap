@@ -1838,7 +1838,7 @@ nss_get_or_keep_compatible_server_info (
 
       // Check the target of the server.
       if (servers[i].sysinfo != s.kernel_release + " " + s.architecture
-	  || servers[i].sysinfo != s.architecture)
+	  && servers[i].sysinfo != s.architecture)
 	{
 	  // Target platform mismatch.
 	  servers.erase (servers.begin () + i);
