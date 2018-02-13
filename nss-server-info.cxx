@@ -482,7 +482,9 @@ add_server_trust (
       int rc = backend->trust_server_info (*server);
       if (rc != NSS_SUCCESS)
 	{
-	  clog << _F("Unable to connect to %s", lex_cast(*server).c_str()) << endl;
+	  // Notice no space before the '%s'? The compile_server_info
+	  // '<<' operator always outputs a space.
+	  clog << _F("Unable to connect to%s", lex_cast(*server).c_str()) << endl;
 	  nssError ();
 	  // Additional information: if the address is IPv6 and is link-local, then it must
 	  // have a scope_id.
