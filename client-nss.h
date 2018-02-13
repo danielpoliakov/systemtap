@@ -43,6 +43,7 @@ public:
   int finalize_mok_fingerprints();
 
   void fill_in_server_info (compile_server_info &) { return; };
+  int trust_server_info (const compile_server_info &server);
 
   int package_request ();
   int find_and_connect_to_server ();
@@ -61,11 +62,6 @@ private:
   int compile_using_server (std::vector<compile_server_info> &servers);
   void show_server_compatibility () const;
 };
-
-int
-client_connect (const compile_server_info &server,
-		const char* infileName, const char* outfileName,
-		const char* trustNewServer);
 #endif	// HAVE_NSS
 
 #endif	// CLIENT_NSS_H

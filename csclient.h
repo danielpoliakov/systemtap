@@ -39,6 +39,7 @@ public:
   virtual int finalize_mok_fingerprints() = 0;
 
   virtual void fill_in_server_info (compile_server_info &info) = 0;
+  virtual int trust_server_info (const compile_server_info &info) = 0;
 
   std::string server_tmpdir;
   cs_protocol_version server_version;

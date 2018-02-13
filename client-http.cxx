@@ -1157,4 +1157,12 @@ http_client_backend::fill_in_server_info (compile_server_info &info)
   }
 }
 
+int
+http_client_backend::trust_server_info (const compile_server_info &)
+{
+    // FIXME: need to implement!
+    clog << "Unimplemented HTTP client trust support" << endl;
+    return NSS_GENERAL_ERROR;
+}
+
 #endif /* HAVE_HTTP_SUPPORT */

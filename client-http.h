@@ -44,6 +44,7 @@ public:
   int finalize_mok_fingerprints() { return 0; };
 
   void fill_in_server_info (compile_server_info &info);
+  int trust_server_info (const compile_server_info &info);
 
   // FIXME: The 'request_parameters' data item isn't right. This means
   // we can only add string parameters, not numeric parameters. We

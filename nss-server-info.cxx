@@ -413,6 +413,10 @@ add_server_trust (
   // Must predeclare this because of jumps to cleanup: below.
   vector<string> processed_certs;
 
+  client_backend *backend = nss_get_client_backend (s);
+  if (backend->initialize () != 0)
+    return;
+
   // Make sure NSPR is initialized. Must be done before NSS is initialized
   s.NSPR_init ();
 
@@ -436,7 +440,7 @@ add_server_trust (
   
   // Iterate over the servers to become trusted. Contact each one and
   // add it to the list of trusted servers if it is not already trusted.
-  // client_connect will issue any error messages.
+  // trust_server_info() will issue any error messages.
   for (vector<compile_server_info>::iterator server = server_list.begin();
        server != server_list.end ();
        ++server)
@@ -475,7 +479,7 @@ add_server_trust (
       // Set the port within the address.
       server->setAddressPort (server->port);
 
-      int rc = client_connect (*server, NULL, NULL, "permanent");
+      int rc = backend->trust_server_info (*server);
       if (rc != NSS_SUCCESS)
 	{
 	  clog << _F("Unable to connect to %s", lex_cast(*server).c_str()) << endl;

@@ -472,7 +472,7 @@ isIPv6LinkLocal (const PRNetAddr &address)
   return false;
 }
 
-int
+static int
 client_connect (const compile_server_info &server,
 		const char* infileName, const char* outfileName,
 		const char* trustNewServer)
@@ -1028,6 +1028,12 @@ nss_client_backend::show_server_compatibility () const
       clog << _F("Server protocol version is %s\n", server_version.v);
       clog << _("The server does not use localization information passed by the client\n");
     }
+}
+
+int
+nss_client_backend::trust_server_info (const compile_server_info &server)
+{
+  return client_connect (server, NULL, NULL, "permanent");
 }
 
 #endif // HAVE_NSS
