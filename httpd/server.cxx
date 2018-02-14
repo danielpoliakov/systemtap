@@ -48,7 +48,7 @@ get_key_values(void *cls, enum MHD_ValueKind /*kind*/,
             switch (json_object_get_type (jval)) {
             case json_type_array:
               {
-                for (int i = 0; i < json_object_array_length (jval); i++) {
+		  for (size_t i = 0; i < (size_t)json_object_array_length (jval); i++) {
                   json_object *jarrval = json_object_array_get_idx (jval, i);
                   const char* jvalue = json_object_get_string (jarrval);
                   switch (json_object_get_type (jarrval)) {

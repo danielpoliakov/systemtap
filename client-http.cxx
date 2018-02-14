@@ -1024,7 +1024,7 @@ http_client_backend::unpack_response ()
   json_object_object_get_ex (http->root, "files", &files);
   if (files)
     {
-      for (int k = 0; k < json_object_array_length (files); k++)
+      for (size_t k = 0; k < (size_t)json_object_array_length (files); k++)
         {
 	  json_object *files_element = json_object_array_get_idx (files, k);
 	  json_object *loc;
