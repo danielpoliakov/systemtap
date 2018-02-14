@@ -33,7 +33,7 @@ int main()
   sin3.sin_addr.s_addr = htonl(0x0AFFFEFD);
 
   sun1.sun_family = AF_UNIX;
-  strncpy(sun1.sun_path, ".", sizeof(sun1.sun_path));
+  strncpy(sun1.sun_path, ".", sizeof(sun1.sun_path) - 1);
 
   sock_inet_stream = socket(PF_INET, SOCK_STREAM, 0);
   //staptest// socket (PF_INET, SOCK_STREAM, IPPROTO_IP) = NNNN

@@ -32,7 +32,7 @@ int main()
      * exist, more fields need to be filled out in the u_export
      * structure for the call to succeed. */
     strncpy(arg.u.u_export.ex_path, "/__fAkE_pAtH__/__nO_eXiSt__",
-	    sizeof(arg.u.u_export.ex_path));
+	    sizeof(arg.u.u_export.ex_path) - 1);
     nfsservctl(NFSCTL_EXPORT, &arg, &res);
     //staptest// [[[[nfsservctl (NFSCTL_EXPORT, XXXX, XXXX)!!!!ni_syscall ()]]]] = -NNNN
 

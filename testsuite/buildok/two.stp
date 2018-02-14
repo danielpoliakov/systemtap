@@ -13,7 +13,7 @@ stap -p4 -g $@ - <<'END'
 %}
 
 function get_release () %{
-strncpy(STAP_RETVALUE, UTS_RELEASE, MAXSTRINGLEN);
+strlcpy(STAP_RETVALUE, UTS_RELEASE, MAXSTRINGLEN);
 %}
 
 probe begin

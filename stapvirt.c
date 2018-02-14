@@ -724,7 +724,7 @@ printUUID(virDomainPtr dom)
 {
     char uuid[VIR_UUID_STRING_BUFLEN];
     if (virDomainGetUUIDString(dom, (char *) &uuid) != 0)
-        strncpy(uuid, "INVALID_UUID", VIR_UUID_STRING_BUFLEN);
+        strncpy(uuid, "INVALID_UUID", VIR_UUID_STRING_BUFLEN - 1);
     printf("%s", uuid);
 }
 

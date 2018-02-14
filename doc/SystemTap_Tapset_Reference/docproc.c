@@ -96,9 +96,9 @@ void exec_kernel_doc(char **svec)
 			exit(1);
 		case  0:
 			memset(real_filename, 0, sizeof(real_filename));
-			strncat(real_filename, srctree, PATH_MAX);
+			strncat(real_filename, srctree, PATH_MAX - 1);
 			strncat(real_filename, KERNELDOCPATH KERNELDOC,
-					PATH_MAX - strlen(real_filename));
+					PATH_MAX - strlen(real_filename) - 1);
 			execvp(real_filename, svec);
 			fprintf(stderr, "exec ");
 			perror(real_filename);
@@ -177,9 +177,9 @@ void find_export_symbols(char * filename)
 	if (filename_exist(filename) == NULL) {
 		char real_filename[PATH_MAX + 1];
 		memset(real_filename, 0, sizeof(real_filename));
-		strncat(real_filename, srctree, PATH_MAX);
+		strncat(real_filename, srctree, PATH_MAX - 1);
 		strncat(real_filename, filename,
-				PATH_MAX - strlen(real_filename));
+				PATH_MAX - strlen(real_filename) - 1);
 		sym = add_new_file(filename);
 		fp = fopen(real_filename, "r");
 		if (fp == NULL)

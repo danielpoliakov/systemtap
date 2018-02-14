@@ -533,13 +533,13 @@ int send_a_relocation (const char* module, const char* reloc, unsigned long long
           dbug (1, "module name too long: %s\n", module);
           return -EINVAL; 
   }
-  strncpy (msg.module, module, STP_MODULE_NAME_LEN);
+  strncpy (msg.module, module, STP_MODULE_NAME_LEN - 1);
   
   if (strlen(reloc) >= STP_SYMBOL_NAME_LEN-1) {
           dbug (1, "reloc name too long: %s\n", reloc);
           return -EINVAL; 
   }
-  strncpy (msg.reloc, reloc, STP_MODULE_NAME_LEN);
+  strncpy (msg.reloc, reloc, STP_MODULE_NAME_LEN - 1);
 
   msg.address = address;
 
@@ -716,13 +716,13 @@ int send_tzinfo ()
 #if 0
   tzset ();
   tzi.tz_gmtoff = timezone;
-  strncpy (tzi.tz_name, tzname[0], STP_TZ_NAME_LEN);
+  strncpy (tzi.tz_name, tzname[0], STP_TZ_NAME_LEN - 1);
 #endif
 
   time (& now_t);
   now = localtime (& now_t);
   tzi.tz_gmtoff = - now->tm_gmtoff;
-  strncpy (tzi.tz_name, now->tm_zone, STP_TZ_NAME_LEN);
+  strncpy (tzi.tz_name, now->tm_zone, STP_TZ_NAME_LEN - 1);
 
   rc = send_request(STP_TZINFO, & tzi, sizeof(tzi));
   if (rc != 0)
@@ -749,7 +749,7 @@ int send_remote_id ()
   int rc;
 
   rem.remote_id = remote_id;
-  strncpy (rem.remote_uri, remote_uri, STP_REMOTE_URI_LEN);
+  strncpy (rem.remote_uri, remote_uri, STP_REMOTE_URI_LEN - 1);
   rem.remote_uri [STP_REMOTE_URI_LEN-1]='\0'; /* XXX: quietly truncate */
   rc = send_request(STP_REMOTE_ID, & rem, sizeof(rem));
   if (rc != 0)

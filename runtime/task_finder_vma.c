@@ -203,7 +203,7 @@ stap_add_vma_map_info(struct task_struct *tsk,
 	entry->vm_end = vm_end;
         if (strlen(path) >= TASK_FINDER_VMA_ENTRY_PATHLEN-3)
           {
-            strncpy (entry->path, "...", TASK_FINDER_VMA_ENTRY_PATHLEN);
+            strlcpy (entry->path, "...", TASK_FINDER_VMA_ENTRY_PATHLEN);
             strlcpy (entry->path+3, &path[strlen(path)-TASK_FINDER_VMA_ENTRY_PATHLEN+4],
                      TASK_FINDER_VMA_ENTRY_PATHLEN-3);
           }

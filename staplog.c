@@ -431,7 +431,7 @@ static void output_cpu_logs(char *dirname)
 		 * probe record is written at that time.
 		 */
 		if (retrieve_all == 1 && start != 0) {
-			strncat(fname, ".may_broken", MAX_FNAME);
+			strncat(fname, ".may_broken", MAX_FNAME - 1);
 			fprintf(fp, "--- generating '%s/%s' ---\n", dirname, fname);
 			fprintf(fp, "  read subbuf %ld(%ld) (offset:%ld-%ld)\n",
 				(long)start-1,

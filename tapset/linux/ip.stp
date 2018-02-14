@@ -53,7 +53,7 @@ function format_ipaddr:string (addr:long, family:long)
 	}
 #endif /* CONFIG_IPV6 || CONFIG_IPV6_MODULE */
 	else
-		strncpy(STAP_RETVALUE, "*unknown address family*",
+		strlcpy(STAP_RETVALUE, "*unknown address family*",
 			MAXSTRINGLEN);
 #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
 	CATCH_DEREF_FAULT();

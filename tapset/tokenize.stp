@@ -45,7 +45,7 @@ function tokenize:string(input:string, delim:string)
 	char *token_end = NULL;
 
 	if (STAP_ARG_input[0]) {
-		strncpy(CONTEXT->tok_str, STAP_ARG_input, MAXSTRINGLEN);
+		strlcpy(CONTEXT->tok_str, STAP_ARG_input, MAXSTRINGLEN);
 		CONTEXT->tok_start = &CONTEXT->tok_str[0];
 		CONTEXT->tok_end = &CONTEXT->tok_str[0] + strlen(CONTEXT->tok_str);
 	}

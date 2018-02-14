@@ -29,7 +29,7 @@ int init_ctl_channel(const char *name, int verb)
 
 #ifdef HAVE_OPENAT
         if (relay_basedir_fd >= 0) {
-                strncpy(buf, CTL_CHANNEL_NAME, PATH_MAX);
+                strncpy(buf, CTL_CHANNEL_NAME, PATH_MAX - 1);
                 control_channel = openat_cloexec(relay_basedir_fd,
 						 CTL_CHANNEL_NAME, O_RDWR, 0);
                 dbug(2, "Opened %s (%d)\n", CTL_CHANNEL_NAME, control_channel);
