@@ -701,9 +701,6 @@ done
    touch $RPM_BUILD_ROOT%{dracutstap}/params.conf
 %endif
 
-%clean
-rm -rf ${RPM_BUILD_ROOT}
-
 %pre runtime
 getent group stapusr >/dev/null || groupadd -g 156 -r stapusr 2>/dev/null || groupadd -r stapusr
 getent group stapsys >/dev/null || groupadd -g 157 -r stapsys 2>/dev/null || groupadd -r stapsys
