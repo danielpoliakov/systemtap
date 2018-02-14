@@ -7860,7 +7860,7 @@ translate_pass (systemtap_session& s)
 	  if (versions.size() >= 3 && s.verbose > 1)
 	    clog << _F("ignoring extra parts of compat version: %s", s.compatible.c_str()) << endl;
 	}
-      catch (const runtime_error)
+      catch (const runtime_error&)
 	{
 	  throw SEMANTIC_ERROR(_F("parse error in compatibility version: %s", s.compatible.c_str()));
 	}

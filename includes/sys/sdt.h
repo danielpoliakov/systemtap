@@ -119,8 +119,8 @@ struct __sdt_type
   
 #define __SDT_ALWAYS_SIGNED(T) \
 template<> struct __sdt_type<T> { static const bool __sdt_signed = true; };
-#define __SDT_COND_SIGNED(T) \
-template<> struct __sdt_type<T> { static const bool __sdt_signed = ((T)(-1) < 1); };
+#define __SDT_COND_SIGNED(T,CT)						\
+template<> struct __sdt_type<T> { static const bool __sdt_signed = ((CT)(-1) < 1); };
 __SDT_ALWAYS_SIGNED(signed char)
 __SDT_ALWAYS_SIGNED(short)
 __SDT_ALWAYS_SIGNED(int)
@@ -141,14 +141,14 @@ __SDT_ALWAYS_SIGNED(const volatile short)
 __SDT_ALWAYS_SIGNED(const volatile int)
 __SDT_ALWAYS_SIGNED(const volatile long)
 __SDT_ALWAYS_SIGNED(const volatile long long)
-__SDT_COND_SIGNED(char)
-__SDT_COND_SIGNED(wchar_t)
-__SDT_COND_SIGNED(volatile char)
-__SDT_COND_SIGNED(volatile wchar_t)
-__SDT_COND_SIGNED(const char)
-__SDT_COND_SIGNED(const wchar_t)
-__SDT_COND_SIGNED(const volatile char)
-__SDT_COND_SIGNED(const volatile wchar_t)
+__SDT_COND_SIGNED(char, char)
+__SDT_COND_SIGNED(wchar_t, wchar_t)
+__SDT_COND_SIGNED(volatile char, char)
+__SDT_COND_SIGNED(volatile wchar_t, wchar_t)
+__SDT_COND_SIGNED(const char, char)
+__SDT_COND_SIGNED(const wchar_t, wchar_t)
+__SDT_COND_SIGNED(const volatile char, char)
+__SDT_COND_SIGNED(const volatile wchar_t, wchar_t)
 #if defined (__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 4))
 /* __SDT_COND_SIGNED(char16_t) */
 /* __SDT_COND_SIGNED(char32_t) */
