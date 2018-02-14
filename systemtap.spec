@@ -72,6 +72,9 @@
     %define dracutbindir %{_bindir}
 %endif
 
+# To avoid testsuite/*/*.stp has shebang which doesn't start with '/'
+%undefine __brp_mangle_shebangs  
+
 Name: systemtap
 Version: 3.3
 Release: 1%{?dist}
