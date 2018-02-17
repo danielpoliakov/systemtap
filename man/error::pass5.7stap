@@ -36,7 +36,9 @@ and/or
 .IR "stap -g --suppress-time-limits"
 options.  Extend or disable individual resource limits using the
 .IR "stap -DSOME_LIMIT=NNNN"
-option.
+option.  The
+.IR "stap -t"
+option may identify those probes that are taking too long.
 .\" the systemtap/wiki/TipExhaustedResourceErrors should be transcribed here
 
 .TP
