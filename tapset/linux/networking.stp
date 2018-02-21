@@ -190,7 +190,7 @@ probe netdev.ioctl
 	= kernel.function("dev_ioctl")
 {
 	cmd = $cmd
-	arg = user_string_quoted($arg)
+	arg = user_string_quoted(@choose_defined($ifr, $arg))
 }
 
 /**
