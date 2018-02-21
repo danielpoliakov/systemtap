@@ -1,4 +1,7 @@
-#! /usr/bin/python
+# Note that this script was written to be executable by either version
+# of python (checked by running pylint-2 and pylint-3 on it). Also
+# note that the python version this script gets executed by is decided
+# on by httpd/backends.cxx.
 
 """Build a docker file and container image based on a JSON template."""
 

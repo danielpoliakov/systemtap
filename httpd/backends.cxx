@@ -304,7 +304,13 @@ docker_backend::generate_module(const client_request_data *crd,
     // as the docker image name. This keeps us from trying to build
     // multiple images with the same name at the same time.
     vector<string> docker_args;
-    docker_args.push_back("python");
+#if defined(PYTHON3_BASENAME)
+    docker_args.push_back(PYTHON3_BASENAME);
+#elif defined(PYTHON_BASENAME)
+    docker_args.push_back(PYTHON_BASENAME);
+#else
+#error "Couldn't find python version 2 or 3."
+#endif
     docker_args.push_back(docker_build_container_script_path);
     docker_args.push_back("--distro-file");
     docker_args.push_back(data_files[crd->distro_name]);

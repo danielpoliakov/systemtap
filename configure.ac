@@ -61,15 +61,18 @@ fi
 # Now we'll update the _AM_PYTHON_INTERPRETER_LIST variable (which
 # AM_PATH_PYTHON uses) to only be version 2 versions of python. Note
 # that the m4_define happens when autoconf is run, but the
-# FIRST_PYTHON_INTERPRETER variable expansion will happen when the
+# PLAIN_PYTHON_INTERPRETER variable expansion will happen when the
 # user runs configure.
+#
+# Note that for python2, we prefer an executable named 'python2' over
+# one just named 'python'.
 if test "x$PYTHON_UNKNOWN" != "xno" -a "x$ac_cv_python_unknown_version" = "x2"; then
-   FIRST_PYTHON_INTERPRETER=python
+   PLAIN_PYTHON_INTERPRETER=python
 else
-   FIRST_PYTHON_INTERPRETER=python2
+   PLAIN_PYTHON_INTERPRETER=python2
 fi
 m4_define([_AM_PYTHON_INTERPRETER_LIST],
-	  [$FIRST_PYTHON_INTERPRETER python2 python2.7 python2.6])
+	  [python2 $PLAIN_PYTHON_INTERPRETER python2.7 python2.6])
 
 # Now we can call AM_PATH_PYTHON to find python version 2.6+ (and
 # version 2 only).

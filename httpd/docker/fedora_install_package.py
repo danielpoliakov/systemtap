@@ -1,4 +1,12 @@
 #! /usr/bin/python
+#
+# Note that the above interpreter choice is correct -
+# '/usr/bin/python'. It isn't '/usr/bin/python2' or
+# '/usr/bin/python3'. But, this is OK. This script is run in a
+# container, and we won't know which python we're executing (or even
+# which will be installed), but we should be assured of one or the
+# other. This script was written to be executable by either version of
+# python (checked by running pylint-2 and pylint-3 on it).
 
 """Install specific versions of packages."""
 
