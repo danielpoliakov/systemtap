@@ -183,8 +183,8 @@ BuildRequires: readline-devel
 BuildRequires: pkgconfig(ncurses)
 %endif
 %if %{with_python2_probes}
-BuildRequires: python-devel
-BuildRequires: python-setuptools
+BuildRequires: python2-devel
+BuildRequires: python2-setuptools
 %endif
 %if %{with_python3_probes}
 BuildRequires: python3-devel
@@ -320,7 +320,7 @@ URL: http://sourceware.org/systemtap/
 %if %{with_python3}
 Requires: python3-pyparsing
 %else
-Requires: pyparsing
+Requires: python2-pyparsing
 %endif
 %endif
 
