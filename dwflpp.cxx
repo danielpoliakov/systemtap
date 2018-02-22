@@ -2468,7 +2468,21 @@ dwflpp::function_entrypc (Dwarf_Addr * addr)
 {
   assert (function);
   // PR10574: reject 0, which tends to be eliminated COMDAT
-  return (dwarf_entrypc (function, addr) == 0 && *addr != 0);
+  if (dwarf_entrypc (function, addr) == 0 && *addr != 0)
+    return true;
+
+  /* Assume the entry pc is the base address, or (if zero)
+     the first address of the ranges covering this DIE.  */
+  Dwarf_Addr start, end;
+  if (dwarf_ranges (function, 0, addr, &start, &end) >= 0)
+    {
+      if (*addr == 0)
+	*addr = start;
+
+      return *addr != 0;
+    }
+
+  return false;
 }
 
 
