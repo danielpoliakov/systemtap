@@ -87,6 +87,9 @@ nss_get_server_cert_info()
     else {
 	// Get the certificate serial number
 	cert_info = get_cert_serial_number(cert);
+
+	// We're done with the certificate.
+	CERT_DestroyCertificate(cert);
     }
     return cert_info;
 }
