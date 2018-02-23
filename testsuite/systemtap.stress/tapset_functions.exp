@@ -78,7 +78,7 @@ proc list_values { argtype } {
 }
 
 # Get list of functions to test.
-if {[catch {exec bash -c "stap --dump-functions -v $opts" 2>/dev/null} outputv]} {
+if {[catch {eval exec "stap --dump-functions -v $opts 2>/dev/null"} outputv]} {
     fail "$test (can't get output of stap --dump-functions)"
     return
 } else {
