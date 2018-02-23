@@ -486,7 +486,7 @@ systemtap_session::version ()
              "This is free software; see the source for copying conditions.\n",
              version_string().c_str());
   // PRERELEASE
-  cout << _F("tested kernel versions: %s ... %s\n", "2.6.18", "4.14-rc4");
+  cout << _F("tested kernel versions: %s ... %s\n", "2.6.18", "4.15.3");
   
   cout << _("enabled features:")
 #ifdef HAVE_AVAHI
