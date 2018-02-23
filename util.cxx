@@ -1558,13 +1558,20 @@ get_distro_info(vector<string> &info)
 	    while (getline(infile, line)) {
 		vector<string> components;
 		tokenize(line, components, "=");
+		if (components.empty())
+		    continue;
 		transform(components[0].begin(), components[0].end(),
 			  components[0].begin(), ::tolower);
 		if (components[0] == "name") {
-		    name = components[1];
+		    string::size_type pos = components[1].find(' ');
+		    if (pos == string::npos)
+			name = components[1];
 		}
 		else if (components[0] == "version_id") {
 		    version = components[1];
+		}
+		else if (components[0] == "id" && name.empty()) {
+		    name = components[1];
 		}
 	    }
 	    infile.close();
@@ -1575,10 +1582,24 @@ get_distro_info(vector<string> &info)
     // etc.) or /etc/*_version ('debian', etc.), if needed.
 
     info.clear();
-    if (! name.empty())
+    if (! name.empty()) {
 	trim(name);
-    if (! version.empty())
+	// If the string is quoted, remove the quotes.
+	if (name.front() == '"') {
+	    name.erase(0, 1);
+	    name.erase(name.size() - 1);
+	    trim(name);
+	}
+    }
+    if (! version.empty()) {
 	trim(version);
+	// If the string is quoted, remove the quotes.
+	if (version.front() == '"') {
+	    version.erase(0, 1);
+	    version.erase(version.size() - 1);
+	    trim(version);
+	}
+    }
     if (! name.empty()) {
 	info.push_back(name);
 	info.push_back(version);

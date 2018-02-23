@@ -1,0 +1,35 @@
+{
+    "distro_name" : "centos",
+    "distro_package_format" : "rpm",
+    "distro_package_manager" : "yum",
+    "distro_package_installer" : "fedora_install_package.py",
+    "docker_stages" : {
+	"header" : [
+	    "FROM centos:${DVER}",
+	    "MAINTAINER http://sourceware.org/systemtap/",
+	    "",
+	    "# Notes for the RUN command:",
+	    "# - We're installing 'yum-utils' to get 'debuginfo-install'",
+	    "#   (which is used when installing packages).",
+	    "",
+	    "RUN `# Update everything`                               && \\",
+	    "     yum -y upgrade                                     && \\",
+	    "                                                           \\",
+	    "    `# Install systemtap, its dependencies, etc.`       && \\",
+	    "     yum -y install                                        \\",
+	    "        yum-utils systemtap-devel python wget              \\",
+	    "        createrepo_c                                    && \\",
+	    "                                                           \\",
+	    "    `# Clean up`                                        && \\",
+	    "     yum -y clean all",
+	    "COPY fedora_install_package.py /tmp/"
+	],
+	"install" : [
+	    "RUN python /tmp/fedora_install_package.py --name ${NAME} --pkg ${PKG} --build_id ${BUILD_ID}"
+	],
+	"footer" : [
+	    "RUN `# Clean up`                                        && \\",
+	    "     yum -y clean all"
+	]
+    }
+}
