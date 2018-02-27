@@ -27,6 +27,9 @@ struct vardecl;
 
 namespace bpf {
 
+#define MAX_BPF_STACK 512
+#define BPF_REG_SIZE 8
+
 typedef unsigned short regno;
 static const regno max_regno = BPF_MAXINSNS;
 static const regno noreg = -1;

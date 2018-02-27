@@ -530,66 +530,46 @@ pref_sort_reg::cmp(regno a, regno b) const
     return diff > 0;
 
   // Prefer registers with more uses.
-  if (d.uses[a] > d.uses[b])
-    return true;
+  diff = d.uses[a] - d.uses[b];
+  if (diff != 0)
+    return diff > 0;
 
   // Finally, make the sort stable by comparing regnos.
   return a < b;
 }
 
 static void
-reg_alloc(program &p)
+merge_copies(std::vector<regno> &partition, life_data &life,
+             interference_graph &igraph, program &p)
 {
-  const unsigned nblocks = p.blocks.size();
-  const unsigned nregs = p.max_reg();
+  copy_graph cgraph;
+  find_cgraph(cgraph, p);
+  cgraph.sort();
 
-  life_data life(nblocks, nregs);
-  find_lifetimes(life, p);
-  find_uses(life.uses, p);
+  unsigned ncopies = cgraph.data.size();
+  for (unsigned i = 0; i < ncopies; ++i)
+    {
+      const copy_graph::entry &c = cgraph.data[i];
+      unsigned r1 = partition[c.i];
+      unsigned r2 = c.j;
 
-  std::vector<regno> partition(nregs);
+      if (r2 >= MAX_BPF_REG
+          && partition[r2] == r2
+          && !igraph.test(r1, r2)
+          && (r1 >= BPF_REG_6 || !life.cross_call.test(r2)))
+        {
+          partition[r2] = r1;
+          igraph.merge(r1, r2);
+          life.cross_call[r1] |= life.cross_call[r2];
+        }
+    }
+}
 
-  // Initially, all registers are in their own partition.
-  for (unsigned i = 0; i < nregs; ++i)
-    partition[i] = i;
-
-  // Compute the interference of all registers.
-  interference_graph igraph(nregs);
-  find_igraph (igraph, life, p);
-
-  // Merge non-conflicting partitions between copies first.
-  {
-    copy_graph cgraph;
-    find_cgraph(cgraph, p);
-    cgraph.sort();
-
-    unsigned ncopies = cgraph.data.size();
-    for (unsigned i = 0; i < ncopies; ++i)
-      {
-	const copy_graph::entry &c = cgraph.data[i];
-	unsigned r1 = partition[c.i];
-	unsigned r2 = c.j;
-
-	if (r2 >= MAX_BPF_REG
-	    && partition[r2] == r2
-	    && !igraph.test(r1, r2)
-	    && (r1 >= BPF_REG_6 || !life.cross_call.test(r2)))
-	  {
-	    partition[r2] = r1;
-	    igraph.merge(r1, r2);
-	    life.cross_call[r1] |= life.cross_call[r2];
-	  }
-      }
-  }
-
-  // Merge all other non-conflicting registers next.
-  std::vector<regno> ordered(nregs - MAX_BPF_REG);
-  for (unsigned i = MAX_BPF_REG; i < nregs; ++i)
-    ordered[i - MAX_BPF_REG] = i;
-
-  // ??? Use C++14 lambda.
-  pref_sort_reg sort_obj(life);
-  std::sort(ordered.begin(), ordered.end(), sort_obj);
+static void
+merge(std::vector<regno> &partition, std::vector<regno> &ordered,
+      life_data &life, interference_graph &igraph, program &p)
+{
+  unsigned nregs = p.max_reg();
 
   for (unsigned i = MAX_BPF_REG; i < nregs; ++i)
     {
@@ -628,9 +608,16 @@ reg_alloc(program &p)
             }
         }
     }
+}
 
-  // Finally, perform a simplistic register allocation by
-  // merging TMPREG partitions with HARDREG "partitions".
+static unsigned
+allocate(std::vector<regno> &partition, std::vector<regno> &ordered,
+         life_data &life, interference_graph &igraph, program &p)
+{
+  // return 0 if allocation succeeds, otherwise return the first
+  // temporary that cannot be allocated.
+  unsigned nregs = p.max_reg();
+
   for (unsigned i = MAX_BPF_REG; i < nregs; ++i)
     {
       unsigned r2 = ordered[i - MAX_BPF_REG];
@@ -654,17 +641,101 @@ reg_alloc(program &p)
 	    }
 	}
 
-      // ??? We didn't find a register coloring with 10 regs.
-      // ??? The proper thing to do is split live ranges, add
-      // spill code, and restart the allocation process.
-      throw std::runtime_error(_("unable to register allocate"));
+      // We didn't find a color for r2.
+      return r2;
 
     done:
       ;
     }
 
-  // Finalize the allocation by writing back the partition data
-  // to the tmpreg value structures.
+  return 0;
+}
+
+static unsigned
+choose_spill_reg(unsigned tmpreg, std::vector<regno> &ordered, std::vector<bool> spilled)
+{
+  unsigned ret = 0;
+
+  // Choose the lowest priority reg that has been allocated but not spilled.
+  // tmpreg is the first element in ordered that hasn't been allocated.
+  for (unsigned i = 0; i < ordered.size() && ordered[i] != tmpreg; ++i)
+    {
+      unsigned reg = ordered[i];
+
+      if (!spilled[reg])
+        ret = reg;
+    }
+
+  if (!ret)
+    throw std::runtime_error(_("unable to register allocate"));
+
+  spilled[ret] = true;
+  return ret;
+}
+
+static void
+spill(unsigned reg, unsigned num_spills, program &p)
+{
+  unsigned nblocks = p.blocks.size();
+  value *frame = p.lookup_reg(BPF_REG_10);
+
+  // reg's stack offset.
+  int off = BPF_REG_SIZE * num_spills + p.max_tmp_space;
+
+  // Ensure double word alignment.
+  if (off % BPF_REG_SIZE)
+    off += BPF_REG_SIZE - off % BPF_REG_SIZE;
+
+  if (off > MAX_BPF_STACK)
+    throw std::runtime_error(
+	    _("register allocation failed due to insufficent BPF stack size"));
+
+  for (unsigned i = 0; i < nblocks; ++i)
+    {
+      block *b = p.blocks[i];
+
+      for (insn *j = b->last; j != NULL; j = j->prev)
+        {
+          value *src0 = j->src0;
+          value *src1 = j->src1;
+          value *dest = j->dest;
+          value *new_tmp = NULL;
+
+          // If reg is a source, insert a load before j
+          if ((src0 && src0->reg_val == reg) || (src1 && src1->reg_val == reg))
+            {
+              insn_before_inserter ins(b, j);
+              new_tmp = p.new_reg();
+
+              p.mk_ld (ins, BPF_DW, new_tmp, frame, -off);
+
+              // Replace reg with new_tmp
+              if (src0 && src0->reg_val == reg)
+                j->src0 = new_tmp;
+              if (src1 && src1->reg_val == reg)
+                j->src1 = new_tmp;
+            }
+
+          // If reg is the destination, insert a store after j
+          if (dest && dest->reg_val == reg)
+            {
+              insn_after_inserter ins(b, j);
+              new_tmp = new_tmp ?: p.new_reg();
+
+              p.mk_st (ins, BPF_DW, frame, -off, new_tmp);
+              j->dest = new_tmp;
+            }
+        }
+    }
+
+  return;
+}
+
+static void
+finalize_allocation(std::vector<regno> &partition, program &p)
+{
+  unsigned nregs = p.max_reg();
+
   for (unsigned i = MAX_BPF_REG; i < nregs; ++i)
     {
       value *v = p.lookup_reg(i);
@@ -679,6 +750,72 @@ reg_alloc(program &p)
 
       assert(r < MAX_BPF_REG);
       v->reg_val = r;
+    }
+}
+
+static void
+reg_alloc(program &p)
+{
+  bool done = false;
+  unsigned num_spills = 0;
+  const unsigned nblocks = p.blocks.size();
+  std::vector<bool> spilled(p.max_reg());
+
+  while (!done)
+    {
+      const unsigned nregs = p.max_reg();
+
+      life_data life(nblocks, nregs);
+      find_lifetimes(life, p);
+      find_uses(life.uses, p);
+
+      std::vector<regno> partition(nregs);
+
+      // Initially, all registers are in their own partition.
+      for (unsigned i = 0; i < nregs; ++i)
+        partition[i] = i;
+
+      // Compute the interference of all registers.
+      interference_graph igraph(nregs);
+      find_igraph (igraph, life, p);
+
+      // Merge non-conflicting partitions between copies first.
+      merge_copies(partition, life, igraph, p);
+
+      // Merge all other non-conflicting registers next.
+      std::vector<regno> ordered(nregs - MAX_BPF_REG);
+      for (unsigned i = MAX_BPF_REG; i < nregs; ++i)
+        ordered[i - MAX_BPF_REG] = i;
+
+      merge(partition, ordered, life, igraph, p);
+
+      // ??? Use C++14 lambda.
+      pref_sort_reg sort_obj(life);
+      std::sort(ordered.begin(), ordered.end(), sort_obj);
+
+      // Perform a simplistic register allocation by merging TMPREG
+      // partitions with HARDREG "partitions".
+      unsigned reg = allocate(partition, ordered, life, igraph, p);
+
+      if (reg)
+       {
+          // reg could not be allocated. Spill the lowest priority
+          // temporary that has already been allocated.
+          reg = choose_spill_reg(reg, ordered, spilled);
+          spill(reg, ++num_spills, p);
+
+          // Add new temporaries to spilled.
+          for (unsigned i = nregs; i < p.max_reg(); ++i)
+            spilled.push_back(true);
+
+          spilled[reg] = true;
+        }
+      else
+        {
+          // Write partition data to the TMPREG value structures.
+          finalize_allocation(partition, p);
+          done = true;
+        }
     }
 }
 

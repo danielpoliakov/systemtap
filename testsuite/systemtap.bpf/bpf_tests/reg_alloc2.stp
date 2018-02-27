@@ -3,28 +3,46 @@
 global res
 probe begin {
 	printf("BEGIN\n")
-        a = 1
+	a = 1
 	b = a
-	c = b + 1
-	d = b = a + 2
-	res = a == 1 && b == 3 && c == 2 && d == 3
+        c = a + b
+        d = a + b + c
+	e = a + b + c + d
+	f = a + b + c + d + e
+	g = a + b + c + d + e + f
+	h = a + b + c + d + e + f + g
+	i = a + b + c + d + e + f + g + h
+
+	res = a == 1 && b == 1 && c == 2 && d == 4 && e == 8 && f == 16 && g == 32 && h == 64 && i == 128
 }
 
 probe kernel.function("vfs_read") {
 	a = 1
-        b = a
-        c = b + 1
-        d = b = a + 2
-	res = res && a == 1 && b == 3 && c == 2 && d == 3
+	b = a
+        c = a + b
+        d = a + b + c
+	e = a + b + c + d
+	f = a + b + c + d + e
+	g = a + b + c + d + e + f
+	h = a + b + c + d + e + f + g
+	i = a + b + c + d + e + f + g + h
+
+	res = res && a == 1 && b == 1 && c == 2 && d == 4 && e == 8 && f == 16 && g == 32 && h == 64 && i == 128
 	exit()
 }
 
 probe end {
-        a = 1 
-        b = a
-        c = b + 1 
-        d = b = a + 2
-	if (res && a == 1 && b == 3 && c == 2 && d == 3)
+	a = 1
+	b = a
+        c = a + b
+        d = a + b + c
+	e = a + b + c + d
+	f = a + b + c + d + e
+	g = a + b + c + d + e + f
+	h = a + b + c + d + e + f + g
+	i = a + b + c + d + e + f + g + h
+
+	if (res && a == 1 && b == 1 && c == 2 && d == 4 && e == 8 && f == 16 && g == 32 && h == 64 && i == 128)
 		printf("END PASS\n")
 	else
 		printf("END FAIL\n")

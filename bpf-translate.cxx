@@ -490,6 +490,7 @@ bpf_unparser::emit_store(expression *e, value *val)
 	      throw SEMANTIC_ERROR(_("unhandled array type"), v->tok);
 	    }
 
+          this_prog.use_tmp_space(-val_ofs);
 	  this_prog.load_map(this_ins, this_prog.lookup_reg(BPF_REG_1),
 			     g->second.first);
           emit_mov(this_prog.lookup_reg(BPF_REG_4), this_prog.new_imm(0));
@@ -864,6 +865,8 @@ bpf_unparser::visit_delete_statement (delete_statement *s)
 	    default:
 	      throw SEMANTIC_ERROR(_("unhandled index type"), e->tok);
 	    }
+
+          this_prog.use_tmp_space(-key_ofs);
 	  this_prog.load_map(this_ins, this_prog.lookup_reg(BPF_REG_1),
 			     g->second.first);
 	  this_prog.mk_call(this_ins, BPF_FUNC_map_delete_elem, 2);
