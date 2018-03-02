@@ -12,6 +12,10 @@
 
 /* Global counter definitions for mib TCP_MIB. */
 
+// See the BZ1546179 block comment in tapset/linux/networking.stp for
+// an explanation of the try/catch statements around sk_buff structure
+// accesses.
+
 %{
 #include <net/sock.h>
 #include <linux/tcp.h>
@@ -342,13 +346,17 @@ probe
 tcpmib.OutSegs=kernel.function("ip_queue_xmit").return
 {
 	if ( $return < 0 ) next;
-	sk = @entry($skb->sk);
 	op = 1;
 	
         //  Only count the events with protocol IPPROTO_TCP,6.
-	iphdr = __get_skb_iphdr(@entry($skb));
-        if( !(__ip_skb_proto(iphdr) == 6) ) next ;
-	key = tcpmib_filter_key(sk, op);
+	try {
+		iphdr = __get_skb_iphdr(@entry($skb))
+		if ( !(__ip_skb_proto(iphdr) == 6) ) next ;
+	} catch { }
+	try {
+		sk = @entry($skb->sk);
+		key = tcpmib_filter_key(sk, op);
+	} catch { }
 	if ( key ) OutSegs[key] += op;
 }
 

@@ -10,6 +10,11 @@
 // <tapsetdescription>
 // This family of probe points is used to probe events that occur in the TCP layer, 
 // </tapsetdescription>
+
+// See the BZ1546179 block comment in tapset/linux/networking.stp for
+// an explanation of the try/catch statements around sk_buff structure
+// accesses.
+
 %{
 #include <linux/version.h>
 #include <net/sock.h>
@@ -663,48 +668,60 @@ probe tcp.receive = tcp.ipv4.receive, tcp.ipv6.receive
 probe tcp.ipv4.receive = kernel.function("tcp_v4_rcv")
 {
 	name = "tcp.ipv4.receive"
-	iphdr = __get_skb_iphdr($skb)
 	# If we're here, by definition we're doing AF_INET, not AF_INET6.
 	family = @const("AF_INET")
-	saddr = format_ipaddr(__ip_skb_saddr(iphdr), @const("AF_INET"))
-	daddr = format_ipaddr(__ip_skb_daddr(iphdr), @const("AF_INET"))
-	protocol = __ip_skb_proto(iphdr)
+	try {
+	  iphdr = __get_skb_iphdr($skb)
+	  saddr = format_ipaddr(__ip_skb_saddr(iphdr), @const("AF_INET"))
+	  daddr = format_ipaddr(__ip_skb_daddr(iphdr), @const("AF_INET"))
+	  protocol = __ip_skb_proto(iphdr)
+	} catch { }
 
-	tcphdr = __get_skb_tcphdr($skb)
-	dport = __tcp_skb_dport(tcphdr)
-	sport = __tcp_skb_sport(tcphdr)
-	urg = __tcp_skb_urg(tcphdr)
-	ack = __tcp_skb_ack(tcphdr)
-	psh = __tcp_skb_psh(tcphdr)
-	rst = __tcp_skb_rst(tcphdr)
-	syn = __tcp_skb_syn(tcphdr)
-	fin = __tcp_skb_fin(tcphdr)
+	try {
+	  tcphdr = __get_skb_tcphdr($skb)
+	  dport = __tcp_skb_dport(tcphdr)
+	  sport = __tcp_skb_sport(tcphdr)
+	  urg = __tcp_skb_urg(tcphdr)
+	  ack = __tcp_skb_ack(tcphdr)
+	  psh = __tcp_skb_psh(tcphdr)
+	  rst = __tcp_skb_rst(tcphdr)
+	  syn = __tcp_skb_syn(tcphdr)
+	  fin = __tcp_skb_fin(tcphdr)
+	} catch { }
 }
 
 probe tcp.ipv6.receive = kernel.function("tcp_v6_rcv")!,
 	module("ipv6").function("tcp_v6_rcv")
 {
 	name = "tcp.ipv6.receive"
-	iphdr = __get_skb_iphdr(@choose_defined($skb, kernel_pointer($pskb)))
 	# If we're here, by definition we're doing AF_INET6, not AF_INET.
 	family = @const("AF_INET6")
-	saddr = format_ipaddr(&@cast(iphdr, "ipv6hdr", "kernel<linux/ipv6.h>")->saddr,
-			      @const("AF_INET6"))
-	daddr = format_ipaddr(&@cast(iphdr, "ipv6hdr", "kernel<linux/ipv6.h>")->daddr,
-			      @const("AF_INET6"))
+	try {
+	  iphdr = __get_skb_iphdr(@choose_defined($skb, kernel_pointer($pskb)))
+	  saddr = format_ipaddr(&@cast(iphdr, "ipv6hdr",
+				       "kernel<linux/ipv6.h>")->saddr,
+				@const("AF_INET6"))
+	  daddr = format_ipaddr(&@cast(iphdr, "ipv6hdr",
+				       "kernel<linux/ipv6.h>")->daddr,
+				@const("AF_INET6"))
+	} catch { }
+
 	# If we're here, by definition we're doing IPPROTO_TCP.  There
 	# isn't a protocol field in 'struct ipv6hdr'.  There is one in
 	# 'struct sk_buff', but that protocol field is an Ethernet
 	# Procol ID (ETH_P_*), not an IP protocol ID (IPPROTO_*).
 	protocol = @const("IPPROTO_TCP")
 
-	tcphdr = __get_skb_tcphdr(@choose_defined($skb, kernel_pointer($pskb)))
-	dport = __tcp_skb_dport(tcphdr)
-	sport = __tcp_skb_sport(tcphdr)
-	urg = __tcp_skb_urg(tcphdr)
-	ack = __tcp_skb_ack(tcphdr)
-	psh = __tcp_skb_psh(tcphdr)
-	rst = __tcp_skb_rst(tcphdr)
-	syn = __tcp_skb_syn(tcphdr)
-	fin = __tcp_skb_fin(tcphdr)
+	try {
+	  tcphdr = __get_skb_tcphdr(@choose_defined($skb,
+				    kernel_pointer($pskb)))
+	  dport = __tcp_skb_dport(tcphdr)
+	  sport = __tcp_skb_sport(tcphdr)
+	  urg = __tcp_skb_urg(tcphdr)
+	  ack = __tcp_skb_ack(tcphdr)
+	  psh = __tcp_skb_psh(tcphdr)
+	  rst = __tcp_skb_rst(tcphdr)
+	  syn = __tcp_skb_syn(tcphdr)
+	  fin = __tcp_skb_fin(tcphdr)
+	} catch { }
 }

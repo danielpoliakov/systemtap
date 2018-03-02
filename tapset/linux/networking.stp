@@ -9,6 +9,64 @@
 // This family of probe points is used to probe the activities of the network device. 
 // </tapsetdescription>
 
+// ===================================================================
+//
+// BZ1546179 fix notes.
+//
+// The following kernel commit changed the sk_buff structure:
+//
+//   commit bffa72cf7f9df842f0016ba03586039296b4caaf
+//   Author: Eric Dumazet <edumazet@google.com>
+//   Date:   Tue Sep 19 05:14:24 2017 -0700
+//
+//     net: sk_buff rbnode reorg
+//    
+//     skb->rbnode shares space with skb->next, skb->prev and skb->tstamp
+//
+// The sk_buff structure now looks like this:
+//
+// ====
+//   struct sk_buff {
+//	union {
+//		struct {
+//			/* These two members must be first. */
+//			struct sk_buff		*next;
+//			struct sk_buff		*prev;
+//
+//			union {
+//				struct net_device	*dev;
+//				/* Some protocols might use this space to store information,
+//				 * while device pointer would be NULL.
+//				 * UDP receive path is one user.
+//				 */
+//				unsigned long		dev_scratch;
+//			};
+//		};
+//		struct rb_node	rbnode; /* used in netem & tcp stack */
+//	};
+//        ... stuff deleted ...
+//   };
+// ====
+//
+// There doesn't seem to be a way by looking at the sk_buf structure
+// to know which of those union values are valid. If a probe does
+// something like "dev_name = kernel_string($skb->dev->name)", that
+// could fail in a variety of ways (since it is difficult to know if
+// $skb->dev is supposed to be valid). To avoid a probe user getting a
+// read error (with no way to trap that error), accesses to sk_buff
+// structs have been surrounded with "try { .. } catch { }" in probes.
+//
+// Note that this is done only in probes, not in functions. A user
+// doing his own probing might want to try to catch an error in a
+// function himself.
+//
+// Also note that statements accessing the same sk_buff structure
+// field are grouped in a single try/catch statement. Statements
+// accessing different sk_buff structure fields each have their own
+// try/catch statement.
+//
+// ===================================================================
+
 /* A function that returns the device name given the net_device struct */
 function get_netdev_name:string (addr:long) {
 	return kernel_string(@cast(addr, "net_device")->name)
@@ -62,10 +120,10 @@ probe netdev.receive
 	= kernel.function("netif_receive_skb_internal") !,
 	  kernel.function("netif_receive_skb")
 {
-	dev_name = kernel_string($skb->dev->name)
-	length = $skb->len
-	protocol = $skb->protocol
-	truesize = $skb->truesize
+	try { dev_name = get_netdev_name($skb->dev) } catch { }
+	try { length = $skb->len } catch { }
+	try { protocol = $skb->protocol } catch { }
+	try { truesize = $skb->truesize } catch { }
 }
 
 /**
@@ -81,10 +139,10 @@ probe netdev.transmit
 	= kernel.function("__dev_queue_xmit") !,
 	  kernel.function("dev_queue_xmit")
 {
-	dev_name = kernel_string($skb->dev->name)
-	length = $skb->len
-	protocol = $skb->protocol
-	truesize = $skb->truesize
+	try { dev_name = get_netdev_name($skb->dev) } catch { }
+	try { length = $skb->len } catch { }
+	try { protocol = $skb->protocol } catch { }
+	try { truesize = $skb->truesize } catch { }
 }
 
 /**
@@ -132,9 +190,9 @@ probe netdev.hard_transmit
 	= kernel.function("dev_hard_start_xmit") ?
 {
 	dev_name = get_netdev_name($dev)
-	protocol = @choose_defined($first, $skb)->protocol
-	length = @choose_defined($first, $skb)->len
-	truesize = @choose_defined($first, $skb)->truesize
+	try { protocol = @choose_defined($first, $skb)->protocol } catch { }
+	try { length = @choose_defined($first, $skb)->len } catch { }
+	try { truesize = @choose_defined($first, $skb)->truesize } catch { }
 }
 
 /**
@@ -145,9 +203,11 @@ probe netdev.hard_transmit
 probe netdev.rx
 	= kernel.function("netif_rx")
 {
-	netdev = $skb->dev
-	dev_name = get_netdev_name(netdev)
-	protocol = $skb->protocol
+	try {
+		netdev = $skb->dev
+		dev_name = get_netdev_name(netdev)
+	} catch { }
+	try { protocol = $skb->protocol } catch { }
 }
 
 /**
