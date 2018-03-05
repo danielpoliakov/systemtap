@@ -12,6 +12,8 @@
 %{
 #include <linux/uaccess.h>		/* For VERIFY_READ/VERIFY_WRITE */
 #include <linux/uio.h>			/* For ITER_IOVEC */
+#include <linux/types.h>		/* For struct list_head */
+#include <linux/mm_types.h>		/* For struct page */
 
 /* Define our own page size macro. */
 #ifdef PAGE_CACHE_SIZE
@@ -152,6 +154,19 @@ function _dev_major:long (dev:long)
 	return MAJOR(dev)
 }
 %)
+
+@__private30 function __get_first_page:long (pages:long)
+%{ /* pure */
+	struct list_head *pages = (struct list_head *)(uintptr_t)STAP_ARG_pages;
+
+	/* We call kderef_buffer() here to ensure the memory is valid
+	 * to read. Note the result is thrown away, then we use the
+	 * "real" list_entry() function now that we know the address
+	 * is safe. */
+	(void)kderef_buffer(NULL, pages, sizeof(*pages));
+	STAP_RETVALUE = (uintptr_t)list_entry(pages->prev, struct page, lru);
+	CATCH_DEREF_FAULT();
+%}
 
 probe generic.fop.llseek = kernel.function("generic_file_llseek")
 {
@@ -838,7 +853,14 @@ probe vfs.__set_page_dirty_buffers.return =
 	}
 }
 
-probe vfs.do_mpage_readpage = kernel.function("do_mpage_readpage")
+probe vfs.do_mpage_readpage = __vfs.do_mpage_readpage,
+	__vfs.ext4_mpage_readpages ?
+{
+	name = "do_mpage_readpage"
+	argstr = sprintf("%d", index)
+	units = "pages"
+}
+probe __vfs.do_mpage_readpage = kernel.function("do_mpage_readpage")
 {
 	dev = __page_dev($page)
 	devname = __find_bdevname(dev, __page_bdev($page))
@@ -846,19 +868,44 @@ probe vfs.do_mpage_readpage = kernel.function("do_mpage_readpage")
 
 	index = __page_index($page)
 
-	name = "do_mpage_readpage"
-	argstr = sprintf("%d", index)
-
 	size = 1
-	units = "pages"
 }
-probe vfs.do_mpage_readpage.return = kernel.function("do_mpage_readpage").return
+probe __vfs.ext4_mpage_readpages = kernel.function("ext4_mpage_readpages") ?
+{
+	size = $nr_pages
+	if ($nr_pages == 1 && $page != 0) {
+		dev = __page_dev($page)
+		devname = __find_bdevname(dev, __page_bdev($page))
+		ino = __page_ino($page)
+		index = __page_index($page)
+	}
+	else {
+		# Note that we're going to return information about
+		# the first page from the list of pages. It is the best
+		# we can do here.
+		__page = __get_first_page($pages)
+		dev = __page_dev(__page)
+		devname = __find_bdevname(dev, __page_bdev(__page))
+		ino = __page_ino(__page)
+		index = __page_index(__page)
+	}
+}
+probe vfs.do_mpage_readpage.return = __vfs.do_mpage_readpage.return,
+	__vfs.ext4_mpage_readpages.return ?
 {
 	name = "do_mpage_readpage"
 	retstr = sprintf("0x%x", $return)
-
-	size = 1
 	units = "pages"
+}
+probe __vfs.do_mpage_readpage.return =
+	kernel.function("do_mpage_readpage").return
+{
+	size = 1
+}
+probe __vfs.ext4_mpage_readpages.return =
+	kernel.function("ext4_mpage_readpages").return ?
+{
+	size = @entry($nr_pages)
 }
 
 probe vfs.add_to_page_cache =
