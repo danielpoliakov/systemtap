@@ -194,6 +194,7 @@ struct bpf_unparser : public throwing_visitor
   virtual void visit_assignment (assignment* e);
   virtual void visit_symbol (symbol* e);
   virtual void visit_arrayindex (arrayindex *e);
+  virtual void visit_array_in(array_in* e);
   virtual void visit_functioncall (functioncall* e);
   virtual void visit_print_format (print_format* e);
   virtual void visit_target_register (target_register* e);
@@ -1260,6 +1261,78 @@ bpf_unparser::visit_arrayindex(arrayindex *e)
     }
   else
     throw SEMANTIC_ERROR(_("unhandled arrayindex expression"), e->tok);
+}
+
+void
+bpf_unparser::visit_array_in(array_in* e)
+{
+  arrayindex *a = e->operand;
+
+  if (symbol *s = dynamic_cast<symbol *>(a->base))
+    {
+      vardecl *v = s->referent;
+
+      if (v->arity != 1)
+        throw SEMANTIC_ERROR(_("unhandled multi-dimensional array"), v->tok);
+
+      auto g = glob.globals.find (v);
+
+      if (g == glob.globals.end())
+        throw SEMANTIC_ERROR(_("unknown variable"), v->tok);
+
+      value *idx = emit_expr(a->indexes[0]);
+
+      switch(v->index_types[0])
+        {
+        case pe_long:
+          {
+            value *frame = this_prog.lookup_reg(BPF_REG_10);
+
+            this_prog.mk_st(this_ins, BPF_DW, frame, -8, idx);
+            this_prog.use_tmp_space(8);
+            this_prog.mk_binary(this_ins, BPF_ADD,
+                                this_prog.lookup_reg(BPF_REG_2),
+                                frame, this_prog.new_imm(-8));
+          }
+          break;
+        // ??? pe_string
+        default:
+          throw SEMANTIC_ERROR(_("unhandled index type"), e->tok);
+        }
+
+      this_prog.load_map(this_ins, this_prog.lookup_reg(BPF_REG_1),
+                         g->second.first);
+      this_prog.mk_call(this_ins, BPF_FUNC_map_lookup_elem, 2);
+
+      value *r0 = this_prog.lookup_reg(BPF_REG_0);
+      value *i0 = this_prog.new_imm(0);
+      value *i1 = this_prog.new_imm(1);
+      value *d = this_prog.new_reg();
+
+      block *b0 = this_prog.new_block();
+      block *b1 = this_prog.new_block();
+      block *cont_block = this_prog.new_block();
+
+      this_prog.mk_jcond(this_ins, EQ, r0, i0, b0, b1);
+
+      // d = 0
+      set_block(b0);
+      this_prog.mk_mov(this_ins, d, i0);
+      b0->fallthru = new edge(b0, cont_block);
+
+      // d = 1
+      set_block(b1);
+      this_prog.mk_mov(this_ins, d, i1);
+      b1->fallthru = new edge(b1, cont_block);
+
+      set_block(cont_block);
+      result = d;
+
+      return;
+    }
+  /// ??? hist_op
+
+  throw SEMANTIC_ERROR(_("unhandled operand type"), a->base->tok);
 }
 
 void

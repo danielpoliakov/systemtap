@@ -1,0 +1,20 @@
+global arr[2], res
+probe begin {
+	arr[3] = 9
+	arr[5] = 25
+
+	res = 3 in arr && 5 in arr && !(9 in arr) && !(25 in arr)
+	printf("BEGIN\n")
+}
+
+probe kernel.function("sys_read") {
+	res = res && 3 in arr && 5 in arr && !(9 in arr) && !(25 in arr)
+        exit()
+}
+
+probe end {
+	if (res && 3 in arr && 5 in arr && !(9 in arr) && !(25 in arr))
+		printf("END PASS\n")
+	else
+		printf("END FAIL\n")
+}
