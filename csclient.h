@@ -38,8 +38,10 @@ public:
   virtual void add_mok_fingerprint(const std::string &fingerprint) = 0;
   virtual int finalize_mok_fingerprints() = 0;
 
+#if HAVE_NSS
   virtual void fill_in_server_info (compile_server_info &info) = 0;
   virtual int trust_server_info (const compile_server_info &info) = 0;
+#endif
 
   std::string server_tmpdir;
   cs_protocol_version server_version;
