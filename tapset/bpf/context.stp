@@ -40,9 +40,10 @@ function tid:long ()
  */
 function gid:long ()
 %{ /* bpf */ /* pure */ /* unprivileged */ /* stable */
+   /* BPF_FUNC_get_current_uid_gid returns gid << 32 | uid */
    0x85, 0, 0, 0, 15;	/* call BPF_FUNC_get_current_uid_gid */
    0xbf, $$, 0, 0, 0;   /* movx $$, r0 */
-   0x67, $$, 0, 0, 32	/* lshk $$, 32 */
+   0x77, $$, 0, 0, 32	/* rshk $$, 32 */
 %}
 
 /**
@@ -52,6 +53,7 @@ function gid:long ()
  */
 function uid:long ()
 %{ /* bpf */ /* pure */ /* unprivileged */ /* stable */
+   /* BPF_FUNC_get_current_uid_gid returns gid << 32 | uid */
    0x85, 0, 0, 0, 15;	/* call BPF_FUNC_get_current_uid_gid */
    0xbc, $$, 0, 0, 0	/* movwx $$, r0 */
 %}
