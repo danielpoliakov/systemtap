@@ -11,11 +11,11 @@
  * 
  * Description: This function returns the ID of a target process.
  */
-function pid:long ()
+function tid:long ()
 %{ /* bpf */ /* pure */ /* unprivileged */ /* stable */
    0x85, 0, 0, 0, 14;	/* call BPF_FUNC_get_current_pid_tgid */
    0xbf, $$, 0, 0, 0;   /* movx $$, r0 */
-   0x67, $$, 0, 0, 32	/* lshk $$, 32 */
+   0x77, $$, 0, 0, 32	/* rshk $$, 32 */
 %}
 
 /**
@@ -23,7 +23,7 @@ function pid:long ()
  * 
  * Description: This function returns the ID of a target process.
  */
-function tid:long ()
+function pid:long ()
 %{ /* bpf */ /* pure */ /* unprivileged */ /* stable */
    0x85, 0, 0, 0, 14;	/* call BPF_FUNC_get_current_pid_tgid */
    0xbc, $$, 0, 0, 0	/* movwx $$, r0 */
