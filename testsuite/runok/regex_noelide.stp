@@ -1,0 +1,1 @@
+probe begin { "foo" =~ "(foo)"; println(matched(0)); println(matched(1)); exit() }
