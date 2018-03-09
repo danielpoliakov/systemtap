@@ -10635,7 +10635,6 @@ struct tracepoint_derived_probe: public derived_probe
   void build_args(dwflpp& dw, Dwarf_Die& func_die);
   void build_args_for_bpf(dwflpp& dw, Dwarf_Die& struct_die);
   void getargs (std::list<std::string> &arg_set) const;
-  //void get_member_sizes(Dwarf_Die *struct_die);
   void join_group (systemtap_session& s);
   void print_dupe_stamp(ostream& o);
 };
@@ -11161,7 +11160,9 @@ tracepoint_derived_probe::build_args_for_bpf(dwflpp&, Dwarf_Die& struct_die)
   Dwarf_Die member;
 
   if (dwarf_child(&struct_die, &member) == 0)
-    do
+    // Intentionally skip the first member, which represents 8 bytes of
+    // padding found at the beginning of BPF tracepoint contexts.
+    while (dwarf_siblingof(&member, &member) == 0)
       if (dwarf_tag(&member) == DW_TAG_member)
         {
           Dwarf_Die type;
@@ -11178,14 +11179,10 @@ tracepoint_derived_probe::build_args_for_bpf(dwflpp&, Dwarf_Die& struct_die)
           dwarf_attr_die(&member, DW_AT_type, &type);
           arg.is_signed = is_signed_type(&type);
           arg.size = get_byte_size(&type, tracepoint_name.c_str());
-
-          // 8 must be added to the offset to account for padding at
-          // the beginning of the struct which the arg will be read
-          arg.offset = off + 8;
+          arg.offset = off;
 
           args.push_back(arg);
         }
-    while (dwarf_siblingof(&member, &member) == 0);
 }
 
 void
@@ -12227,7 +12224,7 @@ tracepoint_builder::get_tracequery_modules(systemtap_session& s,
 
           osrc << "#undef DECLARE_EVENT_CLASS" << endl;
           osrc << "#define DECLARE_EVENT_CLASS(name, proto, args, tstruct, assign, print) \\" << endl;
-          osrc << "  struct stapprobe_template_##name { tstruct };" << endl;
+          osrc << "  struct stapprobe_template_##name { unsigned long long pad; tstruct };" << endl;
 
           // typedef helps us access template's debuginfo when given name's debuginfo
           osrc << "#undef DEFINE_EVENT" << endl;
@@ -12237,11 +12234,11 @@ tracepoint_builder::get_tracequery_modules(systemtap_session& s,
 
           osrc << "#undef TRACE_EVENT" << endl;
           osrc << "#define TRACE_EVENT(name, proto, args, tstruct, assign, print) \\" << endl;
-          osrc << "  struct stapprobe_##name { tstruct } stapprobe_##name;" << endl;
+          osrc << "  struct stapprobe_##name { unsigned long long pad; tstruct } stapprobe_##name;" << endl;
 
           osrc << "#undef TRACE_EVENT_CONDITION" << endl;
           osrc << "#define TRACE_EVENT_CONDITION(name, proto, args, cond, tstruct, assign, print) \\" << endl;
-          osrc << " struct stapprobe_##name { tstruct } stapprobe_##name;" << endl;
+          osrc << " struct stapprobe_##name { unsigned long long pad; tstruct } stapprobe_##name;" << endl;
         }
 
       // add the specified decls/#includes
