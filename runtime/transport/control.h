@@ -14,9 +14,10 @@
 
 #include <linux/spinlock.h>
 #include <linux/list.h>
+#include "../stp_helper_lock.h"
 
 static struct list_head _stp_ctl_ready_q;
-static spinlock_t _stp_ctl_ready_lock;
+static stp_spinlock_t _stp_ctl_ready_lock;
 static wait_queue_head_t _stp_ctl_wq;
 
 struct _stp_buffer {

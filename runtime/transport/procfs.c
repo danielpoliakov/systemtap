@@ -66,7 +66,7 @@ inline static int _stp_ctl_write_fs(int type, void *data, unsigned len)
 
 #define WRITE_AGG
 #ifdef WRITE_AGG
-	spin_lock_irqsave(&_stp_ctl_ready_lock, flags);
+	stp_spin_lock_irqsave(&_stp_ctl_ready_lock, flags);
 	if (!list_empty(&_stp_ctl_ready_q)) {
 		bptr = (struct _stp_buffer *)_stp_ctl_ready_q.prev;
 		if ((bptr->len + len) <= STP_CTL_BUFFER_SIZE
@@ -74,11 +74,11 @@ inline static int _stp_ctl_write_fs(int type, void *data, unsigned len)
 		    && bptr->type == STP_REALTIME_DATA) {
 			memcpy(bptr->buf + bptr->len, data, len);
 			bptr->len += len;
-			spin_unlock_irqrestore(&_stp_ctl_ready_lock, flags);
+			stp_spin_unlock_irqrestore(&_stp_ctl_ready_lock, flags);
 			return len;
 		}
 	}
-	spin_unlock_irqrestore(&_stp_ctl_ready_lock, flags);
+	stp_spin_unlock_irqrestore(&_stp_ctl_ready_lock, flags);
 #endif
 	return 0;
 }

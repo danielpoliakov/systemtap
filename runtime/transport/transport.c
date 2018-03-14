@@ -349,10 +349,10 @@ static void _stp_ctl_work_callback(stp_timer_callback_parameter_t unused)
 	/* Prevent probe reentrancy while grabbing probe-used locks.  */
 	c = _stp_runtime_entryfn_get_context();
 
-	spin_lock_irqsave(&_stp_ctl_ready_lock, flags);
+	stp_spin_lock_irqsave(&_stp_ctl_ready_lock, flags);
 	if (!list_empty(&_stp_ctl_ready_q))
 		do_io = 1;
-	spin_unlock_irqrestore(&_stp_ctl_ready_lock, flags);
+	stp_spin_unlock_irqrestore(&_stp_ctl_ready_lock, flags);
 
 	_stp_runtime_entryfn_put_context(c);
 

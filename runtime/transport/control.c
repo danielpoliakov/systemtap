@@ -18,8 +18,8 @@
 
 static _stp_mempool_t *_stp_pool_q;
 static struct list_head _stp_ctl_ready_q;
-static DEFINE_SPINLOCK(_stp_ctl_ready_lock);
-static DEFINE_SPINLOCK(_stp_ctl_special_msg_lock);
+static STP_DEFINE_SPINLOCK(_stp_ctl_ready_lock);
+static STP_DEFINE_SPINLOCK(_stp_ctl_special_msg_lock);
 
 static void _stp_cleanup_and_exit(int send_exit);
 static void _stp_handle_tzinfo (struct _stp_msg_tzinfo* tzi);
@@ -476,12 +476,12 @@ static struct _stp_buffer *_stp_ctl_get_buffer(int type, void *data,
 		}
 		if (bptr != NULL) {
 			/* OK, it is a special one, but is it free?  */
-			spin_lock_irqsave(&_stp_ctl_special_msg_lock, flags);
+			stp_spin_lock_irqsave(&_stp_ctl_special_msg_lock, flags);
 			if (bptr->type == _STP_CTL_MSG_UNUSED)
 				bptr->type = type;
 			else
 				bptr = NULL;
-			spin_unlock_irqrestore(&_stp_ctl_special_msg_lock, flags);
+			stp_spin_unlock_irqrestore(&_stp_ctl_special_msg_lock, flags);
 		}
 
 		/* Got a special message buffer, with type set, fill it in,
@@ -513,9 +513,9 @@ static void _stp_ctl_free_buffer(struct _stp_buffer *bptr)
 	    || bptr == _stp_ctl_oob_err
 	    || bptr == _stp_ctl_system_warn
 	    || bptr == _stp_ctl_realtime_err) {
-		spin_lock_irqsave(&_stp_ctl_special_msg_lock, flags);
+		stp_spin_lock_irqsave(&_stp_ctl_special_msg_lock, flags);
 		bptr->type = _STP_CTL_MSG_UNUSED;
-		spin_unlock_irqrestore(&_stp_ctl_special_msg_lock, flags);
+		stp_spin_unlock_irqrestore(&_stp_ctl_special_msg_lock, flags);
 	} else {
 		_stp_mempool_free(bptr);
 	}
@@ -575,9 +575,9 @@ static int _stp_ctl_send(int type, void *data, unsigned len)
 	/* Put it on the pool of ready buffers.  It's possible to recursively
 	   hit a probe here, like a kprobe in NMI or the lock tracepoints, but
 	   they will be squashed since we're holding the context busy.  */
-	spin_lock_irqsave(&_stp_ctl_ready_lock, flags);
+	stp_spin_lock_irqsave(&_stp_ctl_ready_lock, flags);
 	list_add_tail(&bptr->list, &_stp_ctl_ready_q);
-	spin_unlock_irqrestore(&_stp_ctl_ready_lock, flags);
+	stp_spin_unlock_irqrestore(&_stp_ctl_ready_lock, flags);
 
 	_stp_runtime_entryfn_put_context(c);
 
@@ -621,22 +621,22 @@ static ssize_t _stp_ctl_read_cmd(struct file *file, char __user *buf,
 	c = _stp_runtime_entryfn_get_context();
 
 	/* wait for nonempty ready queue */
-	spin_lock_irqsave(&_stp_ctl_ready_lock, flags);
+	stp_spin_lock_irqsave(&_stp_ctl_ready_lock, flags);
 	while (list_empty(&_stp_ctl_ready_q)) {
-		spin_unlock_irqrestore(&_stp_ctl_ready_lock, flags);
+		stp_spin_unlock_irqrestore(&_stp_ctl_ready_lock, flags);
 		_stp_runtime_entryfn_put_context(c);
 		if (file->f_flags & O_NONBLOCK)
 			return -EAGAIN;
 		if (wait_event_interruptible(_stp_ctl_wq, !list_empty(&_stp_ctl_ready_q)))
 			return -ERESTARTSYS;
 		c = _stp_runtime_entryfn_get_context();
-		spin_lock_irqsave(&_stp_ctl_ready_lock, flags);
+		stp_spin_lock_irqsave(&_stp_ctl_ready_lock, flags);
 	}
 
 	/* get the next buffer off the ready list */
 	bptr = (struct _stp_buffer *)_stp_ctl_ready_q.next;
 	list_del_init(&bptr->list);
-	spin_unlock_irqrestore(&_stp_ctl_ready_lock, flags);
+	stp_spin_unlock_irqrestore(&_stp_ctl_ready_lock, flags);
 
 	/* NB: we can't hold the context across copy_to_user, as it might fault.  */
 	_stp_runtime_entryfn_put_context(c);
@@ -696,10 +696,10 @@ static unsigned _stp_ctl_poll_cmd(struct file *file, poll_table *wait)
 
         /* If there are messages waiting, then there will be
 	   data available to read. */
-	spin_lock_irqsave(&_stp_ctl_ready_lock, flags);
+	stp_spin_lock_irqsave(&_stp_ctl_ready_lock, flags);
 	if (! list_empty(&_stp_ctl_ready_q))
 		res |= POLLIN | POLLRDNORM;
-	spin_unlock_irqrestore(&_stp_ctl_ready_lock, flags);
+	stp_spin_unlock_irqrestore(&_stp_ctl_ready_lock, flags);
 
 	return res;
 }
