@@ -339,6 +339,13 @@ static char * path_insert_sysroot(string sysroot, string path)
 
 void debuginfo_path_insert_sysroot(string sysroot)
 {
+  // FIXME: This is a short-term fix, until we expect sysroot paths to
+  // always end with a '/' (and never be empty).
+  //
+  // The path_insert_sysroot() function assumes that sysroot has a '/'
+  // on the end. Make sure that is true.
+  if (sysroot.back() != '/')
+    sysroot.push_back('/');
   debuginfo_path = path_insert_sysroot(sysroot, debuginfo_path);
   debuginfo_usr_path = path_insert_sysroot(sysroot, debuginfo_usr_path);
 }
@@ -358,13 +365,11 @@ setup_dwfl_kernel (unsigned *modules_found, systemtap_session &s)
   // no way to set the dwfl_callback.debuginfo_path and always
   // passs the plain kernel_release here.  So instead we have to
   // hard-code this magic here.
-   string lib_path = "/lib/modules/" + s.kernel_release + "/build";
-   if (s.kernel_build_tree == string(s.sysroot + lib_path) ||
-       (s.kernel_build_tree == lib_path
-	&& s.sysroot == "/"))
-      elfutils_kernel_path = s.kernel_release;
-   else
-      elfutils_kernel_path = s.kernel_build_tree;
+  string lib_path = s.sysroot + "/lib/modules/" + s.kernel_release + "/build";
+  if (s.kernel_build_tree == lib_path)
+    elfutils_kernel_path = s.kernel_release;
+  else
+    elfutils_kernel_path = s.kernel_build_tree;
   offline_modules_found = 0;
 
   // First try to report full path modules.
