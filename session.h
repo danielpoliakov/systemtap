@@ -144,7 +144,7 @@ public:
 
   // NB: It is very important for all of the above (and below) fields
   // to be cleared in the systemtap_session ctor (session.cxx).
-  void setup_kernel_release (const char* kstr);
+  void setup_kernel_release (const std::string& kstr);
   void insert_loaded_modules ();
 
   // command line parsing

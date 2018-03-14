@@ -731,6 +731,9 @@ systemtap_session::parse_cmdline (int argc, char * const argv [])
   client_options_disallowed_for_unprivileged = "";
   std::set<std::string> additional_unwindsym_modules;
   struct rlimit our_rlimit;
+  bool sysroot_option_seen = false;
+  string kernel_release_value;
+
   while (true)
     {
       char * num_endptr;
@@ -896,7 +899,7 @@ systemtap_session::parse_cmdline (int argc, char * const argv [])
 	    // Note that '-' must come last in a regex bracket expression.
             assert_regexp_match("-r parameter from client", optarg, "^[a-z0-9_.+-]+$");
 	  server_args.push_back (string ("-") + (char)grc + optarg);
-          setup_kernel_release(optarg);
+	  kernel_release_value = optarg;
           break;
 
         case 'a':
@@ -1482,7 +1485,7 @@ systemtap_session::parse_cmdline (int argc, char * const argv [])
 	  if (client_options) {
 	      cerr << _F("ERROR: %s invalid with %s", "--sysroot", "--client-options") << endl;
 	      return 1;
-	  } else if (!sysroot.empty()) {
+	  } else if (sysroot_option_seen) {
 	      cerr << "ERROR: multiple --sysroot options not supported" << endl;
 	      return 1;
 	  } else {
@@ -1496,11 +1499,17 @@ systemtap_session::parse_cmdline (int argc, char * const argv [])
 
 	      sysroot = string(spath);
 	      free (spath);
-	      if (sysroot[sysroot.size() - 1] != '/')
-		  sysroot.append("/");
 
-	      break;
+	      // We do path creation like this:
+	      //   sysroot + "/lib/modules"
+	      // So, we don't want the sysroot path to end with a '/',
+	      // otherwise we'll end up with '/foo//lib/modules'.
+	      if (sysroot.back() == '/') {
+		  sysroot.pop_back();
+	      }
 	  }
+	  sysroot_option_seen = true;
+	  break;
 
 	case LONG_OPT_SYSENV:
 	  if (client_options) {
@@ -1510,7 +1519,7 @@ systemtap_session::parse_cmdline (int argc, char * const argv [])
 	      string sysenv_str = optarg;
 	      string value;
 	      size_t pos;
-	      if (sysroot.empty()) {
+	      if (! sysroot_option_seen) {
 		  cerr << "ERROR: --sysenv must follow --sysroot" << endl;
 		  return 1;
 	      }
@@ -1659,6 +1668,15 @@ systemtap_session::parse_cmdline (int argc, char * const argv [])
 	  unwindsym_modules.insert (*it);
 	}
     }
+
+  if (! kernel_release_value.empty())
+  {
+      setup_kernel_release(kernel_release_value);
+  }
+  else if (! sysroot.empty())
+  {
+      kernel_build_tree = sysroot + "/lib/modules/" + kernel_release  + "/build";
+  }
 
   return 0;
 }
@@ -2177,7 +2195,7 @@ void systemtap_session::insert_loaded_modules()
 }
 
 void
-systemtap_session::setup_kernel_release (const char* kstr) 
+systemtap_session::setup_kernel_release (const string& kstr) 
 {
   // Sometimes we may get dupes here... e.g. a server may have a full
   // -r /path/to/kernel followed by a client's -r kernel.
@@ -2208,7 +2226,7 @@ systemtap_session::setup_kernel_release (const char* kstr)
   else
     {
       update_release_sysroot = true;
-      kernel_release = string (kstr);
+      kernel_release = kstr;
       if (!kernel_release.empty())
         kernel_build_tree = "/lib/modules/" + kernel_release + "/build";
 
