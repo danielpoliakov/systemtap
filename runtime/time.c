@@ -194,11 +194,31 @@ static void
 __stp_init_time(void *info)
 {
     struct timespec ts;
+    // XXX: The following code replaces the call to __stp_time_local_update():
+#if 1
+    int64_t ns;
+    cycles_t cycles;
+#endif
     stp_time_t *time = per_cpu_ptr(stp_time, smp_processor_id());
+#if 1
+    // Note -- this is the same calculation as in __stp_time_local_update:
+    __stp_ktime_get_real_ts(&ts);
+    cycles = get_cycles();
+    ns = (NSEC_PER_SEC * (int64_t)ts.tv_sec) + ts.tv_nsec;
+    time->base_ns = ns;
+    time->base_cycles = cycles;
+#endif
 
     seqlock_init(&time->lock);
     time->freq = __stp_get_freq();
-    __stp_time_local_update();
+
+    // XXX: The following is definitely not legal on kernel-rt,
+    // since seqlock cannot be used when interrupts are disabled.
+    //
+    // In addition, this is also not recommended to do in a function
+    // being called via on_each_cpu() / smp_call_function()
+    // -- see comment in Linux kernel/smp.c
+    //__stp_time_local_update();
 
     timer_setup(&time->timer, __stp_time_timer_callback, 0);
     time->timer.expires = jiffies + STP_TIME_SYNC_INTERVAL;
