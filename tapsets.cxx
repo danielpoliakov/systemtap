@@ -1395,7 +1395,8 @@ string path_remove_sysroot(const systemtap_session& sess, const string& path)
   string retval = path;
   if (!sess.sysroot.empty() &&
       (pos = retval.find(sess.sysroot)) != string::npos)
-    retval.replace(pos, sess.sysroot.length(), "/");
+    retval.replace(pos, sess.sysroot.length(),
+		   (sess.sysroot.back() == '/' ? "/": ""));
   return retval;
 }
 
@@ -8418,8 +8419,11 @@ dwarf_builder::build(systemtap_session & sess,
 
       // PR13338: unquote glob results
       module_name = unescape_glob_chars (module_name);
-      user_path = find_executable (module_name, "", sess.sysenv); // canonicalize it
-      if (!is_fully_resolved(user_path, sess.sysroot, sess.sysenv))
+      user_path = find_executable (module_name, sess.sysroot, sess.sysenv); // canonicalize it
+      // Note we don't need to pass the sysroot to
+      // is_fully_resolved(), since we just passed it to
+      // find_executable().
+      if (!is_fully_resolved(user_path, "", sess.sysenv))
         throw SEMANTIC_ERROR(_F("cannot find executable '%s'",
                                 user_path.to_string().c_str()));
 
