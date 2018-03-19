@@ -746,7 +746,7 @@ base_query::base_query(dwflpp & dw, literal_map_t const & params):
               pid_val = 0;
               get_string_param(params, TOK_PROCESS, module_val);
             }
-          module_val = find_executable (module_val, "", sess.sysenv);
+          module_val = find_executable (module_val, sess.sysroot, sess.sysenv);
           if (!is_fully_resolved(module_val, "", sess.sysenv))
             throw SEMANTIC_ERROR(_F("cannot find executable '%s'",
                                     module_val.to_string().c_str()));
@@ -8293,7 +8293,6 @@ dwarf_builder::build(systemtap_session & sess,
             }
           else
             {
-              module_name = (string)sess.sysroot + (string)module_name;
               filled_parameters[TOK_PROCESS] = new literal_string(module_name);
             }
         }
@@ -8327,7 +8326,8 @@ dwarf_builder::build(systemtap_session & sess,
           assert (lit);
 
           // Evaluate glob here, and call derive_probes recursively with each match.
-          const auto& globs = glob_executable (module_name);
+          const auto& globs = glob_executable (sess.sysroot
+					       + string(module_name));
           unsigned results_pre = finished_results.size();
           for (auto it = globs.begin(); it != globs.end(); ++it)
             {
@@ -8419,7 +8419,7 @@ dwarf_builder::build(systemtap_session & sess,
       // PR13338: unquote glob results
       module_name = unescape_glob_chars (module_name);
       user_path = find_executable (module_name, "", sess.sysenv); // canonicalize it
-      if (!is_fully_resolved(user_path, "", sess.sysenv))
+      if (!is_fully_resolved(user_path, sess.sysroot, sess.sysenv))
         throw SEMANTIC_ERROR(_F("cannot find executable '%s'",
                                 user_path.to_string().c_str()));
 
