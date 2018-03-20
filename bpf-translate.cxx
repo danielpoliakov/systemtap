@@ -1247,17 +1247,28 @@ bpf_unparser::visit_arrayindex(arrayindex *e)
 
       value *r0 = this_prog.lookup_reg(BPF_REG_0);
       value *i0 = this_prog.new_imm(0);
-      block *cont_block = this_prog.new_block();
-      block *exit_block = get_exit_block();
-      this_prog.mk_call(this_ins, BPF_FUNC_map_lookup_elem, 2);
-      this_prog.mk_jcond(this_ins, EQ, r0, i0, exit_block, cont_block);
-
-      set_block(cont_block);
+      block *t_block = this_prog.new_block();
+      block *f_block = this_prog.new_block();
+      block *join_block = this_prog.new_block();
       result = this_prog.new_reg();
+
+      this_prog.mk_call(this_ins, BPF_FUNC_map_lookup_elem, 2);
+      this_prog.mk_jcond(this_ins, EQ, r0, i0, t_block, f_block);
+
+      // Key is not in the array. Evaluate to 0.
+      set_block(t_block);
+      emit_mov(result, i0);
+      emit_jmp(join_block);
+
+      // Key is in the array. Get value from stack.
+      set_block(f_block);
       if (v->type == pe_long)
 	this_prog.mk_ld(this_ins, BPF_DW, result, r0, 0);
       else
 	emit_mov(result, r0);
+
+      emit_jmp(join_block);
+      set_block(join_block);
     }
   else
     throw SEMANTIC_ERROR(_("unhandled arrayindex expression"), e->tok);

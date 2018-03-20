@@ -1,0 +1,23 @@
+global count, arr[6]
+
+probe begin {
+	printf("BEGIN\n")
+}
+
+probe kernel.function("sys_read") {
+	count++
+        arr[0] = arr[1]++
+	arr[2] = ++arr[3]
+	arr[4] = arr[5]
+
+        if (count == 10)
+		exit()
+}
+
+probe end {
+	if (arr[0] == count - 1 && arr[1] == count && arr[2] == count 
+	    && arr[3] == count && arr[4] == 0 && arr[5] == 0 && arr[6] == 0)
+		printf("END PASS\n")
+	else
+		printf("END FAIL\n")
+}
