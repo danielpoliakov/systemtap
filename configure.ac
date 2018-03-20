@@ -291,12 +291,16 @@ AC_ARG_ENABLE([crash],
 AM_CONDITIONAL([BUILD_CRASHMOD], [test "$enable_crash" != "no"])
 
 dnl Handle the option to build the documentation
+dnl --enable-docs=check checks for LaTeX et al. and decides accordingly
 building_docs="no"
+dnl Handle the option to install the prebuilt PDFs and man pages.
+dnl Automatically turned on if --enable-docs is on or if --enable-docs=prebuilt.
+installing_prebuilt_docs="yes"
 AC_ARG_ENABLE([docs],
   AS_HELP_STRING([--enable-docs],
-    [enable building documentation (default on if latex etc. found).]),
+    [enable building documentation (default to only installing prebuilt docs).]),
   [enable_docs=$enableval],
-  [enable_docs="check"])
+  [enable_docs="prebuilt"])
 AC_CHECK_PROG(have_latex, latex, yes, no)
 AC_CHECK_PROG(have_dvips, dvips, yes, no)
 AC_CHECK_PROG(have_ps2pdf, ps2pdf, yes, no)
@@ -308,10 +312,18 @@ if test "x${have_latex}${have_dvips}${have_ps2pdf}" != "xyesyesyes"; then
     AC_MSG_WARN([will not build documentation, cannot find all tools])
   fi
 fi
-if test "x${have_latex}${have_dvips}${have_ps2pdf}" == "xyesyesyes" -a "$enable_docs" != "no"; then
+if test "$enable_docs" == "prebuilt"; then
+  AC_MSG_NOTICE([will only install prebuilt documentation])
+fi
+if test "x${have_latex}${have_dvips}${have_ps2pdf}" == "xyesyesyes" -a "$enable_docs" != "no" -a "$enable_docs" != "prebuilt"; then
    building_docs="yes"
+   installing_prebuilt_docs="yes"
+fi
+if test "$enable_docs" == "no"; then
+   installing_prebuilt_docs="no"
 fi
 AM_CONDITIONAL([BUILD_DOCS], [test "$building_docs" == "yes"])
+AM_CONDITIONAL([INSTALL_PREBUILT_DOCS], [test "$installing_prebuilt_docs" == "yes"])
 
 
 dnl Handle the option to build the reference documentation

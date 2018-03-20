@@ -523,7 +523,7 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-@BUILD_REFDOCS_FALSE@install-data-hook:
+@BUILD_REFDOCS_FALSE@@INSTALL_PREBUILT_DOCS_FALSE@install-data-hook:
 clean: clean-am
 
 clean-am: clean-generic clean-local clean-noinstPROGRAMS \
@@ -641,6 +641,14 @@ uninstall-am:
 @BUILD_REFDOCS_TRUE@	cp -R $(abs_srcdir)/man_pages/* $(MAN_INSTALL_DIR) # manpager output
 @BUILD_HTMLDOCS_TRUE@@BUILD_REFDOCS_TRUE@	$(MKDIR_P)  $(HTML_INSTALL_DIR)
 @BUILD_HTMLDOCS_TRUE@@BUILD_REFDOCS_TRUE@	$(INSTALL_DATA) tapsets/* $(HTML_INSTALL_DIR)
+
+# Still install prebuilt docs if --enable-docs=prebuilt
+@BUILD_REFDOCS_FALSE@@INSTALL_PREBUILT_DOCS_TRUE@install-data-hook:
+@BUILD_REFDOCS_FALSE@@INSTALL_PREBUILT_DOCS_TRUE@	$(MKDIR_P)  $(DOC_INSTALL_DIR)
+@BUILD_REFDOCS_FALSE@@INSTALL_PREBUILT_DOCS_TRUE@	cp $(abs_srcdir)/tapsets.pdf $(DOC_INSTALL_DIR)
+@BUILD_REFDOCS_FALSE@@INSTALL_PREBUILT_DOCS_TRUE@	$(MKDIR_P)  $(MAN_INSTALL_DIR)
+@BUILD_REFDOCS_FALSE@@INSTALL_PREBUILT_DOCS_TRUE@	cp -R $(abs_srcdir)/man3/* $(MAN_INSTALL_DIR)
+@BUILD_REFDOCS_FALSE@@INSTALL_PREBUILT_DOCS_TRUE@	cp -R $(abs_srcdir)/man_pages/* $(MAN_INSTALL_DIR) # manpager output
 clean-local:
 	rm -rf tapsets
 

@@ -1,4 +1,4 @@
-# Makefile.am --- automake input file for systemtap tapset reference manual
+# Makefile.am --- automake input file for systemtap beginner's guide
 ## process this file with automake to produce Makefile.in
 
 
@@ -6,7 +6,8 @@ DOC_INSTALL_DIR = $(DESTDIR)$(datadir)/doc/systemtap
 SBG = SystemTap_Beginners_Guide
 BEGIN_INSTALL_DIR = $(DOC_INSTALL_DIR)/$(SBG)
 
-if BUILD_DOCS
+# INSTALL_PREBUILT_DOCS is automatically enabled by BUILD_DOCS
+if INSTALL_PREBUILT_DOCS
 all: $(SBG)/index.html
 
 # The beginner documents are now pre generated in the source tree
@@ -24,6 +25,7 @@ $(SBG).pdf:
 
 # rely on the pdf generation to move all the necessary files into the right dirs
 $(SBG)/index.html: $(SBG).pdf
+if BUILD_DOCS
 if BUILD_HTMLDOCS
 	xmlto --skip-validation \
 				-x build/en-US/xsl/html.xsl -o $(SBG) html build/en-US/xml/$(SBG).xml
@@ -31,6 +33,7 @@ if BUILD_HTMLDOCS
 	mkdir -p $(SBG)/Common_Content
 	cp -R build/en-US/xml/Common_Content/images $(SBG)/Common_Content
 	cp -R build/en-US/xml/Common_Content/css $(SBG)/Common_Content
+endif
 endif
 
 clean-local:

@@ -54,6 +54,18 @@ if BUILD_HTMLDOCS
 endif
 endif
 
+# Still install prebuilt docs if --enable-docs=prebuilt
+if !BUILD_REFDOCS
+if INSTALL_PREBUILT_DOCS
+install-data-hook:
+	$(MKDIR_P)  $(DOC_INSTALL_DIR)
+	cp $(abs_srcdir)/tapsets.pdf $(DOC_INSTALL_DIR)
+	$(MKDIR_P)  $(MAN_INSTALL_DIR)
+	cp -R $(abs_srcdir)/man3/* $(MAN_INSTALL_DIR)
+	cp -R $(abs_srcdir)/man_pages/* $(MAN_INSTALL_DIR) # manpager output
+endif
+endif
+
 CLEANFILES=stamp-* tapsets.pdf tapsets.xml
 clean-local:
 	rm -rf tapsets

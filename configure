@@ -719,6 +719,8 @@ have_fop
 have_xmlto
 BUILD_REFDOCS_FALSE
 BUILD_REFDOCS_TRUE
+INSTALL_PREBUILT_DOCS_FALSE
+INSTALL_PREBUILT_DOCS_TRUE
 BUILD_DOCS_FALSE
 BUILD_DOCS_TRUE
 have_ps2pdf
@@ -1601,8 +1603,8 @@ Optional Features:
                           Optional DIRECTORY is the path to the crash header
                           file (needed if installed in a non-standard
                           location).
-  --enable-docs           enable building documentation (default on if latex
-                          etc. found).
+  --enable-docs           enable building documentation (default to only
+                          installing prebuilt docs).
   --enable-refdocs        enable building reference documentation (default on
                           if other documentation built).
   --enable-htmldocs       enable building html documentation (default off).
@@ -10368,11 +10370,12 @@ fi
 
 
 building_docs="no"
+installing_prebuilt_docs="yes"
 # Check whether --enable-docs was given.
 if test "${enable_docs+set}" = set; then :
   enableval=$enable_docs; enable_docs=$enableval
 else
-  enable_docs="check"
+  enable_docs="prebuilt"
 fi
 
 # Extract the first word of "latex", so it can be a program name with args.
@@ -10498,8 +10501,16 @@ if test "x${have_latex}${have_dvips}${have_ps2pdf}" != "xyesyesyes"; then
 $as_echo "$as_me: WARNING: will not build documentation, cannot find all tools" >&2;}
   fi
 fi
-if test "x${have_latex}${have_dvips}${have_ps2pdf}" == "xyesyesyes" -a "$enable_docs" != "no"; then
+if test "$enable_docs" == "prebuilt"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: will only install prebuilt documentation" >&5
+$as_echo "$as_me: will only install prebuilt documentation" >&6;}
+fi
+if test "x${have_latex}${have_dvips}${have_ps2pdf}" == "xyesyesyes" -a "$enable_docs" != "no" -a "$enable_docs" != "prebuilt"; then
    building_docs="yes"
+   installing_prebuilt_docs="yes"
+fi
+if test "$enable_docs" == "no"; then
+   installing_prebuilt_docs="no"
 fi
  if test "$building_docs" == "yes"; then
   BUILD_DOCS_TRUE=
@@ -10507,6 +10518,14 @@ fi
 else
   BUILD_DOCS_TRUE='#'
   BUILD_DOCS_FALSE=
+fi
+
+ if test "$installing_prebuilt_docs" == "yes"; then
+  INSTALL_PREBUILT_DOCS_TRUE=
+  INSTALL_PREBUILT_DOCS_FALSE='#'
+else
+  INSTALL_PREBUILT_DOCS_TRUE='#'
+  INSTALL_PREBUILT_DOCS_FALSE=
 fi
 
 
@@ -13106,6 +13125,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${BUILD_DOCS_TRUE}" && test -z "${BUILD_DOCS_FALSE}"; then
   as_fn_error $? "conditional \"BUILD_DOCS\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${INSTALL_PREBUILT_DOCS_TRUE}" && test -z "${INSTALL_PREBUILT_DOCS_FALSE}"; then
+  as_fn_error $? "conditional \"INSTALL_PREBUILT_DOCS\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${BUILD_REFDOCS_TRUE}" && test -z "${BUILD_REFDOCS_FALSE}"; then
