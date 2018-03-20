@@ -17,6 +17,7 @@
 
 #include "loc2stap.h"
 #include "dwflpp.h"
+#include "tapsets.h"
 
 #if ! _ELFUTILS_PREREQ(0, 153)
 #define DW_OP_GNU_entry_value 0xf3
@@ -106,7 +107,9 @@ location_context::translate_address(Dwarf_Addr addr)
           c = "/* pragma:vma */ "
               "({ unsigned long addr = 0; "
               "addr = _stp_umodule_relocate (\""
-              + resolve_path(dw->module_name.c_str()) + "\", "
+              + path_remove_sysroot(dw->sess,
+				    resolve_path(dw->module_name.c_str()))
+	      + "\", "
               + lex_cast_hex (addr)
 	      + ", current); addr; })";
 	}
