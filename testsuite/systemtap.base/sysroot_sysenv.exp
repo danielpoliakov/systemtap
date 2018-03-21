@@ -1,6 +1,8 @@
 set test "sysroot_sysenv"
 
-if {[installtest_p] && [utrace_p] && [uprobes_p]} {
+if {![installtest_p]} { untested "$test"; return }
+
+if {[utrace_p] && [uprobes_p]} {
   spawn stap --sysroot=/ --sysenv=PATH=$env(PATH) $srcdir/$subdir/$test.stp ls -c "ls > /dev/null"
   expect {
     -timeout 180
@@ -13,3 +15,233 @@ if {[installtest_p] && [utrace_p] && [uprobes_p]} {
 } else {
   untested "$test"
 }
+
+# Functions to handle creating, deleting, and using the fake sysroot
+# directory we're creating. By using bind mounts, we're "moving" the
+# /lib/modules and /usr/lib/debug directories of this system into our
+# fake sysroot.
+
+# Clean up the sysroot_sysenv namespace configuration.
+proc server_ns_ns_cleanup {} {
+    global sysroot_base_dir new_modules_dir new_debug_dir
+
+    if {[info exists sysroot_base_dir]
+	&& [string length $sysroot_base_dir]
+	&& [file isdirectory $sysroot_base_dir]} {
+	catch {exec rm -rf $sysroot_base_dir}
+	unset sysroot_base_dir
+    }
+    if {[info exists new_modules_dir]
+	&& [string length $new_modules_dir]
+	&& [file isdirectory $new_modules_dir]} {
+	catch {exec rm -rf $new_modules_dir}
+	unset new_modules_dir
+    }
+    if {[info exists new_debug_dir]
+	&& [string length $new_debug_dir]
+	&& [file isdirectory $new_debug_dir]} {
+	catch {exec rm -rf $new_debug_dir}
+	unset new_debug_dir
+    }
+}
+
+# Set up the sysroot_sysenv namespace configuration.
+proc sysroot_sysenv_ns_setup {} {
+    global sysroot_base_dir new_modules_dir new_debug_dir
+
+    # If we've already created the directories, just return.
+    if {[info exists sysroot_base_dir]
+	&& [string length $sysroot_base_dir]
+	&& [info exists new_modules_dir]
+	&& [string length $new_modules_dir]
+	&& [info exists new_debug_dir]
+	&& [string length $new_debug_dir]} {
+	return 0
+    }
+
+    # Create the directories. We delete them in
+    # sysroot_sysenv_ns_cleanups().
+    if {[catch {exec mktemp -d} sysroot_base_dir]} {
+	verbose -log "sysroot_sysenv_setup - Failed to create sysroot directory: $sysroot_base_dir"
+	unset sysroot_base_dir
+	return 1
+    }
+    if {[catch {exec mktemp -d} new_modules_dir]} {
+	verbose -log "sysroot_sysenv_setup - Failed to create modules directory: $new_modules_dir"
+	unset new_modules_dir
+	sysroot_sysenv_ns_cleanup
+	return 1
+    }
+    if {[catch {exec mktemp -d} new_debug_dir]} {
+	verbose -log "sysroot_sysenv_setup - Failed to create debug directory: $new_debug_dir"
+	unset new_debug_dir
+	sysroot_sysenv_ns_cleanup
+	return 1
+    }
+
+    # OK, we've got our sysroot. Populate it with a couple of
+    # directories.
+    exec mkdir -p ${sysroot_base_dir}/lib/modules
+    exec mkdir -p ${sysroot_base_dir}/usr/lib/debug
+    exec mkdir -p ${sysroot_base_dir}/home
+    return 0
+}
+
+# sysroot_sysenv_ns_run: run 'command' in a custom mount
+# namespace. Returns a list of [ RETURN_STATUS OUTPUT ].
+proc sysroot_sysenv_ns_run { command } {
+    global sysroot_base_dir new_modules_dir new_debug_dir
+
+    if {[sysroot_sysenv_ns_setup]} { return [list 1 "server_ns_setup failure"] }
+
+    # We're going to call "unshare" to create a new mount namespace.
+    set modules_dir "/lib/modules"
+    set debug_dir "/usr/lib/debug"
+    set cmd {sudo unshare --mount bash -c\
+	"mount --bind ${modules_dir} ${sysroot_base_dir}${modules_dir}\
+	 && mount --bind ${new_modules_dir} ${modules_dir}\
+	 && mount --bind ${debug_dir} ${sysroot_base_dir}${debug_dir}\
+	 && mount --bind ${new_debug_dir} ${debug_dir}\
+	 && $command"}
+    verbose -log "running: [subst $cmd]"
+    set rc 0
+    if {[catch {eval exec $cmd} output]} {
+	# non-zero exit status, get it:
+	if {[lindex $::errorCode 0] eq "CHILDSTATUS"} {
+	    set rc [lindex $::errorCode 2]
+	}
+    }
+    verbose -log "RC: $rc"
+    verbose -log "$output"
+
+    return [list $rc $output]
+}
+
+if {[sysroot_sysenv_ns_setup]} { fail "$test - namespace setup" }
+
+# Make sure a basic kernel function probe works with our "sysroot".
+set subtest "kernel function probe"
+set script "probe kernel.function(\"sys_read\") { println(\"called\") }"
+set stap_path $env(SYSTEMTAP_PATH)/stap
+lassign [sysroot_sysenv_ns_run "${stap_path} -p4 --sysroot=${sysroot_base_dir} -e '$script'"] rc output
+if {$rc == 0} {
+    pass "$test - $subtest"
+} else {
+    fail "$test - $subtest"
+}
+
+# Compile a test executable.
+set exepath "${sysroot_base_dir}/home/towers.x"
+set res [target_compile $srcdir/$subdir/towers.c $exepath executable \
+    "additional_flags=-O2 additional_flags=-g"]
+if { $res != "" } {
+    verbose "target_compile failed: $res" 2
+    fail "$test - compiling towers.c"
+} else {
+    pass "$test compiling towers.c"
+}
+
+# Probe our test executable (listed with a full path relative to the
+# sysroot).
+set subtest "process function list"
+set script "probe process(\"/home/towers.x\").function(\"*\") { println(ppfunc()) }"
+lassign [sysroot_sysenv_ns_run "${stap_path} --sysroot=${sysroot_base_dir} -p4 -e '$script'"] rc output
+if {$rc == 0} {
+    pass "$test - $subtest"
+} else {
+    fail "$test - $subtest"
+}
+
+# Probe our test executable (listed with a wildcard path relative to
+# the sysroot).
+set subtest "process wildcard function"
+set script "probe process(\"/home/tow*\").function(\"*\") {println(ppfunc()) }"
+lassign [sysroot_sysenv_ns_run "${stap_path} --sysroot=${sysroot_base_dir}\
+ -p4 -e '$script'"] rc output
+if {$rc == 0} {
+    pass "$test - $subtest"
+} else {
+    fail "$test - $subtest"
+}
+
+# Here we're not using an absolute path, so stap will search the
+# path. We'll use the --sysenv option to put the sysroot's /home
+# directory in PATH.
+set subtest "process path search"
+set script "probe process(\"towers.x\").function(\"*\") { println(ppfunc()) }"
+lassign [sysroot_sysenv_ns_run "${stap_path} --sysroot=${sysroot_base_dir}\
+ --sysenv=PATH=/usr/bin:/bin:/usr/sbin:/sbin:/home -p4\
+ -e '$script'"] rc output
+if {$rc == 0} {
+    pass "$test - $subtest"
+} else {
+    fail "$test - $subtest"
+}
+
+# Make sure that all the paths in the generated module source are
+# relative to the target sysroot - there should be no host paths
+# present.
+set subtest "process host path"
+set script "probe process(\"/home/towers.x\").function(\"push\").call { printf(\"%s: %d %d\\n\", ppfunc(), \$i, \$s) }"
+lassign [sysroot_sysenv_ns_run "${stap_path} --sysroot=${sysroot_base_dir} -p3 -e '$script' | grep '/home/towers.x'"] rc output
+if {$rc == 0} {
+    pass "$test - $subtest - output"
+    # We've got any mention of the target exe from the stap module C
+    # source in $output. Search it for any mention of the host path of
+    # the target executable ("${sysroot_base_dir}/home/towers.x"),
+    # instead of the target path ("/home/towers.x").
+    set matches 0
+    foreach line [split $output "\n"] {
+	if {[regexp {[^\"]/home/towers.x\"} $line]} {
+	    incr matches
+	    if {$matches == 1} {
+		verbose -log "the following line(s) have a host path:"
+	    }
+	    verbose -log "$line"
+	}
+    }
+    if {$matches == 0} {
+	pass "$test - $subtest - no host paths found"
+    } else {
+    fail "$test - $subtest - host paths found ($matches)"
+    }
+} else {
+    fail "$test - $subtest - output"
+}
+
+# Now we're going to set up some symbolic links that are only valid
+# inside the sysroot:
+#   /home/towers.lnk2 -> /home/towers.lnk -> /home/towers.x 
+set subtest "link creation"
+lassign [sysroot_sysenv_ns_run "mount --bind ${sysroot_base_dir}/home /home\
+ && ln -s /home/towers.x /home/towers.lnk\
+ && ln -s /home/towers.lnk /home/towers.lnk2"] rc output
+if {$rc == 0} {
+    pass "$test - $subtest"
+} else {
+    fail "$test - $subtest"
+}
+
+# Make sure we can handle the symbolic link relative to the sysroot.
+set subtest "symbolic link process function list"
+set script "probe process(\"/home/towers.lnk\").function(\"*\") { println(ppfunc()) }"
+lassign [sysroot_sysenv_ns_run "${stap_path} --sysroot=${sysroot_base_dir} -p4 -e '$script'"] rc output
+if {$rc == 0} {
+    pass "$test - $subtest"
+} else {
+    fail "$test - $subtest"
+}
+
+# Make sure we can handle an indirect symbolic link relative to the
+# sysroot.
+set subtest "double symbolic link process function list"
+set script "probe process(\"/home/towers.lnk2\").function(\"*\") { println(ppfunc()) }"
+lassign [sysroot_sysenv_ns_run "${stap_path} --sysroot=${sysroot_base_dir} -p4 -e '$script'"] rc output
+if {$rc == 0} {
+    pass "$test - $subtest"
+} else {
+    fail "$test - $subtest"
+}
+
+# Clean everything up.
+server_ns_ns_cleanup
