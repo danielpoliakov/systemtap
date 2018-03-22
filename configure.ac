@@ -698,8 +698,7 @@ AC_ARG_WITH([python2-probes],
 have_python2_support=no
 AS_IF([test "x$with_python2_probes" != "xno"],
   [dnl First, check to make sure we have the 'python-config' script.
-   pathless_python=$(basename "$PYTHON")
-   AC_PATH_PROG([PYTHON_CONFIG], [${pathless_python}-config], [no])
+   AC_PATH_PROGS([PYTHON_CONFIG], [python2-config python-config], [no])
    AS_IF([test "x$PYTHON_CONFIG" != "xno"],
 	 [dnl Use the 'python-config' script to find the python
 	  dnl include directories.
