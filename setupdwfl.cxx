@@ -367,7 +367,15 @@ setup_dwfl_kernel (unsigned *modules_found, systemtap_session &s)
   // hard-code this magic here.
   string lib_path = s.sysroot + "/lib/modules/" + s.kernel_release + "/build";
   if (s.kernel_build_tree == lib_path)
-    elfutils_kernel_path = s.kernel_release;
+    {
+      if (s.sysroot != "")
+        // If we have sysroot set does not make sense to pass
+        // short release to dwfl, it won't take a sysroot into
+        // account. Let's construct full path in such case.
+	elfutils_kernel_path = string(s.sysroot + "/lib/modules/" + s.kernel_release);
+      else
+	elfutils_kernel_path = s.kernel_release;
+    }
   else
     elfutils_kernel_path = s.kernel_build_tree;
   offline_modules_found = 0;
