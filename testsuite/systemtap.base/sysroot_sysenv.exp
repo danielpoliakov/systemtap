@@ -83,6 +83,7 @@ proc sysroot_sysenv_ns_setup {} {
     # directories.
     exec mkdir -p ${sysroot_base_dir}/lib/modules
     exec mkdir -p ${sysroot_base_dir}/usr/lib/debug
+    exec mkdir -p ${sysroot_base_dir}/usr/src/kernels
     exec mkdir -p ${sysroot_base_dir}/home
     return 0
 }
@@ -94,14 +95,23 @@ proc sysroot_sysenv_ns_run { command } {
 
     if {[sysroot_sysenv_ns_setup]} { return [list 1 "server_ns_setup failure"] }
 
-    # We're going to call "unshare" to create a new mount namespace.
+    # We're going to call "unshare" to create a new mount
+    # namespace. Then we'll bind mount several host directories down
+    # into the fake sysroot directory, and bind mount empty
+    # directories on top of the host directories (to "replace" them).
+    #
+    # Note we're not "replacing" /usr/src/kernels, but leaving it on
+    # the host and putting in the sysroot. This is because there are
+    # symlinks to it from /usr/lib/debug.
     set modules_dir "/lib/modules"
     set debug_dir "/usr/lib/debug"
+    set src_dir "/usr/src/kernels"
     set cmd {sudo unshare --mount bash -c\
 	"mount --bind ${modules_dir} ${sysroot_base_dir}${modules_dir}\
 	 && mount --bind ${new_modules_dir} ${modules_dir}\
 	 && mount --bind ${debug_dir} ${sysroot_base_dir}${debug_dir}\
 	 && mount --bind ${new_debug_dir} ${debug_dir}\
+	 && mount --bind ${src_dir} ${sysroot_base_dir}${src_dir}\
 	 && $command"}
     verbose -log "running: [subst $cmd]"
     set rc 0
