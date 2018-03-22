@@ -1396,7 +1396,7 @@ string path_remove_sysroot(const systemtap_session& sess, const string& path)
   if (!sess.sysroot.empty() &&
       (pos = retval.find(sess.sysroot)) != string::npos)
     retval.replace(pos, sess.sysroot.length(),
-		   (sess.sysroot.back() == '/' ? "/": ""));
+		   (*(sess.sysroot.end() - 1) == '/' ? "/": ""));
   return retval;
 }
 

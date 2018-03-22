@@ -344,8 +344,8 @@ void debuginfo_path_insert_sysroot(string sysroot)
   //
   // The path_insert_sysroot() function assumes that sysroot has a '/'
   // on the end. Make sure that is true.
-  if (sysroot.back() != '/')
-    sysroot.push_back('/');
+  if (! sysroot.empty() && *(sysroot.end() - 1) != '/')
+    sysroot.append(1, '/');
   debuginfo_path = path_insert_sysroot(sysroot, debuginfo_path);
   debuginfo_usr_path = path_insert_sysroot(sysroot, debuginfo_usr_path);
 }

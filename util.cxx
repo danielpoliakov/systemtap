@@ -1661,7 +1661,7 @@ get_distro_info(vector<string> &info)
     if (! name.empty()) {
 	trim(name);
 	// If the string is quoted, remove the quotes.
-	if (name.front() == '"') {
+	if (*name.begin() == '"') {
 	    name.erase(0, 1);
 	    name.erase(name.size() - 1);
 	    trim(name);
@@ -1670,7 +1670,7 @@ get_distro_info(vector<string> &info)
     if (! version.empty()) {
 	trim(version);
 	// If the string is quoted, remove the quotes.
-	if (version.front() == '"') {
+	if (*version.begin() == '"') {
 	    version.erase(0, 1);
 	    version.erase(version.size() - 1);
 	    trim(version);

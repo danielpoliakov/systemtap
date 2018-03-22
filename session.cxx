@@ -1504,8 +1504,8 @@ systemtap_session::parse_cmdline (int argc, char * const argv [])
 	      //   sysroot + "/lib/modules"
 	      // So, we don't want the sysroot path to end with a '/',
 	      // otherwise we'll end up with '/foo//lib/modules'.
-	      if (sysroot.back() == '/') {
-		  sysroot.pop_back();
+	      if (!sysroot.empty() && *(sysroot.end() - 1) == '/') {
+		  sysroot.erase(sysroot.end() - 1);
 	      }
 	  }
 	  sysroot_option_seen = true;
