@@ -316,7 +316,11 @@ URL: http://sourceware.org/systemtap/
 %if %{with_python3}
 Requires: python3-pyparsing
 %else
+%if 0%{?rhel} >= 7
+Requires: pyparsing
+%else
 Requires: python2-pyparsing
+%endif
 %endif
 %endif
 
