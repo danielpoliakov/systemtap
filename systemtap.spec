@@ -183,7 +183,11 @@ BuildRequires: pkgconfig(ncurses)
 %endif
 %if %{with_python2_probes}
 BuildRequires: python2-devel
+%if 0%{?fedora} >= 1
 BuildRequires: python2-setuptools
+%else
+BuildRequires: python-setuptools
+%endif
 %endif
 %if %{with_python3_probes}
 BuildRequires: python3-devel
