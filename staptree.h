@@ -1155,6 +1155,7 @@ struct varuse_collecting_visitor: public functioncall_traversing_visitor
     current_lrvalue(0) {}
   void visit_if_statement (if_statement* s);
   void visit_for_loop (for_loop* s);
+  void visit_regex_query (regex_query *e);
   void visit_embeddedcode (embeddedcode *s);
   void visit_embedded_expr (embedded_expr *e);
   void visit_try_block (try_block *s);
