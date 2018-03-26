@@ -65,7 +65,7 @@
  * in time to have their callbacks seen.
  */
 struct utrace {
-	stp_spinlock_t lock;
+	spinlock_t lock;
 	struct list_head attached, attaching;
 
 	struct utrace_engine *reporting;
@@ -418,7 +418,7 @@ static void utrace_cleanup(struct utrace *utrace)
 
 	/* Free engines associated with the struct utrace, starting
 	 * with the 'attached' list then doing the 'attaching' list. */
-	stp_spin_lock(&utrace->lock);
+	spin_lock(&utrace->lock);
 	list_for_each_entry_safe(engine, next, &utrace->attached, entry) {
 #ifdef STP_TF_DEBUG
 	    printk(KERN_ERR "%s:%d - removing engine\n",
@@ -432,7 +432,7 @@ static void utrace_cleanup(struct utrace *utrace)
 	    list_del(&engine->entry);
 	    kmem_cache_free(utrace_engine_cachep, engine);
 	}
-	stp_spin_unlock(&utrace->lock);
+	spin_unlock(&utrace->lock);
 
 	/* Note that we don't need to worry about
 	 * utrace->resume_work_added and utrace->report_work_added,
@@ -566,7 +566,7 @@ static bool utrace_task_alloc(struct task_struct *task)
 
 	if (unlikely(!utrace))
 		return false;
-	stp_spin_lock_init(&utrace->lock);
+	spin_lock_init(&utrace->lock);
 	INIT_LIST_HEAD(&utrace->attached);
 	INIT_LIST_HEAD(&utrace->attaching);
 	utrace->resume = UTRACE_RESUME;
@@ -613,7 +613,7 @@ static void utrace_free(struct utrace *utrace)
 
 	/* Free the utrace struct. */
 #ifdef STP_TF_DEBUG
-	stp_spin_lock(&utrace->lock);
+	spin_lock(&utrace->lock);
 	if (unlikely(utrace->reporting)
 	    || unlikely(!list_empty(&utrace->attached))
 	    || unlikely(!list_empty(&utrace->attaching)))
@@ -621,7 +621,7 @@ static void utrace_free(struct utrace *utrace)
 		       __FUNCTION__, __LINE__, utrace->reporting,
 		       list_empty(&utrace->attached),
 		       list_empty(&utrace->attaching));
-	stp_spin_unlock(&utrace->lock);
+	spin_unlock(&utrace->lock);
 #endif
 
 	if (atomic_add_unless(&utrace->resume_work_added, -1, 0)) {
@@ -724,7 +724,7 @@ static int utrace_add_engine(struct task_struct *target,
 {
 	int ret;
 
-	stp_spin_lock(&utrace->lock);
+	spin_lock(&utrace->lock);
 
 	ret = -EEXIST;
 	if ((flags & UTRACE_ATTACH_EXCLUSIVE) &&
@@ -772,7 +772,7 @@ static int utrace_add_engine(struct task_struct *target,
 	utrace_engine_get(engine);
 	ret = 0;
 unlock:
-	stp_spin_unlock(&utrace->lock);
+	spin_unlock(&utrace->lock);
 
 	return ret;
 }
@@ -821,11 +821,11 @@ static struct utrace_engine *utrace_attach_task(
 	if (!(flags & UTRACE_ATTACH_CREATE)) {
 		if (unlikely(!utrace))
 			return ERR_PTR(-ENOENT);
-		stp_spin_lock(&utrace->lock);
+		spin_lock(&utrace->lock);
 		engine = find_matching_engine(utrace, flags, ops, data);
 		if (engine)
 			utrace_engine_get(engine);
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 		return engine ?: ERR_PTR(-ENOENT);
 	}
 
@@ -940,14 +940,14 @@ static struct utrace *get_utrace_lock(struct task_struct *target,
 	}
 
 	utrace = task_utrace_struct(target);
-	stp_spin_lock(&utrace->lock);
+	spin_lock(&utrace->lock);
 	if (unlikely(utrace->reap) || unlikely(!engine->ops) ||
 	    unlikely(engine->ops == &utrace_detached_ops)) {
 		/*
 		 * By the time we got the utrace lock,
 		 * it had been reaped or detached already.
 		 */
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 		utrace = ERR_PTR(-ESRCH);
 		if (!attached && engine->ops == &utrace_detached_ops)
 			utrace = ERR_PTR(-ERESTARTSYS);
@@ -1113,7 +1113,7 @@ static int utrace_set_events(struct task_struct *target,
 			ret = -EINPROGRESS;
 	}
 unlock:
-	stp_spin_unlock(&utrace->lock);
+	spin_unlock(&utrace->lock);
 
 	return ret;
 }
@@ -1244,7 +1244,7 @@ static bool utrace_reset(struct task_struct *task, struct utrace *utrace)
 	rcu_read_lock();
 	utrace->utrace_flags = flags;
 	rcu_read_unlock();
-	stp_spin_unlock(&utrace->lock);
+	spin_unlock(&utrace->lock);
 
 	put_detached_list(&detached);
 
@@ -1259,8 +1259,8 @@ static void utrace_finish_stop(void)
 	 */
 	if (unlikely(__fatal_signal_pending(current))) {
 		struct utrace *utrace = task_utrace_struct(current);
-		stp_spin_lock(&utrace->lock);
-		stp_spin_unlock(&utrace->lock);
+		spin_lock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 	}
 }
 
@@ -1274,7 +1274,7 @@ static void utrace_stop(struct task_struct *task, struct utrace *utrace,
 			enum utrace_resume_action action)
 {
 relock:
-	stp_spin_lock(&utrace->lock);
+	spin_lock(&utrace->lock);
 
 	if (action < utrace->resume) {
 		/*
@@ -1310,7 +1310,7 @@ relock:
 
 	if (unlikely(__fatal_signal_pending(task))) {
 		spin_unlock_irq(&task->sighand->siglock);
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 		return;
 	}
 
@@ -1325,7 +1325,7 @@ relock:
 		task->signal->flags = SIGNAL_STOP_STOPPED;
 
 	spin_unlock_irq(&task->sighand->siglock);
-	stp_spin_unlock(&utrace->lock);
+	spin_unlock(&utrace->lock);
 
 	schedule();
 
@@ -1361,7 +1361,7 @@ static void utrace_maybe_reap(struct task_struct *target, struct utrace *utrace,
 	struct utrace_engine *engine, *next;
 	struct list_head attached;
 
-	stp_spin_lock(&utrace->lock);
+	spin_lock(&utrace->lock);
 
 	if (reap) {
 		/*
@@ -1375,7 +1375,7 @@ static void utrace_maybe_reap(struct task_struct *target, struct utrace *utrace,
 		utrace->reap = 1;
 
 		if (utrace->utrace_flags & _UTRACE_DEATH_EVENTS) {
-			stp_spin_unlock(&utrace->lock);
+			spin_unlock(&utrace->lock);
 			return;
 		}
 	} else {
@@ -1413,7 +1413,7 @@ static void utrace_maybe_reap(struct task_struct *target, struct utrace *utrace,
 	list_replace_init(&utrace->attached, &attached);
 	list_splice_tail_init(&utrace->attaching, &attached);
 
-	stp_spin_unlock(&utrace->lock);
+	spin_unlock(&utrace->lock);
 
 	list_for_each_entry_safe(engine, next, &attached, entry) {
 		if (engine->flags & UTRACE_EVENT(REAP))
@@ -1588,7 +1588,7 @@ static int utrace_control(struct task_struct *target,
 	if (unlikely(target->exit_state)) {
 		ret = utrace_control_dead(target, utrace, action);
 		if (ret) {
-			stp_spin_unlock(&utrace->lock);
+			spin_unlock(&utrace->lock);
 			return ret;
 		}
 		reset = true;
@@ -1686,7 +1686,7 @@ static int utrace_control(struct task_struct *target,
 	if (reset)
 		utrace_reset(target, utrace);
 	else
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 
 	return ret;
 }
@@ -1745,7 +1745,7 @@ static int utrace_barrier(struct task_struct *target,
 			 */
 			if (utrace->reporting != engine)
 				ret = 0;
-			stp_spin_unlock(&utrace->lock);
+			spin_unlock(&utrace->lock);
 			if (!ret)
 				break;
 		}
@@ -1783,12 +1783,12 @@ static enum utrace_resume_action start_report(struct utrace *utrace)
 	enum utrace_resume_action resume = utrace->resume;
 	if (utrace->pending_attach ||
 	    (resume > UTRACE_STOP && resume < UTRACE_RESUME)) {
-		stp_spin_lock(&utrace->lock);
+		spin_lock(&utrace->lock);
 		splice_attaching(utrace);
 		resume = utrace->resume;
 		if (resume > UTRACE_STOP)
 			utrace->resume = UTRACE_RESUME;
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 	}
 	return resume;
 }
@@ -1798,7 +1798,7 @@ static inline void finish_report_reset(struct task_struct *task,
 				       struct utrace_report *report)
 {
 	if (unlikely(report->spurious || report->detaches)) {
-		stp_spin_lock(&utrace->lock);
+		spin_lock(&utrace->lock);
 		if (utrace_reset(task, utrace))
 			report->action = UTRACE_RESUME;
 	}
@@ -1821,12 +1821,12 @@ static void finish_report(struct task_struct *task, struct utrace *utrace,
 		resume = will_not_stop ? UTRACE_REPORT : UTRACE_RESUME;
 
 	if (resume < utrace->resume) {
-		stp_spin_lock(&utrace->lock);
+		spin_lock(&utrace->lock);
 		utrace->resume = resume;
 		stp_task_notify_resume(task, utrace);
 		if (resume == UTRACE_INTERRUPT)
 			set_tsk_thread_flag(task, TIF_SIGPENDING);
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 	}
 
 	finish_report_reset(task, utrace, report);
@@ -1847,9 +1847,9 @@ static void finish_callback_report(struct task_struct *task,
 		 * This way, a 0 return is an unambiguous indicator that any
 		 * callback returning UTRACE_DETACH has indeed caused detach.
 		 */
-		stp_spin_lock(&utrace->lock);
+		spin_lock(&utrace->lock);
 		engine->ops = &utrace_detached_ops;
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 	}
 
 	/*
@@ -1868,16 +1868,16 @@ static void finish_callback_report(struct task_struct *task,
 			report->resume_action = action;
 
 		if (engine_wants_stop(engine)) {
-			stp_spin_lock(&utrace->lock);
+			spin_lock(&utrace->lock);
 			clear_engine_wants_stop(engine);
-			stp_spin_unlock(&utrace->lock);
+			spin_unlock(&utrace->lock);
 		}
 
 		return;
 	}
 
 	if (!engine_wants_stop(engine)) {
-		stp_spin_lock(&utrace->lock);
+		spin_lock(&utrace->lock);
 		/*
 		 * If utrace_control() came in and detached us
 		 * before we got the lock, we must not stop now.
@@ -1886,7 +1886,7 @@ static void finish_callback_report(struct task_struct *task,
 			report->detaches = true;
 		else
 			mark_engine_wants_stop(utrace, engine);
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 	}
 }
 
@@ -2264,9 +2264,9 @@ static void utrace_finish_vfork(struct task_struct *task)
 	struct utrace *utrace = task_utrace_struct(task);
 
 	if (utrace->vfork_stop) {
-		stp_spin_lock(&utrace->lock);
+		spin_lock(&utrace->lock);
 		utrace->vfork_stop = 0;
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 		utrace_stop(task, utrace, UTRACE_RESUME); /* XXX */
 	}
 }
@@ -2341,12 +2341,12 @@ static void utrace_report_death(void *cb_data __attribute__ ((unused)),
 		}
 	}
 	else {
-		stp_spin_lock(&utrace->lock);
+		spin_lock(&utrace->lock);
 		BUG_ON(utrace->death);
 		utrace->death = 1;
 		utrace->resume = UTRACE_RESUME;
 		splice_attaching(utrace);
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 
 		REPORT_CALLBACKS(, task, utrace, &report, UTRACE_EVENT(DEATH),
 				 report_death, engine, -1/*group_dead*/,
@@ -2499,12 +2499,12 @@ static void utrace_report_work(struct task_work *work)
 	might_sleep();
 
 	atomic_set(&utrace->report_work_added, 0);
-	stp_spin_lock(&utrace->lock);
+	spin_lock(&utrace->lock);
 	BUG_ON(utrace->death);
 	utrace->death = 1;
 	utrace->resume = UTRACE_RESUME;
 	splice_attaching(utrace);
-	stp_spin_unlock(&utrace->lock);
+	spin_unlock(&utrace->lock);
 
 	REPORT_CALLBACKS(, task, utrace, &report, UTRACE_EVENT(DEATH),
 			 report_death, engine, -1/*group_dead*/,
