@@ -88,9 +88,11 @@ class direct : public remote {
           {
             if (s->runtime_mode == systemtap_session::dyninst_runtime)
               args.insert(args.end(), {"_stp_dyninst_remote=" + staprun_r_arg});
-            else
+	    else if (s->runtime_mode == systemtap_session::kernel_runtime)
               args.insert(args.end(), { "-r", staprun_r_arg });
+	    // leave args empty for bpf_runtime
           }
+
         pid_t pid = stap_spawn (s->verbose, args);
         if (pid <= 0)
           return 1;
@@ -450,9 +452,17 @@ class stapsh : public remote {
       {
         int rc = 0;
 
-        string extension = s->runtime_mode == systemtap_session::dyninst_runtime ? ".so" : ".ko";
-        string localmodule = s->tmpdir + "/" + s->module_name + extension;
+        string extension;
+        if (s->runtime_mode == systemtap_session::dyninst_runtime)
+	  extension = ".so";
+	else if (s->runtime_mode == systemtap_session::bpf_runtime)
+	  extension = ".bo";
+	else
+	  extension = ".ko";
+
+	string localmodule = s->tmpdir + "/" + s->module_name + extension;
         string remotemodule = s->module_name + extension;
+
         if ((rc = send_file(localmodule, remotemodule)))
           return rc;
 
@@ -487,8 +497,9 @@ class stapsh : public remote {
           {
              if (s->runtime_mode == systemtap_session::dyninst_runtime)
 	       cmd.insert(cmd.end(), { "_stp_dyninst_remote=" +  staprun_r_arg});
-             else
+             else if (s->runtime_mode == systemtap_session::kernel_runtime)
                cmd.insert(cmd.end(), { "-r", staprun_r_arg });
+	     // leave args empty for bpf_runtime
           }
 
         for (unsigned i = 1; i < cmd.size(); ++i)
