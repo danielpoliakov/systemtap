@@ -159,7 +159,7 @@ list-unfinished:
 # are overridden by "make check" from full source/build tree
 SYSTEMTAP_RUNTIME=$(DESTDIR)$(pkgdatadir)/runtime
 SYSTEMTAP_TAPSET=$(DESTDIR)$(pkgdatadir)/tapset
-LD_LIBRARY_PATH=$(DESTDIR)$(libdir)/systemtap
+LD_LIBRARY_PATH=$(DESTDIR)$(libdir)/systemtap:$(DESTDIR)$(libdir)/dyninst
 CRASH_LIBDIR=$(DESTDIR)$(libdir)/systemtap
 SYSTEMTAP_PATH=$(DESTDIR)$(bindir)
 SYSTEMTAP_INCLUDES=$(DESTDIR)$(includedir)
