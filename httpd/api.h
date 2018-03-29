@@ -28,6 +28,8 @@ struct file_info
 class client_request_data
 {
 public:
+    ~client_request_data();
+
     struct json_object *get_json_object() const;
 
     std::string kver;

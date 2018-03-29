@@ -193,7 +193,10 @@ def main():
         if os.WIFEXITED(cmd_rc):
             cmd_rc = os.WEXITSTATUS(cmd_rc)
         _eprint("Error: \"%s\" failed, status %d" % (cmd, cmd_rc))
-        sys.exit(1)
+
+    # We're done with our temporary directory.
+    shutil.rmtree(tmpdir_path, True)
+    sys.exit(cmd_rc)
 
 if __name__ == '__main__':
     main()

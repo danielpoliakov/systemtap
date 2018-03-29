@@ -142,6 +142,17 @@ public:
 	    pthread_join(builder_tid, NULL);
 	    builder_thread_running = false;
 	}
+	if (!tmp_dir.empty()) {
+	    // Remove the temporary directory.
+	    vector<string> cleanupcmd { "rm", "-rf", tmp_dir };
+	    int rc = stap_system(0, cleanupcmd);
+	    if (rc != 0)
+		server_error (_("Error in tmpdir cleanup"));
+	    if (crd->verbose > 1)
+		server_error(_F("Removed temporary directory \"%s\"",
+				tmp_dir.c_str()));
+	    tmp_dir.clear();
+	}
 	if (result) {
 	    delete result;
 	    result = NULL;
@@ -164,6 +175,7 @@ public:
     }
 
 private:
+    string tmp_dir;
     client_request_data *crd;
 
     bool builder_thread_running;
@@ -693,7 +705,7 @@ build_info::module_build()
 {
     vector<string> argv;
     char tmp_dir_template[] = "/tmp/stap-httpd.XXXXXX";
-    char *tmp_dir;
+    char *tmp_dir_ptr;
 
     // The client can optionally send over a "client.zip" file, which
     // we automatically unzip here.
@@ -722,8 +734,8 @@ build_info::module_build()
     argv.push_back(crd->kver);
 
     // Create a temporary directory for stap to use.
-    tmp_dir = mkdtemp(tmp_dir_template);
-    if (tmp_dir == NULL) {
+    tmp_dir_ptr = mkdtemp(tmp_dir_template);
+    if (tmp_dir_ptr == NULL) {
 	// Return an error.
 	server_error(_F("mkdtemp failed: %s", strerror(errno)));
 	result_info *ri = new result_info(500,
@@ -731,6 +743,7 @@ build_info::module_build()
 	set_result(ri);
 	return NULL;
     }
+    tmp_dir = tmp_dir_ptr;
     string tmpdir_opt = string("--tmpdir=") + tmp_dir;
     argv.push_back(tmpdir_opt);
 
@@ -774,11 +787,11 @@ build_info::module_build()
     parse_cmd_args();
 
     // Create empty stdout/stderr files, so they always exist.
-    string stdout_path = string(tmp_dir) + "/stdout";
+    string stdout_path = tmp_dir + "/stdout";
     ofstream file;
     file.open(stdout_path, ios::out);
     file.close();
-    string stderr_path = string(tmp_dir) + "/stderr";
+    string stderr_path = tmp_dir + "/stderr";
     file.open(stderr_path, ios::out);
     file.close();
 
@@ -811,15 +824,15 @@ build_info::module_build()
     string module_sign_path;
     if (staprc == 0) {
 	glob_t globber;
-	string pattern = string(tmp_dir) + "/*.ko";
+	string pattern = tmp_dir + "/*.ko";
 	int rc = glob(pattern.c_str(), GLOB_ERR, NULL, &globber);
 	if (rc) {
-	    server_error(_F("Unable to find a module in %s", tmp_dir));
+	    server_error(_F("Unable to find a module in %s", tmp_dir.c_str()));
 	}
 	else {
 	    if (globber.gl_pathc != 1) {
 		server_error(_F("Too many modules (%ld) in %s",
-				(long)globber.gl_pathc, tmp_dir));
+				(long)globber.gl_pathc, tmp_dir.c_str()));
 	    }
 	    else {
 		module_path = globber.gl_pathv[0];
@@ -868,6 +881,21 @@ build_info::module_build()
     }
     set_result(ri);
     return NULL;
+}
+
+client_request_data::~client_request_data()
+{
+    if (!base_dir.empty()) {
+	// Remove the temporary directory.
+	vector<string> cleanupcmd { "rm", "-rf", base_dir };
+	int rc = stap_system(0, cleanupcmd);
+	if (rc != 0)
+	    server_error (_("Error in tmpdir cleanup"));
+	if (verbose > 1)
+	    server_error(_F("Removed temporary directory \"%s\"",
+			    base_dir.c_str()));
+	base_dir.clear();
+    }
 }
 
 // Return a json representation of the client_request_data. The caller
@@ -929,6 +957,7 @@ void api_cleanup()
 	for (size_t idx = 0; idx < build_infos.size(); idx++) {
 	    delete build_infos[idx];
 	}
+	build_infos.clear();
     }
 }
 
