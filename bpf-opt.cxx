@@ -633,7 +633,23 @@ allocate(std::vector<regno> &partition, std::vector<regno> &ordered,
 	first = BPF_REG_0;
       for (unsigned r1 = first; r1 < BPF_REG_10; ++r1)
 	{
-	  if (!igraph.test(r1, r2))
+          bool interferes = false;
+
+          // check for interference between r1, r2 and any
+          // registers already merged with either r1 or r2.
+          for (unsigned k = MAX_BPF_REG; k < nregs; ++k)
+            {
+              unsigned r3 = ordered[k - MAX_BPF_REG];
+
+              if ((partition[r3] == r1 && igraph.test(r2, r3))
+                  || (partition[r3] == r2 && igraph.test(r1, r3)))
+                {
+                  interferes = true;
+                  break;
+                }
+            }
+
+	  if (!interferes)
 	    {
 	      partition[r2] = r1;
 	      igraph.merge(r1, r2);
@@ -680,7 +696,7 @@ spill(unsigned reg, unsigned num_spills, program &p)
   value *frame = p.lookup_reg(BPF_REG_10);
 
   // reg's stack offset.
-  int off = BPF_REG_SIZE * num_spills + p.max_tmp_space;
+  int off = BPF_REG_SIZE * (num_spills + 1) + p.max_tmp_space;
 
   // Ensure double word alignment.
   if (off % BPF_REG_SIZE)
@@ -757,11 +773,10 @@ static void
 reg_alloc(program &p)
 {
   bool done = false;
-  unsigned num_spills = 0;
   const unsigned nblocks = p.blocks.size();
   std::vector<bool> spilled(p.max_reg());
 
-  while (!done)
+  for (unsigned num_spills = 0; !done; ++num_spills)
     {
       const unsigned nregs = p.max_reg();
 
@@ -802,7 +817,7 @@ reg_alloc(program &p)
           // reg could not be allocated. Spill the lowest priority
           // temporary that has already been allocated.
           reg = choose_spill_reg(reg, ordered, spilled);
-          spill(reg, ++num_spills, p);
+          spill(reg, num_spills, p);
 
           // Add new temporaries to spilled.
           for (unsigned i = nregs; i < p.max_reg(); ++i)
