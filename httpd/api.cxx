@@ -480,6 +480,7 @@ public:
     individual_build_rh(string n) : request_handler(n) {}
 
     response GET(const request &req);
+    response DELETE(const request &req);
 };
 
 response individual_build_rh::GET(const request &req)
@@ -509,6 +510,37 @@ response individual_build_rh::GET(const request &req)
 
     response rsp(0);
     b->generate_response(rsp);
+    return rsp;
+}
+
+response individual_build_rh::DELETE(const request &req)
+{
+    // matches[0] is the entire string '/builds/XXXX'. matches[1] is
+    // just the buildid 'XXXX'.
+    string buildid = req.matches[1];
+    build_info *b = NULL;
+    {
+	// Use a lock_guard to ensure the mutex gets released even if an
+	// exception is thrown.
+	lock_guard<mutex> lock(builds_mutex);
+	for (auto it = build_infos.begin(); it != build_infos.end(); it++) {
+	    if (buildid == (*it)->get_uuid_str()) {
+		b = *it;
+		build_infos.erase(it);
+		break;
+	    }
+	}
+    }
+
+    if (b == NULL) {
+	server_error(_F("Couldn't find build '%s'", buildid.c_str()));
+	return get_404_response();
+    }
+
+    // At this point we've found a matching build. Delete it.
+    delete b;
+    response rsp(300);
+    rsp.content = "";
     return rsp;
 }
 

@@ -71,6 +71,7 @@ public:
   void get_kernel_buildid (void);
   long get_response_code (void);
   static int trace (CURL *, curl_infotype type, unsigned char *data, size_t size, void *);
+  bool delete_op (const std::string & url);
 
 private:
   size_t get_header (void *ptr, size_t size, size_t nitems);
@@ -744,6 +745,35 @@ http_client::add_module (std::string module)
 }
 
 
+// Ask the server to delete a URL.
+
+bool
+http_client::delete_op (const std::string & url)
+{
+  if (curl)
+    curl_easy_reset (curl);
+  curl = curl_easy_init ();
+  curl_global_init (CURL_GLOBAL_ALL);
+  if (s.verbose > 2)
+    {
+      curl_easy_setopt (curl, CURLOPT_VERBOSE, 1L);
+      curl_easy_setopt (curl, CURLOPT_DEBUGFUNCTION, trace);
+    }
+  curl_easy_setopt (curl, CURLOPT_URL, url.c_str ());
+  curl_easy_setopt (curl, CURLOPT_NOSIGNAL, 1); //Prevent "longjmp causes uninitialized stack frame" bug
+  curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
+
+  CURLcode res = curl_easy_perform (curl);
+  if (res != CURLE_OK)
+    {
+      clog << "curl_easy_perform() failed: " << curl_easy_strerror (res)
+	   << endl;
+      return false;
+    }
+  return true;
+}
+
+
 http_client_backend::http_client_backend (systemtap_session &s)
   : client_backend(s), files_seen(false)
 {
@@ -1059,6 +1089,9 @@ http_client_backend::unpack_response ()
       clog << "Couldn't find 'stdout' in JSON results data" << endl;
       return 1;
     }
+
+  // Tell the server to delete this build (and any associated result).
+  http->delete_op (build_uri);
   return 0;
 }
 
