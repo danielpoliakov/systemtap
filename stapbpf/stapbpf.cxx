@@ -1173,15 +1173,9 @@ main(int argc, char **argv)
 
   // Run the begin probes.
   if (prog_begin)
-    {
-      bpf_context *c = bpf_context_create(map_fds.size(), map_attrs);
-
-      bpf_interpret(c, prog_begin->d_size / sizeof(bpf_insn),
-		    static_cast<bpf_insn *>(prog_begin->d_buf), output_f);
-
-      bpf_context_export(c, map_fds.data());
-      bpf_context_free(c);
-    }
+    bpf_interpret(prog_begin->d_size / sizeof(bpf_insn),
+                  static_cast<bpf_insn *>(prog_begin->d_buf),
+	          map_fds, output_f);
 
   // Now that the begin probe has run, enable the kprobes.
   ioctl(group_fd, PERF_EVENT_IOC_ENABLE, 0);
@@ -1206,13 +1200,9 @@ main(int argc, char **argv)
 
   // Run the end+error probes.
   if (prog_end)
-    {
-      bpf_context *c = bpf_context_create(map_fds.size(), map_attrs);
-      bpf_context_import(c, map_fds.data());
-      bpf_interpret(c, prog_end->d_size / sizeof(bpf_insn),
-		    static_cast<bpf_insn *>(prog_end->d_buf), output_f);
-      bpf_context_free(c);
-    }
+    bpf_interpret(prog_end->d_size / sizeof(bpf_insn),
+                  static_cast<bpf_insn *>(prog_end->d_buf),
+		  map_fds, output_f);
 
   elf_end(module_elf);
   return 0;

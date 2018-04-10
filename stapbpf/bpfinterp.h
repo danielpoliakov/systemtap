@@ -28,14 +28,9 @@ extern "C" {
 #include "libbpf.h"
 }
 
-struct bpf_context;
-struct bpf_context *bpf_context_create(size_t nmaps,
-				       const struct bpf_map_def attrs[]);
-void bpf_context_free(struct bpf_context *c);
-void bpf_context_export(struct bpf_context *c, int fds[]);
-void bpf_context_import(struct bpf_context *c, int fds[]);
-uint64_t bpf_interpret(struct bpf_context *c, size_t ninsns,
-		       const struct bpf_insn insns[], FILE *output_f);
+uint64_t bpf_interpret(size_t ninsns,
+		       const struct bpf_insn insns[],
+		       std::vector<int> &map_fds, FILE *output_f);
 
 #endif /* STAPRUNBPF_H */
 
