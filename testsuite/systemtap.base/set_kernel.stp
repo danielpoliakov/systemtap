@@ -62,6 +62,20 @@ probe end(1)
         assert_not_reached(test)
     } catch {}
 
+    /* Be sure to also test in the other direction: */
+    test = "kernel_string_n"
+    addr = get_buffer()
+    if (assert_string(test, "", kernel_string_n(addr, 0))) {
+        set_kernel_string_n(addr, 7, "potatoe")
+        if (assert_string(test, "potatoe", kernel_string_n(addr, 7))) {
+            assert_string(test, "potato", kernel_string_n(addr, 6))
+        }
+    }
+    try {
+        println(kernel_string_n(-1, 10))
+        assert_not_reached(test)
+    } catch {}
+
     test = "set_kernel_long"
     addr = get_buffer()
     long_val = %( CONFIG_64BIT == "y" %? 0x123456789ABCDEF0 %: 0x12345678 %)

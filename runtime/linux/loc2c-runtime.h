@@ -722,7 +722,7 @@ static inline char *kderef_buffer_(char *dst, void *addr, size_t len)
  *
  * dst: read the string into this address
  * addr: address to read from
- * len: maximum number of bytes to read
+ * len: maximum number of bytes to store in dst, including the trailing NUL
  * seg: memory segment to use, either kernel (KERNEL_DS) or user
  * (USER_DS)
  * 
@@ -745,7 +745,8 @@ static inline long _stp_deref_string_nofault(char *dst, const char *addr,
     err = 1;
   else
     {
-      for (i = 0; i < len; ++i)
+      /* Reduce len by 1 to leave room for '\0' terminator. */
+      for (i = 0; i + 1 < len; ++i)
 	{
 	  u8 v;
 	  err = __stp_get_user(v, (u8 *)addr + i);
