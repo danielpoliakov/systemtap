@@ -901,7 +901,7 @@ probe nfsd.proc2.create = kernel.function("nfsd_proc_create") !,
 
 	if (@defined($rqstp->rq_argp)) {
 		fh = & @nfsd2_createargs($rqstp->rq_argp)->fh
-		filelen = @nfsd2_createargs($rqstp->rq_argp->len)
+		filelen = @nfsd2_createargs($rqstp->rq_argp)->len
 		filename = kernel_string_n(@nfsd2_createargs($rqstp->rq_argp)->name,
 					   @nfsd2_createargs($rqstp->rq_argp)->len)
 	}
