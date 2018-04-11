@@ -154,6 +154,14 @@ main(int argc, char *const argv[])
 {
     pthread_t tid;
 
+    // Get rid of a few standard environment variables (which might
+    // cause us to do unintended things).
+    if (unsetenv("IFS") || unsetenv("CDPATH") || unsetenv("ENV")
+	|| unsetenv("BASH_ENV")) {
+	server_error(_F("unsetenv failed: %s", strerror(errno)));
+	return 1;
+    }
+
     setup_main_signals(&tid);
 
     parse_cmdline(argc, argv);

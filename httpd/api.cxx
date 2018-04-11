@@ -408,7 +408,20 @@ response build_collection_rh::POST(const request &req)
 	    file_pkg = it->second;
 	}
 	else if (it->first == "env_vars") {
-	    crd->env_vars = it->second;
+	    // Get rid of a few standard environment variables (which
+	    // might cause us to do unintended things) from the list
+	    // the client sent us.
+	    for (auto it2 = it->second.begin(); it2 != it->second.end();
+		 it2++) {
+		if (*it2 == "IFS" || *it2 == "CDPATH" || *it2 == "ENV"
+		    || *it2 == "BASH_ENV") {
+		    server_error(_F("ignoring client environment variable: %s",
+				    (*it2).c_str()));
+		}
+		else {
+		    crd->env_vars.push_back(*it2);
+		}
+	    }
 	}
 	// Notice we silently ignore any "extra" parameters.
     }
