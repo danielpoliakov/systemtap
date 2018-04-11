@@ -86,6 +86,13 @@
 #endif
 %}
 
+# XXX: For the time being, mark this example as not working on PREEMPT_RT kernels:
+%{
+#ifdef CONFIG_PREEMPT_RT_FULL
+#error "pfiles.stp not supported on CONFIG_PREEMPT_RT_FULL kernels"
+#endif
+%}
+
 function task_valid_file_handle:long (task:long, fd:long) %{ /* pure */
 	struct task_struct *p = (struct task_struct *)((long)STAP_ARG_task);
 	struct files_struct *files;
