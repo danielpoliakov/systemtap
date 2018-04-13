@@ -282,8 +282,8 @@ docker_backend::generate_module(const client_request_data *crd,
 	docker_stderr_path = stderr_path;
     }
     else {
-	docker_stdout_path = string(tmp_dir) + "/docker_stdout";
-	docker_stderr_path = string(tmp_dir) + "/docker_stderr";
+	docker_stdout_path = tmp_dir + "/docker_stdout";
+	docker_stderr_path = tmp_dir + "/docker_stderr";
     }
 
     // Grab a JSON representation of the client_request_data, and
@@ -488,11 +488,22 @@ docker_backend::generate_module(const client_request_data *crd,
     return saved_rc;
 }
 
+static vector<backend_base *>saved_backends;
+static void backends_atexit_handler()
+{
+    if (!saved_backends.empty()) {
+	for (auto it = saved_backends.begin(); it != saved_backends.end();
+	     it++) {
+	    delete *it;
+	}
+	saved_backends.clear();
+    }
+}
+
 void
 get_backends(vector<backend_base *> &backends)
 {
-    static vector<backend_base *>saved_backends;
-
+    std::atexit(backends_atexit_handler);
     if (saved_backends.empty()) {
 	// Note that order *is* important here. We want to try the
 	// local backend first (since it would be the fastest), then

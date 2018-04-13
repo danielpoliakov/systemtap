@@ -16,6 +16,8 @@
 class backend_base
 {
 public:
+    virtual ~backend_base() { }
+
     virtual bool can_generate_module(const client_request_data *crd) = 0;
     virtual int generate_module(const client_request_data *crd,
 				const std::vector<std::string> &argv,

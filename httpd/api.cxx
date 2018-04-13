@@ -97,6 +97,16 @@ public:
     {
     }
 
+    ~result_info()
+    {
+	if (!files.empty()) {
+	    for (auto it = files.begin(); it != files.end(); it++) {
+		delete it->second;
+	    }
+	    files.clear();
+	}
+    }
+
     void generate_response(response &r);
     void generate_file_response(response &r, string &f);
 
@@ -129,6 +139,8 @@ protected:
     string content;
 };
 
+static void result_infos_erase(result_info *r);
+
 class build_info : public resource
 {
 public:
@@ -154,12 +166,15 @@ public:
 	    tmp_dir.clear();
 	}
 	if (result) {
+	    // If this build has an associated result, be sure to delete it
+	    // from the results list.
+	    result_infos_erase(result);
 	    delete result;
 	    result = NULL;
 	}
 	if (crd) {
 	    delete crd;
-	    crd = (client_request_data *)(void *)0xdeadbeef;
+	    crd = NULL;
 	}
     }
 
@@ -352,6 +367,20 @@ vector<build_info *> build_infos;
 
 mutex results_mutex;
 vector<result_info *> result_infos;
+
+static void
+result_infos_erase(result_info *r)
+{
+    // Use a lock_guard to ensure the mutex gets released
+    // even if an exception is thrown.
+    lock_guard<mutex> lock(results_mutex);
+    for (auto it = result_infos.begin(); it != result_infos.end(); it++) {
+	if (r->get_uuid_str() == (*it)->get_uuid_str()) {
+	    result_infos.erase(it);
+	    break;
+	}
+    }
+}
 
 
 class build_collection_rh : public request_handler
