@@ -147,7 +147,10 @@ local_backend::generate_module(const client_request_data *crd,
 			       const string &stdout_path,
 			       const string &stderr_path)
 {
-    return execute_and_capture(2, argv, crd->env_vars,
+    // Make sure we're running the correct version of systemtap.
+    vector<string> cmd = argv;
+    cmd[0] = string(BINDIR) + "/stap";
+    return execute_and_capture(2, cmd, crd->env_vars,
 			       stdout_path, stderr_path);
 }
 
