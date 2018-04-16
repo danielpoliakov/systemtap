@@ -1,0 +1,79 @@
+set test "http_server"
+if {![installtest_p]} { untested $test; return }
+if {![http_server_p]} { untested $test; return }
+
+set test "http_server -"
+set subtest "server start"
+if {[http_start_server] == 0} {
+    pass "$test $subtest"
+} else {
+    fail "$test $subtest"
+}
+
+#-------------------------------------------------------
+# Build and run a simple module.
+set subtest "simple"
+set rc [stap_run_batch $srcdir/systemtap.server/hello.stp --use-http-server=$systemtap_http_server_spec]
+if {$rc == 0} { pass "$test $subtest" } else { fail "$test $subtest" }
+
+#-------------------------------------------------------
+# Try a "stap -L"
+set subtest "listing"
+set rc [stap_run_batch "" -L "syscall.open" --use-http-server=$systemtap_http_server_spec]
+if {$rc == 0} { pass "$test $subtest" } else { fail "$test $subtest" }
+
+#-------------------------------------------------------
+# Build and run a module using "-I" and "-e SCRIPT".
+set subtest "tapset"
+set rc [stap_run_batch "" -I $srcdir/systemtap.server/tapset -e "probe oneshot { foo() }" --use-http-server=$systemtap_http_server_spec]
+if {$rc == 0} { pass "$test $subtest" } else { fail "$test $subtest" }
+
+#-------------------------------------------------------
+# Build a module using stdin.
+set subtest "stdin1"
+set cmd {echo "probe oneshot { exit() }" | stap -vp4 --use-http-server=$systemtap_http_server_spec -}
+verbose -log "executing: $cmd"
+set rc 0
+if {[catch {eval exec $cmd} err]} {
+    if {[lindex $::errorCode 0] eq "CHILDSTATUS"} {
+	set rc [lindex $::errorCode 2]
+    }
+}
+verbose -log "$err"
+if {$rc} {
+    fail "$test $subtest"
+} else {
+    pass "$test $subtest"
+}
+
+#-------------------------------------------------------
+# Build another module using stdin.
+set subtest "stdin2"
+set cmd {stap -vp4 --use-http-server=$systemtap_http_server_spec - < $srcdir/systemtap.server/hello.stp}
+verbose -log "executing: $cmd"
+set rc 0
+if {[catch {eval exec $cmd} err]} {
+    if {[lindex $::errorCode 0] eq "CHILDSTATUS"} {
+	set rc [lindex $::errorCode 2]
+    }
+}
+verbose -log "$err"
+if {$rc} {
+    fail "$test $subtest"
+} else {
+    pass "$test $subtest"
+}
+
+#-------------------------------------------------------
+# Try probing a user executable.
+set subtest "user exe"
+set rc [stap_run_batch "" -e "probe process(\"/usr/bin/ls\").begin { exit() }" --use-http-server=$systemtap_http_server_spec -c /usr/bin/ls]
+if {$rc == 0} { pass "$test $subtest" } else { fail "$test $subtest" }
+
+#-------------------------------------------------------
+# Try probing a user executable.
+set subtest "user exe2"
+set rc [stap_run_batch "" -e "probe process(\"/usr/bin/ls\").function(\"main\") { exit() }" --use-http-server=$systemtap_http_server_spec -c /usr/bin/ls]
+if {$rc == 0} { pass "$test $subtest" } else { fail "$test $subtest" }
+
+http_shutdown_server

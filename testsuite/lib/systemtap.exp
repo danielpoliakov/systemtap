@@ -1,5 +1,8 @@
 load_lib site.exp
 load_lib "compile_flags.exp"
+# Since 'server_ns_cleanup' is called in shutdown_server, we need to
+# include server_ns.exp here.
+load_lib "server_ns.exp"
 
 proc installtest_p {} {
     global TOOL_OPTIONS
@@ -227,6 +230,10 @@ proc systemtap_check_users {} {
     global systemtap_stapsys_user_exists
     global systemtap_stapdev_user_exists
 	     
+    # The optional 'stapusr', 'stapsys', and 'stapdev' users are used
+    # in server testing. If they don't exist, those tests won't get
+    # run.
+
     # If we have the optional 'stapusr' user, does he belong to the
     # 'stapusr' group (and not the 'stapdev' or 'stapsys' groups)?
     set systemtap_stapusr_user_exists 0

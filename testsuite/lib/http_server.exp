@@ -1,0 +1,256 @@
+# Returns a random integer between 'min' and 'max'.
+proc rand_between { min max } {
+    set maxFactor [expr [expr $max + 1] - $min]
+    set value [expr int([expr rand() * 100])]
+    set value [expr [expr $value % $maxFactor] + $min]
+    return $value
+}
+
+# Returns a random unused tcp port.
+proc find_random_unused_tcp_port { } {
+    # Find a random unused unprivileged (> 1024) port.
+    if {[catch {exec netstat --listening --all --tcp --numeric} output]} {
+	return 0
+    }
+    set used_ports {}
+    foreach line [split $output "\n"] {
+	if {[regexp {^tcp[ \t]+[0-9]+[ \t]+[^:]+:([0-9]+)[ \t]+} \
+		 $line match port]} {
+	    lappend used_ports $port
+	}
+    }
+    set used_ports [lsort -integer $used_ports]
+    set port 0
+    while {$port == 0} {
+	# If the port wasn't found in the list of used ports, return it.
+	set rand_port [rand_between 1024 65535]
+	if {[lsearch -exact -sorted -integer $used_ports $rand_port] == -1} {
+	    set port $rand_port
+	}
+    }
+    verbose -log "returning port $port"
+    return $port
+}
+
+proc http_server_p {} {
+    global env
+
+    # OK, there isn't a 'stap -V' test that will tell us if the HTTP
+    # server was compiled into systemtap. So, we fake it. But, the
+    # HTTP server does require NSS support (for module signing).
+    if {! [nss_p]} {
+	verbose -log "http_server_p: no NSS support"
+	return 0
+    }
+
+    # Let's make sure the server binary exists.
+    if {! [info exists env(PKGLIBDIR)]
+	|| [string length $env(PKGLIBDIR)] == 0} {
+	verbose -log "http_server_p: no PKGLIBDIR"
+	return 0
+    }
+    set http_server_path "$env(PKGLIBDIR)/stap-httpd"
+    if {! [file exists $http_server_path]} {
+	verbose -log "http_server_p: no $http_server_path"
+	return 0
+    }
+    return 1
+}
+
+# as_root_with_output: run 'command' as root. If the command should be
+# run in the background, set 'background' to non-zero.  Returns a list
+# of [ RETURN_STATUS OUTPUT ]. A typical call would look like:
+#
+#     lassign [as_root_with_output "mktemp"] rc output
+#
+proc as_root_with_output { command {background 0} } {
+    set effective_uid [exec /usr/bin/id -u]
+
+    if {$effective_uid != 0} {
+	set command "sudo $command"
+    }
+    if {$background == 1} {
+	set command "$command &"
+    }
+    verbose -log "running: [subst $command]"
+    set rc 0
+    if {[catch {eval exec $command} output]} {
+	# non-zero exit status, get it:
+	if {[lindex $::errorCode 0] eq "CHILDSTATUS"} {
+	    set rc [lindex $::errorCode 2]
+	}
+    }
+    verbose -log "RC: $rc"
+    verbose -log "$output"
+    return [list $rc $output]
+}
+
+proc http_start_server { } {
+    global env systemtap_http_server_pid
+    global systemtap_http_server_logfile
+    global systemtap_http_server_pid
+    global systemtap_http_server_spec
+    
+    # Make sure we have the minimum requirements.
+    if {! [http_server_p]} {
+	return 1
+    }
+    
+    # Let's only use the installed server.
+    if {! [installtest_p]} {
+	return 1
+    }
+    
+    # Create a temporary server log file. Note that we'll delete it
+    # when shutting the server down.
+    if {[catch {exec mktemp} systemtap_http_server_logfile]} {
+	verbose -log "$systemtap_http_server_logfile"
+	return 1
+    }
+    
+    # Special shortcut. If the 'SYSTEMTAP_HTTP_SERVER_SPEC'
+    # environment variable exists, use its value as the server spec.
+    if {[info exists env(SYSTEMTAP_HTTP_SERVER_SPEC)]} {
+	set systemtap_http_server_spec $env(SYSTEMTAP_HTTP_SERVER_SPEC)
+	set systemtap_http_server_pid 0
+	return 0
+    }
+
+    # Grab a random port number. We'll use a random port to avoid
+    # bothering any running servers.  Note that there is a TOCTTOU
+    # problem here. Between the time the port is found and the server
+    # is started, another process could have been started on that
+    # port.
+    set port [find_random_unused_tcp_port]
+    if {$port == 0} {
+	return 1
+    }
+    
+    # Start the server with the random port as root.
+    set http_server_path "$env(PKGLIBDIR)/stap-httpd"
+    set cmd "$http_server_path --port=$port --log=$systemtap_http_server_logfile"
+    lassign [as_root_with_output $cmd 1] rc output
+    if {$rc != 0 || [string length $output] == 0
+	|| [catch {expr int($output)}]} {
+	verbose -log "Cannot start an http server: $output"
+	set systemtap_http_server_pid 0
+	return 1
+    }
+    
+    # Server started successfully. Find the actual server pid. The pid
+    # returned by the command above might be the pid of 'sudo', not
+    # the actual httpd server process.
+    #
+    # Note that since we started the server in the background, we
+    # might have to wait till it actually gets started.
+    set rc 1
+    set waited 0
+    set cmd {ps ax | grep -F /stap-httpd | grep -v sudo | grep -Fe --port=$port}
+    while { $rc != 0 && $waited < 10 } {
+	catch { exec sleep 1 }
+	incr waited
+
+	set rc 0
+	if {[catch {eval exec $cmd} output] } {
+	    # non-zero exit status, get it:
+	    if {[lindex $::errorCode 0] eq "CHILDSTATUS"} {
+		set rc [lindex $::errorCode 2]
+	    }
+	}
+    }
+    if {$rc != 0} {
+	verbose -log "Cannot find http server pid"
+	verbose -log "$output"
+	set systemtap_http_server_pid 0
+	return 1
+    }
+
+    # OK, now we've got to be sure we've only got 1 output line (so if
+    # for some odd reason we found two http server processes we'll
+    # know).
+    set lines [llength [split $output "\n"]]
+    if {$lines != 1} {
+	verbose -log "Found too many http servers!"
+	verbose -log "$output"
+	set systemtap_http_server_pid 0
+	return 1
+    }
+	
+    # OK, we should how have the http server 'ps' line output. Extract
+    # the pid.
+    if {! [regexp {^[ ]*([0-9]+)[ \t]+} $output match pid_str]} {
+	verbose -log "Couldn't find 'pid' in ps output"
+	verbose -log "$output"
+	set systemtap_http_server_pid 0
+	return 1
+    }
+    set systemtap_http_server_pid [expr int($pid_str)]
+    
+    # Make sure the server started up and is running.
+    set systemtap_http_server_spec [info hostname]:$port
+    set cmd {stap --list-servers --use-http-server=$systemtap_http_server_spec}
+    verbose -log "running: [subst $cmd]"
+    set rc [catch {eval exec $cmd} output]
+    verbose -log "$output"
+    
+    # FIXME: handle adding trust here (if necessary). We'll also need
+    # to revoke this trust in http_shutdown_server().
+
+#    set cmd {stap --trust-servers=ssl,no-prompt --use-http-server=$systemtap_http_server_spec}
+#    verbose -log "running: [subst $cmd]"
+#    set rc [catch {eval exec $cmd} output]
+#    verbose -log "$output"
+#    if {$rc != 0} {
+#	verbose -log "Couldn't add trust in the http server"
+#	http_shutdown_server
+#	return 1
+#    }
+
+    verbose -log "Started an http server as $systemtap_http_server_pid"
+    return 0
+}
+
+proc http_shutdown_server { } {
+    global env
+    global systemtap_http_server_pid
+    global systemtap_http_server_logfile
+    global systemtap_http_server_spec
+    
+    # If we're using a remote server, just return.
+    if {[info exists env(SYSTEMTAP_HTTP_SERVER_SPEC)]} {
+	return
+    }
+
+    if {$systemtap_http_server_pid != 0} {
+	verbose -log "Stopping the systemtap http server with PID==$systemtap_http_server_pid"
+	kill -INT $systemtap_http_server_pid 5 1
+	set systemtap_http_server_pid 0
+	
+	# Delete the temporary server log file. Note that we're
+	# ignoring success or failure.
+	catch {exec rm -f $systemtap_http_server_logfile}
+    }
+    
+    # Make sure that stap can no longer find the server.
+    set waited 0
+    set rc 1
+    while { $rc == 1 && $waited < 10 } {
+	catch {exec sleep 1}
+	incr waited
+	
+	set rc 0
+	if {[catch {exec sh -c "stap --list-servers --use-http-server=$systemtap_http_server_spec 2>&1 | grep -F 'No servers found'"} output]} {
+	    # non-zero exit status, get it:
+	    if {[lindex $::errorCode 0] eq "CHILDSTATUS"} {
+		set rc [lindex $::errorCode 2]
+	    }
+	}
+    }
+    unset systemtap_http_server_spec
+
+    if {$rc == 0} {
+	verbose -log "http_shutdown_server: no http servers (after $waited tries)"
+    } else {
+	verbose -log "http_shutdown_server: warning - stap can still find a http server"
+    }
+}
