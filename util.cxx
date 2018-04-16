@@ -460,7 +460,8 @@ follow_link(const string& name, const string& sysroot)
   if (linkname)
     {
       r = readlink(f, linkname, st.st_size + 1);
-      linkname[st.st_size] = '\0';
+      if (r != -1)
+	linkname[r] = '\0';
       /*
        * If we have non-empty sysroot and we got link that
        * points to absolute path name, we need to look at
@@ -487,7 +488,8 @@ follow_link(const string& name, const string& sysroot)
 	      if (linkname)
 		{
 		  r = readlink(f1, linkname, st.st_size + 1);
-		  linkname[st.st_size] = '\0';
+		  if (r != -1)
+		    linkname[r] = '\0';
 		}
 	    }
 	  else
