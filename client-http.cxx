@@ -965,16 +965,15 @@ http_client_backend::find_and_connect_to_server ()
 int
 http_client_backend::unpack_response ()
 {
-  std::string::size_type found = http->host.find ("/builds");
-  std::string uri;
+  std::string build_uri;
   std::map<std::string, std::string>::iterator it_loc;
   it_loc = http->header_values.find("Location");
   if (it_loc == http->header_values.end())
-    clog << "Cannot get location from server" << endl;
-  if (found != std::string::npos)
-    uri = http->host.substr (0, found) + http->header_values["Location"];
-  else
-    uri = http->host + http->header_values["Location"];
+    {
+      clog << "Cannot get location from server" << endl;
+      return 1;
+    }
+  build_uri = http->host + http->header_values["Location"];
 
   if (s.verbose >= 2)
     clog << "Initial response code: " << http->get_response_code() << endl;
