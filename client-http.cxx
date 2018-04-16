@@ -308,19 +308,20 @@ http_client::get_rpmname (std::string &search_file)
     rpmReadConfigFiles (NULL, NULL);
 
     int metrics[] =
-      { RPMTAG_ARCH, RPMTAG_EVR, RPMTAG_FILENAMES, RPMTAG_NAME };
+      { RPMTAG_NAME, RPMTAG_EVR, RPMTAG_ARCH, RPMTAG_FILENAMES, };
 
     struct
     {
-      string arch;
-      string evr;
-      string filename;
       string name;
+      string evr;
+      string arch;
     } rpmhdr;
 
+    bool found = false;
     mi = rpmtsInitIterator (ts, RPMDBI_PACKAGES, NULL, 0);
     while (NULL != (hdr = rpmdbNextIterator (mi)))
       {
+	hdr = headerLink(hdr);
         for (unsigned int i = 0; i < (sizeof (metrics) / sizeof (int)); i++)
           {
             headerGet (hdr, metrics[i], td, HEADERGET_EXT);
@@ -331,47 +332,47 @@ http_client::get_rpmname (std::string &search_file)
                   const char *rpmval = rpmtdGetString (td);
                   switch (metrics[i])
                     {
-                    case RPMTAG_ARCH:
-                      rpmhdr.arch = strdup (rpmval);
-                      break;
                     case RPMTAG_NAME:
-                      rpmhdr.name = strdup (rpmval);
+                      rpmhdr.name = rpmval;
                       break;
                     case RPMTAG_EVR:
-                      rpmhdr.evr = strdup (rpmval);
+                      rpmhdr.evr = rpmval;
+		      break;
+                    case RPMTAG_ARCH:
+                      rpmhdr.arch = rpmval;
+                      break;
                     }
                   break;
                 }
               case RPM_STRING_ARRAY_TYPE:
-                {
-                  char **strings;
-                  strings = (char**)td->data;
-                  rpmhdr.filename = "";
-
-                  for (unsigned int idx = 0; idx < td->count; idx++)
-                    {
-                      if (strcmp (strings[idx], search_file.c_str()) == 0)
-                        rpmhdr.filename = strdup (strings[idx]);
-                    }
-                  free (td->data);
-                  break;
-                }
+		while (rpmtdNext(td) >= 0)
+		  {
+		    const char *rpmval = rpmtdGetString (td);
+		    if (strcmp (rpmval, search_file.c_str()) == 0)
+		      {
+			found = true;
+			break;
+		      }
+		  }
+		break;
               }
-
-            if (metrics[i] == RPMTAG_EVR && rpmhdr.filename.length())
-              {
-                rpmdbFreeIterator (mi);
-                rpmtsFree (ts);
-                return rpmhdr.name + "-" + rpmhdr.evr + "." + rpmhdr.arch;
-              }
-
+	    rpmtdFreeData (td);
             rpmtdReset (td);
-          }
+	  }
+	headerFree (hdr);
+	if (found)
+	  break;
       }
-
     rpmdbFreeIterator (mi);
     rpmtsFree (ts);
+    rpmtdFree (td);
 
+    if (found)
+      {
+	return rpmhdr.name + "-" + rpmhdr.evr + "." + rpmhdr.arch;
+      }
+
+    // There wasn't an rpm that contains SEARCH_FILE.
     return search_file;
 }
 
