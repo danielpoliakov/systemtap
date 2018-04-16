@@ -138,7 +138,7 @@ parse_cmdline(int argc, char *const argv[])
 	    cert_db_path = optarg;
 	    break;
 	  case LONG_OPT_LOG:
-	    start_log(optarg);
+	    start_log(optarg, true);
 	    break;
 	  default:
 	    break;

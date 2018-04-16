@@ -60,7 +60,7 @@ std::string add_cert_db_prefix (const std::string &db_path);
 
 void nsscommon_error (const std::string &msg, int logit = 1);
 
-void start_log (const char *arg);
+void start_log (const char *arg, bool redirect_clog = false);
 bool log_ok ();
 void log (const std::string &msg);
 void end_log ();

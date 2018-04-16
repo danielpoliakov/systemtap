@@ -105,7 +105,7 @@ nsscommon_error (const string &msg, int logit)
 static ofstream logfile;
 
 void
-start_log (const char *arg)
+start_log (const char *arg, bool redirect_clog)
 {
   if (logfile.is_open ())
     logfile.close ();
@@ -113,6 +113,8 @@ start_log (const char *arg)
   logfile.open (arg, ios_base::app);
   if (! logfile.good ())
     nsscommon_error (_F("Could not open log file %s", arg));
+  else if (redirect_clog)
+    clog.rdbuf(logfile.rdbuf());
 }
 
 bool
