@@ -670,6 +670,10 @@ location_context::translate (const Dwarf_Op *expr, const size_t len,
 	    DIE ("unhandled DW_OP_GNU_entry_value");
 	    break;
 
+	  case DW_OP_GNU_parameter_ref:
+	    DIE ("unhandled DW_OP_GNU_parameter_ref");
+	    break;
+
 	  default:
 	    DIE ("unhandled DW_OP operation");
 	    break;
