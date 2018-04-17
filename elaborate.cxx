@@ -3698,6 +3698,7 @@ struct void_statement_reducer: public update_visitor
   // all of these can (usually) be reduced into simpler statements
   void visit_binary_expression (binary_expression* e);
   void visit_unary_expression (unary_expression* e);
+  void visit_regex_query (regex_query* e); // XXX depends on subexpr extraction
   void visit_comparison (comparison* e);
   void visit_concatenation (concatenation* e);
   void visit_functioncall (functioncall* e);
@@ -3721,9 +3722,6 @@ struct void_statement_reducer: public update_visitor
   void visit_pre_crement (pre_crement* e) { provide (e); }
   void visit_post_crement (post_crement* e) { provide (e); }
   void visit_assignment (assignment* e) { provide (e); }
-
-  // XXX: could be reduced if we were smarter about detecting /* pragma: tagged_dfa */
-  void visit_regex_query (regex_query* e);
 
 private:
   void reduce_target_symbol (target_symbol* e, expression* operand=NULL);
@@ -3897,10 +3895,23 @@ void_statement_reducer::visit_unary_expression (unary_expression* e)
 void
 void_statement_reducer::visit_regex_query (regex_query* e)
 {
-  // PR22193 XXX: Because we can't easily tell if /* pragma: tagged_dfa */
-  // is present at this point, we have to assume regex matches are
-  // side-effecting and should not be elided.
-  provide(e);
+  // TODOXXX After subexpression extraction is implemented,
+  // regular expression matches *may* have side-effects in
+  // terms of producing matched subexpressions, e.g.:
+  //
+  //   str =~ "pat"; println(matched(0));
+  //
+  // It's debatable if we want to actually allow this, though.
+
+  // Treat e as a unary expression on the left operand -- since the
+  // right hand side must be a literal (as verified by the parser),
+  // evaluating it never has side effects.
+
+  if (session.verbose>2)
+    clog << _("Eliding regex query ") << *e->tok << endl;
+
+  relaxed_p = false;
+  e->left->visit(this);
 }
 
 void

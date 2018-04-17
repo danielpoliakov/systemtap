@@ -2526,18 +2526,6 @@ varuse_collecting_visitor::visit_return_statement (return_statement *s)
 
 
 void
-varuse_collecting_visitor::visit_regex_query (regex_query *e)
-{
-  // PR22193 XXX: Absent information on whether captured groups will
-  // be used, assume all regex matches are side-effecting since they
-  // can modify CONTEXT->last_match.
-  if (session.verbose>2)
-    cerr << "Marked regex query as side-effecting: " << *e->tok << endl;
-  embedded_seen = true;
-}
-
-
-void
 varuse_collecting_visitor::visit_embeddedcode (embeddedcode *s)
 {
   assert (current_function); // only they get embedded code
