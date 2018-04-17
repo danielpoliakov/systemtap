@@ -167,6 +167,11 @@ static int _stp_module_notifier (struct notifier_block * nb,
 		/* Verify build-id. */
 		_stp_kmodule_check (mod->name);
         }
+        else if (val == MODULE_STATE_GOING) {
+		/* Unregister all sections. */
+		dbug_sym(2, "unregister sections\n");
+		_stp_kmodule_update_address(mod->name, NULL, 0);
+        }
         else if (val != MODULE_STATE_GOING) {
 		return NOTIFY_DONE;
         }

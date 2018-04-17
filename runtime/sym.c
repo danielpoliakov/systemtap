@@ -1045,7 +1045,7 @@ static void _stp_kmodule_update_address(const char* module,
       if (strcmp (_stp_modules[mi]->name, module))
         continue;
 
-      if (reloc && !strcmp (note_sectname, reloc)) {
+      if (!reloc || !strcmp (note_sectname, reloc)) {
         dbug_sym(1, "module %s special section %s address %#lx\n",
                  _stp_modules[mi]->name,
                  note_sectname,
