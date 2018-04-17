@@ -492,7 +492,7 @@ struct unwind_reg_state {
 	unsigned cfa_is_expr:1;
 };
 
-struct unwind_state {
+struct uw_state {
 	uleb128_t loc;
 	uleb128_t codeAlign;
 	sleb128_t dataAlign;
@@ -503,7 +503,7 @@ struct unwind_state {
 
 struct unwind_context {
     struct unwind_frame_info info;
-    struct unwind_state state;
+    struct uw_state state;
 };
 
 static const struct cfa badCFA = { ARRAY_SIZE(reg_info), 1 };

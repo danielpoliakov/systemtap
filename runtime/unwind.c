@@ -235,7 +235,7 @@ static int parse_fde_cie(const u32 *fde, const u32 *cie,
 
 #define REG_STATE state->reg[state->stackDepth]
 
-static int advance_loc(unsigned long delta, struct unwind_state *state)
+static int advance_loc(unsigned long delta, struct uw_state *state)
 {
 	state->loc += delta * state->codeAlign;
 	dbug_unwind(1, "state->loc=%lx\n", state->loc);
@@ -244,7 +244,7 @@ static int advance_loc(unsigned long delta, struct unwind_state *state)
 
 /* Set Same or Nowhere rule for register. */
 static void set_no_state_rule(uleb128_t reg, enum item_location where,
-                              struct unwind_state *state)
+                              struct uw_state *state)
 {
 	dbug_unwind(1, "reg=%lx, where=%d\n", reg, where);
 	if (reg < ARRAY_SIZE(REG_STATE.regs)) {
@@ -254,7 +254,7 @@ static void set_no_state_rule(uleb128_t reg, enum item_location where,
 
 /* Memory or Value rule */
 static void set_offset_rule(uleb128_t reg, enum item_location where,
-                            sleb128_t svalue, struct unwind_state *state)
+                            sleb128_t svalue, struct uw_state *state)
 {
 	dbug_unwind(1, "reg=%lx, where=%d, svalue=%lx\n", reg, where, svalue);
 	if (reg < ARRAY_SIZE(REG_STATE.regs)) {
@@ -265,7 +265,7 @@ static void set_offset_rule(uleb128_t reg, enum item_location where,
 
 /* Register rule. */
 static void set_register_rule(uleb128_t reg, uleb128_t value,
-                              struct unwind_state *state)
+                              struct uw_state *state)
 {
 	dbug_unwind(1, "reg=%lx, value=%lx\n", reg, value);
 	if (reg < ARRAY_SIZE(REG_STATE.regs)) {
@@ -277,7 +277,7 @@ static void set_register_rule(uleb128_t reg, uleb128_t value,
 /* Expr or ValExpr rule. */
 static void set_expr_rule(uleb128_t reg, enum item_location where,
 			  const u8 **expr, const u8 *end,
-			  struct unwind_state *state)
+			  struct uw_state *state)
 {
 	const u8 *const start = *expr;
 	uleb128_t len = get_uleb128(expr, end);
@@ -296,7 +296,7 @@ static void set_expr_rule(uleb128_t reg, enum item_location where,
 #define MAX_CFI 512
 
 static int processCFI(const u8 *start, const u8 *end, unsigned long targetLoc,
-		      signed ptrType, int user, struct unwind_state *state, int compat_task)
+		      signed ptrType, int user, struct uw_state *state, int compat_task)
 {
 	union {
 		const u8 *p8;
@@ -1169,7 +1169,7 @@ static int unwind_frame(struct unwind_context *context,
 	unsigned i;
 	signed ptrType = -1, call_frame = 1;
 	uleb128_t retAddrReg = 0;
-	struct unwind_state *state = &context->state;
+	struct uw_state *state = &context->state;
 	unsigned long addr;
 
 	if (unlikely(table_len == 0)) {

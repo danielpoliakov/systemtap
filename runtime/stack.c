@@ -43,7 +43,11 @@
 #include <asm/stacktrace.h>
 #endif
 
-static void _stp_stack_print_fallback(unsigned long, int, int, int);
+#if defined(STAPCONF_KERNEL_UNWIND_STACK)
+#include <asm/unwind.h>
+#endif
+
+static void _stp_stack_print_fallback(unsigned long, struct pt_regs*, int, int, int);
 
 #ifdef STP_USE_DWARF_UNWINDER
 #ifdef STAPCONF_LINUX_UACCESS_H
@@ -128,7 +132,7 @@ static const struct stacktrace_ops print_stack_ops = {
 };
 
 /* Used for kernel backtrace printing when other mechanisms fail. */
-static void _stp_stack_print_fallback(unsigned long stack,
+static void _stp_stack_print_fallback(unsigned long stack, struct pt_regs *regs,
 				      int sym_flags, int levels, int skip)
 {
         struct print_stack_data print_data;
@@ -136,20 +140,55 @@ static void _stp_stack_print_fallback(unsigned long stack,
         print_data.levels = levels;
         print_data.skip = skip;
 #if defined(STAPCONF_KERNEL_STACKTRACE)
+        dbug_unwind(1, "fallback kernel stacktrace\n");
         dump_trace(current, NULL, (long *)stack, 0, &print_stack_ops,
                    &print_data);
 #else
 	/* STAPCONF_KERNEL_STACKTRACE_NO_BP */
+        dbug_unwind(1, "fallback kernel stacktrace (no bp)\n");
         dump_trace(current, NULL, (long *)stack, &print_stack_ops,
                    &print_data);
 #endif
 }
 #else
-static void _stp_stack_print_fallback(unsigned long s, int v, int l, int k) {
+#if defined(STAPCONF_KERNEL_UNWIND_STACK)
+static void _stp_stack_print_fallback(unsigned long sp, struct pt_regs *regs,
+				      int sym_flags,
+				      int levels, int skip) {
+	struct unwind_state state;
+	unwind_start (&state, current, regs, (unsigned long *) sp);
+	dbug_unwind(1, "fallback kernel stacktrace (unwind)\n");
+	while (levels > 0 && ! unwind_done (&state))
+	  {
+	    if (skip == 0)
+	      {
+		unsigned long addr = unwind_get_return_address (&state);
+		/* When we have frame pointers, the unwind addresses can be
+		   (mostly) trusted, otherwise it is all guesswork.  */
+#ifdef CONFIG_FRAME_POINTER
+		_stp_print_addr(addr, sym_flags, NULL);
+#else
+		_stp_print_addr(addr, sym_flags | _STP_SYM_INEXACT, NULL);
+#endif
+		if (addr == 0)
+		  break;
+		levels--;
+	      }
+	    else
+	      {
+		dbug_unwind(1, "skipping frame\n");
+	        skip--;
+	      }
+	    unwind_next_frame(&state);
+	  }
+}
+#else /* no new unwind */
+static void _stp_stack_print_fallback(unsigned long s, struct pt_regs *r, int v, int l, int k) {
 	/* Don't guess, just give up. */
+        dbug_unwind(1, "no fallback kernel stacktrace (giving up)\n");
 	_stp_print_addr(0, v | _STP_SYM_INEXACT, NULL);
 }
-
+#endif /* new unwind */
 #endif /* defined(STAPCONF_KERNEL_STACKTRACE) || defined(STAPCONF_KERNEL_STACKTRACE_NO_BP) */
 
 
@@ -382,6 +421,7 @@ static void _stp_stack_kernel_print(struct context *c, int sym_flags)
 		if (l == 0) {
 			remaining = MAXBACKTRACE - n;
 			_stp_stack_print_fallback(UNW_SP(&c->uwcontext_kernel.info),
+						  &c->uwcontext_kernel.info.regs,
 						  sym_flags, remaining, 0);
 			break;
 		} else {
@@ -408,7 +448,7 @@ static void _stp_stack_kernel_print(struct context *c, int sym_flags)
 		sp = 0;
 		skip = 5; /* yes, that many framework frames. */
 #endif
-		_stp_stack_print_fallback(sp, sym_flags,
+		_stp_stack_print_fallback(sp, NULL, sym_flags,
 					  MAXBACKTRACE, skip);
 #else
 		if (sym_flags & _STP_SYM_SYMBOL)
