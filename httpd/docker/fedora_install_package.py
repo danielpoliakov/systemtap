@@ -108,13 +108,18 @@ class PkgSystem(object):
             return 0
 
         # Now we know the build id exists. But, does it point to the
-        # correct file?
+        # correct file? Note that we're comparing basenames here. Why?
+        # (1) The kernel doesn't really have a "path". (2)
+        # "/usr/bin/FOO" is really the same file as "/bin/FOO"
+        # (UsrMove feature).
         sym_target = os.path.basename(os.readlink(build_id_path))
         if name == 'kernel':
             name = 'vmlinux'
+        else:
+            name = os.path.basename(name)
         if sym_target != name:
             if self.__verbose:
-                print("Build id %s doesn't match '%s'." % build_id, name)
+                print("Build id %s doesn't match '%s'." % (build_id, name))
             return 0
         return 1
 
