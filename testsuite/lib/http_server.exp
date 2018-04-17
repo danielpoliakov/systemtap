@@ -85,6 +85,11 @@ proc as_root_with_output { command {background 0} } {
     return [list $rc $output]
 }
 
+# Starts a http server on the local system. Note that if you want to
+# test a remote server, you can set the 'SYSTEMTAP_HTTP_SERVER_SPEC'
+# environment variable. The command would look something like:
+#   SYSTEMTAP_HTTP_SERVER_SPEC=host.redhat.com:1234 make installcheck \
+#     RUNTESTFLAGS=http_server.exp
 proc http_start_server { } {
     global env systemtap_http_server_pid
     global systemtap_http_server_logfile
