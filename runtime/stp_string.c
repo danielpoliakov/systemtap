@@ -154,6 +154,14 @@ static int _stp_text_str(char *outstr, const char *in, int inlen, int outlen,
 {
 	int c = 0;
 	char *out = outstr;
+        char *outorig = outstr;
+
+        /* Points to the beginning of out's first escape sequence that could
+         * be cut off by truncation. Remains NULL if no such escape sequence
+         * has been found. */
+        char *esc = NULL;
+        /* Length of the escape sequence pointed to by esc */
+        int len = 0;
 
 	if (inlen <= 0 || inlen > MAXSTRINGLEN-1)
 		inlen = MAXSTRINGLEN-1;
@@ -179,8 +187,12 @@ static int _stp_text_str(char *outstr, const char *in, int inlen, int outlen,
 			/* UTF-8, print \uXXXX or \UXXXXXXXX */
 			int i;
 			num = (c <= 0xFFFF) ? 6 : 10;
+
 			if (outlen < num)
 				break;
+
+			if (!esc && outlen - 3 < num)
+				esc = out, len = num;
 
 			*out++ = '\\';
 			*out++ = (c <= 0xFFFF) ? 'u' : 'U';
@@ -214,6 +226,9 @@ static int _stp_text_str(char *outstr, const char *in, int inlen, int outlen,
 			
 			if (outlen < num)
 				break;
+
+			if (!esc && outlen - 3 < num)
+				esc = out, len = num;
 
 			*out++ = '\\';
 			switch (c) {
@@ -259,13 +274,23 @@ static int _stp_text_str(char *outstr, const char *in, int inlen, int outlen,
 
 	if (quoted) {
 		if (c && inlen > 0) {
-			out = out - 3 + outlen;
+                        char *truncptr = out - 3 + outlen;
+
+                        /* If truncating at truncptr would cut off part of an
+                         * escape sequence, then adjust truncptr so that the
+                         * entire sequence is removed instead. */
+			if (esc && esc < truncptr && truncptr < esc + len)
+				out = esc;
+			else
+				out = truncptr;
+
 			*out++ = '"';
 			*out++ = '.';
 			*out++ = '.';
 			*out++ = '.';
 		} else
 			*out++ = '"';
+
 	}
 	*out = '\0';
 	return 0;
