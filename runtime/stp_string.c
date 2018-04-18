@@ -154,7 +154,6 @@ static int _stp_text_str(char *outstr, const char *in, int inlen, int outlen,
 {
 	int c = 0;
 	char *out = outstr;
-        char *outorig = outstr;
 
         /* Points to the beginning of out's first escape sequence that could
          * be cut off by truncation. Remains NULL if no such escape sequence
