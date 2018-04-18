@@ -724,9 +724,14 @@ adjustStartLoc (unsigned long startLoc,
   dbug_unwind(2, "adjustStartLoc=%lx, ptrType=%s, m=%s, s=%s eh=%d\n",
 	      startLoc, _stp_eh_enc_name(ptrType), m->path, s->name, is_ehframe);
   if (startLoc == 0
-      || strcmp (m->name, "kernel")  == 0
       || (strcmp (s->name, ".absolute") == 0 && !is_ehframe))
     return startLoc;
+
+  /* The .debug_frame loaded from disk is already relocated against the
+     expected load offset of the kernel, but the actual static (load)
+     address might be different (with kaslr).  */
+  if (strcmp (m->name, "kernel") == 0)
+    return startLoc - s->sec_load_offset + s->static_addr;
 
   /* eh_frame data has been loaded in the kernel, so readjust offset. */
   if (is_ehframe) {
