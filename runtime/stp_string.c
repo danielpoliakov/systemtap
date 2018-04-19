@@ -160,7 +160,7 @@ static int _stp_text_str(char *outstr, const char *in, int inlen, int outlen,
          * has been found. */
         char *esc = NULL;
         /* Length of the escape sequence pointed to by esc */
-        int len = 0;
+        int esc_len = 0;
 
 	if (inlen <= 0 || inlen > MAXSTRINGLEN-1)
 		inlen = MAXSTRINGLEN-1;
@@ -187,11 +187,11 @@ static int _stp_text_str(char *outstr, const char *in, int inlen, int outlen,
 			int i;
 			num = (c <= 0xFFFF) ? 6 : 10;
 
+			if (!esc && outlen - 3 < num)
+				esc = out, esc_len = num;
+
 			if (outlen < num)
 				break;
-
-			if (!esc && outlen - 3 < num)
-				esc = out, len = num;
 
 			*out++ = '\\';
 			*out++ = (c <= 0xFFFF) ? 'u' : 'U';
@@ -222,12 +222,12 @@ static int _stp_text_str(char *outstr, const char *in, int inlen, int outlen,
 				num = 4; // "\ooo"
 				break;
 			}
-			
-			if (outlen < num)
-				break;
 
 			if (!esc && outlen - 3 < num)
-				esc = out, len = num;
+				esc = out, esc_len = num;
+
+			if (outlen < num)
+				break;
 
 			*out++ = '\\';
 			switch (c) {
@@ -278,7 +278,7 @@ static int _stp_text_str(char *outstr, const char *in, int inlen, int outlen,
                         /* If truncating at truncptr would cut off part of an
                          * escape sequence, then adjust truncptr so that the
                          * entire sequence is removed instead. */
-			if (esc && esc < truncptr && truncptr < esc + len)
+			if (esc && esc < truncptr && truncptr < esc + esc_len)
 				out = esc;
 			else
 				out = truncptr;
