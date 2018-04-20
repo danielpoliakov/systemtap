@@ -13,6 +13,7 @@ if {! [info exists env(SYSTEMTAP_TESTAPPS)] || (
 
 ########## Create stap-mysql.stp ########## 
 set msdata "[pwd]/stap-mysql"
+set mysqlmajorrelease "5.6"
 set mysqlrelease "mysql-5.6.26"
 set mysqldir "[pwd]/mysql/install/"
 set testsuite "[pwd]"
@@ -259,6 +260,7 @@ done
 for i in select join insert query
 do
   echo '##### ' \$i
+  export PERL5LIB=$mysqldir/mysql-test
   ./mysql-test-run.pl --force --extern socket=$msdata/mysql.sock \
     --tmpdir=/tmp/,mysql --vardir=/tmp/,mysql  --do-test=\$i
 done > $testsuite/stap-mysql.log
@@ -282,6 +284,7 @@ else
    echo FAIL: mysql markers \$1
 fi
 
+#  Do not assume that all the mysql tests passed
 if \[ \$OKAY -eq 4 \] ; then
    echo PASS: mysql tests \$1
 else
@@ -299,8 +302,9 @@ kill -9 $testsuite/stap-mysql/mysql.pid
 ##### end run_tests #####
 
 if \[ ! -r $mysqlrelease.tar.gz \] ; then
-wget -q http://downloads.mysql.com/archives/mysql-5.6/$mysqlrelease.tar.gz
-
+wget -q https://github.com/mysql/mysql-server/archive/$mysqlmajorrelease.tar.gz
+# wget -q http://downloads.mysql.com/archives/mysql-5.6/$mysqlrelease.tar.gz
+mv $mysqlmajorrelease.tar.gz $mysqlrelease.tar.gz
 fi
 if \[ ! -r $mysqlrelease.tar.gz \] ; then
    echo FAIL: wget $mysqlrelease.tar.gz
@@ -311,13 +315,14 @@ fi
 if \[ ! -d mysql/src \] ; then
 tar -x -z -f $mysqlrelease.tar.gz
 mkdir mysql
-mv $mysqlrelease mysql/src
+# mv $mysqlrelease mysql/src
+mv mysql-server-$mysqlmajorrelease mysql/src
 fi
 
 if \[ ! -d mysql/bld \] ; then
 mkdir -p mysql/bld
 cd mysql/bld
-cmake ../src/ -DENABLE_DTRACE=1 -DCMAKE_INSTALL_PREFIX=$mysqldir
+cmake ../src/ -DENABLE_DTRACE=1 -DCMAKE_INSTALL_PREFIX=$mysqldir -DCMAKE_CXX_FLAGS='-Wall -Wextra -Wformat-security -Wvla -Woverloaded-virtual -Wno-unused-parameter -fpermissive'
 for i in \$(find . -name Makefile) ; do 
     sed -i -e 's|^CXXFLAGS =|& -g -I $env(SYSTEMTAP_INCLUDES)|' \$i
     sed -i -e 's|^CFLAGS =|& -g -I $env(SYSTEMTAP_INCLUDES)|' \$i
@@ -348,8 +353,9 @@ close $fp
 ########## stap-mysql.sh does most of the work ########## 
 verbose -log Running mysql testsuite
 spawn sh stap-mysql.sh 2>&1
+# The mysql testsuite takes quite a while to complete
 expect {
-    -timeout 1000
+    -timeout 3600
     -re {PASS: [a-z_ ]+} { regexp " .*$" $expect_out(0,string) s; 
 	pass "$s"; exp_continue }
     -re {XFAIL: [a-z_ ]+} { regexp " .*$" $expect_out(0,string) s; 

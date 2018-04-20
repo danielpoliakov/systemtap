@@ -82,7 +82,8 @@ fi
 ##### end run_tests #####
 
 if \[ ! -r xulrunner-$xulrelease.source.tar.xz \] ; then
-wget -q http://ftp.mozilla.org/pub/mozilla.org/xulrunner/releases/latest/source/xulrunner-$xulrelease.source.tar.xz
+wget -q http://ftp.mozilla.org/pub/xulrunner/releases/$xulrelease/source/xulrunner-$xulrelease.source.tar.xz
+# wget -q http://ftp.mozilla.org/pub/mozilla.org/xulrunner/releases/latest/source/xulrunner-$xulrelease.source.tar.xz
 fi
 if \[ ! -r xulrunner-$xulrelease.source.tar.xz \] ; then
    echo UNTESTED: wget xulrunner-$xulrelease.source.tar.xz
@@ -111,8 +112,9 @@ CXXFLAGS='-g -I$env(SYSTEMTAP_INCLUDES)' \
 CFLAGS='-g -I$env(SYSTEMTAP_INCLUDES)' \
 PATH=$env(SYSTEMTAP_PATH)/:\$PATH \
 ../src/configure --prefix=$xuldir --enable-dtrace \
---enable-application=xulrunner \
---disable-necko-wifi
+--enable-application=xulrunner --disable-necko-wifi --disable-gconf \
+--disable-dbus --disable-alsa --disable-pulseaudio --disable-webm --without-intl-api
+
 if \[ \$\? -eq 0 \] ; then true ; else
    # configure failure possibly due to gtk+-2.0 requirement
    echo UNTESTED: xulrunner configure failed
