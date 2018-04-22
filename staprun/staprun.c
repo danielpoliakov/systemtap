@@ -334,6 +334,54 @@ void disable_kprobes_optimization()
 }
 
 
+/* BZ1552745: /proc/sys/kernel/kptr_restrict makes /sys/module
+   ... addresses unreliable on 2018+ kernels.  circumstances.  We
+   tweak this security measure (setting it to '1'), unless told
+   otherwise by an environment variable.  We could turn it back later,
+   but this would create a race condition between concurrent runs of
+   staprun.  The '1' setting is nominally more secure than the default
+   '0', except that for /sys/module/$MODULE/sections/$SECTION the '0'
+   case produces obfuscated 0-based pointers, and '1' produces good
+   ones (to a root user).  Strange but true.
+*/
+void tweak_kptr_restrict()
+{
+        const char* proc_kptr = "/proc/sys/kernel/kptr_restrict";
+        char prev;
+        int rc, fd;
+        struct utsname uts;
+
+        /* Relevant change appears to have been introduced in v4.15 in
+         * commit ef0010a30935de4e0211. */
+        if ((uname (&uts) == 0) && (strverscmp (uts.release, "4.15") < 0))
+                return;
+
+        if (getenv ("STAP_BZ1552745_OVERRIDE"))
+                return;
+
+        /* See the initial state; if it's already set, we do nothing. */
+        fd = open (proc_kptr, O_RDONLY);
+        if (fd < 0) 
+                return;
+        rc = read (fd, &prev, sizeof(prev));
+        (void) close (fd);
+        if (rc < 1 || prev == '1') /* Already set or unavailable */
+                return;
+
+        fd = open (proc_kptr, O_WRONLY);
+        if (fd < 0) 
+                return;
+        prev = '1'; /* really, next */
+        rc = write (fd, &prev, sizeof(prev));
+        (void) close (fd);
+        if (rc == 1)
+                dbug(1, "Set %s.\n", proc_kptr);
+        else
+                dbug(1, "Error %d/%d setting %s.\n", rc, errno, proc_kptr);
+}
+
+
+
 int init_staprun(void)
 {
 	privilege_t user_credentials = pr_unknown;
@@ -698,6 +746,9 @@ int send_relocation_modules ()
 int send_relocations ()
 {
   int rc;
+
+  tweak_kptr_restrict();
+  
   rc = send_relocation_kernel ();
   if (rc == 0)
     rc = send_relocation_modules ();
