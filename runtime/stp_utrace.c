@@ -107,6 +107,11 @@ static struct hlist_head task_utrace_table[TASK_UTRACE_TABLE_SIZE];
 //DEFINE_MUTEX(task_utrace_mutex);      /* Protects task_utrace_table */
 static STP_DEFINE_SPINLOCK(task_utrace_lock); /* Protects task_utrace_table */
 
+/* Temporary storage for utrace structures that utrace_exit() has removed
+   from task_utrace_table prior to cleaning them up: */
+static HLIST_HEAD(utrace_cleanup_list);
+static DEFINE_SPINLOCK(utrace_cleanup_lock); /* Protects utrace_cleanup_list */
+
 /* Tracepoint reporting is delayed using task_work structures stored
    in the following linked list: */
 static LIST_HEAD(__stp_utrace_task_work_list);
@@ -465,19 +470,33 @@ static int utrace_exit(void)
 	 * to be run. So, now would be a great time to actually free
 	 * everything. */
 
+	/* Since utrace->lock is an ordinary spinlock, we cannot
+           grab it within a task_utrace_lock section. Likewise,
+           on kernel-RT we can no longer do memory management in
+           a raw_spinlock section. So we dump utrace structures
+           to a separate hlist before freeing them: */
 #ifdef STP_TF_DEBUG
 	printk(KERN_ERR "%s:%d - freeing task-specific\n", __FUNCTION__, __LINE__);
 #endif
+	spin_lock(&utrace_cleanup_lock);
 	stp_spin_lock(&task_utrace_lock);
 	for (i = 0; i < TASK_UTRACE_TABLE_SIZE; i++) {
 		head = &task_utrace_table[i];
 		stap_hlist_for_each_entry_safe(utrace, node, node2, head,
 					       hlist) {
 			hlist_del(&utrace->hlist);
-			utrace_cleanup(utrace);
+			INIT_HLIST_NODE(&utrace->hlist);
+			hlist_add_head(&utrace->hlist, &utrace_cleanup_list);
 		}
 	}
 	stp_spin_unlock(&task_utrace_lock);
+
+	stap_hlist_for_each_entry_safe(utrace, node, node2, &utrace_cleanup_list,
+				       hlist) {
+		hlist_del(&utrace->hlist);
+		utrace_cleanup(utrace);
+	}
+	spin_unlock(&utrace_cleanup_lock);
 
 	/* Likewise, free any task_work_list item(s). */
 	stp_spin_lock_irqsave(&__stp_utrace_task_work_list_lock, flags);
@@ -532,13 +551,15 @@ stp_task_notify_resume(struct task_struct *target, struct utrace *utrace)
 /*
  * Clean up everything associated with @task.utrace.
  *
- * This routine must be called under the task_utrace_lock.
+ * This routine must be called under the utrace_cleanup_lock.
  */
 static void utrace_cleanup(struct utrace *utrace)
 {
 	struct utrace_engine *engine, *next;
 
-	lockdep_assert_held(&task_utrace_lock);
+	/* We used to require task_utrace_lock here, but none of the
+	 * actual cleanup work seems to need it. */
+	lockdep_assert_held(&utrace_cleanup_lock);
 
 	/* Free engines associated with the struct utrace, starting
 	 * with the 'attached' list then doing the 'attaching' list. */
