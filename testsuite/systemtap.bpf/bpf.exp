@@ -92,10 +92,21 @@ proc get_output_str { test } {
     return $res
 } 
 
+
 foreach file [lsort [glob -nocomplain $testdir/*.stp]] {
+    global mypid
+    set mypid 0
     set test [file tail $file]
     if {! [installtest_p]} { untested $test; continue }
     if {! [bpf_p]} { untested $test; continue }
+
+    # create a process for the tests that require one
+    switch $test {
+        uprobes.stp {
+            eval spawn /usr/bin/sleep 20
+            set mypid [exp_pid -i $spawn_id]
+        }
+    }
 
     set output_str [get_output_str $test]
     verbose -log "Running $file"
@@ -110,6 +121,12 @@ foreach file [lsort [glob -nocomplain $testdir/*.stp]] {
         7 { fail "$test invalid bpf program" }
         8 { fail "$test compilation" }
         default { fail "$test unknown return value" }
+    }
+
+    if { $mypid > 0 } {
+        kill -INT -$mypid 3
+        catch close
+        wait
     }
 }
 

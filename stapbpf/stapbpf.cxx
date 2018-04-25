@@ -90,6 +90,7 @@ static Elf_Data *prog_end;
 
 #define DEBUGFS		"/sys/kernel/debug/tracing/"
 #define KPROBE_EVENTS	DEBUGFS "kprobe_events"
+#define UPROBE_EVENTS   DEBUGFS "uprobe_events"
 #define EVENTS          DEBUGFS "events"
 
 static void unregister_kprobes(const size_t nprobes);
@@ -104,6 +105,22 @@ struct kprobe_data
 
   kprobe_data(char t, string s, int fd)
     : args(s), type(t), prog_fd(fd), event_id(-1), event_fd(-1)
+  { }
+};
+
+struct uprobe_data
+{
+  string path;
+  char type;
+  int pid;
+  uint64_t offset;
+  int prog_fd;
+  int event_id;
+  int event_fd;
+
+  uprobe_data(string path, char t, int pid, uint64_t off, int fd)
+    : path(path), type(t), pid(pid), offset(off), prog_fd(fd),
+      event_id(-1), event_fd(-1)
   { }
 };
 
@@ -150,6 +167,7 @@ static std::vector<kprobe_data> kprobes;
 static std::vector<timer_data> timers;
 static std::vector<perf_data> perf_probes;
 static std::vector<trace_data> tracepoint_probes;
+static std::vector<uprobe_data> uprobes;
 
 static void __attribute__((noreturn))
 fatal(const char *str, ...)
@@ -223,6 +241,8 @@ prog_load(Elf_Data *data, const char *name)
   if (strncmp(name, "kprobe", 6) == 0)
     prog_type = BPF_PROG_TYPE_KPROBE;
   else if (strncmp(name, "kretprobe", 9) == 0)
+    prog_type = BPF_PROG_TYPE_KPROBE;
+  else if (strncmp(name, "uprobe", 6) == 0)
     prog_type = BPF_PROG_TYPE_KPROBE;
   else if (strncmp(name, "timer", 5) == 0)
     prog_type = BPF_PROG_TYPE_PERF_EVENT;
@@ -368,6 +388,29 @@ maybe_collect_kprobe(const char *name, unsigned name_idx,
 }
 
 static void
+collect_uprobe(const char *name, unsigned name_idx, unsigned fd_idx)
+{
+  char type = '\0';
+  int pid = -1;
+  uint64_t off = 0;
+  char path[PATH_MAX];
+
+  int res = sscanf(name, "uprobe/%c/%d/%lu%s", &type, &pid, &off, path);
+
+  if (!pid)
+    pid = -1; // indicates to perf_event_open that we're tracing all processes
+
+  if (res != 4)
+    fatal("unable to parse name of probe %u section %u\n", name_idx, fd_idx);
+
+  int fd = -1;
+  if (fd_idx >= prog_fds.size() || (fd = prog_fds[fd_idx]) < 0)
+    fatal("probe %u section %u not loaded\n", name_idx, fd_idx);
+
+  uprobes.push_back(uprobe_data(std::string(path), type, pid, off, fd));
+}
+
+static void
 collect_perf(const char *name, unsigned name_idx, unsigned fd_idx)
 {
   char has_freq;
@@ -443,6 +486,152 @@ kprobe_collect_from_syms(Elf_Data *sym_data, Elf_Data *str_data)
 	fatal("symbol %u has invalid string index\n", i);
       maybe_collect_kprobe(name, i, syms[i].st_shndx, syms[i].st_value);
     }
+}
+
+static void
+unregister_uprobes(const size_t nprobes)
+{
+   if (nprobes == 0)
+    return;
+
+  int fd = open(DEBUGFS "uprobe_events", O_WRONLY);
+  if (fd < 0)
+    return;
+
+
+  const int pid = getpid();
+  for (size_t i = 0; i < nprobes; ++i)
+    {
+      close(uprobes[i].event_fd);
+
+      char msgbuf[128];
+      ssize_t olen = snprintf(msgbuf, sizeof(msgbuf), "-:stapprobe_%d_%zu",
+			      pid, i);
+      ssize_t wlen = write(fd, msgbuf, olen);
+      if (wlen < 0)
+	fprintf(stderr, "Error removing probe %zu: %s\n",
+		i, strerror(errno));
+    }
+  close(fd);
+}
+
+static void
+register_uprobes()
+{
+  size_t nprobes = uprobes.size();
+  if (nprobes == 0)
+    return;
+
+  int fd = open(UPROBE_EVENTS, O_WRONLY);
+  if (fd < 0)
+    fatal("Error opening %s: %s\n", UPROBE_EVENTS, strerror(errno));
+
+  const int pid = getpid();
+
+  for (size_t i = 0; i < nprobes; ++i)
+    {
+      uprobe_data &u = uprobes[i];
+      char msgbuf[PATH_MAX];
+
+      ssize_t olen = snprintf(msgbuf, sizeof(msgbuf), "%c:stapprobe_%d_%zu %s:0x%lx",
+			      u.type, pid, i, u.path.c_str(), u.offset);
+      if ((size_t)olen >= sizeof(msgbuf))
+	{
+	  fprintf(stderr, "Buffer overflow creating probe %zu\n", i);
+	  if (i == 0)
+	    goto fail_0;
+	  nprobes = i - 1;
+	  goto fail_n;
+	}
+
+      if (log_level > 1)
+        fprintf(stderr, "Associating probe %zu with uprobe %s\n", i, msgbuf);
+
+      ssize_t wlen = write(fd, msgbuf, olen);
+      if (wlen != olen)
+	{
+	  fprintf(stderr, "Error creating probe %zu: %s\n",
+		  i, strerror(errno));
+	  if (i == 0)
+	    goto fail_0;
+	  nprobes = i - 1;
+	  goto fail_n;
+	}
+    }
+  close(fd);
+
+  for (size_t i = 0; i < nprobes; ++i)
+    {
+      char fnbuf[PATH_MAX];
+      ssize_t len = snprintf(fnbuf, sizeof(fnbuf),
+			     DEBUGFS "events/uprobes/stapprobe_%d_%zu/id", pid, i);
+      if ((size_t)len >= sizeof(bpf_log_buf))
+	{
+	  fprintf(stderr, "Buffer overflow creating probe %zu\n", i);
+	  goto fail_n;
+	}
+
+      fd = open(fnbuf, O_RDONLY);
+      if (fd < 0)
+	{
+	  fprintf(stderr, "Error opening probe event id %zu: %s\n",
+		  i, strerror(errno));
+	  goto fail_n;
+	}
+
+      char msgbuf[128];
+      len = read(fd, msgbuf, sizeof(msgbuf) - 1);
+      if (len < 0)
+	{
+	  fprintf(stderr, "Error reading probe event id %zu: %s\n",
+		  i, strerror(errno));
+	  goto fail_n;
+	}
+      close(fd);
+
+      msgbuf[len] = 0;
+      uprobes[i].event_id = atoi(msgbuf);
+    }
+
+  // ??? Iterate to enable on all cpus, each with a different group_fd.
+  {
+    perf_event_attr peattr;
+
+    memset(&peattr, 0, sizeof(peattr));
+    peattr.size = sizeof(peattr);
+    peattr.type = PERF_TYPE_TRACEPOINT;
+    peattr.sample_type = PERF_SAMPLE_RAW;
+    peattr.sample_period = 1;
+    peattr.wakeup_events = 1;
+
+    for (size_t i = 0; i < nprobes; ++i)
+      {
+	uprobe_data &u = uprobes[i];
+        peattr.config = u.event_id;
+
+        fd = perf_event_open(&peattr, u.pid, 0, -1, 0);
+        if (fd < 0)
+	  {
+	    fprintf(stderr, "Error opening probe id %zu: %s\n",
+		    i, strerror(errno));
+	    goto fail_n;
+	  }
+        u.event_fd = fd;
+
+        if (ioctl(fd, PERF_EVENT_IOC_SET_BPF, u.prog_fd) < 0)
+	  {
+	    fprintf(stderr, "Error installing bpf for probe id %zu: %s\n",
+		    i, strerror(errno));
+	    goto fail_n;
+	  }
+      }
+  }
+  return;
+
+ fail_n:
+  unregister_uprobes(nprobes);
+ fail_0:
+  exit(1);
 }
 
 static void
@@ -993,6 +1182,8 @@ load_bpf_file(const char *module)
 
   // Record all other probes
   for (unsigned i = 1; i < shnum; ++i) {
+    if (strncmp(sh_name[i], "uprobe", 6) == 0)
+      collect_uprobe(sh_name[i], i, i);
     if (strncmp(sh_name[i], "trace", 5) == 0)
       collect_tracepoint(sh_name[i], i, i);
     if (strncmp(sh_name[i], "perf", 4) == 0)
@@ -1167,6 +1358,7 @@ main(int argc, char **argv)
     fatal("Error creating perf event group: %s\n", strerror(errno));
 
   register_kprobes();
+  register_uprobes();
   register_timers();
   register_tracepoints();
   register_perf();
@@ -1194,6 +1386,7 @@ main(int argc, char **argv)
 
   // Unregister all probes.
   unregister_kprobes(kprobes.size());
+  unregister_uprobes(uprobes.size());
   unregister_timers(timers.size());
   unregister_perf(perf_probes.size());
   unregister_tracepoints(tracepoint_probes.size());

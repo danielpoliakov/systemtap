@@ -635,6 +635,7 @@ struct uprobe_derived_probe: public dwarf_derived_probe
   void getargs(std::list<std::string> &arg_set) const;
   void saveargs(int nargs);
   void emit_perf_read_handler(systemtap_session& s, unsigned i);
+
 private:
   list<string> args;
 };
@@ -9069,6 +9070,9 @@ public:
   // workqueue manipulation is safe in uprobes
   bool otf_safe_context (systemtap_session& s)
     { return otf_supported(s); }
+
+  friend bool sort_for_bpf(uprobe_derived_probe_group *upg,
+                           sort_for_bpf_probe_arg_vector &v);
 };
 
 
@@ -9879,6 +9883,36 @@ uprobe_derived_probe_group::emit_module_exit (systemtap_session& s)
     emit_module_utrace_exit (s);
 }
 
+bool
+sort_for_bpf(uprobe_derived_probe_group *upg, sort_for_bpf_probe_arg_vector &v)
+{
+  if (!upg)
+    return false;
+
+  for (auto i = upg->probes.begin(); i != upg->probes.end(); ++i)
+    {
+      uprobe_derived_probe *p = *i;
+
+      if (p->module.empty())
+        throw SEMANTIC_ERROR(_("binary path required for BPF runtime"), p->tok);
+
+      if (p->has_library)
+        throw SEMANTIC_ERROR(_("probe not compatible with BPF runtime"), p->tok);
+
+      std::stringstream o;
+
+      // format of section name: uprobe/<type>/<pid>/<offset><binary path>
+      o << "uprobe/"
+        << (p->has_return ? "r" : "p") << "/"
+        << p->pid << "/"
+        << p->addr
+        << p->module;
+
+      v.push_back(std::pair<derived_probe *, std::string>(p, o.str()));
+    }
+
+  return true;
+}
 
 // ------------------------------------------------------------------------
 // Dwarfless kprobe derived probes

@@ -1,0 +1,21 @@
+global f1, f2
+probe begin {
+	printf("BEGIN\n")
+}
+
+// called by testsuite
+probe process("/usr/bin/sleep").function("_fini") {
+	f1 = 1
+}
+
+probe process("/usr/bin/sleep").function("_fini").return {
+	f2 = 1
+	exit()
+}
+
+probe end {
+	if (f1 && f2)
+		printf("END PASS\n")
+	else
+		printf("END FAIL\n")
+}

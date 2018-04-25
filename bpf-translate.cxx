@@ -2519,6 +2519,21 @@ translate_bpf_pass (systemtap_session& s)
             }
         }
 
+      if (s.uprobe_derived_probes)
+        {
+          sort_for_bpf_probe_arg_vector uprobe_v;
+          sort_for_bpf(s.uprobe_derived_probes, uprobe_v);
+
+          for (auto i = uprobe_v.begin(); i != uprobe_v.end(); ++i)
+            {
+              t = i->first->tok;
+              program p;
+              translate_probe(p, glob, i->first);
+              p.generate();
+              output_probe(eo, p, i->second, SHF_ALLOC);
+            }
+        }
+
       output_kernel_version(eo, s.kernel_base_release);
       output_license(eo);
       output_symbols_sections(eo);

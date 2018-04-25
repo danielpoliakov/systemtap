@@ -35,6 +35,7 @@ bool sort_for_bpf(be_derived_probe_group *,
 		  std::vector<derived_probe *> &end_v);
 
 struct generic_kprobe_derived_probe_group;
+struct uprobe_derived_probe_group;
 struct perf_derived_probe_group;
 struct hrtimer_derived_probe_group;
 struct timer_derived_probe_group;
@@ -51,6 +52,8 @@ bool sort_for_bpf(hrtimer_derived_probe_group *hr,
 bool sort_for_bpf(perf_derived_probe_group *pg,
                   sort_for_bpf_probe_arg_vector &v);
 bool sort_for_bpf(tracepoint_derived_probe_group *t,
+                  sort_for_bpf_probe_arg_vector &v);
+bool sort_for_bpf(uprobe_derived_probe_group *u,
                   sort_for_bpf_probe_arg_vector &v);
 
 void register_tapset_been(systemtap_session& sess);
