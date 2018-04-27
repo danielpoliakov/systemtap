@@ -113,12 +113,12 @@ struct uprobe_data
   string path;
   char type;
   int pid;
-  uint64_t offset;
+  unsigned long offset;
   int prog_fd;
   int event_id;
   int event_fd;
 
-  uprobe_data(string path, char t, int pid, uint64_t off, int fd)
+  uprobe_data(string path, char t, int pid, unsigned long off, int fd)
     : path(path), type(t), pid(pid), offset(off), prog_fd(fd),
       event_id(-1), event_fd(-1)
   { }
@@ -392,7 +392,7 @@ collect_uprobe(const char *name, unsigned name_idx, unsigned fd_idx)
 {
   char type = '\0';
   int pid = -1;
-  uint64_t off = 0;
+  unsigned long off = 0;
   char path[PATH_MAX];
 
   int res = sscanf(name, "uprobe/%c/%d/%lu%s", &type, &pid, &off, path);
