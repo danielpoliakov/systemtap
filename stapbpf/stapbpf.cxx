@@ -113,12 +113,12 @@ struct uprobe_data
   string path;
   char type;
   int pid;
-  unsigned long offset;
+  unsigned long long offset;
   int prog_fd;
   int event_id;
   int event_fd;
 
-  uprobe_data(string path, char t, int pid, unsigned long off, int fd)
+  uprobe_data(string path, char t, int pid, unsigned long long off, int fd)
     : path(path), type(t), pid(pid), offset(off), prog_fd(fd),
       event_id(-1), event_fd(-1)
   { }
@@ -392,10 +392,10 @@ collect_uprobe(const char *name, unsigned name_idx, unsigned fd_idx)
 {
   char type = '\0';
   int pid = -1;
-  unsigned long off = 0;
+  unsigned long long off = 0;
   char path[PATH_MAX];
 
-  int res = sscanf(name, "uprobe/%c/%d/%lu%s", &type, &pid, &off, path);
+  int res = sscanf(name, "uprobe/%c/%d/%llu%s", &type, &pid, &off, path);
 
   if (!pid)
     pid = -1; // indicates to perf_event_open that we're tracing all processes
@@ -533,7 +533,7 @@ register_uprobes()
       uprobe_data &u = uprobes[i];
       char msgbuf[PATH_MAX];
 
-      ssize_t olen = snprintf(msgbuf, sizeof(msgbuf), "%c:stapprobe_%d_%zu %s:0x%lx",
+      ssize_t olen = snprintf(msgbuf, sizeof(msgbuf), "%c:stapprobe_%d_%zu %s:0x%llx",
 			      u.type, pid, i, u.path.c_str(), u.offset);
       if ((size_t)olen >= sizeof(msgbuf))
 	{
