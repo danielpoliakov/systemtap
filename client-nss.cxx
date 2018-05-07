@@ -565,7 +565,8 @@ nss_client_backend::add_sysinfo ()
 // directory under the given subdirectory.
 int
 nss_client_backend::include_file_or_directory (const string &subdir,
-					       const string &path)
+					       const string &path,
+					       const bool add_arg)
 {
   // Must predeclare these because we do use 'goto done' to
   // exit from error situations.
@@ -639,8 +640,9 @@ nss_client_backend::include_file_or_directory (const string &subdir,
       if (rc) goto done;
     }
 
-  // Name this file or directory in the packaged arguments.
-  rc = add_cmd_arg (subdir + "/" + rpath.substr (1));
+  // If the caller asks us, add this file or directory to the arguments.
+  if (add_arg)
+    rc = add_cmd_arg (subdir + "/" + rpath.substr (1));
 
  done:
   if (rc != 0)

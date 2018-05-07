@@ -32,7 +32,8 @@ public:
   int add_protocol_version (const std::string &version);
   int add_sysinfo ();
   int include_file_or_directory (const std::string &subdir,
-				 const std::string &path);
+				 const std::string &path,
+				 const bool add_arg = true);
   int add_tmpdir_file (const std::string &file);
   int add_cmd_arg (const std::string &arg);
 

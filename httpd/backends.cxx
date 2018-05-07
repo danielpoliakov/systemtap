@@ -18,6 +18,7 @@ extern "C" {
 #include <sys/utsname.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <time.h>
 }
 
 using namespace std;
@@ -303,7 +304,21 @@ docker_backend::generate_module(const client_request_data *crd,
     build_data_file.close();
     json_object_put(root);
 
-    string stap_image_uuid = uuid;
+    // Put the date and time in the image name. This will make it
+    // easier to know which docker images we've created (and when they
+    // were created).
+    //
+    // Why 13 characters in the date and time buffer? 4 charaters
+    // (year) + 2 charaters (month) + 2 charaters (day) + 2 charaters
+    // (hour) + 2 charaters (minute) + 1 charater (null character) = 13
+    // characters total.
+    char datetime[13] = { '\0' };
+    time_t t = time(NULL);
+    struct tm tm_result;
+    if (gmtime_r(&t, &tm_result) != NULL)
+	strftime(&datetime[0], sizeof(datetime), "%Y%m%d%H%M", &tm_result);
+
+    string stap_image_uuid = "stap." + uuid + "." + datetime;
 
     // Kick off building the docker image. Note we're using the UUID
     // as the docker image name. This keeps us from trying to build
@@ -339,7 +354,8 @@ docker_backend::generate_module(const client_request_data *crd,
     // need to copy those files down into the container image before
     // we run stap.
     for (auto i = crd->files.begin(); i != crd->files.end(); i++) {
-	if (*i == "client.zip") {
+	struct stat sb;
+	if (*i == "client.zip" && stat("files", &sb) == 0) {
 	    // First, create a docker file.
 	    string docker_file_path = crd->base_dir + "/files.docker";
 	    ofstream docker_file;
@@ -347,7 +363,7 @@ docker_backend::generate_module(const client_request_data *crd,
 	    docker_file << "FROM " << stap_image_uuid << endl;
 	    docker_file << "MAINTAINER http://sourceware.org/systemtap/"
 			<< endl;
-	    docker_file << "COPY . " << tmp_dir << "/" << endl;
+	    docker_file << "COPY files /" << endl;
 	    docker_file.close();
 	    // Grab another uuid.
 	    stap_image_uuid = get_uuid();

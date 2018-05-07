@@ -27,7 +27,8 @@ public:
   virtual int add_protocol_version (const std::string &version) = 0;
   virtual int add_sysinfo () = 0;
   virtual int include_file_or_directory (const std::string &subdir,
-					 const std::string &path) = 0;
+					 const std::string &path,
+					 const bool add_arg = true) = 0;
   virtual int add_tmpdir_file (const std::string &path) = 0;
   virtual int add_cmd_arg (const std::string &arg) = 0;
 

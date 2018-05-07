@@ -372,8 +372,9 @@ http_client::get_rpmname (std::string &search_file)
 	return rpmhdr.name + "-" + rpmhdr.evr + "." + rpmhdr.arch;
       }
 
-    // There wasn't an rpm that contains SEARCH_FILE.
-    return search_file;
+    // There wasn't an rpm that contains SEARCH_FILE. Return the empty
+    // string.
+    return "";
 }
 
 
@@ -803,7 +804,8 @@ http_client_backend::initialize ()
 // and zip it up and send the one zip file.
 int
 http_client_backend::include_file_or_directory (const string &subdir,
-						const string &path)
+						const string &path,
+						const bool add_arg)
 {
   // Must predeclare these because we do use 'goto done' to
   // exit from error situations.
@@ -877,8 +879,9 @@ http_client_backend::include_file_or_directory (const string &subdir,
       if (rc) goto done;
     }
 
-  // Name this file or directory in the packaged arguments.
-  rc = add_cmd_arg (subdir + "/" + rpath.substr (1));
+  // If the caller asks us, add this file or directory to the arguments.
+  if (add_arg)
+    rc = add_cmd_arg (subdir + "/" + rpath.substr (1));
 
  done:
   if (rc != 0)
@@ -901,6 +904,30 @@ int
 http_client_backend::package_request ()
 {
   int rc = 0;
+
+  http->add_module ("kernel-" + s.kernel_release);
+  http->get_kernel_buildid ();
+
+  for (set<std::string>::const_iterator i = s.unwindsym_modules.begin();
+      i != s.unwindsym_modules.end();
+      ++i)
+    {
+      string module = (*i);
+      if (module != "kernel")
+        {
+	  string rpmname = http->get_rpmname (module);
+	  if (! rpmname.empty())
+	    {
+	      http->get_buildid (module);
+	      http->add_module (rpmname);
+	    }
+	  else if (module[0] == '/')
+	    {
+		include_file_or_directory ("files", module, false);
+	    }
+	}
+    }
+
   // Package up the temporary directory into a zip file, if needed.
   if (files_seen)
     {
@@ -919,22 +946,6 @@ http_client_backend::package_request ()
 int
 http_client_backend::find_and_connect_to_server ()
 {
-  http->add_module ("kernel-" + s.kernel_release);
-  http->get_kernel_buildid ();
-
-  for (set<std::string>::const_iterator i = s.unwindsym_modules.begin();
-      i != s.unwindsym_modules.end();
-      ++i)
-    {
-      string module = (*i);
-      if (module != "kernel")
-        {
-	  string rpmname = http->get_rpmname (module);
-	  http->get_buildid (module);
-	  http->add_module (rpmname);
-	}
-    }
-
   for (vector<std::string>::const_iterator i = s.http_servers.begin ();
       i != s.http_servers.end ();
       ++i)
