@@ -22,11 +22,11 @@
 #include <cstdlib>
 #include <cerrno>
 #include <vector>
-#include <unordered_set>
 #include <inttypes.h>
-#include <unordered_map>
+#include <map>
 #include "bpfinterp.h"
 #include "libbpf.h"
+#include "../bpf-internal.h"
 
 inline uintptr_t
 as_int(void *ptr)
@@ -68,6 +68,81 @@ remove_tag(const char *fstr)
   return std::string(fstr, end - fstr);
 }
 
+// Used with map_get_next_key. Need signed type so that
+// negative values are properly sorted
+typedef std::vector<std::set<int64_t>> map_keys;
+
+// Wrapper for bpf_get_next_key that includes logic for accessing
+// keys in ascending or decending order
+int
+map_get_next_key(int fd_idx, int64_t key, int64_t next_key, int sort_direction,
+                 int64_t limit, std::vector<int> &map_fds, map_keys &keys)
+{
+  int fd = map_fds[fd_idx];
+
+  // Final iteration, therefore keys back is no longer needed
+  if (limit == 0)
+    goto empty;
+
+  if (!sort_direction)
+    return bpf_get_next_key(fd, as_ptr(key), as_ptr(next_key));
+
+  if (!key)
+    {
+      // Beginning of iteration; populate a new set of keys for
+      // the map specified by fd. Multiple sets can be associated
+      // with a single map during execution of nested foreach loops
+      uint64_t k, n;
+      std::set<int64_t> s;
+
+      int ret = bpf_get_next_key(fd, 0, as_ptr(&n));
+
+      while (!ret)
+        {
+          s.insert(n);
+          k = n;
+          ret = bpf_get_next_key(fd, as_ptr(&k), as_ptr(&n));
+        }
+
+      if (s.empty())
+        return -1;
+
+      keys.push_back(s);
+    }
+
+  {
+  std::set<int64_t> &s = keys.back();
+  uint64_t *nptr = reinterpret_cast<uint64_t *>(next_key);
+
+  if (sort_direction > 0)
+    {
+      auto it = s.begin();
+
+      if (it == s.end())
+        goto empty;
+
+      *nptr = *it;
+    }
+  else
+    {
+      auto it = s.rbegin();
+
+      if (it == s.rend())
+        goto empty;
+
+      *nptr = *it;
+    }
+
+  s.erase(*nptr);
+  }
+
+  return 0;
+
+empty:
+  keys.pop_back();
+  return -1;
+}
+
 uint64_t
 bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
               std::vector<int> &map_fds, FILE *output_f)
@@ -76,6 +151,7 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
   uint64_t regs[MAX_BPF_REG];
   uint64_t lookup_tmp = 0xdeadbeef;
   const struct bpf_insn *i = insns;
+  map_keys keys[map_fds.size()];
 
   regs[BPF_REG_10] = (uintptr_t)stack + sizeof(stack);
 
@@ -288,6 +364,10 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
               fflush(output_f);
 #pragma GCC diagnostic pop
 	      break;
+            case bpf::BPF_FUNC_map_get_next_key:
+              dr = map_get_next_key(regs[1], regs[2], regs[3], regs[4],
+                                    regs[5],  map_fds, keys[regs[1]]);
+              break;
 	    default:
 	      abort();
 	    }
@@ -296,6 +376,7 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
 	  regs[2] = 0xdeadbeef;
 	  regs[3] = 0xdeadbeef;
 	  regs[4] = 0xdeadbeef;
+          regs[5] = 0xdeadbeef;
 	  goto nowrite;
 
 	case BPF_JMP | BPF_EXIT:

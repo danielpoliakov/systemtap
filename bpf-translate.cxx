@@ -178,6 +178,7 @@ struct bpf_unparser : public throwing_visitor
   virtual void visit_expr_statement (expr_statement *s);
   virtual void visit_if_statement (if_statement* s);
   virtual void visit_for_loop (for_loop* s);
+  virtual void visit_foreach_loop (foreach_loop* s);
   virtual void visit_return_statement (return_statement* s);
   virtual void visit_break_statement (break_statement* s);
   virtual void visit_continue_statement (continue_statement* s);
@@ -194,7 +195,7 @@ struct bpf_unparser : public throwing_visitor
   virtual void visit_assignment (assignment* e);
   virtual void visit_symbol (symbol* e);
   virtual void visit_arrayindex (arrayindex *e);
-  virtual void visit_array_in(array_in* e);
+  virtual void visit_array_in (array_in* e);
   virtual void visit_functioncall (functioncall* e);
   virtual void visit_print_format (print_format* e);
   virtual void visit_target_register (target_register* e);
@@ -757,6 +758,100 @@ bpf_unparser::visit_for_loop (for_loop* s)
 
   set_block (join_block);
 }
+
+void
+bpf_unparser::visit_foreach_loop(foreach_loop* s)
+{
+  if (s->indexes.size() != 1)
+   throw SEMANTIC_ERROR(_("unhandled multi-dimensional array"), s->tok);
+
+  vardecl *keydecl = s->indexes[0]->referent;
+  auto i = this_locals->find(keydecl);
+  if (i == this_locals->end())
+    throw SEMANTIC_ERROR(_("unknown index"), keydecl->tok);
+
+  symbol *a;
+  if (! (a = dynamic_cast<symbol *>(s->base)))
+    throw SEMANTIC_ERROR(_("unknown type"), s->base->tok);
+  vardecl *arraydecl = a->referent;
+
+  auto g = glob.globals.find(arraydecl);
+  if (g == glob.globals.end())
+    throw SEMANTIC_ERROR(_("unknown array"), arraydecl->tok);
+
+  int map_id = g->second.first;
+  value *limit = this_prog.new_reg();
+  value *key = i->second;
+  value *i0 = this_prog.new_imm(0);
+  value *key_ofs = this_prog.new_imm(-8);
+  value *newkey_ofs = this_prog.new_imm(-16);
+  value *frame = this_prog.lookup_reg(BPF_REG_10);
+  block *body_block = this_prog.new_block ();
+  block *load_block = this_prog.new_block();
+  block *iter_block = this_prog.new_block ();
+  block *join_block = this_prog.new_block ();
+
+  // Track iteration limit.
+  if (s->limit)
+    this_prog.mk_mov(this_ins, limit, emit_expr(s->limit));
+  else
+    this_prog.mk_mov(this_ins, limit, this_prog.new_imm(-1));
+
+  // Get the first key.
+  this_prog.load_map (this_ins, this_prog.lookup_reg(BPF_REG_1), map_id);
+  this_prog.mk_mov (this_ins, this_prog.lookup_reg(BPF_REG_2), i0);
+  this_prog.mk_binary (this_ins, BPF_ADD, this_prog.lookup_reg(BPF_REG_3), 
+                       frame, newkey_ofs); 
+  this_prog.mk_mov (this_ins, this_prog.lookup_reg(BPF_REG_4),
+                    this_prog.new_imm(s->sort_direction));
+  this_prog.mk_mov (this_ins, this_prog.lookup_reg(BPF_REG_5), limit);
+  this_prog.mk_call (this_ins, BPF_FUNC_map_get_next_key, 5);
+  this_prog.mk_jcond (this_ins, NE, this_prog.lookup_reg(BPF_REG_0), i0,
+                      join_block, load_block);
+
+  this_prog.use_tmp_space(16);
+
+  emit_jmp(load_block);
+
+  // Do loop body
+  loop_break.push_back (join_block);
+  loop_cont.push_back (iter_block);
+
+  set_block(body_block);
+  emit_stmt(s->block);
+  if (in_block ())
+    emit_jmp(iter_block);
+
+  loop_cont.pop_back ();
+  loop_break.pop_back ();
+
+  // Call map_get_next_key, exit loop if it doesn't return 0
+  set_block(iter_block);
+
+  this_prog.load_map (this_ins, this_prog.lookup_reg(BPF_REG_1), map_id);
+  this_prog.mk_st (this_ins, BPF_DW, frame, -8, key);
+  this_prog.mk_binary (this_ins, BPF_ADD, this_prog.lookup_reg(BPF_REG_2),
+                       frame, key_ofs);
+  this_prog.mk_binary (this_ins, BPF_ADD, this_prog.lookup_reg(BPF_REG_3),
+                       frame, newkey_ofs);
+  this_prog.mk_mov (this_ins, this_prog.lookup_reg(BPF_REG_4),
+                    this_prog.new_imm(s->sort_direction));
+  this_prog.mk_mov (this_ins, this_prog.lookup_reg(BPF_REG_5), limit);
+  this_prog.mk_call (this_ins, BPF_FUNC_map_get_next_key, 5);
+  this_prog.mk_jcond (this_ins, NE, this_prog.lookup_reg(BPF_REG_0), i0,
+                      join_block, load_block);
+
+  // Load next key, decrement limit if applicable
+  set_block(load_block);
+  this_prog.mk_ld (this_ins, BPF_DW, key, frame, -16);
+
+  if (s->limit)
+      this_prog.mk_binary (this_ins, BPF_ADD, limit, limit, this_prog.new_imm(-1));
+
+  emit_jmp(body_block);
+  set_block(join_block);
+}
+
 
 void
 bpf_unparser::visit_break_statement (break_statement* s)
