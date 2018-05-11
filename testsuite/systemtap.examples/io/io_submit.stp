@@ -53,6 +53,10 @@ probe kernel.function("schedule") {
   }
 }
 
+probe begin {
+  printf("Ready!\n")
+}
+
 /*
  * when stap is done (via ctrl-c) go through the record of all the
  * trace paths and print the 30 most common.
