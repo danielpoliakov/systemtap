@@ -28,12 +28,7 @@ probe syscall.io_submit {
  * when we return from sys_io_submit, record that we're no longer there
  */
 probe syscall.io_submit.return {
-  /* this assumes a given proc will do lots of io_submit calls, and
-   * so doesn't do the more expensive "delete in_iosubmit[p]".  If
-   * there are lots of procs doing small number of io_submit calls,
-   * the hash may grow pretty big, so using delete may be better
-   */
-  in_iosubmit[tid()] = 0
+  delete in_iosubmit[tid()]
 }
 
 /*
