@@ -37,7 +37,7 @@ probe syscall.io_submit.return {
  */
 probe kernel.function("schedule") {
   if (tid() in in_iosubmit) {
-    traces[backtrace()]++
+    traces[backtrace()] <<< 1
 
     /*
      * change this to if (1) if you want a backtrace every time
@@ -59,7 +59,7 @@ probe kernel.function("schedule") {
  */
 probe end {
   foreach (stack in traces- limit 30) {
-    printf("%d:", traces[stack])
+    printf("%d:", @count(traces[stack]))
     print_syms(stack);
   }
 }
