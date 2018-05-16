@@ -71,8 +71,13 @@ BEGIN {
 #    printf "%s",$0
 #    print ": block start:" block " " embedded
 }
-(! /^.*\/\/.*{/) && /[^%]{/ {
+(! /^.*\/\/.*{/) && (! /[^%]{.*[^%]{/) && /[^%]{/ {
     block += 1
+#    printf "%s",$0
+#    print ": block start:" block " " embedded
+}
+(! /^.*\/\/.*{/) && /[^%]{.*[^%]{/ {
+    block += 2
 #    printf "%s",$0
 #    print ": block start:" block " " embedded
 }
@@ -132,8 +137,14 @@ function finish_function() {
 #   print ": block end:" block " " embedded
     finish_function()
 }
-(! /^.*\/\/.*}/) && /[^%]}/ {
+(! /^.*\/\/.*}/) && (! /[^%]}.*[^%]}/) && /[^%]}/ {
     block -= 1
+#    printf "%s",$0
+#    print ": block end:" block " " embedded
+    finish_function()
+}
+(! /^.*\/\/.*}/) && /[^%]}.*[^%]}/ {
+    block -= 2
 #    printf "%s",$0
 #    print ": block end:" block " " embedded
     finish_function()
