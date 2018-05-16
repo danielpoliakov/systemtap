@@ -1,5 +1,6 @@
 %{!?with_sqlite: %global with_sqlite 0%{?fedora} >= 17 || 0%{?rhel} >= 7}
-%{!?with_docs: %global with_docs 1}
+# prefer prebuilt docs
+%{!?with_docs: %global with_docs 0}
 %{!?with_htmldocs: %global with_htmldocs 0}
 %{!?with_monitor: %global with_monitor 1}
 # crash is not available
@@ -543,7 +544,7 @@ cd ..
 %global docs_config --enable-docs --disable-htmldocs
 %endif
 %else
-%global docs_config --disable-docs
+%global docs_config --enable-docs=prebuilt
 %endif
 
 # Enable pie as configure defaults to disabling it
@@ -634,13 +635,13 @@ install -c -m 755 stap-prep $RPM_BUILD_ROOT%{_bindir}/stap-prep
 # Copy over the testsuite
 cp -rp testsuite $RPM_BUILD_ROOT%{_datadir}/systemtap
 
-%if %{with_docs}
 # We want the manuals in the special doc dir, not the generic doc install dir.
 # We build it in place and then move it away so it doesn't get installed
 # twice. rpm can specify itself where the (versioned) docs go with the
 # %doc directive.
 mkdir docs.installed
 mv $RPM_BUILD_ROOT%{_datadir}/doc/systemtap/*.pdf docs.installed/
+%if %{with_docs}
 %if %{with_htmldocs}
 mv $RPM_BUILD_ROOT%{_datadir}/doc/systemtap/tapsets docs.installed/
 mv $RPM_BUILD_ROOT%{_datadir}/doc/systemtap/SystemTap_Beginners_Guide docs.installed/
@@ -1071,8 +1072,8 @@ done
 %{_datadir}/systemtap/examples
 %{!?_licensedir:%global license %%doc}
 %license COPYING
-%if %{with_docs}
 %doc docs.installed/*.pdf
+%if %{with_docs}
 %if %{with_htmldocs}
 %doc docs.installed/tapsets/*.html
 %doc docs.installed/SystemTap_Beginners_Guide
