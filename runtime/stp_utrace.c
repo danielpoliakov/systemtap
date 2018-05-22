@@ -2251,11 +2251,11 @@ static void utrace_exec_work(struct task_work *work)
 	INIT_REPORT(report);
 
 	might_sleep();
-	__stp_utrace_free_task_work(work);
 
 	/* FIXME: Hmm, can we get regs another way? */
 	REPORT(task, utrace, &report, UTRACE_EVENT(EXEC),
 	       report_exec, NULL, NULL, NULL /* regs */);
+	__stp_utrace_free_task_work(work);
 
 	/* Remember that this task_work_func is finished. */
 	stp_task_work_func_done();
@@ -2398,14 +2398,14 @@ static void utrace_syscall_entry_work(struct task_work *work)
 	INIT_REPORT(report);
 
 	might_sleep();
-	__stp_utrace_free_task_work(work);
 
 	/* FIXME: Hmm, original utrace called probes in reverse
 	 * order.  Needed here? */
 	REPORT(task, utrace, &report, UTRACE_EVENT(SYSCALL_ENTRY),
 	       report_syscall_entry, regs);
+	__stp_utrace_free_task_work(work);
 
-		/* Remember that this task_work_func is finished. */
+	/* Remember that this task_work_func is finished. */
 	stp_task_work_func_done();
 }
 
