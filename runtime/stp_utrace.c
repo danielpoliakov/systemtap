@@ -38,7 +38,12 @@
 	do { (tsk)->state = (state_value); } while (0)
 #endif
 
+// For now, disable the task_work_queue on non-RT kernels.
+// XXX: Need to decide correct CONFIG_* to check for,
+// sticking with the more conservative option for now.
+#ifdef CONFIG_PREEMPT_RT_FULL
 #define STP_UTRACE_USE_TASK_WORK_QUEUE
+#endif
 /* If STP_UTRACE_USE_TASK_WORK_QUEUE is defined, reporting work
    will be delayed out of tracepoint context. This must be done
    to prevent illegal operations on realtime kernels. */
@@ -2197,10 +2202,12 @@ static void utrace_report_exec(void *cb_data __attribute__ ((unused)),
 	if (!utrace || !(utrace->utrace_flags & UTRACE_EVENT(EXEC)))
 		return;
 
+#if 0
 	if (!in_atomic() && !irqs_disabled())
 		printk(KERN_ERR
 		       "%s:%d - utrace_report_exec() in nonatomic context (%d, %d)\n",
 		       __FUNCTION__, __LINE__, in_atomic(), irqs_disabled());
+#endif
 
 	/* Defer the report_exec work so it doesn't happen in atomic context: */
 	work = __stp_utrace_alloc_task_work(utrace, (void *)NULL);
@@ -2323,10 +2330,12 @@ static void utrace_report_syscall_entry(void *cb_data __attribute__ ((unused)),
 	    || !(utrace->utrace_flags & (UTRACE_EVENT(SYSCALL_ENTRY)|ENGINE_STOP)))
 		return;
 
+#if 0
 	if (!in_atomic() && !irqs_disabled())
 		printk(KERN_ERR
 		       "%s:%d - utrace_report_syscall_entry() in nonatomic context (%d, %d)\n",
 		       __FUNCTION__, __LINE__, in_atomic(), irqs_disabled());
+#endif
 
 	/* Defer the report_syscall_entry work so it doesn't happen in atomic context: */
 	work = __stp_utrace_alloc_task_work(utrace, NULL);
@@ -2422,10 +2431,12 @@ static void utrace_report_syscall_exit(void *cb_data __attribute__ ((unused)),
 	    || !(utrace->utrace_flags & (UTRACE_EVENT(SYSCALL_EXIT)|ENGINE_STOP)))
 		return;
 
+#if 0
 	if (!in_atomic() && !irqs_disabled())
 		printk(KERN_ERR
 		       "%s:%d - utrace_report_syscall_exit() in nonatomic context (%d, %d)\n",
 		       __FUNCTION__, __LINE__, in_atomic(), irqs_disabled());
+#endif
 
 	/* Defer the report_syscall_exit work so it doesn't happen in atomic context: */
 	work = __stp_utrace_alloc_task_work(utrace, NULL);
