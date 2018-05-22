@@ -19,6 +19,8 @@ expect {
 	exp_continue
     }
 
+    -re {^WARNING: Missing unwind data for a module[^\r\n]*\r\n} { exp_continue }
+
     #backtrace from yyy_func2
     -re {^backtrace from module\(\"systemtap_test_module2\"\)\.function\(\"yyy_func2@[^\r\n]+\r\n} {
 	incr m1

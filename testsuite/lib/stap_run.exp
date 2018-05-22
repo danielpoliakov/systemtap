@@ -92,6 +92,7 @@ proc stap_run { TEST_NAME {LOAD_GEN_FUNCTION ""} {OUTPUT_CHECK_STRING ""} args }
 			-re $warning_regexp {
 			    set probe_errors $expect_out(1,string)
 			    set skipped_probes $expect_out(2,string)}
+	                -re {^WARNING: Missing unwind data for a module[^\r\n]*\r\n} {exp_continue}
 			default {
 			    fail "$TEST_NAME unexpected output (after passing output)"
 			}
