@@ -392,63 +392,57 @@ docker_backend::generate_module(const client_request_data *crd,
 	}
     }
 
-    // Create a temporary directory to use.
-    string sysroot_dir = tmp_dir + "/sysroot";
-    rc = mkdir(sysroot_dir.c_str(), 0700);
+    // We need a unique name for the container that "docker run stap
+    // ..." will create, so grab another uuid.
+    string stap_container_uuid = get_uuid();
 
-    // Mount the docker image to the temporary directory.
-    if (rc == 0) {
-	docker_args.clear();
-	docker_args.push_back("atomic");
-	docker_args.push_back("mount");
-	docker_args.push_back(stap_image_uuid);
-	docker_args.push_back(sysroot_dir);
-	rc = execute_and_capture(2, docker_args, crd->env_vars,
-				 docker_stdout_path, docker_stderr_path);
-	server_error(_F("Spawned process returned %d", rc));
-	if (rc != 0) {
-	    server_error("atomic mount failed.");
-	    // We can't return here, we've got to clean up.
-	}
+    // If we're here, we built the container successfully. Now start
+    // the container and run stap. First, build up the command line
+    // arguments.
+    docker_args.clear();
+    docker_args.push_back("docker");
+    docker_args.push_back("run");
+    docker_args.push_back("--name");
+    docker_args.push_back(stap_container_uuid);
+    for (auto i = crd->env_vars.begin(); i < crd->env_vars.end(); ++i) {
+        docker_args.push_back("-e");
+        docker_args.push_back(*i);
     }
 
-    // Run stap, using the mounted docker image as the sysroot.
-    int saved_rc = rc;
-    if (rc == 0) {
-	docker_args.clear();
-	for (auto it = argv.begin(); it != argv.end(); it++) {
-	    docker_args.push_back(*it);
-	}
+    // When running "stap --tmpdir=/tmp/FOO", your current directory
+    // needs to be /tmp/FOO for stap to run successfully (for some odd
+    // reason).
+    docker_args.push_back("-w");
+    docker_args.push_back(tmp_dir);
 
-	// Make sure we're running the correct version of systemtap.
-	docker_args[0] = string(BINDIR) + "/stap";
+    docker_args.push_back(stap_image_uuid);
+    for (auto it = argv.begin(); it != argv.end(); it++) {
+	docker_args.push_back(*it);
+    }
 
-	// Insert our sysroot option into the stap command line.
-	string sysroot_option = "--sysroot=" + sysroot_dir;
-	docker_args.insert(docker_args.begin() + 1, sysroot_option);
-	saved_rc = execute_and_capture(2, docker_args, crd->env_vars,
+    int saved_rc = execute_and_capture(2, docker_args, crd->env_vars,
 				       stdout_path, stderr_path);
-	server_error(_F("Spawned process returned %d", saved_rc));
-	if (saved_rc != 0) {
-	    server_error("stap failed.");
-	    // We can't return here, we've got to clean up.
-	}
+    server_error(_F("Spawned process returned %d", rc));
+    if (rc != 0) {
+	server_error("docker run failed.");
     }
 
-    // Unmount the docker image.
-    if (rc == 0) {
+    if (saved_rc == 0) {
+	// At this point we've built the container and run stap
+	// successfully. Grab the results (if any) from the container.
 	docker_args.clear();
-	docker_args.push_back("atomic");
-	docker_args.push_back("unmount");
-	docker_args.push_back(sysroot_dir);
+	docker_args.push_back("docker");
+	docker_args.push_back("cp");
+	docker_args.push_back(stap_container_uuid + ":" + tmp_dir);
+	docker_args.push_back("/tmp");
 	rc = execute_and_capture(2, docker_args, crd->env_vars,
 				 docker_stdout_path, docker_stderr_path);
 	server_error(_F("Spawned process returned %d", rc));
 	if (rc != 0) {
-	    server_error("atomic unmount failed.");
-	    // We can't return here, we still need to clean up.
+	    server_error("docker cp failed.");
 	}
     }
+    containers_to_remove.push_back(stap_container_uuid);
 
     // OK, at this point we've created a container, run stap, and
     // copied out any result. Let's do a little cleanup and delete the
