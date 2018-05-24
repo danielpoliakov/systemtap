@@ -164,7 +164,7 @@ if [ -s $byteman_installed_portfile ]; then
 else
     # bmport=9091
     bmport=`expr 9090 + $RANDOM % 10000`
-    existing=`netstat -atn | awk '{print $4}' | grep ':'$bmport'$'`
+    existing=`ss -atn | awk '{print $4}' | grep ':'$bmport'$'`
     if [ "x$existing" != "x" ]; then
         echo "Byteman port $bmport already in use, retrying."
         exec "$@"
