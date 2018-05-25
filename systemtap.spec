@@ -401,7 +401,7 @@ License: GPLv2+
 URL: http://sourceware.org/systemtap/
 Requires: systemtap-runtime = %{version}-%{release}
 Requires: byteman > 2.0
-Requires: net-tools
+Requires: iproute
 
 %description runtime-java
 This package includes support files needed to run systemtap scripts
