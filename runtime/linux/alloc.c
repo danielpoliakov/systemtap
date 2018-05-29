@@ -21,6 +21,13 @@ static int _stp_allocated_net_memory = 0;
    suppress the oom-killer from kicking in. */
 #define STP_ALLOC_SLEEP_FLAGS (GFP_KERNEL | __GFP_NORETRY)
 
+/* #define DEBUG_MEMALLOC_MIGHT_SLEEP */
+/*
+ * If DEBUG_MEMALLOC_MIGHT_SLEEP is defined (stap -DDEBUG_MEMALLOC_MIGHT_SLEEP ...)
+ * then all memory allocation operations are assumed to sleep. This
+ * can be used to check whether any memory allocations occur in atomic
+ * context, which is discouraged on realtime kernels. */
+
 /* #define DEBUG_MEM */
 /*
  * If DEBUG_MEM is defined (stap -DDEBUG_MEM ...) then full memory
@@ -259,6 +266,9 @@ static void _stp_mem_debug_validate(void *addr)
 static void *_stp_kmalloc_gfp(size_t size, gfp_t gfp_mask)
 {
 	void *ret;
+#ifdef DEBUG_MEMALLOC_MIGHT_SLEEP
+	might_sleep();
+#endif
 #ifdef STP_MAXMEMORY
 	if ((_STP_MODULE_CORE_SIZE + _stp_allocated_memory + size)
 	    > (STP_MAXMEMORY * 1024)) {
@@ -472,6 +482,9 @@ static void *_stp_alloc_percpu(size_t size)
 static void *_stp_kmalloc_node_gfp(size_t size, int node, gfp_t gfp_mask)
 {
 	void *ret;
+#ifdef DEBUG_MEMALLOC_MIGHT_SLEEP
+	might_sleep();
+#endif
 #ifdef STP_MAXMEMORY
 	if ((_STP_MODULE_CORE_SIZE + _stp_allocated_memory + size)
 	    > (STP_MAXMEMORY * 1024)) {
@@ -505,6 +518,9 @@ static void *_stp_kzalloc_node_gfp(size_t size, int node, gfp_t gfp_mask)
 	 * So for now, just malloc and zero it manually.
 	 */
 	void *ret = _stp_kmalloc_node_gfp(size, node, gfp_mask);
+#ifdef DEBUG_MEMALLOC_MIGHT_SLEEP
+	might_sleep();
+#endif
 	if (likely(ret)) {
 		memset (ret, 0, size);
 	}
@@ -522,6 +538,9 @@ static void *_stp_kzalloc_node(size_t size, int node)
 
 static void _stp_kfree(void *addr)
 {
+#ifdef DEBUG_MEMALLOC_MIGHT_SLEEP
+	might_sleep();
+#endif
 #ifdef DEBUG_MEM
 	_stp_mem_debug_free(addr, MEM_KMALLOC);
 #else
@@ -531,6 +550,9 @@ static void _stp_kfree(void *addr)
 
 static void _stp_vfree(void *addr)
 {
+#ifdef DEBUG_MEMALLOC_MIGHT_SLEEP
+	might_sleep();
+#endif
 #ifdef DEBUG_MEM
 	_stp_mem_debug_free(addr, MEM_VMALLOC);
 #else
@@ -540,6 +562,9 @@ static void _stp_vfree(void *addr)
 
 static void _stp_free_percpu(void *addr)
 {
+#ifdef DEBUG_MEMALLOC_MIGHT_SLEEP
+	might_sleep();
+#endif
 #ifdef DEBUG_MEM
 	_stp_mem_debug_free(addr, MEM_PERCPU);
 #else

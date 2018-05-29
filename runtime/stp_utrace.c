@@ -18,6 +18,7 @@
 #endif
 
 #include "stp_utrace.h"
+#include <linux/bitmap.h>
 #include <linux/list.h>
 #include <linux/sched.h>
 #include <linux/freezer.h>
@@ -36,6 +37,16 @@
 #define __stp_set_task_state(tsk, state_value)		\
 	do { (tsk)->state = (state_value); } while (0)
 #endif
+
+// For now, disable the task_work_queue on non-RT kernels.
+// XXX: Need to decide correct CONFIG_* to check for,
+// sticking with the more conservative option for now.
+#ifdef CONFIG_PREEMPT_RT_FULL
+#define STP_UTRACE_USE_TASK_WORK_QUEUE
+#endif
+/* If STP_UTRACE_USE_TASK_WORK_QUEUE is defined, reporting work
+   will be delayed out of tracepoint context. This must be done
+   to prevent illegal operations on realtime kernels. */
 
 /*
  * Per-thread structure private to utrace implementation.
@@ -65,7 +76,7 @@
  * in time to have their callbacks seen.
  */
 struct utrace {
-	stp_spinlock_t lock;
+	spinlock_t lock;
 	struct list_head attached, attaching;
 
 	struct utrace_engine *reporting;
@@ -100,6 +111,118 @@ struct utrace {
 static struct hlist_head task_utrace_table[TASK_UTRACE_TABLE_SIZE];
 //DEFINE_MUTEX(task_utrace_mutex);      /* Protects task_utrace_table */
 static STP_DEFINE_SPINLOCK(task_utrace_lock); /* Protects task_utrace_table */
+
+/* Temporary storage for utrace structures that utrace_exit() has removed
+   from task_utrace_table prior to cleaning them up: */
+static HLIST_HEAD(utrace_cleanup_list);
+static DEFINE_SPINLOCK(utrace_cleanup_lock); /* Protects utrace_cleanup_list */
+
+/* Tracepoint reporting is delayed using task_work structures stored
+   in the following linked list: */
+static LIST_HEAD(__stp_utrace_task_work_list);
+static STP_DEFINE_SPINLOCK(__stp_utrace_task_work_list_lock);
+struct __stp_utrace_task_work { /* NB: about 216 bytes, 18 per page: */
+	struct list_head list;
+	struct task_struct *task;
+	struct utrace *utrace;
+	union {
+		struct pt_regs regs;
+		void *data;
+	};
+	struct task_work work;
+};
+
+/* Because kernel-rt does not allow kmalloc(GFP_ATOMIC) in tracepoint
+   context, we roll our own nano-allocator.
+
+   TODO: UTRACE_TASK_WORK_POOL_SIZE can be specified on the Systemtap
+   command line. Experiment to find the best default value. */
+#ifndef UTRACE_TASK_WORK_POOL_SIZE
+#define UTRACE_TASK_WORK_POOL_SIZE 288
+#endif
+static DECLARE_BITMAP(__stp_utrace_task_work_pool_bitmap, UTRACE_TASK_WORK_POOL_SIZE);
+static struct __stp_utrace_task_work __stp_utrace_task_work_pool[UTRACE_TASK_WORK_POOL_SIZE];
+static STP_DEFINE_SPINLOCK(__stp_utrace_task_work_pool_lock);
+/* TODO: It should be possible to stick with kmalloc()/kfree() on
+   regular non-realtime kernels. Perhaps control which allocator gets
+   used with an #ifdef? */
+
+static struct task_work *
+__stp_utrace_alloc_task_work(struct utrace *utrace, void *data)
+{
+	struct __stp_utrace_task_work *utrace_work = NULL;
+	unsigned long flags;
+	unsigned long next_fit;
+
+	stp_spin_lock_irqsave(&__stp_utrace_task_work_pool_lock, flags);
+	/* Find zero bit in __stp_utrace_task_work_pool_bitmap: */
+	next_fit = bitmap_find_next_zero_area
+		(__stp_utrace_task_work_pool_bitmap,
+		 UTRACE_TASK_WORK_POOL_SIZE, 0, 1, 0);
+	if (next_fit < UTRACE_TASK_WORK_POOL_SIZE) {
+		bitmap_set(__stp_utrace_task_work_pool_bitmap, next_fit, 1);
+		utrace_work = &__stp_utrace_task_work_pool[next_fit];
+		memset(utrace_work, 0, sizeof(*utrace_work));
+	}
+	stp_spin_unlock_irqrestore(&__stp_utrace_task_work_pool_lock, flags);
+	if (utrace_work == NULL) {
+		_stp_error("Unable to allocate space for task_work");
+		return NULL;
+	}
+
+	utrace_work->task = current;
+	utrace_work->utrace = utrace;
+	utrace_work->data = data;
+
+	// Insert new item onto list.
+	stp_spin_lock_irqsave(&__stp_utrace_task_work_list_lock, flags);
+	list_add(&utrace_work->list, &__stp_utrace_task_work_list);
+	stp_spin_unlock_irqrestore(&__stp_utrace_task_work_list_lock, flags);
+
+	return &utrace_work->work;
+}
+
+static void __stp_utrace_save_regs(struct task_work *work, struct pt_regs *regs)
+{
+	struct __stp_utrace_task_work *utrace_work = \
+		container_of(work, struct __stp_utrace_task_work, work);
+	memcpy(&utrace_work->regs, regs, sizeof(struct pt_regs));
+}
+
+static void __stp_utrace_free_task_work_from_pool
+(struct __stp_utrace_task_work *utrace_work)
+{
+	unsigned long flags;
+	unsigned long pool_index;
+
+	stp_spin_lock_irqsave(&__stp_utrace_task_work_pool_lock, flags);
+	pool_index = /* pointer arithmetic */ utrace_work - __stp_utrace_task_work_pool;
+	BUG_ON(pool_index > UTRACE_TASK_WORK_POOL_SIZE);
+	bitmap_clear(__stp_utrace_task_work_pool_bitmap, pool_index, 1);
+	stp_spin_unlock_irqrestore(&__stp_utrace_task_work_pool_lock, flags);
+}
+
+static void __stp_utrace_free_task_work(struct task_work *work)
+{
+	struct __stp_utrace_task_work *utrace_work, *node;
+	unsigned long flags;
+	unsigned long pool_index;
+
+	utrace_work = container_of(work, struct __stp_utrace_task_work, work);
+
+	// Remove the item from the list.
+	stp_spin_lock_irqsave(&__stp_utrace_task_work_list_lock, flags);
+	list_for_each_entry(node, &__stp_utrace_task_work_list, list) {
+		if (utrace_work == node) {
+			list_del(&utrace_work->list);
+			break;
+		}
+	}
+	stp_spin_unlock_irqrestore(&__stp_utrace_task_work_list_lock, flags);
+
+	// Actually free the data.
+	__stp_utrace_free_task_work_from_pool(utrace_work);
+}
 
 static struct kmem_cache *utrace_cachep;
 static struct kmem_cache *utrace_engine_cachep;
@@ -334,6 +457,8 @@ static int utrace_exit(void)
 	struct utrace *utrace;
 	struct hlist_head *head;
 	struct hlist_node *node, *node2;
+	struct __stp_utrace_task_work *task_node, *task_node2;
+	unsigned long flags;
 
 #ifdef STP_TF_DEBUG
 	printk(KERN_ERR "%s:%d - entry\n", __FUNCTION__, __LINE__);
@@ -350,19 +475,42 @@ static int utrace_exit(void)
 	 * to be run. So, now would be a great time to actually free
 	 * everything. */
 
+	/* Since utrace->lock is an ordinary spinlock, we cannot
+           grab it within a task_utrace_lock section. Likewise,
+           on kernel-RT we can no longer do memory management in
+           a raw_spinlock section. So we dump utrace structures
+           to a separate hlist before freeing them: */
 #ifdef STP_TF_DEBUG
 	printk(KERN_ERR "%s:%d - freeing task-specific\n", __FUNCTION__, __LINE__);
 #endif
+	spin_lock(&utrace_cleanup_lock);
 	stp_spin_lock(&task_utrace_lock);
 	for (i = 0; i < TASK_UTRACE_TABLE_SIZE; i++) {
 		head = &task_utrace_table[i];
 		stap_hlist_for_each_entry_safe(utrace, node, node2, head,
 					       hlist) {
 			hlist_del(&utrace->hlist);
-			utrace_cleanup(utrace);
+			INIT_HLIST_NODE(&utrace->hlist);
+			hlist_add_head(&utrace->hlist, &utrace_cleanup_list);
 		}
 	}
 	stp_spin_unlock(&task_utrace_lock);
+
+	stap_hlist_for_each_entry_safe(utrace, node, node2, &utrace_cleanup_list,
+				       hlist) {
+		hlist_del(&utrace->hlist);
+		utrace_cleanup(utrace);
+	}
+	spin_unlock(&utrace_cleanup_lock);
+
+	/* Likewise, free any task_work_list item(s). */
+	stp_spin_lock_irqsave(&__stp_utrace_task_work_list_lock, flags);
+	list_for_each_entry_safe(task_node, task_node2, &__stp_utrace_task_work_list, list) {
+		// Remove the item from the list, then free it.
+		list_del(&task_node->list);
+		__stp_utrace_free_task_work_from_pool(task_node);
+	}
+	stp_spin_unlock_irqrestore(&__stp_utrace_task_work_list_lock, flags);
 
 	if (utrace_cachep) {
 		kmem_cache_destroy(utrace_cachep);
@@ -408,17 +556,19 @@ stp_task_notify_resume(struct task_struct *target, struct utrace *utrace)
 /*
  * Clean up everything associated with @task.utrace.
  *
- * This routine must be called under the task_utrace_lock.
+ * This routine must be called under the utrace_cleanup_lock.
  */
 static void utrace_cleanup(struct utrace *utrace)
 {
 	struct utrace_engine *engine, *next;
 
-	lockdep_assert_held(&task_utrace_lock);
+	/* We used to require task_utrace_lock here, but none of the
+	 * actual cleanup work seems to need it. */
+	lockdep_assert_held(&utrace_cleanup_lock);
 
 	/* Free engines associated with the struct utrace, starting
 	 * with the 'attached' list then doing the 'attaching' list. */
-	stp_spin_lock(&utrace->lock);
+	spin_lock(&utrace->lock);
 	list_for_each_entry_safe(engine, next, &utrace->attached, entry) {
 #ifdef STP_TF_DEBUG
 	    printk(KERN_ERR "%s:%d - removing engine\n",
@@ -432,7 +582,7 @@ static void utrace_cleanup(struct utrace *utrace)
 	    list_del(&engine->entry);
 	    kmem_cache_free(utrace_engine_cachep, engine);
 	}
-	stp_spin_unlock(&utrace->lock);
+	spin_unlock(&utrace->lock);
 
 	/* Note that we don't need to worry about
 	 * utrace->resume_work_added and utrace->report_work_added,
@@ -451,54 +601,60 @@ static void utrace_cleanup(struct utrace *utrace)
 
 static void utrace_resume(struct task_work *work);
 static void utrace_report_work(struct task_work *work);
+static void utrace_syscall_entry_work(struct task_work *work);
+static void utrace_syscall_exit_work(struct task_work *work);
+static void utrace_exec_work(struct task_work *work);
+static void utrace_clone_work(struct task_work *work);
+
+/* MACROS for utrace_cancel_all_task_work(): */
+#ifdef STP_TF_DEBUG
+#define CANCEL_IF_WORK(added_field, task_work_func)                     \
+        if (atomic_add_unless(&added_field,                             \
+                              -1, 0)) {                                 \
+                if (stp_task_work_cancel(utrace->task,                  \
+                                         &task_work_func) == NULL)      \
+                        printk(KERN_ERR "%s:%d - task_work_cancel() failed for %s? task %p, %d, %s\n", \
+                               __FUNCTION__, __LINE__, #task_work_func, \
+                               utrace->task, utrace->task->tgid,        \
+                               (utrace->task->comm                      \
+                                ? utrace->task->comm                    \
+                                : "UNKNOWN"));                          \
+        }
+#else
+#define CANCEL_IF_WORK(added_field, task_work_func)                     \
+        if (atomic_add_unless(&added_field,                             \
+                              -1, 0)) {                                 \
+                stp_task_work_cancel(utrace->task,                      \
+                                     &task_work_func);                  \
+        }
+#endif
 
 static void utrace_cancel_all_task_work(void)
 {
 	int i;
 	struct utrace *utrace;
 	struct hlist_head *head;
-	struct hlist_node *node;
+	struct hlist_node *utrace_node;
+	struct __stp_utrace_task_work *task_node;
+	unsigned long flags;
 
-	/* Cancel any pending task_work item(s). */
+	/* Cancel any pending utrace task_work item(s). */
 	stp_spin_lock(&task_utrace_lock);
 	for (i = 0; i < TASK_UTRACE_TABLE_SIZE; i++) {
 		head = &task_utrace_table[i];
-		stap_hlist_for_each_entry(utrace, node, head, hlist) {
-			if (atomic_add_unless(&utrace->resume_work_added,
-					      -1, 0)) {
-#ifdef STP_TF_DEBUG
-				if (stp_task_work_cancel(utrace->task,
-							 &utrace_resume) == NULL)
-					printk(KERN_ERR "%s:%d - task_work_cancel() failed? task %p, %d, %s\n",
-					       __FUNCTION__, __LINE__,
-					       utrace->task, utrace->task->tgid,
-					       (utrace->task->comm
-						? utrace->task->comm
-						: "UNKNOWN"));
-#else
-				stp_task_work_cancel(utrace->task,
-						     &utrace_resume);
-#endif
-			}
-			if (atomic_add_unless(&utrace->report_work_added,
-					      -1, 0)) {
-#ifdef STP_TF_DEBUG
-				if (stp_task_work_cancel(utrace->task,
-							 &utrace_report_work) == NULL)
-					printk(KERN_ERR "%s:%d - task_work_cancel() failed? task %p, %d, %s\n",
-					       __FUNCTION__, __LINE__,
-					       utrace->task,
-					       utrace->task->tgid,
-					       (utrace->task->comm
-						? utrace->task->comm
-						: "UNKNOWN"));
-#else
-				stp_task_work_cancel(utrace->task, &utrace_report_work);
-#endif
-			}
+		stap_hlist_for_each_entry(utrace, utrace_node, head, hlist) {
+			CANCEL_IF_WORK(utrace->resume_work_added, utrace_resume);
+			CANCEL_IF_WORK(utrace->report_work_added, utrace_report_work);
 		}
 	}
 	stp_spin_unlock(&task_utrace_lock);
+
+	/* Cancel any pending task_work_list item(s). */
+	stp_spin_lock_irqsave(&__stp_utrace_task_work_list_lock, flags);
+	list_for_each_entry(task_node, &__stp_utrace_task_work_list, list) {
+		stp_task_work_cancel(task_node->task, task_node->work.func);
+	}
+	stp_spin_unlock_irqrestore(&__stp_utrace_task_work_list_lock, flags);
 }
 
 static void utrace_shutdown(void)
@@ -566,7 +722,7 @@ static bool utrace_task_alloc(struct task_struct *task)
 
 	if (unlikely(!utrace))
 		return false;
-	stp_spin_lock_init(&utrace->lock);
+	spin_lock_init(&utrace->lock);
 	INIT_LIST_HEAD(&utrace->attached);
 	INIT_LIST_HEAD(&utrace->attaching);
 	utrace->resume = UTRACE_RESUME;
@@ -593,6 +749,20 @@ static bool utrace_task_alloc(struct task_struct *task)
 	return true;
 }
 
+/* macros for utrace_free(): */
+#define FREE_IF_WORK(added_field, task_work_func)                       \
+        if (atomic_add_unless(&added_field, -1, 0)) {                   \
+                if ((stp_task_work_cancel(utrace->task, &task_work_func) \
+                     == NULL)                                           \
+                    && (utrace->task->flags & ~PF_EXITING)              \
+                    && (utrace->task->exit_state == 0))                 \
+                        printk(KERN_ERR "%s:%d * task_work_cancel() failed for %s? task %p, %d, %s, 0x%lx 0x%x\n", \
+                               __FUNCTION__, __LINE__, #task_work_func, \
+                               utrace->task, utrace->task->tgid,        \
+                               (utrace->task->comm ? utrace->task->comm \
+                                : "UNKNOWN"), utrace->task->state, utrace->task->exit_state); \
+        }
+
 /*
  * Correctly free a @utrace structure.
  *
@@ -613,7 +783,7 @@ static void utrace_free(struct utrace *utrace)
 
 	/* Free the utrace struct. */
 #ifdef STP_TF_DEBUG
-	stp_spin_lock(&utrace->lock);
+	spin_lock(&utrace->lock);
 	if (unlikely(utrace->reporting)
 	    || unlikely(!list_empty(&utrace->attached))
 	    || unlikely(!list_empty(&utrace->attaching)))
@@ -621,31 +791,11 @@ static void utrace_free(struct utrace *utrace)
 		       __FUNCTION__, __LINE__, utrace->reporting,
 		       list_empty(&utrace->attached),
 		       list_empty(&utrace->attaching));
-	stp_spin_unlock(&utrace->lock);
+	spin_unlock(&utrace->lock);
 #endif
 
-	if (atomic_add_unless(&utrace->resume_work_added, -1, 0)) {
-		if ((stp_task_work_cancel(utrace->task, &utrace_resume)
-		     == NULL)
-		    && (utrace->task->flags & ~PF_EXITING)
-		    && (utrace->task->exit_state == 0))
-			printk(KERN_ERR "%s:%d * task_work_cancel() failed? task %p, %d, %s, 0x%lx 0x%x\n",
-			       __FUNCTION__, __LINE__, utrace->task,
-			       utrace->task->tgid,
-			       (utrace->task->comm ? utrace->task->comm
-				: "UNKNOWN"), utrace->task->state, utrace->task->exit_state);
-	}
-	if (atomic_add_unless(&utrace->report_work_added, -1, 0)) {
-		if ((stp_task_work_cancel(utrace->task, &utrace_report_work)
-		     == NULL)
-		    && (utrace->task->flags & ~PF_EXITING)
-		    && (utrace->task->exit_state == 0))
-			printk(KERN_ERR "%s:%d ** task_work_cancel() failed? task %p, %d, %s, 0x%lx, 0x%x\n",
-			       __FUNCTION__, __LINE__, utrace->task,
-			       utrace->task->tgid,
-			       (utrace->task->comm ? utrace->task->comm
-				: "UNKNOWN"), utrace->task->state, utrace->task->exit_state);
-	}
+	FREE_IF_WORK(utrace->resume_work_added, utrace_resume);
+	FREE_IF_WORK(utrace->report_work_added, utrace_report_work);
 
 #ifdef STP_TF_DEBUG
 	memset(utrace, 0, sizeof(struct utrace));
@@ -724,7 +874,7 @@ static int utrace_add_engine(struct task_struct *target,
 {
 	int ret;
 
-	stp_spin_lock(&utrace->lock);
+	spin_lock(&utrace->lock);
 
 	ret = -EEXIST;
 	if ((flags & UTRACE_ATTACH_EXCLUSIVE) &&
@@ -772,7 +922,7 @@ static int utrace_add_engine(struct task_struct *target,
 	utrace_engine_get(engine);
 	ret = 0;
 unlock:
-	stp_spin_unlock(&utrace->lock);
+	spin_unlock(&utrace->lock);
 
 	return ret;
 }
@@ -821,11 +971,11 @@ static struct utrace_engine *utrace_attach_task(
 	if (!(flags & UTRACE_ATTACH_CREATE)) {
 		if (unlikely(!utrace))
 			return ERR_PTR(-ENOENT);
-		stp_spin_lock(&utrace->lock);
+		spin_lock(&utrace->lock);
 		engine = find_matching_engine(utrace, flags, ops, data);
 		if (engine)
 			utrace_engine_get(engine);
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 		return engine ?: ERR_PTR(-ENOENT);
 	}
 
@@ -940,14 +1090,14 @@ static struct utrace *get_utrace_lock(struct task_struct *target,
 	}
 
 	utrace = task_utrace_struct(target);
-	stp_spin_lock(&utrace->lock);
+	spin_lock(&utrace->lock);
 	if (unlikely(utrace->reap) || unlikely(!engine->ops) ||
 	    unlikely(engine->ops == &utrace_detached_ops)) {
 		/*
 		 * By the time we got the utrace lock,
 		 * it had been reaped or detached already.
 		 */
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 		utrace = ERR_PTR(-ESRCH);
 		if (!attached && engine->ops == &utrace_detached_ops)
 			utrace = ERR_PTR(-ERESTARTSYS);
@@ -1113,7 +1263,7 @@ static int utrace_set_events(struct task_struct *target,
 			ret = -EINPROGRESS;
 	}
 unlock:
-	stp_spin_unlock(&utrace->lock);
+	spin_unlock(&utrace->lock);
 
 	return ret;
 }
@@ -1244,7 +1394,7 @@ static bool utrace_reset(struct task_struct *task, struct utrace *utrace)
 	rcu_read_lock();
 	utrace->utrace_flags = flags;
 	rcu_read_unlock();
-	stp_spin_unlock(&utrace->lock);
+	spin_unlock(&utrace->lock);
 
 	put_detached_list(&detached);
 
@@ -1259,8 +1409,8 @@ static void utrace_finish_stop(void)
 	 */
 	if (unlikely(__fatal_signal_pending(current))) {
 		struct utrace *utrace = task_utrace_struct(current);
-		stp_spin_lock(&utrace->lock);
-		stp_spin_unlock(&utrace->lock);
+		spin_lock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 	}
 }
 
@@ -1274,7 +1424,7 @@ static void utrace_stop(struct task_struct *task, struct utrace *utrace,
 			enum utrace_resume_action action)
 {
 relock:
-	stp_spin_lock(&utrace->lock);
+	spin_lock(&utrace->lock);
 
 	if (action < utrace->resume) {
 		/*
@@ -1310,7 +1460,7 @@ relock:
 
 	if (unlikely(__fatal_signal_pending(task))) {
 		spin_unlock_irq(&task->sighand->siglock);
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 		return;
 	}
 
@@ -1325,7 +1475,7 @@ relock:
 		task->signal->flags = SIGNAL_STOP_STOPPED;
 
 	spin_unlock_irq(&task->sighand->siglock);
-	stp_spin_unlock(&utrace->lock);
+	spin_unlock(&utrace->lock);
 
 	schedule();
 
@@ -1361,7 +1511,7 @@ static void utrace_maybe_reap(struct task_struct *target, struct utrace *utrace,
 	struct utrace_engine *engine, *next;
 	struct list_head attached;
 
-	stp_spin_lock(&utrace->lock);
+	spin_lock(&utrace->lock);
 
 	if (reap) {
 		/*
@@ -1375,7 +1525,7 @@ static void utrace_maybe_reap(struct task_struct *target, struct utrace *utrace,
 		utrace->reap = 1;
 
 		if (utrace->utrace_flags & _UTRACE_DEATH_EVENTS) {
-			stp_spin_unlock(&utrace->lock);
+			spin_unlock(&utrace->lock);
 			return;
 		}
 	} else {
@@ -1413,7 +1563,7 @@ static void utrace_maybe_reap(struct task_struct *target, struct utrace *utrace,
 	list_replace_init(&utrace->attached, &attached);
 	list_splice_tail_init(&utrace->attaching, &attached);
 
-	stp_spin_unlock(&utrace->lock);
+	spin_unlock(&utrace->lock);
 
 	list_for_each_entry_safe(engine, next, &attached, entry) {
 		if (engine->flags & UTRACE_EVENT(REAP))
@@ -1588,7 +1738,7 @@ static int utrace_control(struct task_struct *target,
 	if (unlikely(target->exit_state)) {
 		ret = utrace_control_dead(target, utrace, action);
 		if (ret) {
-			stp_spin_unlock(&utrace->lock);
+			spin_unlock(&utrace->lock);
 			return ret;
 		}
 		reset = true;
@@ -1686,7 +1836,7 @@ static int utrace_control(struct task_struct *target,
 	if (reset)
 		utrace_reset(target, utrace);
 	else
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 
 	return ret;
 }
@@ -1745,7 +1895,7 @@ static int utrace_barrier(struct task_struct *target,
 			 */
 			if (utrace->reporting != engine)
 				ret = 0;
-			stp_spin_unlock(&utrace->lock);
+			spin_unlock(&utrace->lock);
 			if (!ret)
 				break;
 		}
@@ -1783,12 +1933,12 @@ static enum utrace_resume_action start_report(struct utrace *utrace)
 	enum utrace_resume_action resume = utrace->resume;
 	if (utrace->pending_attach ||
 	    (resume > UTRACE_STOP && resume < UTRACE_RESUME)) {
-		stp_spin_lock(&utrace->lock);
+		spin_lock(&utrace->lock);
 		splice_attaching(utrace);
 		resume = utrace->resume;
 		if (resume > UTRACE_STOP)
 			utrace->resume = UTRACE_RESUME;
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 	}
 	return resume;
 }
@@ -1798,7 +1948,7 @@ static inline void finish_report_reset(struct task_struct *task,
 				       struct utrace_report *report)
 {
 	if (unlikely(report->spurious || report->detaches)) {
-		stp_spin_lock(&utrace->lock);
+		spin_lock(&utrace->lock);
 		if (utrace_reset(task, utrace))
 			report->action = UTRACE_RESUME;
 	}
@@ -1821,12 +1971,12 @@ static void finish_report(struct task_struct *task, struct utrace *utrace,
 		resume = will_not_stop ? UTRACE_REPORT : UTRACE_RESUME;
 
 	if (resume < utrace->resume) {
-		stp_spin_lock(&utrace->lock);
+		spin_lock(&utrace->lock);
 		utrace->resume = resume;
 		stp_task_notify_resume(task, utrace);
 		if (resume == UTRACE_INTERRUPT)
 			set_tsk_thread_flag(task, TIF_SIGPENDING);
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 	}
 
 	finish_report_reset(task, utrace, report);
@@ -1847,9 +1997,9 @@ static void finish_callback_report(struct task_struct *task,
 		 * This way, a 0 return is an unambiguous indicator that any
 		 * callback returning UTRACE_DETACH has indeed caused detach.
 		 */
-		stp_spin_lock(&utrace->lock);
+		spin_lock(&utrace->lock);
 		engine->ops = &utrace_detached_ops;
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 	}
 
 	/*
@@ -1868,16 +2018,16 @@ static void finish_callback_report(struct task_struct *task,
 			report->resume_action = action;
 
 		if (engine_wants_stop(engine)) {
-			stp_spin_lock(&utrace->lock);
+			spin_lock(&utrace->lock);
 			clear_engine_wants_stop(engine);
-			stp_spin_unlock(&utrace->lock);
+			spin_unlock(&utrace->lock);
 		}
 
 		return;
 	}
 
 	if (!engine_wants_stop(engine)) {
-		stp_spin_lock(&utrace->lock);
+		spin_lock(&utrace->lock);
 		/*
 		 * If utrace_control() came in and detached us
 		 * before we got the lock, we must not stop now.
@@ -1886,7 +2036,7 @@ static void finish_callback_report(struct task_struct *task,
 			report->detaches = true;
 		else
 			mark_engine_wants_stop(utrace, engine);
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 	}
 }
 
@@ -2039,6 +2189,42 @@ static void utrace_report_exec(void *cb_data __attribute__ ((unused)),
 			       pid_t old_pid __attribute__((unused)),
 			       struct linux_binprm *bprm __attribute__ ((unused)))
 {
+#ifdef STP_UTRACE_USE_TASK_WORK_QUEUE
+	// This is the version that's deferred with task_work_list.
+	struct task_work *work;
+	struct utrace *utrace;
+	int rc;
+
+	if (atomic_read(&utrace_state) != __UTRACE_REGISTERED)
+		return;
+	utrace = task_utrace_struct(task);
+
+	if (!utrace || !(utrace->utrace_flags & UTRACE_EVENT(EXEC)))
+		return;
+
+#if 0
+	if (!in_atomic() && !irqs_disabled())
+		printk(KERN_ERR
+		       "%s:%d - utrace_report_exec() in nonatomic context (%d, %d)\n",
+		       __FUNCTION__, __LINE__, in_atomic(), irqs_disabled());
+#endif
+
+	/* Defer the report_exec work so it doesn't happen in atomic context: */
+	work = __stp_utrace_alloc_task_work(utrace, (void *)NULL);
+	if (work == NULL) {
+		_stp_error("Unable to allocate space for task_work");
+		return;
+	}
+	stp_init_task_work(work, &utrace_exec_work);
+	rc = stp_task_work_add(task, work);
+	// stp_task_work_add() returns -ESRCH if the task has already
+	// passed exit_task_work(). Just ignore this error.
+	if (rc != 0 && rc != -ESRCH) {
+		printk(KERN_ERR "%s:%d - stp_task_work_add() returned %d\n",
+		       __FUNCTION__, __LINE__, rc);
+	}
+#else
+	// This is the original version.
 	struct utrace *utrace;
 
 	if (atomic_read(&utrace_state) != __UTRACE_REGISTERED)
@@ -2052,6 +2238,27 @@ static void utrace_report_exec(void *cb_data __attribute__ ((unused)),
 		REPORT(task, utrace, &report, UTRACE_EVENT(EXEC),
 		       report_exec, NULL, NULL, NULL /* regs */);
 	}
+#endif
+}
+
+static void utrace_exec_work(struct task_work *work)
+{
+	struct __stp_utrace_task_work *utrace_work = \
+		container_of(work, struct __stp_utrace_task_work, work);
+	struct utrace *utrace = utrace_work->utrace;
+	struct task_struct *task = current;
+
+	INIT_REPORT(report);
+
+	might_sleep();
+
+	/* FIXME: Hmm, can we get regs another way? */
+	REPORT(task, utrace, &report, UTRACE_EVENT(EXEC),
+	       report_exec, NULL, NULL, NULL /* regs */);
+	__stp_utrace_free_task_work(work);
+
+	/* Remember that this task_work_func is finished. */
+	stp_task_work_func_done();
 }
 
 #if 0
@@ -2107,6 +2314,46 @@ static u32 do_report_syscall_entry(struct pt_regs *regs,
 static void utrace_report_syscall_entry(void *cb_data __attribute__ ((unused)),
 					struct pt_regs *regs, long id)
 {
+#ifdef STP_UTRACE_USE_TASK_WORK_QUEUE
+	// This is the version that's deferred with task_work_list.
+	struct task_struct *task = current;
+	struct task_work *work;
+	struct utrace *utrace;
+	int rc;
+
+	if (atomic_read(&utrace_state) != __UTRACE_REGISTERED)
+		return;
+	utrace = task_utrace_struct(task);
+
+	/* FIXME: Is this 100% correct? */
+	if (!utrace
+	    || !(utrace->utrace_flags & (UTRACE_EVENT(SYSCALL_ENTRY)|ENGINE_STOP)))
+		return;
+
+#if 0
+	if (!in_atomic() && !irqs_disabled())
+		printk(KERN_ERR
+		       "%s:%d - utrace_report_syscall_entry() in nonatomic context (%d, %d)\n",
+		       __FUNCTION__, __LINE__, in_atomic(), irqs_disabled());
+#endif
+
+	/* Defer the report_syscall_entry work so it doesn't happen in atomic context: */
+	work = __stp_utrace_alloc_task_work(utrace, NULL);
+	__stp_utrace_save_regs(work, regs);
+	if (work == NULL) {
+		_stp_error("Unable to allocate space for task_work");
+		return;
+	}
+	stp_init_task_work(work, &utrace_syscall_entry_work);
+	rc = stp_task_work_add(task, work);
+	// stp_task_work_add() returns -ESRCH if the task has already
+	// passed exit_task_work(). Just ignore this error.
+	if (rc != 0 && rc != -ESRCH) {
+		printk(KERN_ERR "%s:%d - stp_task_work_add() returned %d\n",
+		       __FUNCTION__, __LINE__, rc);
+	}
+#else
+	// This is the original version.
 	struct task_struct *task = current;
 	struct utrace *utrace;
 
@@ -2126,7 +2373,6 @@ static void utrace_report_syscall_entry(void *cb_data __attribute__ ((unused)),
 		       report_syscall_entry, regs);
 	}
 
-
 #if 0
 	INIT_REPORT(report);
 	u32 resume_report = 0;
@@ -2138,6 +2384,29 @@ static void utrace_report_syscall_entry(void *cb_data __attribute__ ((unused)),
 
 	return utrace_syscall_action(report.result) == UTRACE_SYSCALL_ABORT;
 #endif
+#endif
+}
+
+static void utrace_syscall_entry_work(struct task_work *work)
+{
+	struct __stp_utrace_task_work *utrace_work = \
+		container_of(work, struct __stp_utrace_task_work, work);
+	struct utrace *utrace = utrace_work->utrace;
+	struct task_struct *task = current;
+	struct pt_regs *regs = &utrace_work->regs;
+
+	INIT_REPORT(report);
+
+	might_sleep();
+
+	/* FIXME: Hmm, original utrace called probes in reverse
+	 * order.  Needed here? */
+	REPORT(task, utrace, &report, UTRACE_EVENT(SYSCALL_ENTRY),
+	       report_syscall_entry, regs);
+	__stp_utrace_free_task_work(work);
+
+	/* Remember that this task_work_func is finished. */
+	stp_task_work_func_done();
 }
 
 /*
@@ -2146,6 +2415,46 @@ static void utrace_report_syscall_entry(void *cb_data __attribute__ ((unused)),
 static void utrace_report_syscall_exit(void *cb_data __attribute__ ((unused)),
 				       struct pt_regs *regs, long ret)
 {
+#ifdef STP_UTRACE_USE_TASK_WORK_QUEUE
+	// This is the version that's deferred with task_work_list.
+	struct task_struct *task = current;
+	struct task_work *work;
+	struct utrace *utrace;
+	int rc;
+
+	if (atomic_read(&utrace_state) != __UTRACE_REGISTERED)
+		return;
+	utrace = task_utrace_struct(task);
+
+	/* FIXME: Is this 100% correct? */
+	if (!utrace
+	    || !(utrace->utrace_flags & (UTRACE_EVENT(SYSCALL_EXIT)|ENGINE_STOP)))
+		return;
+
+#if 0
+	if (!in_atomic() && !irqs_disabled())
+		printk(KERN_ERR
+		       "%s:%d - utrace_report_syscall_exit() in nonatomic context (%d, %d)\n",
+		       __FUNCTION__, __LINE__, in_atomic(), irqs_disabled());
+#endif
+
+	/* Defer the report_syscall_exit work so it doesn't happen in atomic context: */
+	work = __stp_utrace_alloc_task_work(utrace, NULL);
+	__stp_utrace_save_regs(work, regs);
+	if (work == NULL) {
+		_stp_error("Unable to allocate space for task_work");
+		return;
+	}
+	stp_init_task_work(work, &utrace_syscall_exit_work);
+	rc = stp_task_work_add(task, work);
+	// stp_task_work_add() returns -ESRCH if the task has already
+	// passed exit_task_work(). Just ignore this error.
+	if (rc != 0 && rc != -ESRCH) {
+		printk(KERN_ERR "%s:%d - stp_task_work_add() returned %d\n",
+		       __FUNCTION__, __LINE__, rc);
+	}
+#else
+	// This is the original version.
 	struct task_struct *task = current;
 	struct utrace *utrace;
 
@@ -2166,6 +2475,38 @@ static void utrace_report_syscall_exit(void *cb_data __attribute__ ((unused)),
 		REPORT(task, utrace, &report, UTRACE_EVENT(SYSCALL_EXIT),
 		       report_syscall_exit, regs);
 	}
+#endif
+}
+
+static void utrace_syscall_exit_work(struct task_work *work)
+{
+	struct __stp_utrace_task_work *utrace_work = \
+		container_of(work, struct __stp_utrace_task_work, work);
+	struct utrace *utrace = utrace_work->utrace;
+	struct task_struct *task = current;
+	struct pt_regs *regs = &utrace_work->regs;
+
+	INIT_REPORT(report);
+
+#ifdef STP_TF_DEBUG
+	printk(KERN_ERR "%s:%d - task %p, utrace %p, utrace_flags 0x%lx\n",
+	       __FUNCTION__, __LINE__, task, utrace,
+	       utrace->utrace_flags);
+#endif
+	might_sleep();
+	__stp_utrace_free_task_work(work);
+
+#ifdef STP_TF_DEBUG
+	printk(KERN_ERR "%s:%d - task %p, utrace %p, utrace_flags 0x%lx\n",
+	       __FUNCTION__, __LINE__, task, utrace,
+	       utrace->utrace_flags);
+#endif
+
+	REPORT(task, utrace, &report, UTRACE_EVENT(SYSCALL_EXIT),
+	       report_syscall_exit, regs);
+
+	/* Remember that this task_work_func is finished. */
+	stp_task_work_func_done();
 }
 
 /*
@@ -2173,11 +2514,51 @@ static void utrace_report_syscall_exit(void *cb_data __attribute__ ((unused)),
  * This notification call blocks the wake_up_new_task call on the child.
  * So we must not quiesce here.  tracehook_report_clone_complete will do
  * a quiescence check momentarily.
+ *
+ * TODO: Need to review how tracehook_report_clone_complete() interacts
+ * with the task_work_list report delaying.
  */
-static void utrace_report_clone(void *cb_data __attribute__ ((unused)), 
+static void utrace_report_clone(void *cb_data __attribute__ ((unused)),
 				struct task_struct *task,
 				struct task_struct *child)
 {
+#ifdef STP_UTRACE_USE_TASK_WORK_QUEUE
+	// This is the version that's deferred with task_work_list.
+	struct task_work *work;
+	struct utrace *utrace;
+	int rc;
+
+	if (atomic_read(&utrace_state) != __UTRACE_REGISTERED)
+		return;
+	utrace = task_utrace_struct(task);
+
+#ifdef STP_TF_DEBUG
+	printk(KERN_ERR "%s:%d - parent %p, child %p, current %p\n",
+	       __FUNCTION__, __LINE__, task, child, current);
+#endif
+
+	if (!utrace
+	    || !(utrace->utrace_flags & UTRACE_EVENT(CLONE)))
+		return;
+
+	// TODO: Need to double-check the lifetime of struct child.
+
+	/* Defer the report_clone work so it doesn't happen in atomic context: */
+	work = __stp_utrace_alloc_task_work(utrace, (void *)child);
+	if (work == NULL) {
+		_stp_error("Unable to allocate space for task_work");
+		return;
+	}
+	stp_init_task_work(work, &utrace_clone_work);
+	rc = stp_task_work_add(task, work);
+	// stp_task_work_add() returns -ESRCH if the task has already
+	// passed exit_task_work(). Just ignore this error.
+	if (rc != 0 && rc != -ESRCH) {
+		printk(KERN_ERR "%s:%d - stp_task_work_add() returned %d\n",
+		       __FUNCTION__, __LINE__, rc);
+	}
+#else
+	// This is the original version.
 	struct utrace *utrace;
 
 	if (atomic_read(&utrace_state) != __UTRACE_REGISTERED)
@@ -2251,6 +2632,83 @@ static void utrace_report_clone(void *cb_data __attribute__ ((unused)),
 		}
 #endif
 	}
+#endif
+}
+
+static void utrace_clone_work(struct task_work *work)
+{
+	struct __stp_utrace_task_work *utrace_work = \
+		container_of(work, struct __stp_utrace_task_work, work);
+	struct utrace *utrace = utrace_work->utrace;
+	struct task_struct *task = current;
+	struct task_struct *child = (struct task_struct *)utrace_work->data;
+
+	unsigned long clone_flags = 0;
+	INIT_REPORT(report);
+
+	might_sleep();
+	__stp_utrace_free_task_work(work);
+
+	/* FIXME: Figure out what the clone_flags were. For
+	 * task_finder's purposes, all we need is CLONE_THREAD. */
+	if (task->mm == child->mm)
+		clone_flags |= CLONE_VM;
+	if (task->fs == child->fs)
+		clone_flags |= CLONE_FS;
+	if (task->files == child->files)
+		clone_flags |= CLONE_FILES;
+	if (task->sighand == child->sighand)
+		clone_flags |= CLONE_SIGHAND;
+
+#if 0
+#define CLONE_PTRACE	0x00002000	/* set if we want to let tracing continue on the child too */
+#define CLONE_VFORK	0x00004000	/* set if the parent wants the child to wake it up on mm_release */
+#define CLONE_PARENT	0x00008000	/* set if we want to have the same parent as the cloner */
+#endif
+	if (! thread_group_leader(child)) /* Same thread group? */
+		clone_flags |= CLONE_THREAD;
+
+#if 0
+#define CLONE_NEWNS	0x00020000	/* New namespace group? */
+#define CLONE_SYSVSEM	0x00040000	/* share system V SEM_UNDO semantics */
+#define CLONE_SETTLS	0x00080000	/* create a new TLS for the child */
+#define CLONE_PARENT_SETTID	0x00100000	/* set the TID in the parent */
+#define CLONE_CHILD_CLEARTID	0x00200000	/* clear the TID in the child */
+#define CLONE_DETACHED		0x00400000	/* Unused, ignored */
+#define CLONE_UNTRACED		0x00800000	/* set if the tracing process can't force CLONE_PTRACE on this clone */
+#define CLONE_CHILD_SETTID	0x01000000	/* set the TID in the child */
+/* 0x02000000 was previously the unused CLONE_STOPPED (Start in stopped state)
+   and is now available for re-use. */
+#define CLONE_NEWUTS		0x04000000	/* New utsname group? */
+#define CLONE_NEWIPC		0x08000000	/* New ipcs */
+#define CLONE_NEWUSER		0x10000000	/* New user namespace */
+#define CLONE_NEWPID		0x20000000	/* New pid namespace */
+#define CLONE_NEWNET		0x40000000	/* New network namespace */
+#define CLONE_IO		0x80000000	/* Clone io context */
+#endif
+
+
+	REPORT(task, utrace, &report, UTRACE_EVENT(CLONE),
+	       report_clone, clone_flags, child);
+
+
+#if 0
+	/*
+	 * For a vfork, we will go into an uninterruptible
+	 * block waiting for the child.  We need UTRACE_STOP
+	 * to happen before this, not after.  For CLONE_VFORK,
+	 * utrace_finish_vfork() will be called.
+	 */
+	if (report.action == UTRACE_STOP
+	    && (clone_flags & CLONE_VFORK)) {
+		spin_lock(&utrace->lock);
+		utrace->vfork_stop = 1;
+		spin_unlock(&utrace->lock);
+	}
+#endif
+
+	/* Remember that this task_work_func is finished. */
+	stp_task_work_func_done();
 }
 
 /*
@@ -2258,15 +2716,19 @@ static void utrace_report_clone(void *cb_data __attribute__ ((unused)),
  * If UTRACE_STOP was left from the clone report, we stop here.
  * After this, we'll enter the uninterruptible wait_for_completion()
  * waiting for the child.
+ *
+ * TODO: Is this an orphaned function? If it were actually called
+ * anywhere, its timing relative to utrace_clone_work() would be
+ * important.
  */
 static void utrace_finish_vfork(struct task_struct *task)
 {
 	struct utrace *utrace = task_utrace_struct(task);
 
 	if (utrace->vfork_stop) {
-		stp_spin_lock(&utrace->lock);
+		spin_lock(&utrace->lock);
 		utrace->vfork_stop = 0;
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 		utrace_stop(task, utrace, UTRACE_RESUME); /* XXX */
 	}
 }
@@ -2341,12 +2803,12 @@ static void utrace_report_death(void *cb_data __attribute__ ((unused)),
 		}
 	}
 	else {
-		stp_spin_lock(&utrace->lock);
+		spin_lock(&utrace->lock);
 		BUG_ON(utrace->death);
 		utrace->death = 1;
 		utrace->resume = UTRACE_RESUME;
 		splice_attaching(utrace);
-		stp_spin_unlock(&utrace->lock);
+		spin_unlock(&utrace->lock);
 
 		REPORT_CALLBACKS(, task, utrace, &report, UTRACE_EVENT(DEATH),
 				 report_death, engine, -1/*group_dead*/,
@@ -2472,7 +2934,7 @@ static void utrace_resume(struct task_work *work)
 	 * effect now (i.e. step or interrupt).
 	 */
 	finish_resume_report(task, utrace, &report);
-	
+
 	/* Remember that this task_work_func is finished. */
 	stp_task_work_func_done();
 }
@@ -2499,12 +2961,12 @@ static void utrace_report_work(struct task_work *work)
 	might_sleep();
 
 	atomic_set(&utrace->report_work_added, 0);
-	stp_spin_lock(&utrace->lock);
+	spin_lock(&utrace->lock);
 	BUG_ON(utrace->death);
 	utrace->death = 1;
 	utrace->resume = UTRACE_RESUME;
 	splice_attaching(utrace);
-	stp_spin_unlock(&utrace->lock);
+	spin_unlock(&utrace->lock);
 
 	REPORT_CALLBACKS(, task, utrace, &report, UTRACE_EVENT(DEATH),
 			 report_death, engine, -1/*group_dead*/,
