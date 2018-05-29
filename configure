@@ -12967,6 +12967,7 @@ ac_config_files="$ac_config_files staprun/guest/stapsh-daemon"
 ac_config_files="$ac_config_files staprun/guest/stapsh@.service"
 
 
+
 # Setup "shadow" directory doc/beginners that has the basic directories  setup for
 # xmlto in one directory (through directory links if necessary).
 # It would be nice to use AC_CONFIG_LINKS, but automake complains when

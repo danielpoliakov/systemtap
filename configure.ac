@@ -995,6 +995,10 @@ AC_CONFIG_FILES([staprun/guest/stapshd], [chmod +x staprun/guest/stapshd])
 AC_CONFIG_FILES([staprun/guest/stapsh-daemon], [chmod +x staprun/guest/stapsh-daemon])
 AC_CONFIG_FILES([staprun/guest/stapsh@.service])
 
+dnl AC_CONFIG_FILES([macros.systemtap])
+dnl ^^^ not that one, because we want to expand $vars etc. to fqdn's,
+dnl so we do the mapping in the Makefile.am
+
 # Setup "shadow" directory doc/beginners that has the basic directories  setup for
 # xmlto in one directory (through directory links if necessary).
 # It would be nice to use AC_CONFIG_LINKS, but automake complains when

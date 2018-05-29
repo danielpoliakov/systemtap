@@ -77,6 +77,11 @@ endif
 
 endif
 
+all: macros.systemtap
+
+macros.systemtap: $(srcdir)/macros.systemtap.in
+	sed -e "s#@pkgdatadir@#$(pkgdatadir)#g" < $< > $@
+
 install: all
 	$(MAKE) $(AM_MAKEFLAGS) install-recursive
 

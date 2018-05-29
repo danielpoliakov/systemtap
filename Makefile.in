@@ -2264,6 +2264,11 @@ uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
 .PRECIOUS: Makefile
 
 
+all: macros.systemtap
+
+macros.systemtap: $(srcdir)/macros.systemtap.in
+	sed -e "s#@pkgdatadir@#$(pkgdatadir)#g" < $< > $@
+
 install: all
 	$(MAKE) $(AM_MAKEFLAGS) install-recursive
 git_version.stamp:

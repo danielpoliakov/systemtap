@@ -648,6 +648,8 @@ mv $RPM_BUILD_ROOT%{_datadir}/doc/systemtap/SystemTap_Beginners_Guide docs.insta
 %endif
 %endif
 
+install -D -m 644 macros.systemtap $RPM_BUILD_ROOT%{_rpmmacrodir}/macros.systemtap
+
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/stap-server
 mkdir -p $RPM_BUILD_ROOT%{_localstatedir}/lib/stap-server
 mkdir -p $RPM_BUILD_ROOT%{_localstatedir}/lib/stap-server/.systemtap
@@ -1008,6 +1010,7 @@ done
 %doc README README.unprivileged AUTHORS NEWS 
 %{!?_licensedir:%global license %%doc}
 %license COPYING
+%{_rpmmacrodir}/macros.systemtap
 %if %{with_java}
 %dir %{_libexecdir}/systemtap
 %{_libexecdir}/systemtap/libHelperSDT_*.so
