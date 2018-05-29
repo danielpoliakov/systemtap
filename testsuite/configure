@@ -1290,11 +1290,12 @@ Optional Features:
   --enable-maintainer-mode
                           enable make rules and dependencies not useful (and
                           sometimes confusing) to the casual installer
-  --enable-dejazilla[=EMAIL]
+  --enable-dejazilla[=ARG]
                           enable dejazilla support to automatically email test
                           results to a central public collection point
-                          (default is disabled). Optional EMAIL overrides the
-                          default email address.
+                          (default is disabled). Optional ARG overrides the
+                          default email address. Specifying a url for ARG will
+                          instead send the results to that url via http.
   --enable-testapps=foo bar or all
                           enable rebuilding of large external apps for testing
                           <sdt.h> markers
@@ -2372,8 +2373,8 @@ case "$enable_dejazilla" in
      *) dejazilla="$enable_dejazilla" ;;
 esac
 if test -n "$dejazilla"; then
-   { $as_echo "$as_me:${as_lineno-$LINENO}: A \"make *check\" will email results to $dejazilla" >&5
-$as_echo "$as_me: A \"make *check\" will email results to $dejazilla" >&6;}
+   { $as_echo "$as_me:${as_lineno-$LINENO}: A \"make *check\" will send results to $dejazilla" >&5
+$as_echo "$as_me: A \"make *check\" will send results to $dejazilla" >&6;}
 fi
 
 
