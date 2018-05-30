@@ -158,10 +158,10 @@ local_backend::generate_module(const client_request_data *crd,
 }
 
 
-class docker_backend : public backend_base
+class container_backend : public backend_base
 {
 public:
-    docker_backend();
+    container_backend();
 
     bool can_generate_module(const struct client_request_data *crd);
     int generate_module(const client_request_data *crd,
@@ -175,21 +175,21 @@ private:
     // The docker executable path.
     string docker_path;
 
-    // The docker data directory.
+    // The container data directory.
     string datadir;
     
-    // List of docker data filenames. <distro name, path>
+    // List of container data filenames. <distro name, path>
     map<string, string> data_files;
 
     // The current architecture.
     string arch;
 
-    // The script path that builds a docker container.
-    string docker_build_container_script_path;
+    // The script path that builds a container.
+    string container_build_script_path;
 };
 
 
-docker_backend::docker_backend()
+container_backend::container_backend()
 {
     try {
 	docker_path = find_executable("docker");
@@ -201,12 +201,12 @@ docker_backend::docker_backend()
     catch (...) {
 	// It really isn't an error for the system to not have the
 	// "docker" executable. We'll just disallow builds using the
-	// docker backend (down in
-	// docker_backend::can_generate_module()).
+	// container backend (down in
+	// container_backend::can_generate_module()).
 	docker_path.clear();
     }
     
-    docker_build_container_script_path = string(PKGLIBDIR)
+    container_build_script_path = string(PKGLIBDIR)
 	+ "/httpd/docker/stap_build_docker_image.py";
 
     datadir = string(PKGDATADIR) + "/httpd/docker";
@@ -253,7 +253,7 @@ docker_backend::docker_backend()
 }
 
 bool
-docker_backend::can_generate_module(const client_request_data *crd)
+container_backend::can_generate_module(const client_request_data *crd)
 {
     // If we don't have a docker executable, we're done.
     if (docker_path.empty())
@@ -269,7 +269,7 @@ docker_backend::can_generate_module(const client_request_data *crd)
 }
 
 int
-docker_backend::generate_module(const client_request_data *crd,
+container_backend::generate_module(const client_request_data *crd,
 				const vector<string> &argv,
 				const string &tmp_dir,
 				const string &uuid,
@@ -279,17 +279,17 @@ docker_backend::generate_module(const client_request_data *crd,
     vector<string> images_to_remove;
     vector<string> containers_to_remove;
 
-    // Handle capturing docker's stdout and stderr (along with using
-    // /dev/null for stdin). If the client requested it, just use
-    // stap's stdout/stderr files.
-    string docker_stdout_path, docker_stderr_path;
+    // Handle capturing the container build and run stdout and stderr
+    // (along with using /dev/null for stdin). If the client requested
+    // it, just use stap's stdout/stderr files.
+    string container_stdout_path, container_stderr_path;
     if (crd->verbose >= 3) {
-	docker_stdout_path = stdout_path;
-	docker_stderr_path = stderr_path;
+	container_stdout_path = stdout_path;
+	container_stderr_path = stderr_path;
     }
     else {
-	docker_stdout_path = tmp_dir + "/docker_stdout";
-	docker_stderr_path = tmp_dir + "/docker_stderr";
+	container_stdout_path = tmp_dir + "/container_stdout";
+	container_stderr_path = tmp_dir + "/container_stderr";
     }
 
     // Grab a JSON representation of the client_request_data, and
@@ -305,8 +305,8 @@ docker_backend::generate_module(const client_request_data *crd,
     json_object_put(root);
 
     // Put the date and time in the image name. This will make it
-    // easier to know which docker images we've created (and when they
-    // were created).
+    // easier to know which container images we've created (and when
+    // they were created).
     //
     // Why 13 characters in the date and time buffer? 4 charaters
     // (year) + 2 charaters (month) + 2 charaters (day) + 2 charaters
@@ -320,32 +320,32 @@ docker_backend::generate_module(const client_request_data *crd,
 
     string stap_image_uuid = "stap." + uuid + "." + datetime;
 
-    // Kick off building the docker image. Note we're using the UUID
-    // as the docker image name. This keeps us from trying to build
-    // multiple images with the same name at the same time.
-    vector<string> docker_args;
+    // Kick off building the container image. Note we're using the
+    // UUID as the container image name. This keeps us from trying to
+    // build multiple images with the same name at the same time.
+    vector<string> cmd_args;
 #if defined(PYTHON3_BASENAME)
-    docker_args.push_back(PYTHON3_BASENAME);
+    cmd_args.push_back(PYTHON3_BASENAME);
 #elif defined(PYTHON_BASENAME)
-    docker_args.push_back(PYTHON_BASENAME);
+    cmd_args.push_back(PYTHON_BASENAME);
 #else
 #error "Couldn't find python version 2 or 3."
 #endif
-    docker_args.push_back(docker_build_container_script_path);
-    docker_args.push_back("--distro-file");
-    docker_args.push_back(data_files[crd->distro_name]);
-    docker_args.push_back("--build-file");
-    docker_args.push_back(build_data_path);
-    docker_args.push_back("--data-dir");
-    docker_args.push_back(datadir);
-    docker_args.push_back(stap_image_uuid);
+    cmd_args.push_back(container_build_script_path);
+    cmd_args.push_back("--distro-file");
+    cmd_args.push_back(data_files[crd->distro_name]);
+    cmd_args.push_back("--build-file");
+    cmd_args.push_back(build_data_path);
+    cmd_args.push_back("--data-dir");
+    cmd_args.push_back(datadir);
+    cmd_args.push_back(stap_image_uuid);
 
-    int rc = execute_and_capture(2, docker_args, crd->env_vars,
-				 docker_stdout_path, docker_stderr_path);
+    int rc = execute_and_capture(2, cmd_args, crd->env_vars,
+				 container_stdout_path, container_stderr_path);
     server_error(_F("Spawned process returned %d", rc));
     if (rc != 0) {
 	server_error(_F("%s failed.",
-			docker_build_container_script_path.c_str()));
+			container_build_script_path.c_str()));
 	return -1;
     }
 
@@ -369,17 +369,17 @@ docker_backend::generate_module(const client_request_data *crd,
 	    stap_image_uuid = get_uuid();
 
 	    // Now run "docker build" with that docker file.
-	    docker_args.clear();
-	    docker_args.push_back("docker");
-	    docker_args.push_back("build");
-	    docker_args.push_back("-t");
-	    docker_args.push_back(stap_image_uuid);
-	    docker_args.push_back("-f");
-	    docker_args.push_back(docker_file_path);
-	    docker_args.push_back(crd->base_dir);
+	    cmd_args.clear();
+	    cmd_args.push_back("docker");
+	    cmd_args.push_back("build");
+	    cmd_args.push_back("-t");
+	    cmd_args.push_back(stap_image_uuid);
+	    cmd_args.push_back("-f");
+	    cmd_args.push_back(docker_file_path);
+	    cmd_args.push_back(crd->base_dir);
 
-	    rc = execute_and_capture(2, docker_args, crd->env_vars,
-				     docker_stdout_path, docker_stderr_path);
+	    rc = execute_and_capture(2, cmd_args, crd->env_vars,
+				     container_stdout_path, container_stderr_path);
 	    server_error(_F("Spawned process returned %d", rc));
 	    if (rc != 0) {
 		server_error("docker build failed.");
@@ -399,28 +399,28 @@ docker_backend::generate_module(const client_request_data *crd,
     // If we're here, we built the container successfully. Now start
     // the container and run stap. First, build up the command line
     // arguments.
-    docker_args.clear();
-    docker_args.push_back("docker");
-    docker_args.push_back("run");
-    docker_args.push_back("--name");
-    docker_args.push_back(stap_container_uuid);
+    cmd_args.clear();
+    cmd_args.push_back("docker");
+    cmd_args.push_back("run");
+    cmd_args.push_back("--name");
+    cmd_args.push_back(stap_container_uuid);
     for (auto i = crd->env_vars.begin(); i < crd->env_vars.end(); ++i) {
-        docker_args.push_back("-e");
-        docker_args.push_back(*i);
+        cmd_args.push_back("-e");
+        cmd_args.push_back(*i);
     }
 
     // When running "stap --tmpdir=/tmp/FOO", your current directory
     // needs to be /tmp/FOO for stap to run successfully (for some odd
     // reason).
-    docker_args.push_back("-w");
-    docker_args.push_back(tmp_dir);
+    cmd_args.push_back("-w");
+    cmd_args.push_back(tmp_dir);
 
-    docker_args.push_back(stap_image_uuid);
+    cmd_args.push_back(stap_image_uuid);
     for (auto it = argv.begin(); it != argv.end(); it++) {
-	docker_args.push_back(*it);
+	cmd_args.push_back(*it);
     }
 
-    int saved_rc = execute_and_capture(2, docker_args, crd->env_vars,
+    int saved_rc = execute_and_capture(2, cmd_args, crd->env_vars,
 				       stdout_path, stderr_path);
     server_error(_F("Spawned process returned %d", rc));
     if (rc != 0) {
@@ -430,13 +430,13 @@ docker_backend::generate_module(const client_request_data *crd,
     if (saved_rc == 0) {
 	// At this point we've built the container and run stap
 	// successfully. Grab the results (if any) from the container.
-	docker_args.clear();
-	docker_args.push_back("docker");
-	docker_args.push_back("cp");
-	docker_args.push_back(stap_container_uuid + ":" + tmp_dir);
-	docker_args.push_back("/tmp");
-	rc = execute_and_capture(2, docker_args, crd->env_vars,
-				 docker_stdout_path, docker_stderr_path);
+	cmd_args.clear();
+	cmd_args.push_back("docker");
+	cmd_args.push_back("cp");
+	cmd_args.push_back(stap_container_uuid + ":" + tmp_dir);
+	cmd_args.push_back("/tmp");
+	rc = execute_and_capture(2, cmd_args, crd->env_vars,
+				 container_stdout_path, container_stderr_path);
 	server_error(_F("Spawned process returned %d", rc));
 	if (rc != 0) {
 	    server_error("docker cp failed.");
@@ -475,15 +475,15 @@ docker_backend::generate_module(const client_request_data *crd,
     // images and containers that haven't been used in a while.
 
     if (! containers_to_remove.empty()) {
-	docker_args.clear();
-	docker_args.push_back("docker");
-	docker_args.push_back("rm");
+	cmd_args.clear();
+	cmd_args.push_back("docker");
+	cmd_args.push_back("rm");
 	for (auto i = containers_to_remove.begin();
 	     i != containers_to_remove.end(); i++) {
-	    docker_args.push_back(*i);
+	    cmd_args.push_back(*i);
 	}
-	rc = execute_and_capture(2, docker_args, crd->env_vars,
-				 docker_stdout_path, docker_stderr_path);
+	rc = execute_and_capture(2, cmd_args, crd->env_vars,
+				 container_stdout_path, container_stderr_path);
 	// Note that we're ignoring any errors here.
 	server_error(_F("Spawned process returned %d", rc));
 	if (rc != 0) {
@@ -491,15 +491,15 @@ docker_backend::generate_module(const client_request_data *crd,
 	}
     }
     if (! images_to_remove.empty()) {
-	docker_args.clear();
-	docker_args.push_back("docker");
-	docker_args.push_back("rmi");
+	cmd_args.clear();
+	cmd_args.push_back("docker");
+	cmd_args.push_back("rmi");
 	for (auto i = images_to_remove.begin(); i != images_to_remove.end();
 	     i++) {
-	    docker_args.push_back(*i);
+	    cmd_args.push_back(*i);
 	}
-	rc = execute_and_capture(2, docker_args, crd->env_vars,
-				 docker_stdout_path, docker_stderr_path);
+	rc = execute_and_capture(2, cmd_args, crd->env_vars,
+				 container_stdout_path, container_stderr_path);
 	// Note that we're ignoring any errors here.
 	server_error(_F("Spawned process returned %d", rc));
 	if (rc != 0) {
@@ -528,10 +528,10 @@ get_backends(vector<backend_base *> &backends)
     if (saved_backends.empty()) {
 	// Note that order *is* important here. We want to try the
 	// local backend first (since it would be the fastest), then
-	// the docker backend, and finally the default backend (which
-	// just returns an error).
+	// the container backend, and finally the default backend
+	// (which just returns an error).
 	saved_backends.push_back(new local_backend());
-	saved_backends.push_back(new docker_backend());
+	saved_backends.push_back(new container_backend());
 	saved_backends.push_back(new default_backend());
     }
     backends.clear();
