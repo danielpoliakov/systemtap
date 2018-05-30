@@ -67,7 +67,7 @@
    %define dracutstap %{_prefix}/share/dracut/modules.d/99stap
 %endif
 
-%if 0%{?rhel} >= 6
+%if 0%{?rhel} == 6 || 0%{?rhel} == 7
     %define dracutbindir /sbin
 %else
     %define dracutbindir %{_bindir}
