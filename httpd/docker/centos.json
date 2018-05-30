@@ -14,7 +14,7 @@
 	    "",
 	    "RUN `# Install our dependencies, etc.`                  && \\",
 	    "     yum -y install                                        \\",
-	    "        yum-utils symlinks python wget                     \\",
+	    "        yum-utils systemtap-devel python wget              \\",
 	    "        createrepo_c                                    && \\",
 	    "                                                           \\",
 	    "    `# Clean up`                                        && \\",
@@ -25,12 +25,8 @@
 	    "RUN python /tmp/fedora_install_package.py --name ${NAME} --pkg ${PKG} --build_id ${BUILD_ID}"
 	],
 	"footer" : [
-	    "# Here we're doing cleanup. Clear out yum cache.",
-	    "# Convert all absolute symlinks to relative symlinks. Why?",
-	    "# When using the sysroot, any absolute symlink will look",
-	    "# like it points into the host, not the sysroot.",
-	    "RUN yum -y clean all                                    && \\",
-	    "    symlinks -cor /"
+	    "RUN `# Clean up`                                        && \\",
+	    "     yum -y clean all"
 	]
     }
 }

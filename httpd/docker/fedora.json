@@ -18,7 +18,7 @@
 	    "",
 	    "RUN `# Install our dependencies, etc.`                  && \\",
 	    "     dnf --setopt=install_weak_deps=False -y install       \\",
-	    "        dnf-plugins-core symlinks python wget              \\",
+	    "        dnf-plugins-core systemtap-devel python wget       \\",
 	    "        createrepo_c                                    && \\",
 	    "                                                           \\",
 	    "    `# Clean up`                                        && \\",
@@ -29,12 +29,8 @@
 	    "RUN python /tmp/fedora_install_package.py --name ${NAME} --pkg ${PKG} --build_id ${BUILD_ID}"
 	],
 	"footer" : [
-	    "# Here we're doing cleanup. Clear out dnf's cache.",
-	    "# Convert all absolute symlinks to relative symlinks. Why?",
-	    "# When using the sysroot, any absolute symlink will look",
-	    "# like it points into the host, not the sysroot.",
-	    "RUN dnf -y clean all                                    && \\",
-	    "    symlinks -cor /"
+	    "RUN `# Clean up`                                        && \\",
+	    "     dnf -y clean all"
 	]
     }
 }
