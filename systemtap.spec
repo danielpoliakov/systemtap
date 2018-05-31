@@ -1016,7 +1016,6 @@ done
 %doc README README.unprivileged AUTHORS NEWS 
 %{!?_licensedir:%global license %%doc}
 %license COPYING
-%{_rpmmacrodir}/macros.systemtap
 %if %{with_java}
 %dir %{_libexecdir}/systemtap
 %{_libexecdir}/systemtap/libHelperSDT_*.so
@@ -1127,6 +1126,7 @@ done
 %{_includedir}/sys/sdt.h
 %{_includedir}/sys/sdt-config.h
 %{_mandir}/man1/dtrace.1*
+%{_rpmmacrodir}/macros.systemtap
 %doc README AUTHORS NEWS 
 %{!?_licensedir:%global license %%doc}
 %license COPYING
