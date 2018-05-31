@@ -354,8 +354,7 @@ container_backend::generate_module(const client_request_data *crd,
     // need to copy those files down into the container image before
     // we run stap.
     for (auto i = crd->files.begin(); i != crd->files.end(); i++) {
-	struct stat sb;
-	if (*i == "client.zip" && stat("files", &sb) == 0) {
+	if (*i == "client.zip") {
 	    // First, create a docker file.
 	    string docker_file_path = crd->base_dir + "/files.docker";
 	    ofstream docker_file;
@@ -363,7 +362,7 @@ container_backend::generate_module(const client_request_data *crd,
 	    docker_file << "FROM " << stap_image_uuid << endl;
 	    docker_file << "MAINTAINER http://sourceware.org/systemtap/"
 			<< endl;
-	    docker_file << "COPY files /" << endl;
+	    docker_file << "COPY . " << tmp_dir << "/" << endl;
 	    docker_file.close();
 	    // Grab another uuid.
 	    stap_image_uuid = get_uuid();
