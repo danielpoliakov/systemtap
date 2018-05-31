@@ -21,7 +21,8 @@ def _eprint(*args, **kwargs):
 def _usage():
     """Display command-line usage."""
     _eprint('Usage: %s [-v] --distro-file DISTRO_JSON_FILE'
-            ' --build-file DATA_JSON_FILE --data-dir DATA_DIR DOCKER_TAG'
+            ' --build-file DATA_JSON_FILE --data-dir DATA_DIR'
+            ' --dest-dir DEST_DIR'
             % sys.argv[0])
     sys.exit(1)
 
@@ -37,7 +38,7 @@ def _handle_command_line():
     try:
         (opts, pargs) = getopt.getopt(sys.argv[1:], 'v',
                                       ['distro-file=', 'build-file=',
-                                       'data-dir='])
+                                       'data-dir=', 'dest-dir='])
     except getopt.GetoptError as err:
         _eprint("Error: %s" % err)
         _usage()
@@ -50,15 +51,17 @@ def _handle_command_line():
             ivars['BUILD_FILE'] = value
         elif opt == '--data-dir':
             ivars['DATA_DIR'] = value
+        elif opt == '--dest-dir':
+            ivars['DEST_DIR'] = value
 
-    if len(pargs) != 1:
-        _eprint("No DOCKER_TAG specified.")
+    if len(pargs) != 0:
+        _eprint("Extra argument found.")
         _usage()
     if 'DISTRO_FILE' not in ivars or 'BUILD_FILE' not in ivars \
-       or 'DATA_DIR' not in ivars:
-        _eprint("Arguments '--distro-file', '--build-file', and '--data-dir' are required.")
+       or 'DATA_DIR' not in ivars or 'DEST_DIR' not in ivars:
+        _eprint("Arguments '--distro-file', '--build-file',"
+                " '--data-dir', and '--dest-dir' are required.")
         _usage()
-    ivars['DOCKER_TAG'] = pargs[0]
     return (verbose, ivars)
 
 def _load_distro_file(distro_path):
@@ -119,9 +122,6 @@ def main():
 
     (verbose, ivars) = _handle_command_line()
 
-    # Create a temporary directory for our use.
-    tmpdir_path = tempfile.mkdtemp()
-
     # Read the distro file.
     distro_json = _load_distro_file(ivars['DISTRO_FILE'])
 
@@ -130,14 +130,14 @@ def main():
     ivars['DVER'] = build_json['distro_version']
 
     # If we've got a distro-specific script needed to install
-    # packages, copy it to the temporary directory, since type docker
-    # 'COPY' directive only works on paths relative to the temporary
+    # packages, copy it to the destination directory, since the docker
+    # 'COPY' directive only works on paths relative to the destination
     # directory.
     if 'distro_package_installer' in distro_json:
         try:
             src_path = os.path.join(ivars['DATA_DIR'],
                                     distro_json['distro_package_installer'])
-            shutil.copy(src_path, tmpdir_path)
+            shutil.copy(src_path, ivars['DEST_DIR'])
         except (shutil.Error, IOError) as err:
             _eprint("Error: copy failed: %s" % err)
             sys.exit(1)
@@ -171,13 +171,16 @@ def main():
         dockerfile_data += template.substitute(ivars)
 
     # Write the dockerfile data to a file.
-    dockerfile_path = "%s/%s.docker" % (tmpdir_path, ivars['DOCKER_TAG'])
+    dockerfile_path = ("%s/base.docker" % ivars['DEST_DIR'])
     tmpfile = open(dockerfile_path, "w")
     tmpfile.write(dockerfile_data)
     tmpfile.close()
-    print("created file in %s\n" % tmpdir_path)
+    print("created file in %s\n" % ivars['DEST_DIR'])
 
-    # At this point we've created the docker file. Actually
+    # At this point we've created the docker file, so we're done.
+    sys.exit(0)
+
+
     # build the docker container image. Arguments:
     #
     #   -t TAG:  Repository names (and optionally with tags) to be

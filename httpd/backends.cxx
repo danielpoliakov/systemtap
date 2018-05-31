@@ -184,8 +184,8 @@ private:
     // The current architecture.
     string arch;
 
-    // The script path that builds a container.
-    string container_build_script_path;
+    // The script path that builds a container docker file.
+    string build_docker_file_script_path;
 };
 
 
@@ -206,8 +206,8 @@ container_backend::container_backend()
 	docker_path.clear();
     }
     
-    container_build_script_path = string(PKGLIBDIR)
-	+ "/httpd/docker/stap_build_docker_image.py";
+    build_docker_file_script_path = string(PKGLIBDIR)
+	+ "/httpd/docker/stap_build_docker_file.py";
 
     datadir = string(PKGDATADIR) + "/httpd/docker";
 
@@ -320,9 +320,19 @@ container_backend::generate_module(const client_request_data *crd,
 
     string stap_image_uuid = "stap." + uuid + "." + datetime;
 
-    // Kick off building the container image. Note we're using the
-    // UUID as the container image name. This keeps us from trying to
-    // build multiple images with the same name at the same time.
+    // Note we're creating a new temporary directory here. This is so
+    // that if we reuse the container we're about to build, no files
+    // from this run could "leak" over into a new run with the same
+    // container.
+    char tmp_dir_template[] = "/tmp/stap-httpd.XXXXXX";
+    char *tmp_dir_ptr;
+    tmp_dir_ptr = mkdtemp(tmp_dir_template);
+    if (tmp_dir_ptr == NULL) {
+	// Return an error.
+	server_error(_F("mkdtemp failed: %s", strerror(errno)));
+	return -1;
+    }
+
     vector<string> cmd_args;
 #if defined(PYTHON3_BASENAME)
     cmd_args.push_back(PYTHON3_BASENAME);
@@ -331,23 +341,51 @@ container_backend::generate_module(const client_request_data *crd,
 #else
 #error "Couldn't find python version 2 or 3."
 #endif
-    cmd_args.push_back(container_build_script_path);
+    cmd_args.push_back(build_docker_file_script_path);
     cmd_args.push_back("--distro-file");
     cmd_args.push_back(data_files[crd->distro_name]);
     cmd_args.push_back("--build-file");
     cmd_args.push_back(build_data_path);
     cmd_args.push_back("--data-dir");
     cmd_args.push_back(datadir);
-    cmd_args.push_back(stap_image_uuid);
-
+    cmd_args.push_back("--dest-dir");
+    cmd_args.push_back(tmp_dir_ptr);
     int rc = execute_and_capture(2, cmd_args, crd->env_vars,
 				 container_stdout_path, container_stderr_path);
     server_error(_F("Spawned process returned %d", rc));
     if (rc != 0) {
 	server_error(_F("%s failed.",
-			container_build_script_path.c_str()));
+			build_docker_file_script_path.c_str()));
 	return -1;
     }
+
+    // Kick off building the container image. Note we're using the
+    // UUID as the container image name. This keeps us from trying to
+    // build multiple images with the same name at the same time.
+    string docker_file_path = string(tmp_dir_ptr) + "/base.docker";
+    cmd_args.clear();
+    cmd_args.push_back("docker");
+    cmd_args.push_back("build");
+    cmd_args.push_back("-t");
+    cmd_args.push_back(stap_image_uuid);
+    cmd_args.push_back("-f");
+    cmd_args.push_back(docker_file_path);
+    cmd_args.push_back(tmp_dir_ptr);
+    rc = execute_and_capture(2, cmd_args, crd->env_vars,
+			     container_stdout_path, container_stderr_path);
+    server_error(_F("Spawned process returned %d", rc));
+    if (rc != 0) {
+	server_error("docker build failed.");
+	return -1;
+    }
+
+    // We're done with the temporary directory we created above.
+    vector<string> cleanupcmd { "rm", "-rf", tmp_dir_ptr };
+    rc = stap_system(0, cleanupcmd);
+    if (rc != 0)
+	server_error (_("Error in tmpdir cleanup"));
+    if (crd->verbose > 1)
+	server_error(_F("Removed temporary directory \"%s\"", tmp_dir_ptr));
 
     // The client can optionally send over a "client.zip" file, which
     // was unziped up in build_info::module_build(). If it exists, we
