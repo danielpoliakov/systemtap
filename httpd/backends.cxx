@@ -19,6 +19,7 @@ extern "C" {
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
+#include <limits.h>
 }
 
 using namespace std;
@@ -33,7 +34,6 @@ public:
     }
     int generate_module(const client_request_data *crd,
 			const vector<string> &argv,
-			const string &tmp_dir,
 			const string &uuid,
 			const string &stdout_path,
 			const string &stderr_path);
@@ -42,7 +42,6 @@ public:
 int
 default_backend::generate_module(const client_request_data *crd,
 				 const vector<string> &,
-				 const string &,
 				 const string &,
 				 const string &stdout_path,
 				 const string &stderr_path)
@@ -75,7 +74,6 @@ public:
     bool can_generate_module(const client_request_data *crd);
     int generate_module(const client_request_data *crd,
 			const vector<string> &argv,
-			const string &tmp_dir,
 			const string &uuid,
 			const string &stdout_path,
 			const string &stderr_path);
@@ -146,7 +144,6 @@ int
 local_backend::generate_module(const client_request_data *crd,
 			       const vector<string> &argv,
 			       const string &,
-			       const string &,
 			       const string &stdout_path,
 			       const string &stderr_path)
 {
@@ -166,14 +163,13 @@ public:
     bool can_generate_module(const struct client_request_data *crd);
     int generate_module(const client_request_data *crd,
 			const vector<string> &argv,
-			const string &tmp_dir,
 			const string &uuid,
 			const string &stdout_path,
 			const string &stderr_path);
 
 private:
-    // The docker executable path.
-    string docker_path;
+    // The buildah executable path.
+    string buildah_path;
 
     // The container data directory.
     string datadir;
@@ -192,18 +188,18 @@ private:
 container_backend::container_backend()
 {
     try {
-	docker_path = find_executable("docker");
+	buildah_path = find_executable("buildah");
 	// If find_executable() can't find the path, it returns the
 	// name you passed it.
-	if (docker_path == "docker")
-	    docker_path.clear();
+	if (buildah_path == "buildah")
+	    buildah_path.clear();
     }
     catch (...) {
 	// It really isn't an error for the system to not have the
-	// "docker" executable. We'll just disallow builds using the
+	// "buildah" executable. We'll just disallow builds using the
 	// container backend (down in
 	// container_backend::can_generate_module()).
-	docker_path.clear();
+	buildah_path.clear();
     }
     
     build_docker_file_script_path = string(PKGLIBDIR)
@@ -255,8 +251,8 @@ container_backend::container_backend()
 bool
 container_backend::can_generate_module(const client_request_data *crd)
 {
-    // If we don't have a docker executable, we're done.
-    if (docker_path.empty())
+    // If we don't have a buildah executable, we're done.
+    if (buildah_path.empty())
 	return false;
 
     // We have to see if we have a JSON data file for that distro and
@@ -271,7 +267,6 @@ container_backend::can_generate_module(const client_request_data *crd)
 int
 container_backend::generate_module(const client_request_data *crd,
 				const vector<string> &argv,
-				const string &tmp_dir,
 				const string &uuid,
 				const string &stdout_path,
 				const string &stderr_path)
@@ -288,14 +283,14 @@ container_backend::generate_module(const client_request_data *crd,
 	container_stderr_path = stderr_path;
     }
     else {
-	container_stdout_path = tmp_dir + "/container_stdout";
-	container_stderr_path = tmp_dir + "/container_stderr";
+	container_stdout_path = crd->server_dir + "/container_stdout";
+	container_stderr_path = crd->server_dir + "/container_stderr";
     }
 
     // Grab a JSON representation of the client_request_data, and
     // write it to a file (so the script that generates the docker
     // file(s) knows what it is supposed to be doing).
-    string build_data_path = string(tmp_dir) + "/build_data.json";
+    string build_data_path = string(crd->server_dir) + "/build_data.json";
     struct json_object *root = crd->get_json_object();
     server_error(_F("JSON data: %s", json_object_to_json_string(root)));
     ofstream build_data_file;
@@ -318,16 +313,17 @@ container_backend::generate_module(const client_request_data *crd,
     if (gmtime_r(&t, &tm_result) != NULL)
 	strftime(&datetime[0], sizeof(datetime), "%Y%m%d%H%M", &tm_result);
 
-    string stap_image_uuid = "stap." + uuid + "." + datetime;
+    string stap_image_name = "sourceware.org/" + uuid + ":" + datetime;
 
     // Note we're creating a new temporary directory here. This is so
     // that if we reuse the container we're about to build, no files
     // from this run could "leak" over into a new run with the same
     // container.
-    char tmp_dir_template[] = "/tmp/stap-httpd.XXXXXX";
-    char *tmp_dir_ptr;
-    tmp_dir_ptr = mkdtemp(tmp_dir_template);
-    if (tmp_dir_ptr == NULL) {
+    char tmpdir_template[PATH_MAX];
+    snprintf(tmpdir_template, PATH_MAX, "%s/stap-client.XXXXXX",
+	     getenv("TMPDIR") ?: "/tmp");
+    char *tmpdir_ptr = mkdtemp(tmpdir_template);
+    if (tmpdir_ptr == NULL) {
 	// Return an error.
 	server_error(_F("mkdtemp failed: %s", strerror(errno)));
 	return -1;
@@ -349,8 +345,8 @@ container_backend::generate_module(const client_request_data *crd,
     cmd_args.push_back("--data-dir");
     cmd_args.push_back(datadir);
     cmd_args.push_back("--dest-dir");
-    cmd_args.push_back(tmp_dir_ptr);
-    int rc = execute_and_capture(2, cmd_args, crd->env_vars,
+    cmd_args.push_back(tmpdir_ptr);
+    int rc = execute_and_capture(2, cmd_args, vector<std::string> (),
 				 container_stdout_path, container_stderr_path);
     server_error(_F("Spawned process returned %d", rc));
     if (rc != 0) {
@@ -362,123 +358,105 @@ container_backend::generate_module(const client_request_data *crd,
     // Kick off building the container image. Note we're using the
     // UUID as the container image name. This keeps us from trying to
     // build multiple images with the same name at the same time.
-    string docker_file_path = string(tmp_dir_ptr) + "/base.docker";
+    string docker_file_path = string(tmpdir_ptr) + "/base.docker";
     cmd_args.clear();
-    cmd_args.push_back("docker");
-    cmd_args.push_back("build");
+    cmd_args.push_back(buildah_path);
+    cmd_args.push_back("bud");
     cmd_args.push_back("-t");
-    cmd_args.push_back(stap_image_uuid);
+    cmd_args.push_back(stap_image_name);
     cmd_args.push_back("-f");
     cmd_args.push_back(docker_file_path);
-    cmd_args.push_back(tmp_dir_ptr);
-    rc = execute_and_capture(2, cmd_args, crd->env_vars,
+    cmd_args.push_back(tmpdir_ptr);
+    rc = execute_and_capture(2, cmd_args, vector<std::string> (),
 			     container_stdout_path, container_stderr_path);
     server_error(_F("Spawned process returned %d", rc));
     if (rc != 0) {
-	server_error("docker build failed.");
+	server_error("buildah build failed.");
 	return -1;
     }
 
     // We're done with the temporary directory we created above.
-    vector<string> cleanupcmd { "rm", "-rf", tmp_dir_ptr };
+    vector<string> cleanupcmd { "rm", "-rf", tmpdir_ptr };
     rc = stap_system(0, cleanupcmd);
     if (rc != 0)
 	server_error (_("Error in tmpdir cleanup"));
     if (crd->verbose > 1)
-	server_error(_F("Removed temporary directory \"%s\"", tmp_dir_ptr));
+	server_error(_F("Removed temporary directory \"%s\"", tmpdir_ptr));
 
-    // The client can optionally send over a "client.zip" file, which
-    // was unziped up in build_info::module_build(). If it exists, we
-    // need to copy those files down into the container image before
-    // we run stap.
-    for (auto i = crd->files.begin(); i != crd->files.end(); i++) {
-	if (*i == "client.zip") {
-	    // First, create a docker file.
-	    string docker_file_path = crd->base_dir + "/files.docker";
-	    ofstream docker_file;
-	    docker_file.open(docker_file_path, ios::out);
-	    docker_file << "FROM " << stap_image_uuid << endl;
-	    docker_file << "MAINTAINER http://sourceware.org/systemtap/"
-			<< endl;
-	    docker_file << "COPY . " << tmp_dir << "/" << endl;
-	    docker_file.close();
-	    // Grab another uuid.
-	    stap_image_uuid = get_uuid();
-
-	    // Now run "docker build" with that docker file.
-	    cmd_args.clear();
-	    cmd_args.push_back("docker");
-	    cmd_args.push_back("build");
-	    cmd_args.push_back("-t");
-	    cmd_args.push_back(stap_image_uuid);
-	    cmd_args.push_back("-f");
-	    cmd_args.push_back(docker_file_path);
-	    cmd_args.push_back(crd->base_dir);
-
-	    rc = execute_and_capture(2, cmd_args, crd->env_vars,
-				     container_stdout_path, container_stderr_path);
-	    server_error(_F("Spawned process returned %d", rc));
-	    if (rc != 0) {
-		server_error("docker build failed.");
-		return -1;
-	    }
-
-	    // We want to remove the image that we just built.
-	    images_to_remove.push_back(stap_image_uuid);
-	    break;
-	}
-    }
-
-    // We need a unique name for the container that "docker run stap
+    // We need a unique name for the container that "buildah run stap
     // ..." will create, so grab another uuid.
     string stap_container_uuid = get_uuid();
 
-    // If we're here, we built the container successfully. Now start
-    // the container and run stap. First, build up the command line
-    // arguments.
+    // At this point, we've got an image. We need to convert it to a
+    // container. Note that instead of copying the user's file(s) into
+    // the container, running stap, then copying the resulting file(s)
+    // out of the container, we're just going to bind mount the temp
+    // directory into the container.
     cmd_args.clear();
-    cmd_args.push_back("docker");
-    cmd_args.push_back("run");
+    cmd_args.push_back(buildah_path);
+    cmd_args.push_back("from");
     cmd_args.push_back("--name");
     cmd_args.push_back(stap_container_uuid);
-    for (auto i = crd->env_vars.begin(); i < crd->env_vars.end(); ++i) {
-        cmd_args.push_back("-e");
-        cmd_args.push_back(*i);
+    cmd_args.push_back("--volume");
+    // The mount options are:
+    //    rw: read-write mode
+    //    Z: private unshared selinux label (so the host os and
+    //       container can privately share the directory)
+    cmd_args.push_back(crd->client_dir + ":" + crd->client_dir + ":rw,Z");
+    cmd_args.push_back(stap_image_name);
+    rc = execute_and_capture(2, cmd_args, vector<std::string> (),
+			     stdout_path, stderr_path);
+    server_error(_F("Spawned process returned %d", rc));
+    if (rc != 0) {
+	server_error("buildah from failed.");
+	return -1;
     }
 
+    // If we're here, we built the image and converted it into a
+    // container successfully. Now configure the container with
+    // environment variables that were sent over from the client (if
+    // any) and the right working directory.
+    //
     // When running "stap --tmpdir=/tmp/FOO", your current directory
     // needs to be /tmp/FOO for stap to run successfully (for some odd
     // reason).
-    cmd_args.push_back("-w");
-    cmd_args.push_back(tmp_dir);
+    cmd_args.clear();
+    cmd_args.push_back(buildah_path);
+    cmd_args.push_back("config");
+    for (auto i = crd->env_vars.begin(); i < crd->env_vars.end(); ++i) {
+	cmd_args.push_back("--env");
+	cmd_args.push_back(*i);
+    }
+    cmd_args.push_back("--workingdir");
+    cmd_args.push_back(crd->client_dir);
+    cmd_args.push_back(stap_container_uuid);
+    rc = execute_and_capture(2, cmd_args, vector<std::string> (),
+			     stdout_path, stderr_path);
+    server_error(_F("Spawned process returned %d", rc));
+    if (rc != 0) {
+	server_error("buildah config failed.");
+	return -1;
+    }
 
-    cmd_args.push_back(stap_image_uuid);
+    // Now start the container and run stap.
+    cmd_args.clear();
+    cmd_args.push_back(buildah_path);
+    cmd_args.push_back("run");
+    cmd_args.push_back(stap_container_uuid);
+    cmd_args.push_back("--");
     for (auto it = argv.begin(); it != argv.end(); it++) {
 	cmd_args.push_back(*it);
     }
-
-    int saved_rc = execute_and_capture(2, cmd_args, crd->env_vars,
+    int saved_rc = execute_and_capture(2, cmd_args, vector<std::string> (),
 				       stdout_path, stderr_path);
     server_error(_F("Spawned process returned %d", rc));
     if (rc != 0) {
-	server_error("docker run failed.");
+	server_error("buildah run failed.");
     }
 
-    if (saved_rc == 0) {
-	// At this point we've built the container and run stap
-	// successfully. Grab the results (if any) from the container.
-	cmd_args.clear();
-	cmd_args.push_back("docker");
-	cmd_args.push_back("cp");
-	cmd_args.push_back(stap_container_uuid + ":" + tmp_dir);
-	cmd_args.push_back("/tmp");
-	rc = execute_and_capture(2, cmd_args, crd->env_vars,
-				 container_stdout_path, container_stderr_path);
-	server_error(_F("Spawned process returned %d", rc));
-	if (rc != 0) {
-	    server_error("docker cp failed.");
-	}
-    }
+    // At this point we've built the container and run stap
+    // (successfully or unsuccessfully). We're finished with the
+    // container.
     containers_to_remove.push_back(stap_container_uuid);
 
     // OK, at this point we've created a container, run stap, and
@@ -487,60 +465,61 @@ container_backend::generate_module(const client_request_data *crd,
     // files, but delete the layer that got created as stap was run
     // (since there is no reuse there).
     //
-    // docker rm/rmi stap_container_uuid
+    // buildah rm/rmi stap_container_uuid
     //
     // Note that we have to remove the containers first, because they
     // depend on the images.
 
     // FIXME: MORE CLEANUP NEEDED!
     //
-    // Note that we're not removing the initial docker image we built,
+    // Note that we're not removing the initial buildah image we built,
     // so if the user turns right around again and builds another
     // script that image will get reused. But, that initial docker
-    // image never gets deleted currently. The "docker images" command
+    // image never gets deleted currently. The "buildah images" command
     // knows when an image was created, but not the last time it was
     // used.
     //
-    // We might be able to tie in the information from "docker ps -a",
-    // which lists all containers, and when they were created. Since
-    // the containers are short-lived (they just exist to run "stap"),
-    // their creation date is really the last used date of the related
-    // image. But, of course we delete that container at the end of
-    // every run so that info gets deleted. In theory we could leave
-    // that container around and every so often run a python script
-    // that puts the two bits of information together and deletes
-    // images and containers that haven't been used in a while.
+    // We might be able to tie in the information from "buildah
+    // containers", which lists all containers, and when they were
+    // created. Since the containers are short-lived (they just exist
+    // to run "stap"), their creation date is really the last used
+    // date of the related image. But, of course we delete that
+    // container at the end of every run so that info gets deleted. In
+    // theory we could leave that container around and every so often
+    // run a python script that puts the two bits of information
+    // together and deletes images and containers that haven't been
+    // used in a while.
 
     if (! containers_to_remove.empty()) {
 	cmd_args.clear();
-	cmd_args.push_back("docker");
+	cmd_args.push_back(buildah_path);
 	cmd_args.push_back("rm");
 	for (auto i = containers_to_remove.begin();
 	     i != containers_to_remove.end(); i++) {
 	    cmd_args.push_back(*i);
 	}
-	rc = execute_and_capture(2, cmd_args, crd->env_vars,
+	rc = execute_and_capture(2, cmd_args, vector<std::string> (),
 				 container_stdout_path, container_stderr_path);
 	// Note that we're ignoring any errors here.
 	server_error(_F("Spawned process returned %d", rc));
 	if (rc != 0) {
-	    server_error("docker rm failed.");
+	    server_error("buildah rm failed.");
 	}
     }
     if (! images_to_remove.empty()) {
 	cmd_args.clear();
-	cmd_args.push_back("docker");
+	cmd_args.push_back(buildah_path);
 	cmd_args.push_back("rmi");
 	for (auto i = images_to_remove.begin(); i != images_to_remove.end();
 	     i++) {
 	    cmd_args.push_back(*i);
 	}
-	rc = execute_and_capture(2, cmd_args, crd->env_vars,
+	rc = execute_and_capture(2, cmd_args, vector<std::string> (),
 				 container_stdout_path, container_stderr_path);
 	// Note that we're ignoring any errors here.
 	server_error(_F("Spawned process returned %d", rc));
 	if (rc != 0) {
-	    server_error("docker rmi failed.");
+	    server_error("buildah rmi failed.");
 	}
     }
     return saved_rc;

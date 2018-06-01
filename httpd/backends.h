@@ -21,7 +21,6 @@ public:
     virtual bool can_generate_module(const client_request_data *crd) = 0;
     virtual int generate_module(const client_request_data *crd,
 				const std::vector<std::string> &argv,
-				const std::string &tmp_dir,
 				const std::string &uuid,
 				const std::string &stdout_path,
 				const std::string &stderr_path) = 0;

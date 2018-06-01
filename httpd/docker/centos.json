@@ -15,10 +15,7 @@
 	    "RUN `# Install our dependencies, etc.`                  && \\",
 	    "     yum -y install                                        \\",
 	    "        yum-utils systemtap-devel python wget              \\",
-	    "        createrepo_c                                    && \\",
-	    "                                                           \\",
-	    "    `# Clean up`                                        && \\",
-	    "     yum -y clean all",
+	    "        createrepo_c",
 	    "COPY fedora_install_package.py /tmp/"
 	],
 	"install" : [

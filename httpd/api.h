@@ -34,7 +34,6 @@ public:
 
     std::string kver;
     std::string arch;
-    std::string base_dir;
     std::string distro_name;
     std::string distro_version;
     std::vector<std::string> cmd_args;
@@ -43,6 +42,9 @@ public:
     std::vector<std::string> env_vars;
     unsigned verbose;
     privilege_t privilege;
+
+    std::string server_dir;
+    std::string client_dir;
 };
 
 //extern bool

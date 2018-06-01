@@ -19,10 +19,7 @@
 	    "RUN `# Install our dependencies, etc.`                  && \\",
 	    "     dnf --setopt=install_weak_deps=False -y install       \\",
 	    "        dnf-plugins-core systemtap-devel python wget       \\",
-	    "        createrepo_c                                    && \\",
-	    "                                                           \\",
-	    "    `# Clean up`                                        && \\",
-	    "     dnf -y clean all",
+	    "        createrepo_c",
 	    "COPY fedora_install_package.py /tmp/"
 	],
 	"install" : [
