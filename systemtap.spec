@@ -73,6 +73,12 @@
     %define dracutbindir %{_bindir}
 %endif
 
+%if 0%{?rhel} == 6
+    %{!?_rpmmacrodir: %define _rpmmacrodir /etc/rpm/}
+%else
+    %{!?_rpmmacrodir: %define _rpmmacrodir %{_rpmconfigdir}/macros.d}
+%endif
+
 # To avoid testsuite/*/*.stp has shebang which doesn't start with '/'
 %undefine __brp_mangle_shebangs  
 
