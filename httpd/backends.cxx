@@ -313,8 +313,6 @@ container_backend::generate_module(const client_request_data *crd,
     if (gmtime_r(&t, &tm_result) != NULL)
 	strftime(&datetime[0], sizeof(datetime), "%Y%m%d%H%M", &tm_result);
 
-    string stap_image_name = "sourceware.org/" + uuid + ":" + datetime;
-
     // Note we're creating a new temporary directory here. This is so
     // that if we reuse the container we're about to build, no files
     // from this run could "leak" over into a new run with the same
@@ -355,10 +353,28 @@ container_backend::generate_module(const client_request_data *crd,
 	return -1;
     }
 
-    // Kick off building the container image. Note we're using the
-    // UUID as the container image name. This keeps us from trying to
-    // build multiple images with the same name at the same time.
     string docker_file_path = string(tmpdir_ptr) + "/base.docker";
+    string hash;
+    if (get_file_hash(docker_file_path, hash) != 0) {
+	server_error(_F("unable to has file %s", docker_file_path.c_str()));
+	return -1;
+    }
+
+    // Note we're using the docker file hash as part of the container
+    // name. This will allow us to do a sort of caching, since
+    // "buildah" doesn't support caching (like "docker" does).
+    //
+    // Also note we're using the UUID as part the container image
+    // name. This keeps us from trying to build multiple images with
+    // the same name at the same time.
+    //
+    // Finally note we're putting the date and time in the container
+    // image name. This will help us when we decide what containers to
+    // delete. 
+    string stap_image_name = "sourceware.org/" + hash + "/" + uuid +
+	":" + datetime;
+
+    // Kick off building the container image.
     cmd_args.clear();
     cmd_args.push_back(buildah_path);
     cmd_args.push_back("bud");

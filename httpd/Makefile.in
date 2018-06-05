@@ -123,7 +123,8 @@ am__dirstamp = $(am__leading_dot)dirstamp
 @HAVE_HTTP_SUPPORT_TRUE@	../stap_httpd-cmdline.$(OBJEXT) \
 @HAVE_HTTP_SUPPORT_TRUE@	../stap_httpd-nsscommon.$(OBJEXT) \
 @HAVE_HTTP_SUPPORT_TRUE@	../stap_httpd-privilege.$(OBJEXT) \
-@HAVE_HTTP_SUPPORT_TRUE@	../stap_httpd-cscommon.$(OBJEXT)
+@HAVE_HTTP_SUPPORT_TRUE@	../stap_httpd-cscommon.$(OBJEXT) \
+@HAVE_HTTP_SUPPORT_TRUE@	../stap_httpd-mdfour.$(OBJEXT)
 stap_httpd_OBJECTS = $(am_stap_httpd_OBJECTS)
 am__DEPENDENCIES_1 =
 @HAVE_HTTP_SUPPORT_TRUE@stap_httpd_DEPENDENCIES =  \
@@ -150,6 +151,18 @@ AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
+COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+AM_V_CC = $(am__v_CC_@AM_V@)
+am__v_CC_ = $(am__v_CC_@AM_DEFAULT_V@)
+am__v_CC_0 = @echo "  CC      " $@;
+am__v_CC_1 = 
+CCLD = $(CC)
+LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+AM_V_CCLD = $(am__v_CCLD_@AM_V@)
+am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
+am__v_CCLD_0 = @echo "  CCLD    " $@;
+am__v_CCLD_1 = 
 CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 AM_V_CXX = $(am__v_CXX_@AM_V@)
@@ -414,7 +427,7 @@ AM_CPPFLAGS = -D_GNU_SOURCE -I$(srcdir)/../includes \
 	-DSYSCONFDIR='"$(sysconfdir)"' -DPKGDATADIR='"${pkgdatadir}"' \
 	-DPKGLIBDIR='"$(pkglibexecdir)"' -DLOCALEDIR='"$(localedir)"'
 AM_LDFLAGS = @PIELDFLAGS@
-@HAVE_HTTP_SUPPORT_TRUE@stap_httpd_SOURCES = main.cxx server.cxx api.cxx backends.cxx utils.cxx nss_funcs.cxx ../util.cxx ../cmdline.cxx ../nsscommon.cxx ../privilege.cxx ../cscommon.cxx
+@HAVE_HTTP_SUPPORT_TRUE@stap_httpd_SOURCES = main.cxx server.cxx api.cxx backends.cxx utils.cxx nss_funcs.cxx ../util.cxx ../cmdline.cxx ../nsscommon.cxx ../privilege.cxx ../cscommon.cxx ../mdfour.c
 @HAVE_HTTP_SUPPORT_TRUE@stap_httpd_CFLAGS = $(AM_CFLAGS) $(nss_CFLAGS)
 @HAVE_HTTP_SUPPORT_TRUE@stap_httpd_CXXFLAGS = $(AM_CXXFLAGS) $(nss_CFLAGS)
 @HAVE_HTTP_SUPPORT_TRUE@stap_httpd_CPPFLAGS = $(AM_CPPFLAGS) $(nss_CFLAGS)
@@ -428,7 +441,7 @@ all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .cxx .o .obj
+.SUFFIXES: .c .cxx .o .obj
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -516,6 +529,8 @@ clean-pkglibexecPROGRAMS:
 	../$(DEPDIR)/$(am__dirstamp)
 ../stap_httpd-cscommon.$(OBJEXT): ../$(am__dirstamp) \
 	../$(DEPDIR)/$(am__dirstamp)
+../stap_httpd-mdfour.$(OBJEXT): ../$(am__dirstamp) \
+	../$(DEPDIR)/$(am__dirstamp)
 
 stap-httpd$(EXEEXT): $(stap_httpd_OBJECTS) $(stap_httpd_DEPENDENCIES) $(EXTRA_stap_httpd_DEPENDENCIES) 
 	@rm -f stap-httpd$(EXEEXT)
@@ -530,6 +545,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@../$(DEPDIR)/stap_httpd-cmdline.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../$(DEPDIR)/stap_httpd-cscommon.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@../$(DEPDIR)/stap_httpd-mdfour.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../$(DEPDIR)/stap_httpd-nsscommon.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../$(DEPDIR)/stap_httpd-privilege.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../$(DEPDIR)/stap_httpd-util.Po@am__quote@
@@ -539,6 +555,36 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stap_httpd-nss_funcs.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stap_httpd-server.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stap_httpd-utils.Po@am__quote@
+
+.c.o:
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ $<
+
+.c.obj:
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.obj$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ `$(CYGPATH_W) '$<'` &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
+
+../stap_httpd-mdfour.o: ../mdfour.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stap_httpd_CPPFLAGS) $(CPPFLAGS) $(stap_httpd_CFLAGS) $(CFLAGS) -MT ../stap_httpd-mdfour.o -MD -MP -MF ../$(DEPDIR)/stap_httpd-mdfour.Tpo -c -o ../stap_httpd-mdfour.o `test -f '../mdfour.c' || echo '$(srcdir)/'`../mdfour.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../$(DEPDIR)/stap_httpd-mdfour.Tpo ../$(DEPDIR)/stap_httpd-mdfour.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../mdfour.c' object='../stap_httpd-mdfour.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stap_httpd_CPPFLAGS) $(CPPFLAGS) $(stap_httpd_CFLAGS) $(CFLAGS) -c -o ../stap_httpd-mdfour.o `test -f '../mdfour.c' || echo '$(srcdir)/'`../mdfour.c
+
+../stap_httpd-mdfour.obj: ../mdfour.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stap_httpd_CPPFLAGS) $(CPPFLAGS) $(stap_httpd_CFLAGS) $(CFLAGS) -MT ../stap_httpd-mdfour.obj -MD -MP -MF ../$(DEPDIR)/stap_httpd-mdfour.Tpo -c -o ../stap_httpd-mdfour.obj `if test -f '../mdfour.c'; then $(CYGPATH_W) '../mdfour.c'; else $(CYGPATH_W) '$(srcdir)/../mdfour.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../$(DEPDIR)/stap_httpd-mdfour.Tpo ../$(DEPDIR)/stap_httpd-mdfour.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../mdfour.c' object='../stap_httpd-mdfour.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stap_httpd_CPPFLAGS) $(CPPFLAGS) $(stap_httpd_CFLAGS) $(CFLAGS) -c -o ../stap_httpd-mdfour.obj `if test -f '../mdfour.c'; then $(CYGPATH_W) '../mdfour.c'; else $(CYGPATH_W) '$(srcdir)/../mdfour.c'; fi`
 
 .cxx.o:
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
