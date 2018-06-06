@@ -1,3 +1,4 @@
 #! stap -p5
 
+/* Ideally, a standalone regex statement should still populate subgroups: */ 
 probe begin { "foo" =~ "(foo)"; println(matched(0)); println(matched(1)); exit() }
