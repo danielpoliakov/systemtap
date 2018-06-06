@@ -18,6 +18,7 @@ extern "C" {
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <spawn.h>
 #include <sys/mman.h>
 #include "../mdfour.h"
