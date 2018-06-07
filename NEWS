@@ -1,4 +1,33 @@
-* What's new in version 3.3
+* What's new in version 3.3, 2018-06-08
+
+- A new "stap --example FOO.stp" mode searches the example scripts
+  distributed with systemtap for a file named FOO.stp, so its whole
+  path does not need to be typed in.
+
+- Systemtap's runtime has learned to deal with several of the
+  collateral damage from kernel hardening after meltdown/spectre,
+  including more pointer hiding and relocation.  The kptr_restrict
+  procfs flag is forced on if running on a new enough kernel.
+
+- The "stap --sysroot /PATH" option has received a revamp, so it
+  works much better against cross-compiled environments.
+
+- The eBPF backend has learned to perform loops - at least in the
+  userspace "begin/end" probe contexts, so one can iterate across BPF
+  arrays for reporting.  (The linux kernel eBPF interpreter precludes
+  loops and string processing.).  It can also handle much larger probe
+  handler bodies, with a smarter register spiller/allocator.
+
+- The eBPF backend now supports uprobes, perf counter, timer, and
+  tracepoint probes.
+
+- An rpm macro %_systemtap_tapsetdir is now defined, to make it
+  easier for third party packages to add .stp files into the standard
+  tapset.
+
+- Several low level locking-related fixes were added to the runtime
+  that used uprobes/tracepoint apis, in order to work more reliably on
+  rt kernels and on high-cpu-count machines.
 
 - Runtime/tapsets were ported to include up to kernel version 4.16.
   (The syscall tapsets are broken on kernel 4.17-rc, and will be fixed
