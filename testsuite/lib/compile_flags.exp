@@ -10,45 +10,56 @@ proc arch_compile_init {} {
   # Note that it is possible that 32-bit exe support is available just
   # not installed (on RHEL[67] anyway), but we can't really tell the
   # difference.
-  if { [regexp "^(ppc64)$" $::tcl_platform(machine)] } {
 
-    # Create a tempory directory.
-    if {[catch {exec mktemp -d -t staptestXXXXXX-arch_compile-test} tmpdir]} {
-      verbose -log "Failed to create temporary directory: $tmpdir"
-      exit 1
-    }
-    set curdir [pwd]
-    cd ${tmpdir}
+  # Various other RHEL products now started deprecating the compat arch
+  # support, such as devtoolset (non-x86_64 arches), rhel-alt etc.
+  # Instead of hardcoding the systemtap_arch_compile_flags values, we
+  # always check for available support.
+  #
+  # Drawback is that when the compat arch support is available but not
+  # installed, the testsuite will silently skip examining it.  OTOH,
+  # this new behaviour gives more flexibility, and aligns to how some
+  # other dejagnu testsuites (e.g. strace) behave.
 
-    set source "hello.c"
-    set hello_file [open $source "w"]
-    puts $hello_file "#include <stdio.h>"
-    puts $hello_file "int main () { printf(\"Hello World!\"); return 0; }"
-    close $hello_file
-
-    set flags "additional_flags=-g compiler=gcc additional_flags=-m32"
-    set exe "hello-m32"
-    set result [target_compile $source $exe executable $flags]
-    if { $result != "" } {
-      set systemtap_arch_compile_flags 1
-      verbose -log "ppc64 32-bit support unavailable"
-    } else {
-      set systemtap_arch_compile_flags 2
-      verbose -log "ppc64 32-bit support available"
-    }
-    cd ${curdir}
-    catch {exec rm -rf $tmpdir}
+  set platform_machine $::tcl_platform(machine)
+  set compat_arch_bits 32
+  if { [regexp "^(s390x)$" $::tcl_platform(machine)] } {
+    set compat_arch_bits 31
   }
+
+  # Create a tempory directory.
+  if {[catch {exec mktemp -d -t staptestXXXXXX-arch_compile-test} tmpdir]} {
+    verbose -log "Failed to create temporary directory: $tmpdir"
+    exit 1
+  }
+  set curdir [pwd]
+  cd ${tmpdir}
+
+  set source "hello.c"
+  set hello_file [open $source "w"]
+  puts $hello_file "#include <stdio.h>"
+  puts $hello_file "int main () { printf(\"Hello World!\"); return 0; }"
+  close $hello_file
+
+  puts "Checking for compat arch support..."
+  set flags "additional_flags=-g compiler=gcc additional_flags=-m$compat_arch_bits"
+  set exe "hello-m$compat_arch_bits"
+  set result [target_compile $source $exe executable $flags]
+  if { $result != "" } {
+    set systemtap_arch_compile_flags 1
+    puts "$platform_machine $compat_arch_bits-bit support unavailable"
+  } else {
+    set systemtap_arch_compile_flags 2
+    puts "$platform_machine $compat_arch_bits-bit support available"
+  }
+  cd ${curdir}
+  catch {exec rm -rf $tmpdir}
 }
 
 # Number of different compile flags for this arch.
 proc arch_compile_flags {} {
   global systemtap_arch_compile_flags
-  switch -regexp $::tcl_platform(machine) {
-    {^(x86_64|s390x)$} { return 2 }
-    {^ppc64$} { return $systemtap_arch_compile_flags }
-    default { return 1 }
-  }
+  return $systemtap_arch_compile_flags
 }
 
 # Additional compile flag to use for with target_compile.
