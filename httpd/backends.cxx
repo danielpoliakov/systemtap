@@ -20,6 +20,8 @@ extern "C" {
 #include <sys/types.h>
 #include <time.h>
 #include <limits.h>
+#include <json-c/json.h>
+#include <json-c/json_object.h>
 }
 
 using namespace std;
@@ -155,6 +157,22 @@ local_backend::generate_module(const client_request_data *crd,
 }
 
 
+class container_image_cache
+{
+public:
+    void initialize(const string &buildah_path);
+    void add(const string &hash, const string &id);
+    bool find(const string &hash, string &id);
+
+private:
+    // The buildah executable path.
+    string buildah_path;
+
+    mutex image_cache_mutex;
+    map<string, string> image_cache;
+};
+
+
 class container_backend : public backend_base
 {
 public:
@@ -182,6 +200,8 @@ private:
 
     // The script path that builds a container docker file.
     string build_docker_file_script_path;
+
+    container_image_cache image_cache;
 };
 
 
@@ -202,6 +222,8 @@ container_backend::container_backend()
 	buildah_path.clear();
     }
     
+    image_cache.initialize(buildah_path);
+
     build_docker_file_script_path = string(PKGLIBDIR)
 	+ "/httpd/docker/stap_build_docker_file.py";
 
@@ -374,21 +396,45 @@ container_backend::generate_module(const client_request_data *crd,
     string stap_image_name = "sourceware.org/" + hash + "/" + uuid +
 	":" + datetime;
 
-    // Kick off building the container image.
-    cmd_args.clear();
-    cmd_args.push_back(buildah_path);
-    cmd_args.push_back("bud");
-    cmd_args.push_back("-t");
-    cmd_args.push_back(stap_image_name);
-    cmd_args.push_back("-f");
-    cmd_args.push_back(docker_file_path);
-    cmd_args.push_back(tmpdir_ptr);
-    rc = execute_and_capture(2, cmd_args, vector<std::string> (),
-			     container_stdout_path, container_stderr_path);
-    server_error(_F("Spawned process returned %d", rc));
-    if (rc != 0) {
-	server_error("buildah build failed.");
-	return -1;
+    // If we can find an image with the same docker file hash, use it
+    // instead of building a new image.
+    string image_id;
+    if (image_cache.find(hash, image_id))
+    {
+	// We're going to reuse an existing container. Tag the image
+	// with the new image name (to help keep track of the last
+	// time the image was used).
+	cmd_args.clear();
+	cmd_args.push_back(buildah_path);
+	cmd_args.push_back("tag");
+	cmd_args.push_back(image_id);
+	cmd_args.push_back(stap_image_name);
+	rc = execute_and_capture(2, cmd_args, vector<std::string> (),
+				 container_stdout_path, container_stderr_path);
+	server_error(_F("Spawned process returned %d", rc));
+	if (rc != 0) {
+	    server_error("buildah tag failed.");
+	    return -1;
+	}
+    }
+    else {
+	// Kick off building the container image.
+	cmd_args.clear();
+	cmd_args.push_back(buildah_path);
+	cmd_args.push_back("bud");
+	cmd_args.push_back("-t");
+	cmd_args.push_back(stap_image_name);
+	cmd_args.push_back("-f");
+	cmd_args.push_back(docker_file_path);
+	cmd_args.push_back(tmpdir_ptr);
+	rc = execute_and_capture(2, cmd_args, vector<std::string> (),
+				 container_stdout_path, container_stderr_path);
+	server_error(_F("Spawned process returned %d", rc));
+	if (rc != 0) {
+	    server_error("buildah build failed.");
+	    return -1;
+	}
+	image_cache.add(hash, stap_image_name);
     }
 
     // We're done with the temporary directory we created above.
@@ -540,6 +586,164 @@ container_backend::generate_module(const client_request_data *crd,
     }
     return saved_rc;
 }
+
+
+void
+container_image_cache::initialize(const string &bp)
+{
+    buildah_path = bp;
+    if (buildah_path.empty()) {
+	return;
+    }
+
+    // Let's go ahead and get a list of the container images on this
+    // system. This helps us with our buildah image "cache".
+    vector<string> cmd_args;
+    ostringstream out;
+
+    cmd_args.push_back(buildah_path);
+    cmd_args.push_back("images");
+    cmd_args.push_back("--json");
+    if (stap_system_read(0, cmd_args, out) != 0) {
+	server_error(_("'buildah images' failed"));
+	return;
+    }
+
+    // Parse the JSON list of images
+    enum json_tokener_error json_error;
+    string out_str = out.str();
+    json_object *root = json_tokener_parse_verbose(out_str.c_str(),
+						   &json_error);
+    if (root == NULL) {
+	server_error(json_tokener_error_desc(json_error));
+	return;
+    }
+
+    // The top level object of "build images --json" should be an array.
+    if (json_object_get_type(root) != json_type_array) {
+	server_error(_("Malformed 'buildah image' JSON output"));
+	return;
+    }
+
+    // Process each item in the array, which should look like:
+    // {
+    //   "id": "ID",
+    //   "names": [
+    //     "sourceware.org/HASH/GUID:DATE",
+    //     "sourceware.org/HASH/GUID:DATE"
+    //   ]
+    // }
+    map<string, vector<string>> images;
+    for (size_t i = 0; i < (size_t)json_object_array_length(root); i++) {
+	json_object *jarr_obj = json_object_array_get_idx(root, i);
+	const char* jstr;
+
+	json_type jarr_obj_type = json_object_get_type(jarr_obj);
+	switch (jarr_obj_type) {
+	case json_type_object:
+	    {
+		string id;
+		vector<string> names;
+		json_object_object_foreach(jarr_obj, jkey, jval) {
+		    switch (json_object_get_type(jval)) {
+		    case json_type_array:
+			if (strcmp(jkey, "names") != 0) {
+			    server_error(_F("Unexpected string key name \"%s\"",
+					    jkey));
+			    break;
+			}
+			for (size_t j = 0;
+			     j < (size_t)json_object_array_length(jval);
+			     j++) {
+			    json_object *jarr_obj2 = json_object_array_get_idx(jval, j);
+			    switch (json_object_get_type(jarr_obj2)) {
+			    case json_type_string:
+				jstr = json_object_get_string(jarr_obj2);
+				names.push_back(jstr);
+				break;
+			    default:
+				server_error(_F("Unexpected JSON type %s",
+						json_type_to_name(json_object_get_type(jarr_obj2))));
+				break;
+			    }
+			}
+			break;
+		    case json_type_string:
+			jstr = json_object_get_string(jval);
+			if (strcmp(jkey, "id") != 0) {
+			    server_error(_F("Unexpected string key name \"%s\": \"%s\"", jkey, jstr));
+			}
+			else {
+			    id = jstr;
+			}
+			break;
+		    default:
+			server_error(_F("Unexpected JSON type %s",
+					json_type_to_name(json_object_get_type(jval))));
+			break;
+		    }
+		}
+		if (!id.empty() && !names.empty()) {
+		    images.insert({id, names});
+		}
+	    }
+	    break;
+	default:
+	    server_error(_F("Unexpected JSON type %s",
+			    json_type_to_name(jarr_obj_type)));
+	    break;
+	}
+    }
+    json_object_put(root);
+
+    // We've now processed all the JSON, and got a list of the image
+    // id and names(s). Process this list, looking for systemtap
+    // images (and find the systemtap image's hash).
+    for (auto i = images.begin(); i != images.end(); i++) {
+	for (auto j = i->second.begin(); j != i->second.end(); j++) {
+	    vector<string> matches;
+	    if (regexp_match((*j),
+			     "^sourceware.org/([0-9a-f_]+)/[0-9a-f]+:[0-9]+$",
+			     matches) == 0) {
+		// Store the hash and id.
+		if (matches.size() >= 2) {
+		    add(matches[1], (i->first));
+		}
+	    }
+	}
+    }
+}
+
+
+void
+container_image_cache::add(const string &hash, const string &id)
+{
+    {
+	// Use a lock_guard to ensure the mutex gets released even if
+	// an exception is thrown.
+	lock_guard<mutex> lock(image_cache_mutex);
+	image_cache.insert({hash, id});
+    }
+}
+
+
+bool
+container_image_cache::find(const string &hash, string &id)
+{
+    {
+	// Use a lock_guard to ensure the mutex gets released even if
+	// an exception is thrown.
+	lock_guard<mutex> lock(image_cache_mutex);
+	auto it = image_cache.find(hash);
+	if (it != image_cache.end()) {
+	    id = it->second;
+	    return true;
+	}
+    }
+    id.clear();
+    return false;
+}
+
 
 static vector<backend_base *>saved_backends;
 static void backends_atexit_handler()
