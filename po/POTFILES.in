@@ -38,6 +38,8 @@ mdfour.c
 mdfour.h
 nsscommon.cxx
 nsscommon.h
+nss-server-info.cxx
+nss-server-info.h
 parse.cxx
 parse.h
 privilege.cxx
