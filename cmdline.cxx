@@ -61,5 +61,6 @@ struct option stap_long_options[] = {
   { "target-namespaces",           required_argument, NULL, LONG_OPT_TARGET_NAMESPACES },
   { "monitor",                     optional_argument, NULL, LONG_OPT_MONITOR },
   { "interactive",                 no_argument,       NULL, LONG_OPT_INTERACTIVE},
+  { "example",                     no_argument,       NULL, LONG_OPT_RUN_EXAMPLE},
   { NULL, 0, NULL, 0 }
 };

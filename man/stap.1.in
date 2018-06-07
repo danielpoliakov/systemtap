@@ -844,6 +844,15 @@ The navigation keys can be used to scroll up and down the windows.
 Toggle scrolling between status and output windows.
 .RE
 
+.TP
+.BI \-\-example " SCRIPT"
+This option is used to run example scripts without having to enter the entire
+path to the script. SCRIPT must match a valid example script. For a list of
+available examples see
+.nh
+.IR http://sourceware.org/systemtap/examples/
+.hy
+
 .SH ARGUMENTS
 
 Any additional arguments on the command line are passed to the script

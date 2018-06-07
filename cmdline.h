@@ -65,6 +65,7 @@ enum {
   LONG_OPT_TARGET_NAMESPACES,
   LONG_OPT_MONITOR,
   LONG_OPT_INTERACTIVE,
+  LONG_OPT_RUN_EXAMPLE,
 };
 
 // NB: when adding new options, consider very carefully whether they

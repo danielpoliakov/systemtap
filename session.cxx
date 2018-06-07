@@ -180,6 +180,7 @@ systemtap_session::systemtap_session ():
   color_errors = isatty(STDERR_FILENO) // conditions for coloring when
     && strcmp(getenv("TERM") ?: "notdumb", "dumb"); // on auto
   interactive_mode = false;
+  run_example = false;
   pass_1a_complete = false;
   timeout = 0;
 
@@ -365,6 +366,7 @@ systemtap_session::systemtap_session (const systemtap_session& other,
   color_errors = other.color_errors;
   color_mode = other.color_mode;
   interactive_mode = other.interactive_mode;
+  run_example = other.run_example;
   pass_1a_complete = other.pass_1a_complete;
   timeout = other.timeout;
 
@@ -1238,6 +1240,10 @@ systemtap_session::parse_cmdline (int argc, char * const argv [])
 
 	case LONG_OPT_HELP:
 	  usage (0);
+	  break;
+
+	case LONG_OPT_RUN_EXAMPLE:
+	  run_example = true;
 	  break;
 
 	  // The caching options should not be available to server clients
