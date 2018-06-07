@@ -41,17 +41,30 @@ proc arch_compile_init {} {
   puts $hello_file "int main () { printf(\"Hello World!\"); return 0; }"
   close $hello_file
 
-  puts "Checking for compat arch support..."
+  set systemtap_arch_compile_flags 0
+
+  puts "Checking for 64-bit support..."
+  set flags "additional_flags=-g compiler=gcc additional_flags=-m64"
+  set exe "hello-m64"
+  set result [target_compile $source $exe executable $flags]
+  if { $result != "" } {
+    puts "$platform_machine 64-bit support unavailable"
+  } else {
+    puts "$platform_machine 64-bit support available"
+    incr systemtap_arch_compile_flags
+  }
+
+  puts "Checking for $compat_arch_bits-bit support..."
   set flags "additional_flags=-g compiler=gcc additional_flags=-m$compat_arch_bits"
   set exe "hello-m$compat_arch_bits"
   set result [target_compile $source $exe executable $flags]
   if { $result != "" } {
-    set systemtap_arch_compile_flags 1
     puts "$platform_machine $compat_arch_bits-bit support unavailable"
   } else {
-    set systemtap_arch_compile_flags 2
     puts "$platform_machine $compat_arch_bits-bit support available"
+    incr systemtap_arch_compile_flags
   }
+
   cd ${curdir}
   catch {exec rm -rf $tmpdir}
 }
