@@ -2,12 +2,12 @@
 .\"     Title: probe::ioblock.request
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: October 2017
+.\"      Date: June 2018
 .\"    Manual: IO Scheduler and block IO Tapset
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "PROBE::IOBLOCK\&.REQ" "3stap" "October 2017" "SystemTap Tapset Reference" "IO Scheduler and block IO Taps"
+.TH "PROBE::IOBLOCK\&.REQ" "3stap" "June 2018" "SystemTap Tapset Reference" "IO Scheduler and block IO Taps"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,49 +36,34 @@ ioblock\&.request
 .fi
 .SH "VALUES"
 .PP
-\fIhw_segments\fR
-.RS 4
-number of segments after physical and DMA remapping hardware coalescing is performed
-.RE
-.PP
-\fIsize\fR
-.RS 4
-total size in bytes
-.RE
-.PP
-\fIdevname\fR
-.RS 4
-block device name
-.RE
-.PP
-\fIvcnt\fR
-.RS 4
-bio vector count which represents number of array element (page, offset, length) which make up this I/O request
-.RE
-.PP
-\fIp_start_sect\fR
-.RS 4
-points to the start sector of the partition structure of the device
-.RE
-.PP
-\fIname\fR
-.RS 4
-name of the probe point
-.RE
-.PP
-\fIflags\fR
-.RS 4
-see below BIO_UPTODATE 0 ok after I/O completion BIO_RW_BLOCK 1 RW_AHEAD set, and read/write would block BIO_EOF 2 out\-out\-bounds error BIO_SEG_VALID 3 nr_hw_seg valid BIO_CLONED 4 doesn\*(Aqt own data BIO_BOUNCED 5 bio is a bounce bio BIO_USER_MAPPED 6 contains user pages BIO_EOPNOTSUPP 7 not supported
-.RE
-.PP
 \fIidx\fR
 .RS 4
 offset into the bio vector array
 .RE
 .PP
-\fIopf\fR
+\fIbdev\fR
 .RS 4
-operations and flags
+target block device
+.RE
+.PP
+\fIrw\fR
+.RS 4
+binary trace for read/write request
+.RE
+.PP
+\fIhw_segments\fR
+.RS 4
+number of segments after physical and DMA remapping hardware coalescing is performed
+.RE
+.PP
+\fIino\fR
+.RS 4
+i\-node number of the mapped file
+.RE
+.PP
+\fIname\fR
+.RS 4
+name of the probe point
 .RE
 .PP
 \fIphys_segments\fR
@@ -91,24 +76,39 @@ number of segments in this bio after physical address coalescing is performed
 beginning sector for the entire bio
 .RE
 .PP
-\fIino\fR
+\fIp_start_sect\fR
 .RS 4
-i\-node number of the mapped file
+points to the start sector of the partition structure of the device
 .RE
 .PP
-\fIrw\fR
+\fIopf\fR
 .RS 4
-binary trace for read/write request
+operations and flags
 .RE
 .PP
-\fIbdev\fR
+\fIflags\fR
 .RS 4
-target block device
+see below BIO_UPTODATE 0 ok after I/O completion BIO_RW_BLOCK 1 RW_AHEAD set, and read/write would block BIO_EOF 2 out\-out\-bounds error BIO_SEG_VALID 3 nr_hw_seg valid BIO_CLONED 4 doesn\*(Aqt own data BIO_BOUNCED 5 bio is a bounce bio BIO_USER_MAPPED 6 contains user pages BIO_EOPNOTSUPP 7 not supported
 .RE
 .PP
 \fIbdev_contains\fR
 .RS 4
 points to the device object which contains the partition (when bio structure represents a partition)
+.RE
+.PP
+\fIvcnt\fR
+.RS 4
+bio vector count which represents number of array element (page, offset, length) which make up this I/O request
+.RE
+.PP
+\fIsize\fR
+.RS 4
+total size in bytes
+.RE
+.PP
+\fIdevname\fR
+.RS 4
+block device name
 .RE
 .SH "CONTEXT"
 .PP

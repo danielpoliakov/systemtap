@@ -1,5 +1,5 @@
 ." -*- nroff -*-
-.TH TAPSET::SYSCALLS 3stap "October 2017" "Systemtap Tapset Reference"
+.TH TAPSET::SYSCALLS 3stap "June 2018" "Systemtap Tapset Reference"
 .SH NAME
 tapset::syscalls \- systemtap syscall tapset
 
@@ -134,22 +134,6 @@ args, env_str, filename
 args, dirfd, dirfd_str, env_str, filename, flags, flags_str
 .P
 .TP
-.B syscall.compat_fadvise64
-advice, advice_str, fd, len, offset
-.P
-.TP
-.B syscall.compat_fadvise64_64
-advice, advice_str, fd, len, offset
-.P
-.TP
-.B syscall.compat_fallocate
-fd, len, mode, mode_str, offset
-.P
-.TP
-.B syscall.compat_ftruncate64
-fd, length
-.P
-.TP
 .B syscall.compat_futex
 futex_uaddr, op, uaddr2_uaddr, utime_uaddr, val3, val
 .P
@@ -176,10 +160,6 @@ fds_uaddr, nfds, sigmask, sigsetsize, tsp, tsp_str
 .TP
 .B syscall.compat_pselect6
 exceptfds, nfds, readfds, sigmask, timeout, timeout_str, writefds
-.P
-.TP
-.B syscall.compat_readahead
-count, fd, offset
 .P
 .TP
 .B syscall.compat_recvmmsg
@@ -240,10 +220,6 @@ buf_uaddr, cmd, cmd_str, shmid
 .TP
 .B syscall.compat_sys_utimes
 filename, timeval, tvp_uaddr_str
-.P
-.TP
-.B syscall.compat_truncate64
-length, path, path_uaddr
 .P
 .TP
 .B syscall.compat_utime
@@ -1332,6 +1308,10 @@ buf_uaddr, path
 .TP
 .B syscall.statfs64
 buf_uaddr, path, sz
+.P
+.TP
+.B syscall.statx
+buf_uaddr, dfd, dfd_str, filename, filename_uaddr, flags, flags_str, mask, mask_str
 .P
 .TP
 .B syscall.stime

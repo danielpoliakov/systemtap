@@ -2,12 +2,12 @@
 .\"     Title: probe::vm.kmem_cache_alloc
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: October 2017
+.\"      Date: June 2018
 .\"    Manual: Memory Tapset
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "PROBE::VM\&.KMEM_CAC" "3stap" "October 2017" "SystemTap Tapset Reference" "Memory Tapset"
+.TH "PROBE::VM\&.KMEM_CAC" "3stap" "June 2018" "SystemTap Tapset Reference" "Memory Tapset"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,19 +36,9 @@ vm\&.kmem_cache_alloc
 .fi
 .SH "VALUES"
 .PP
-\fIbytes_req\fR
+\fIgfp_flag_name\fR
 .RS 4
-requested Bytes
-.RE
-.PP
-\fIptr\fR
-.RS 4
-pointer to the kmemory allocated
-.RE
-.PP
-\fIbytes_alloc\fR
-.RS 4
-allocated Bytes
+type of kmemory to allocate(in string format)
 .RE
 .PP
 \fIgfp_flags\fR
@@ -56,14 +46,14 @@ allocated Bytes
 type of kmemory to allocate
 .RE
 .PP
-\fIgfp_flag_name\fR
+\fIcaller_function\fR
 .RS 4
-type of kmemory to allocate(in string format)
+name of the caller function\&.
 .RE
 .PP
-\fIname\fR
+\fIbytes_req\fR
 .RS 4
-name of the probe point
+requested Bytes
 .RE
 .PP
 \fIcall_site\fR
@@ -71,9 +61,19 @@ name of the probe point
 address of the function calling this kmemory function\&.
 .RE
 .PP
-\fIcaller_function\fR
+\fIbytes_alloc\fR
 .RS 4
-name of the caller function\&.
+allocated Bytes
+.RE
+.PP
+\fIname\fR
+.RS 4
+name of the probe point
+.RE
+.PP
+\fIptr\fR
+.RS 4
+pointer to the kmemory allocated
 .RE
 .SH SEE ALSO\n 
 .IR tapset::memory (3stap)

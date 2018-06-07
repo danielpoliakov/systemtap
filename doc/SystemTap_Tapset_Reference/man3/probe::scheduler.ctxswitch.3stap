@@ -2,12 +2,12 @@
 .\"     Title: probe::scheduler.ctxswitch
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: October 2017
+.\"      Date: June 2018
 .\"    Manual: Scheduler Tapset
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "PROBE::SCHEDULER\&.C" "3stap" "October 2017" "SystemTap Tapset Reference" "Scheduler Tapset"
+.TH "PROBE::SCHEDULER\&.C" "3stap" "June 2018" "SystemTap Tapset Reference" "Scheduler Tapset"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,39 +41,9 @@ scheduler\&.ctxswitch
 The name of the process to be switched in
 .RE
 .PP
-\fIprevtsk_state\fR
-.RS 4
-the state of the process to be switched out
-.RE
-.PP
-\fIprev_priority\fR
-.RS 4
-The priority of the process to be switched out
-.RE
-.PP
-\fInext_pid\fR
-.RS 4
-The PID of the process to be switched in
-.RE
-.PP
 \fIname\fR
 .RS 4
 name of the probe point
-.RE
-.PP
-\fInext_tid\fR
-.RS 4
-The TID of the process to be switched in
-.RE
-.PP
-\fIprev_tid\fR
-.RS 4
-The TID of the process to be switched out
-.RE
-.PP
-\fIprev_pid\fR
-.RS 4
-The PID of the process to be switched out
 .RE
 .PP
 \fInext_priority\fR
@@ -81,9 +51,39 @@ The PID of the process to be switched out
 The priority of the process to be switched in
 .RE
 .PP
+\fIprev_tid\fR
+.RS 4
+The TID of the process to be switched out
+.RE
+.PP
+\fIprev_priority\fR
+.RS 4
+The priority of the process to be switched out
+.RE
+.PP
 \fInexttsk_state\fR
 .RS 4
 the state of the process to be switched in
+.RE
+.PP
+\fIprev_pid\fR
+.RS 4
+The PID of the process to be switched out
+.RE
+.PP
+\fIprevtsk_state\fR
+.RS 4
+the state of the process to be switched out
+.RE
+.PP
+\fInext_pid\fR
+.RS 4
+The PID of the process to be switched in
+.RE
+.PP
+\fInext_tid\fR
+.RS 4
+The TID of the process to be switched in
 .RE
 .PP
 \fIprev_task_name\fR

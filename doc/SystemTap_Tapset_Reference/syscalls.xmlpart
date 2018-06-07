@@ -171,26 +171,6 @@ same convenience variables.
     args, dirfd, dirfd_str, env_str, filename, flags, flags_str
 </entry></row>
 <row><entry>
-    compat_fadvise64
-</entry><entry>
-    advice, advice_str, fd, len, offset
-</entry></row>
-<row><entry>
-    compat_fadvise64_64
-</entry><entry>
-    advice, advice_str, fd, len, offset
-</entry></row>
-<row><entry>
-    compat_fallocate
-</entry><entry>
-    fd, len, mode, mode_str, offset
-</entry></row>
-<row><entry>
-    compat_ftruncate64
-</entry><entry>
-    fd, length
-</entry></row>
-<row><entry>
     compat_futex
 </entry><entry>
     futex_uaddr, op, uaddr2_uaddr, utime_uaddr, val3, val
@@ -224,11 +204,6 @@ same convenience variables.
     compat_pselect6
 </entry><entry>
     exceptfds, nfds, readfds, sigmask, timeout, timeout_str, writefds
-</entry></row>
-<row><entry>
-    compat_readahead
-</entry><entry>
-    count, fd, offset
 </entry></row>
 <row><entry>
     compat_recvmmsg
@@ -304,11 +279,6 @@ same convenience variables.
     compat_sys_utimes
 </entry><entry>
     filename, timeval, tvp_uaddr_str
-</entry></row>
-<row><entry>
-    compat_truncate64
-</entry><entry>
-    length, path, path_uaddr
 </entry></row>
 <row><entry>
     compat_utime
@@ -1669,6 +1639,11 @@ same convenience variables.
     statfs64
 </entry><entry>
     buf_uaddr, path, sz
+</entry></row>
+<row><entry>
+    statx
+</entry><entry>
+    buf_uaddr, dfd, dfd_str, filename, filename_uaddr, flags, flags_str, mask, mask_str
 </entry></row>
 <row><entry>
     stime

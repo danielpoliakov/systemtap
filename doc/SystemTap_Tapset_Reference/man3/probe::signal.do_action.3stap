@@ -2,12 +2,12 @@
 .\"     Title: probe::signal.do_action
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: October 2017
+.\"      Date: June 2018
 .\"    Manual: Signal Tapset
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "PROBE::SIGNAL\&.DO_A" "3stap" "October 2017" "SystemTap Tapset Reference" "Signal Tapset"
+.TH "PROBE::SIGNAL\&.DO_A" "3stap" "June 2018" "SystemTap Tapset Reference" "Signal Tapset"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,14 +36,9 @@ signal\&.do_action
 .fi
 .SH "VALUES"
 .PP
-\fIname\fR
+\fIsigact_addr\fR
 .RS 4
-Name of the probe point
-.RE
-.PP
-\fIoldsigact_addr\fR
-.RS 4
-The address of the old sigaction struct associated with the signal
+The address of the new sigaction struct associated with the signal
 .RE
 .PP
 \fIsig_name\fR
@@ -51,9 +46,9 @@ The address of the old sigaction struct associated with the signal
 A string representation of the signal
 .RE
 .PP
-\fIsa_handler\fR
+\fIoldsigact_addr\fR
 .RS 4
-The new handler of the signal
+The address of the old sigaction struct associated with the signal
 .RE
 .PP
 \fIsa_mask\fR
@@ -61,9 +56,14 @@ The new handler of the signal
 The new mask of the signal
 .RE
 .PP
-\fIsigact_addr\fR
+\fIsa_handler\fR
 .RS 4
-The address of the new sigaction struct associated with the signal
+The new handler of the signal
+.RE
+.PP
+\fIname\fR
+.RS 4
+Name of the probe point
 .RE
 .PP
 \fIsig\fR

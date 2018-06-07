@@ -2,12 +2,12 @@
 .\"     Title: probe::irq_handler.exit
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: October 2017
+.\"      Date: June 2018
 .\"    Manual: Interrupt Request (IRQ) Tapset
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "PROBE::IRQ_HANDLER\&" "3stap" "October 2017" "SystemTap Tapset Reference" "Interrupt Request (IRQ) Tapset"
+.TH "PROBE::IRQ_HANDLER\&" "3stap" "June 2018" "SystemTap Tapset Reference" "Interrupt Request (IRQ) Tapset"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,34 +41,9 @@ irq_handler\&.exit
 interrupt handler function for threaded interrupts
 .RE
 .PP
-\fIflags\fR
-.RS 4
-flags for IRQ handler
-.RE
-.PP
-\fIthread\fR
-.RS 4
-thread pointer for threaded interrupts
-.RE
-.PP
-\fIret\fR
-.RS 4
-return value of the handler
-.RE
-.PP
-\fIhandler\fR
-.RS 4
-interrupt handler function that was executed
-.RE
-.PP
 \fIthread_flags\fR
 .RS 4
 Flags related to thread
-.RE
-.PP
-\fIdev_name\fR
-.RS 4
-name of device
 .RE
 .PP
 \fIaction\fR
@@ -76,9 +51,19 @@ name of device
 struct irqaction*
 .RE
 .PP
-\fIdev_id\fR
+\fIret\fR
 .RS 4
-Cookie to identify device
+return value of the handler
+.RE
+.PP
+\fIdev_name\fR
+.RS 4
+name of device
+.RE
+.PP
+\fIthread\fR
+.RS 4
+thread pointer for threaded interrupts
 .RE
 .PP
 \fIdir\fR
@@ -86,9 +71,9 @@ Cookie to identify device
 pointer to the proc/irq/NN/name entry
 .RE
 .PP
-\fIirq\fR
+\fIflags\fR
 .RS 4
-interrupt number
+flags for IRQ handler
 .RE
 .PP
 \fIflags_str\fR
@@ -99,6 +84,21 @@ symbolic string representation of IRQ flags
 \fInext_irqaction\fR
 .RS 4
 pointer to next irqaction for shared interrupts
+.RE
+.PP
+\fIdev_id\fR
+.RS 4
+Cookie to identify device
+.RE
+.PP
+\fIhandler\fR
+.RS 4
+interrupt handler function that was executed
+.RE
+.PP
+\fIirq\fR
+.RS 4
+interrupt number
 .RE
 .SH SEE ALSO\n 
 .IR tapset::irq (3stap)

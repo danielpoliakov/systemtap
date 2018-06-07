@@ -2,12 +2,12 @@
 .\"     Title: probe::tty.release
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: October 2017
+.\"      Date: June 2018
 .\"    Manual: TTY Tapset
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "PROBE::TTY\&.RELEASE" "3stap" "October 2017" "SystemTap Tapset Reference" "TTY Tapset"
+.TH "PROBE::TTY\&.RELEASE" "3stap" "June 2018" "SystemTap Tapset Reference" "TTY Tapset"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,19 +36,19 @@ tty\&.release
 .fi
 .SH "VALUES"
 .PP
+\fIinode_state\fR
+.RS 4
+the inode state
+.RE
+.PP
 \fIfile_name\fR
 .RS 4
 the file name
 .RE
 .PP
-\fIfile_flags\fR
+\fIfile_mode\fR
 .RS 4
-the file flags
-.RE
-.PP
-\fIinode_state\fR
-.RS 4
-the inode state
+the file mode
 .RE
 .PP
 \fIinode_flags\fR
@@ -61,9 +61,9 @@ the inode flags
 the inode number
 .RE
 .PP
-\fIfile_mode\fR
+\fIfile_flags\fR
 .RS 4
-the file mode
+the file flags
 .RE
 .SH SEE ALSO\n 
 .IR tapset::tty (3stap)

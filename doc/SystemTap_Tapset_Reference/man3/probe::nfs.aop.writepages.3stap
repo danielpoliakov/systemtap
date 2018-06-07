@@ -2,12 +2,12 @@
 .\"     Title: probe::nfs.aop.writepages
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: October 2017
+.\"      Date: June 2018
 .\"    Manual: Network File Storage Tapsets
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "PROBE::NFS\&.AOP\&.W" "3stap" "October 2017" "SystemTap Tapset Reference" "Network File Storage Tapsets"
+.TH "PROBE::NFS\&.AOP\&.W" "3stap" "June 2018" "SystemTap Tapset Reference" "Network File Storage Tapsets"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,19 +36,14 @@ nfs\&.aop\&.writepages
 .fi
 .SH "VALUES"
 .PP
-\fIino\fR
+\fInr_to_write\fR
 .RS 4
-inode number
+number of pages attempted to be written in this execution
 .RE
 .PP
-\fIwsize\fR
+\fIsize\fR
 .RS 4
-write size
-.RE
-.PP
-\fIdev\fR
-.RS 4
-device identifier
+number of pages attempted to be written in this execution
 .RE
 .PP
 \fIwpages\fR
@@ -61,19 +56,24 @@ write size (in pages)
 a flag of writeback_control, indicates if it\*(Aqs a kupdate writeback
 .RE
 .PP
+\fIdev\fR
+.RS 4
+device identifier
+.RE
+.PP
+\fIino\fR
+.RS 4
+inode number
+.RE
+.PP
+\fIwsize\fR
+.RS 4
+write size
+.RE
+.PP
 \fIfor_reclaim\fR
 .RS 4
 a flag of writeback_control, indicates if it\*(Aqs invoked from the page allocator
-.RE
-.PP
-\fInr_to_write\fR
-.RS 4
-number of pages attempted to be written in this execution
-.RE
-.PP
-\fIsize\fR
-.RS 4
-number of pages attempted to be written in this execution
 .RE
 .SH "DESCRIPTION"
 .PP

@@ -2,12 +2,12 @@
 .\"     Title: probe::tty.ioctl
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: October 2017
+.\"      Date: June 2018
 .\"    Manual: TTY Tapset
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "PROBE::TTY\&.IOCTL" "3stap" "October 2017" "SystemTap Tapset Reference" "TTY Tapset"
+.TH "PROBE::TTY\&.IOCTL" "3stap" "June 2018" "SystemTap Tapset Reference" "TTY Tapset"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,11 +36,6 @@ tty\&.ioctl
 .fi
 .SH "VALUES"
 .PP
-\fIname\fR
-.RS 4
-the file name
-.RE
-.PP
 \fIarg\fR
 .RS 4
 the ioctl argument
@@ -49,6 +44,11 @@ the ioctl argument
 \fIcmd\fR
 .RS 4
 the ioctl command
+.RE
+.PP
+\fIname\fR
+.RS 4
+the file name
 .RE
 .SH SEE ALSO\n 
 .IR tapset::tty (3stap)

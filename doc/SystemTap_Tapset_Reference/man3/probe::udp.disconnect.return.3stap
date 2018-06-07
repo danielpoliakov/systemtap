@@ -2,12 +2,12 @@
 .\"     Title: probe::udp.disconnect.return
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: October 2017
+.\"      Date: June 2018
 .\"    Manual: Networking Tapset
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "PROBE::UDP\&.DISCONN" "3stap" "October 2017" "SystemTap Tapset Reference" "Networking Tapset"
+.TH "PROBE::UDP\&.DISCONN" "3stap" "June 2018" "SystemTap Tapset Reference" "Networking Tapset"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -46,9 +46,9 @@ A string representing the destination IP address
 Error code (0: no error)
 .RE
 .PP
-\fIsaddr\fR
+\fIsport\fR
 .RS 4
-A string representing the source IP address
+UDP source port
 .RE
 .PP
 \fIfamily\fR
@@ -56,9 +56,9 @@ A string representing the source IP address
 IP address family
 .RE
 .PP
-\fIsport\fR
+\fIname\fR
 .RS 4
-UDP source port
+The name of this probe
 .RE
 .PP
 \fIdport\fR
@@ -66,9 +66,9 @@ UDP source port
 UDP destination port
 .RE
 .PP
-\fIname\fR
+\fIsaddr\fR
 .RS 4
-The name of this probe
+A string representing the source IP address
 .RE
 .SH "CONTEXT"
 .PP

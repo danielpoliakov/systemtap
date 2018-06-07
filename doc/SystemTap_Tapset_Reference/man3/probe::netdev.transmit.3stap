@@ -2,12 +2,12 @@
 .\"     Title: probe::netdev.transmit
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: October 2017
+.\"      Date: June 2018
 .\"    Manual: Networking Tapset
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "PROBE::NETDEV\&.TRAN" "3stap" "October 2017" "SystemTap Tapset Reference" "Networking Tapset"
+.TH "PROBE::NETDEV\&.TRAN" "3stap" "June 2018" "SystemTap Tapset Reference" "Networking Tapset"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,14 +36,14 @@ netdev\&.transmit
 .fi
 .SH "VALUES"
 .PP
-\fItruesize\fR
-.RS 4
-The size of the data to be transmitted\&.
-.RE
-.PP
 \fIdev_name\fR
 .RS 4
 The name of the device\&. e\&.g: eth0, ath1\&.
+.RE
+.PP
+\fItruesize\fR
+.RS 4
+The size of the data to be transmitted\&.
 .RE
 .PP
 \fIlength\fR

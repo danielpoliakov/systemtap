@@ -2,12 +2,12 @@
 .\"     Title: probe::ioscheduler.elv_completed_request
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: October 2017
+.\"      Date: June 2018
 .\"    Manual: IO Scheduler and block IO Tapset
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "PROBE::IOSCHEDULER\&" "3stap" "October 2017" "SystemTap Tapset Reference" "IO Scheduler and block IO Taps"
+.TH "PROBE::IOSCHEDULER\&" "3stap" "June 2018" "SystemTap Tapset Reference" "IO Scheduler and block IO Taps"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,16 +41,6 @@ ioscheduler\&.elv_completed_request
 Address of the request
 .RE
 .PP
-\fIdisk_minor\fR
-.RS 4
-Disk minor number of the request
-.RE
-.PP
-\fIrq_flags\fR
-.RS 4
-Request flags
-.RE
-.PP
 \fIname\fR
 .RS 4
 Name of the probe point
@@ -59,6 +49,16 @@ Name of the probe point
 \fIdisk_major\fR
 .RS 4
 Disk major number of the request
+.RE
+.PP
+\fIdisk_minor\fR
+.RS 4
+Disk minor number of the request
+.RE
+.PP
+\fIrq_flags\fR
+.RS 4
+Request flags
 .RE
 .PP
 \fIelevator_name\fR

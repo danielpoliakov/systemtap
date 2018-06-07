@@ -2,12 +2,12 @@
 .\"     Title: function::json_add_string_metric
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: October 2017
+.\"      Date: June 2018
 .\"    Manual: JSON Tapset
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "FUNCTION::JSON_ADD_S" "3stap" "October 2017" "SystemTap Tapset Reference" "JSON Tapset"
+.TH "FUNCTION::JSON_ADD_S" "3stap" "June 2018" "SystemTap Tapset Reference" "JSON Tapset"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
