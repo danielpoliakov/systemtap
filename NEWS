@@ -1,5 +1,9 @@
 * What's new in version 3.3
 
+- Runtime/tapsets were ported to include up to kernel version 4.16.
+  (The syscall tapsets are broken on kernel 4.17-rc, and will be fixed
+  in a next release coming soon; PR23160.)
+
 * What's new in version 3.2, 2017-10-18
 
 - SystemTap now includes an extended Berkeley Packet Filter (eBPF)
