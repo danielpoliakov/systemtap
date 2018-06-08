@@ -2,7 +2,7 @@ SYSTEMTAP EXAMPLES INDEX
 (see also keyword-index.txt)
 
 
-For systemtap version 3.2.
+For systemtap version 3.3.
 
 general/alias_suffixes.stp - Count I/O Syscalls using Alias Suffixes
 keywords: io statistics
@@ -57,18 +57,7 @@ keywords: simple trace callgraph
   /proc/sys/vm/* || true"
 
 
-general/eventcount.stp - Count Specified Events
-keywords: _best statistics thread process
-
-  The script periodically prints a count of specified events and their
-  related tid's over the course of execution.  Numerous configuration
-  options exist to control filtering / reporting, see the script
-  source.
-
-  # stap eventcount.stp syscall.* -c 'sleep 1'
-
-
-general/eventcount_interactive.stp - Interactive Count Specified Events
+general/eventcount.stp - Interactive Count Specified Events
 keywords: interactive statistics thread process
 
   The script periodically prints a count of specified events and their
@@ -76,7 +65,7 @@ keywords: interactive statistics thread process
   options exist to control filtering / reporting, some of which can be
   modified at runtime. See the script source for more information.
 
-  # stap eventcount_interactive.stp 'syscall.*' -c 'sleep 3'
+  # stap eventcount.stp 'syscall.*' -c 'sleep 3'
 
 
 general/func_time_stats.stp - Function Time Statistics
@@ -89,7 +78,7 @@ keywords: function statistics
   the function was called and a histogram showing the distributions of
   times.
 
-  # stap func_time_stats.stp 'syscall.nanosleep' -T 1
+  # stap func_time_stats.stp 'syscall.read' -T 1
 
 
 general/graphs.stp - Graphing Disk and CPU Utilization with gnuplot
@@ -196,6 +185,18 @@ keywords: statistics memory
   # stap sizeof.stp FILE '</usr/include/stdio.h>'
 
 
+general/sizeof_interactive.stp - Interactive Print the Size of a C Type
+keywords: statistics memory interactive
+
+  This script prints the size of a type, based on dwarf debuginfo for
+  any kernel or userspace module, or trial-compilation of a given
+  header file name. Types and corresponding locations are provided to
+  the script at runtime via keyboard input. The format of the input is
+  identical to that of sizeof.stp (see script source for more
+  information). Types and locations can be repeatedly given until the
+  process is terminated. 
+
+
 general/socket-events.stp - Trace Socket Activity of a Process
 keywords: socket syscall
 
@@ -280,6 +281,15 @@ keywords: interrupt backtrace
   the tallies in descending frequency.
 
   # stap scf.stp -T 1
+
+
+io/capture_ssl_master_secrets.stp - Capture SSL/TLS master secrets from gnutls and openssl users
+keywords: io monitoring
+
+  Capture SSL/TLS master secrets from gnutls and openssl users for easy
+  traffic decryption
+
+  # stap capture_ssl_master_secrets.stp -c 'sleep 3'
 
 
 io/deviceseeks.stp - Histograms of Seek Behavior for Each Device
@@ -1443,7 +1453,7 @@ keywords: _best process syscall
   processes or hierarchies (via -c/-x), or the entire system (without
   -c/-x).  A few output configuration parameters may be set with -G.
 
-  # stap strace.stp -T 1
+  # stap strace.stp -c "cat /proc/sys/vm/* || true"
 
 
 process/syscalls_by_pid.stp - System-Wide Count of Syscalls by PID

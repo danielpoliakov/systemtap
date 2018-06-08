@@ -2,20 +2,9 @@ SYSTEMTAP EXAMPLES INDEX BY KEYWORD
 (see also index.txt)
 
 
-For systemtap version 3.2.
+For systemtap version 3.3.
 
 = _BEST =
-
-general/eventcount.stp - Count Specified Events
-keywords: _best statistics thread process
-
-  The script periodically prints a count of specified events and their
-  related tid's over the course of execution.  Numerous configuration
-  options exist to control filtering / reporting, see the script
-  source.
-
-  # stap eventcount.stp syscall.* -c 'sleep 1'
-
 
 general/helloworld.stp - SystemTap "Hello World" Program
 keywords: _best simple
@@ -121,7 +110,7 @@ keywords: _best process syscall
   processes or hierarchies (via -c/-x), or the entire system (without
   -c/-x).  A few output configuration parameters may be set with -G.
 
-  # stap strace.stp -T 1
+  # stap strace.stp -c "cat /proc/sys/vm/* || true"
 
 
 process/thread-business.stp - monitor syscall history
@@ -546,7 +535,7 @@ keywords: function statistics
   the function was called and a histogram showing the distributions of
   times.
 
-  # stap func_time_stats.stp 'syscall.nanosleep' -T 1
+  # stap func_time_stats.stp 'syscall.read' -T 1
 
 
 general/whythefail.stp - Why did the function fail?
@@ -758,7 +747,7 @@ keywords: security guru
 
 = INTERACTIVE =
 
-general/eventcount_interactive.stp - Interactive Count Specified Events
+general/eventcount.stp - Interactive Count Specified Events
 keywords: interactive statistics thread process
 
   The script periodically prints a count of specified events and their
@@ -766,7 +755,19 @@ keywords: interactive statistics thread process
   options exist to control filtering / reporting, some of which can be
   modified at runtime. See the script source for more information.
 
-  # stap eventcount_interactive.stp 'syscall.*' -c 'sleep 3'
+  # stap eventcount.stp 'syscall.*' -c 'sleep 3'
+
+
+general/sizeof_interactive.stp - Interactive Print the Size of a C Type
+keywords: statistics memory interactive
+
+  This script prints the size of a type, based on dwarf debuginfo for
+  any kernel or userspace module, or trial-compilation of a given
+  header file name. Types and corresponding locations are provided to
+  the script at runtime via keyboard input. The format of the input is
+  identical to that of sizeof.stp (see script source for more
+  information). Types and locations can be repeatedly given until the
+  process is terminated. 
 
 
 = INTERRUPT =
@@ -821,6 +822,15 @@ keywords: io statistics
   the distributions of times.
 
   # stap alias_suffixes.stp -T 1
+
+
+io/capture_ssl_master_secrets.stp - Capture SSL/TLS master secrets from gnutls and openssl users
+keywords: io monitoring
+
+  Capture SSL/TLS master secrets from gnutls and openssl users for easy
+  traffic decryption
+
+  # stap capture_ssl_master_secrets.stp -c 'sleep 3'
 
 
 io/eatmydata.stp - disable fsync
@@ -1305,6 +1315,18 @@ keywords: statistics memory
   # stap sizeof.stp FILE '</usr/include/stdio.h>'
 
 
+general/sizeof_interactive.stp - Interactive Print the Size of a C Type
+keywords: statistics memory interactive
+
+  This script prints the size of a type, based on dwarf debuginfo for
+  any kernel or userspace module, or trial-compilation of a given
+  header file name. Types and corresponding locations are provided to
+  the script at runtime via keyboard input. The format of the input is
+  identical to that of sizeof.stp (see script source for more
+  information). Types and locations can be repeatedly given until the
+  process is terminated. 
+
+
 memory/glibc-malloc.stp - Overview glibc malloc internal operations
 keywords: memory process
 
@@ -1553,6 +1575,15 @@ keywords: speculation monitoring function trace _best
 
   # stap whythefail.stp kernel sys_open '$return < 0' -c 'cat \
   /root/no-such-file || true'
+
+
+io/capture_ssl_master_secrets.stp - Capture SSL/TLS master secrets from gnutls and openssl users
+keywords: io monitoring
+
+  Capture SSL/TLS master secrets from gnutls and openssl users for easy
+  traffic decryption
+
+  # stap capture_ssl_master_secrets.stp -c 'sleep 3'
 
 
 io/mbrwatch.stp - Monitor Read/Write of the Boot Sector Area of Block Devices
@@ -1921,18 +1952,7 @@ keywords: network packets guru
 
 = PROCESS =
 
-general/eventcount.stp - Count Specified Events
-keywords: _best statistics thread process
-
-  The script periodically prints a count of specified events and their
-  related tid's over the course of execution.  Numerous configuration
-  options exist to control filtering / reporting, see the script
-  source.
-
-  # stap eventcount.stp syscall.* -c 'sleep 1'
-
-
-general/eventcount_interactive.stp - Interactive Count Specified Events
+general/eventcount.stp - Interactive Count Specified Events
 keywords: interactive statistics thread process
 
   The script periodically prints a count of specified events and their
@@ -1940,7 +1960,7 @@ keywords: interactive statistics thread process
   options exist to control filtering / reporting, some of which can be
   modified at runtime. See the script source for more information.
 
-  # stap eventcount_interactive.stp 'syscall.*' -c 'sleep 3'
+  # stap eventcount.stp 'syscall.*' -c 'sleep 3'
 
 
 memory/glibc-malloc.stp - Overview glibc malloc internal operations
@@ -2165,7 +2185,7 @@ keywords: _best process syscall
   processes or hierarchies (via -c/-x), or the entire system (without
   -c/-x).  A few output configuration parameters may be set with -G.
 
-  # stap strace.stp -T 1
+  # stap strace.stp -c "cat /proc/sys/vm/* || true"
 
 
 process/thread-business.stp - monitor syscall history
@@ -3027,18 +3047,7 @@ keywords: io statistics
   # stap alias_suffixes.stp -T 1
 
 
-general/eventcount.stp - Count Specified Events
-keywords: _best statistics thread process
-
-  The script periodically prints a count of specified events and their
-  related tid's over the course of execution.  Numerous configuration
-  options exist to control filtering / reporting, see the script
-  source.
-
-  # stap eventcount.stp syscall.* -c 'sleep 1'
-
-
-general/eventcount_interactive.stp - Interactive Count Specified Events
+general/eventcount.stp - Interactive Count Specified Events
 keywords: interactive statistics thread process
 
   The script periodically prints a count of specified events and their
@@ -3046,7 +3055,7 @@ keywords: interactive statistics thread process
   options exist to control filtering / reporting, some of which can be
   modified at runtime. See the script source for more information.
 
-  # stap eventcount_interactive.stp 'syscall.*' -c 'sleep 3'
+  # stap eventcount.stp 'syscall.*' -c 'sleep 3'
 
 
 general/func_time_stats.stp - Function Time Statistics
@@ -3059,7 +3068,7 @@ keywords: function statistics
   the function was called and a histogram showing the distributions of
   times.
 
-  # stap func_time_stats.stp 'syscall.nanosleep' -T 1
+  # stap func_time_stats.stp 'syscall.read' -T 1
 
 
 general/sizeof.stp - Print the Size of a C Type
@@ -3070,6 +3079,18 @@ keywords: statistics memory
   header file name.
 
   # stap sizeof.stp FILE '</usr/include/stdio.h>'
+
+
+general/sizeof_interactive.stp - Interactive Print the Size of a C Type
+keywords: statistics memory interactive
+
+  This script prints the size of a type, based on dwarf debuginfo for
+  any kernel or userspace module, or trial-compilation of a given
+  header file name. Types and corresponding locations are provided to
+  the script at runtime via keyboard input. The format of the input is
+  identical to that of sizeof.stp (see script source for more
+  information). Types and locations can be repeatedly given until the
+  process is terminated. 
 
 
 memory/vm.tracepoints.stp - Collect Slab Allocation Statistics
@@ -3219,7 +3240,7 @@ keywords: _best process syscall
   processes or hierarchies (via -c/-x), or the entire system (without
   -c/-x).  A few output configuration parameters may be set with -G.
 
-  # stap strace.stp -T 1
+  # stap strace.stp -c "cat /proc/sys/vm/* || true"
 
 
 process/syscalls_by_pid.stp - System-Wide Count of Syscalls by PID
@@ -3337,18 +3358,7 @@ keywords: tcp retransmission
 
 = THREAD =
 
-general/eventcount.stp - Count Specified Events
-keywords: _best statistics thread process
-
-  The script periodically prints a count of specified events and their
-  related tid's over the course of execution.  Numerous configuration
-  options exist to control filtering / reporting, see the script
-  source.
-
-  # stap eventcount.stp syscall.* -c 'sleep 1'
-
-
-general/eventcount_interactive.stp - Interactive Count Specified Events
+general/eventcount.stp - Interactive Count Specified Events
 keywords: interactive statistics thread process
 
   The script periodically prints a count of specified events and their
@@ -3356,7 +3366,7 @@ keywords: interactive statistics thread process
   options exist to control filtering / reporting, some of which can be
   modified at runtime. See the script source for more information.
 
-  # stap eventcount_interactive.stp 'syscall.*' -c 'sleep 3'
+  # stap eventcount.stp 'syscall.*' -c 'sleep 3'
 
 
 process/threadstacks.stp - Override default new-pthread stack sizes
