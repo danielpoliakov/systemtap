@@ -1,5 +1,5 @@
 // systemtap translator/driver
-// Copyright (C) 2005-2016 Red Hat Inc.
+// Copyright (C) 2005-2018 Red Hat Inc.
 // Copyright (C) 2005 IBM Corp.
 // Copyright (C) 2006 Intel Corporation.
 //
@@ -535,7 +535,7 @@ passes_0_4 (systemtap_session &s)
                 }
               else if (examples.size() == 0)
                 {
-                  cerr << "Example '" << s.script_file << "' was not found"  << endl;
+                  cerr << _F("Example '%s' was not found under '%s'", s.script_file.c_str(), path_dir.c_str()) << endl;
                   return 1;
                 }
               else
