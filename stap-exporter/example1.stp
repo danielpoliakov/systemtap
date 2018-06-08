@@ -1,0 +1,10 @@
+global arr
+
+probe  procfs("example1.stp").read.maxsize(0x10000) {
+    foreach (k = [tid,cpu] in arr) 
+      $value .= "count [tid=".sprint(tid).",cpu=".sprint(cpu)."] ".sprint(k)."\n"
+}
+
+probe kernel.function("sys_read") {
+    arr[tid(), cpu()]++
+}

@@ -1,0 +1,16 @@
+Replace "script_dir" and "stap_path" near the top of exporter.py
+
+$ ./exporter.py &
+
+$ curl localhost:9900/example1.stp
+<html><body><h3>Script successfully started.
+Refresh page to access metrics.</h3></body></html>%  
+
+$ curl localhost:9900/example1.stp
+count [tid=15262,cpu=5] 20
+count [tid=2221,cpu=3] 13
+count [tid=15265,cpu=6] 46
+count [tid=2456,cpu=1] 18
+count [tid=1573,cpu=0] 31
+count [tid=2221,cpu=4] 2
+...
