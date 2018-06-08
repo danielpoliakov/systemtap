@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemtap 2.9\n"
 "Report-Msgid-Bugs-To: systemtap@sourceware.org\n"
-"POT-Creation-Date: 2018-06-07 14:21-0400\n"
+"POT-Creation-Date: 2018-06-08 18:28-0400\n"
 "PO-Revision-Date: \n"
 "Last-Translator: Przemysław Pawełczyk <przemyslaw@pawelczyk.it>\n"
 "Language-Team: Polish\n"
@@ -1901,83 +1901,88 @@ msgstr ""
 msgid "ERROR: kernel release isn't found in \"%s\""
 msgstr ""
 
-#: main.cxx:437 main.cxx:923
+#: main.cxx:437 main.cxx:954
 msgid ""
 "Without NSS or HTTP client support, using a compile-server is not supported "
 "by this version of systemtap"
 msgstr ""
 
-#: main.cxx:443 main.cxx:929
+#: main.cxx:443 main.cxx:960
 msgid "Ignoring --use-server"
 msgstr ""
 
-#: main.cxx:599
+#: main.cxx:538
+#, c-format
+msgid "Example '%s' was not found under '%s'"
+msgstr ""
+
+#: main.cxx:630
 #, c-format
 msgid ""
 "usage error: macro tapset file '%s' cannot be run directly as a session "
 "script."
 msgstr ""
 
-#: main.cxx:612 main.cxx:704
+#: main.cxx:643 main.cxx:735
 #, c-format
 msgid "Skipping tapset \"%s\", duplicate inode."
 msgstr ""
 
-#: main.cxx:627 main.cxx:719
+#: main.cxx:658 main.cxx:750
 #, c-format
 msgid "Skipping tapset \"%s\", duplicate name."
 msgstr ""
 
-#: main.cxx:634 main.cxx:726
+#: main.cxx:665 main.cxx:757
 #, c-format
 msgid "Processing tapset \"%s\""
 msgstr ""
 
-#: main.cxx:638
+#: main.cxx:669
 #, c-format
 msgid "macro tapset \"%s\" has errors, and will be skipped."
 msgstr ""
 
 #. TRANSLATORS: Searching through directories, 'processed' means 'examined so far'
-#: main.cxx:646
+#: main.cxx:677
 #, c-format
 msgid "Searched for library macro files: \"%s\", found: %zu, processed: %u"
 msgstr ""
 
-#: main.cxx:691
+#: main.cxx:722
 #, c-format
 msgid ""
 "usage error: tapset file '%s' cannot be run directly as a session script."
 msgstr ""
 
-#: main.cxx:738
+#: main.cxx:769
 #, c-format
 msgid "tapset \"%s\" has errors, and will be skipped"
 msgstr ""
 
 #. TRANSLATORS: Searching through directories, 'processed' means 'examined so far'
-#: main.cxx:746
+#: main.cxx:777
 #, c-format
 msgid "Searched: \"%s\", found: %zu, processed: %u"
 msgstr ""
 
-#: main.cxx:825
+#: main.cxx:856
 msgid "Input file '<input>' is empty."
 msgstr ""
 
-#: main.cxx:860
+#: main.cxx:891
 msgid "# parse tree dump"
 msgstr ""
 
-#: main.cxx:878
+#: main.cxx:909
 msgid "in "
 msgstr ""
 
-#: main.cxx:891
+#: main.cxx:922
 msgid "Pass 1: parsed user script and "
 msgstr ""
 
-#: main.cxx:892
+#: main.cxx:923
 #, c-format
 msgid "%d library script "
 msgid_plural "%d library scripts "
@@ -1985,15 +1990,15 @@ msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""
 
-#: main.cxx:899
+#: main.cxx:930
 msgid "Pass 1: parse failed.  [man error::pass1]"
 msgstr ""
 
-#: main.cxx:969
+#: main.cxx:1000
 msgid "Pass 2: analyzed script: "
 msgstr ""
 
-#: main.cxx:970
+#: main.cxx:1001
 #, c-format
 msgid "%d probe, "
 msgid_plural "%d probes, "
@@ -2001,7 +2006,7 @@ msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""
 
-#: main.cxx:971
+#: main.cxx:1002
 #, c-format
 msgid "%d function, "
 msgid_plural "%d functions, "
@@ -2009,7 +2014,7 @@ msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""
 
-#: main.cxx:972
+#: main.cxx:1003
 #, c-format
 msgid "%d embed, "
 msgid_plural "%d embeds, "
@@ -2017,7 +2022,7 @@ msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""
 
-#: main.cxx:973
+#: main.cxx:1004
 #, c-format
 msgid "%d global "
 msgid_plural "%d globals "
@@ -2025,76 +2030,76 @@ msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""
 
-#: main.cxx:996
+#: main.cxx:1027
 #, c-format
 msgid "unused command line option $%u/@%u"
 msgstr ""
 
-#: main.cxx:999
+#: main.cxx:1030
 msgid "Pass 2: analysis failed.  [man error::pass2]"
 msgstr ""
 
-#: main.cxx:1070
+#: main.cxx:1101
 msgid "Pass 3: translated to C into \""
 msgstr ""
 
-#: main.cxx:1078
+#: main.cxx:1109
 msgid "Pass 3: translation failed.  [man error::pass3]"
 msgstr ""
 
-#: main.cxx:1117
+#: main.cxx:1148
 msgid "Pass 4: compiled BPF into \""
 msgstr ""
 
-#: main.cxx:1119
+#: main.cxx:1150
 msgid "Pass 4: compiled C into \""
 msgstr ""
 
-#: main.cxx:1124
+#: main.cxx:1155
 msgid "Pass 4: compilation failed.  [man error::pass4]"
 msgstr ""
 
-#: main.cxx:1174
+#: main.cxx:1205
 msgid "Pass 5: starting run."
 msgstr ""
 
-#: main.cxx:1181
+#: main.cxx:1212
 msgid "Pass 5: run completed "
 msgstr ""
 
-#: main.cxx:1186
+#: main.cxx:1217
 msgid "Pass 5: run failed.  [man error::pass5]"
 msgstr ""
 
-#: main.cxx:1211
+#: main.cxx:1242
 msgid "Coverage database not available without libsqlite3"
 msgstr ""
 
-#: main.cxx:1234
+#: main.cxx:1265
 msgid "Attempting compilation using a compile server"
 msgstr ""
 
-#: main.cxx:1279
+#: main.cxx:1310
 #, c-format
 msgid "Error processing extra options in %s"
 msgstr ""
 
-#: main.cxx:1298
+#: main.cxx:1329
 #, c-format
 msgid "Extra options in %s: %d\n"
 msgstr ""
 
-#: main.cxx:1314
+#: main.cxx:1345
 #, c-format
 msgid "Created temporary directory \"%s\""
 msgstr ""
 
-#: main.cxx:1358
+#: main.cxx:1389
 #, c-format
 msgid "Session arch: %s release: %s"
 msgstr ""
 
-#: main.cxx:1421
+#: main.cxx:1452
 msgid "ERROR: caught unknown exception!"
 msgstr ""
 
@@ -3447,11 +3452,11 @@ msgstr ""
 msgid "Incorrect parameter passed, please report this error."
 msgstr ""
 
-#: session.cxx:484
+#: session.cxx:485
 #, c-format
 msgid ""
 "Systemtap translator/driver (version %s)\n"
-"Copyright (C) 2005-2017 Red Hat, Inc. and others\n"
+"Copyright (C) 2005-2018 Red Hat, Inc. and others\n"
 "This is free software; see the source for copying conditions.\n"
 msgstr ""
 
@@ -3636,7 +3641,7 @@ msgid "Only one script can be given on the command line."
 msgstr ""
 
 #: session.cxx:852 session.cxx:913 session.cxx:926 session.cxx:1008
-#: session.cxx:1052 session.cxx:1486 session.cxx:1516
+#: session.cxx:1052 session.cxx:1490 session.cxx:1520
 #, c-format
 msgid "ERROR: %s invalid with %s"
 msgstr ""
@@ -3662,8 +3667,8 @@ msgstr ""
 msgid "Invalid timeout interval."
 msgstr ""
 
-#: session.cxx:1020 session.cxx:1035 session.cxx:1321 session.cxx:1332
-#: session.cxx:1344
+#: session.cxx:1020 session.cxx:1035 session.cxx:1325 session.cxx:1336
+#: session.cxx:1348
 msgid "ERROR: only one of the -l/-L/--dump-* switches may be specified"
 msgstr ""
 
@@ -3681,9 +3686,9 @@ msgid "Privilege level may be set only once."
 msgstr ""
 
 #: session.cxx:1144 session.cxx:1176 session.cxx:1187 session.cxx:1208
-#: session.cxx:1219 session.cxx:1232 session.cxx:1246 session.cxx:1254
-#: session.cxx:1262 session.cxx:1281 session.cxx:1289 session.cxx:1297
-#: session.cxx:1306 session.cxx:1363
+#: session.cxx:1219 session.cxx:1232 session.cxx:1250 session.cxx:1258
+#: session.cxx:1266 session.cxx:1285 session.cxx:1293 session.cxx:1301
+#: session.cxx:1310 session.cxx:1367
 #, c-format
 msgid "ERROR: %s is invalid with %s"
 msgstr ""
@@ -3699,214 +3704,214 @@ msgstr ""
 msgid "Invalid argument '%s' for --use-server-on-error."
 msgstr ""
 
-#: session.cxx:1272
+#: session.cxx:1276
 #, c-format
 msgid "ERROR: systemtap version %s cannot be compatible with future version %s"
 msgstr ""
 
-#: session.cxx:1374
+#: session.cxx:1378
 #, c-format
 msgid "Unable to obtain resource limits for rlimit-as : %s"
 msgstr ""
 
-#: session.cxx:1376
+#: session.cxx:1380
 msgid "An --rlimit-as option value must be specified."
 msgstr ""
 
-#: session.cxx:1381
+#: session.cxx:1385
 #, c-format
 msgid "Unable to convert rlimit-as resource limit '%s'."
 msgstr ""
 
-#: session.cxx:1386
+#: session.cxx:1390
 #, c-format
 msgid "Unable to set resource limits for rlimit-as : %s"
 msgstr ""
 
-#: session.cxx:1399
+#: session.cxx:1403
 #, c-format
 msgid "Unable to obtain resource limits for rlimit-cpu : %s"
 msgstr ""
 
-#: session.cxx:1401
+#: session.cxx:1405
 msgid "An --rlimit-cpu option value must be specified."
 msgstr ""
 
-#: session.cxx:1406
+#: session.cxx:1410
 #, c-format
 msgid "Unable to convert resource limit '%s' for rlimit-cpu"
 msgstr ""
 
-#: session.cxx:1411
+#: session.cxx:1415
 #, c-format
 msgid "Unable to set resource limits for rlimit-cpu : %s"
 msgstr ""
 
-#: session.cxx:1420
+#: session.cxx:1424
 #, c-format
 msgid "Unable to obtain resource limits for rlimit-nproc : %s"
 msgstr ""
 
-#: session.cxx:1422
+#: session.cxx:1426
 msgid "An --rlimit-nproc option value must be specified."
 msgstr ""
 
-#: session.cxx:1427
+#: session.cxx:1431
 #, c-format
 msgid "Unable to convert resource limit '%s' for rlimit-nproc"
 msgstr ""
 
-#: session.cxx:1432
+#: session.cxx:1436
 #, c-format
 msgid "Unable to set resource limits for rlimit-nproc : %s"
 msgstr ""
 
-#: session.cxx:1441
+#: session.cxx:1445
 #, c-format
 msgid "Unable to obtain resource limits for rlimit-stack : %s"
 msgstr ""
 
-#: session.cxx:1443
+#: session.cxx:1447
 msgid "An --rlimit-stack option value must be specified."
 msgstr ""
 
-#: session.cxx:1448
+#: session.cxx:1452
 #, c-format
 msgid "Unable to convert resource limit '%s' for rlimit-stack"
 msgstr ""
 
-#: session.cxx:1453
+#: session.cxx:1457
 #, c-format
 msgid "Unable to set resource limits for rlimit-stack : %s"
 msgstr ""
 
-#: session.cxx:1466
+#: session.cxx:1470
 #, c-format
 msgid "Unable to obtain resource limits for rlimit-fsize : %s"
 msgstr ""
 
-#: session.cxx:1468
+#: session.cxx:1472
 msgid "An --rlimit-fsize option value must be specified."
 msgstr ""
 
-#: session.cxx:1473
+#: session.cxx:1477
 #, c-format
 msgid "Unable to convert resource limit '%s' for rlimit-fsize"
 msgstr ""
 
-#: session.cxx:1478
+#: session.cxx:1482
 #, c-format
 msgid "Unable to set resource limits for rlimit-fsize : %s"
 msgstr ""
 
-#: session.cxx:1496
+#: session.cxx:1500
 #, c-format
 msgid "ERROR: %s is an invalid directory for --sysroot"
 msgstr ""
 
-#: session.cxx:1529
+#: session.cxx:1533
 #, c-format
 msgid "ERROR: %s is an invalid argument for --sysenv"
 msgstr ""
 
-#: session.cxx:1542
+#: session.cxx:1546
 #, c-format
 msgid "ERROR %s requires guru mode (-g)"
 msgstr ""
 
-#: session.cxx:1594
+#: session.cxx:1598
 #, c-format
 msgid "Invalid argument '%s' for --color."
 msgstr ""
 
-#: session.cxx:1611
+#: session.cxx:1615
 #, c-format
 msgid "Invalid argument '%s' for --prologue-searching."
 msgstr ""
 
-#: session.cxx:1625
+#: session.cxx:1629
 msgid "Invalid process ID number for target namespaces."
 msgstr ""
 
-#: session.cxx:1637
+#: session.cxx:1641
 msgid "Invalid monitor interval."
 msgstr ""
 
-#: session.cxx:1652
+#: session.cxx:1656
 #, c-format
 msgid "Unhandled argument code %d"
 msgstr ""
 
-#: session.cxx:1692
+#: session.cxx:1696
 msgid "ERROR: --runtime=bpf unavailable; this build lacks BPF feature"
 msgstr ""
 
-#: session.cxx:1703
+#: session.cxx:1707
 msgid "ERROR: --runtime=dyninst unavailable; this build lacks DYNINST feature"
 msgstr ""
 
-#: session.cxx:1709
+#: session.cxx:1713
 msgid "ERROR: --runtime=dyninst implies unprivileged mode only"
 msgstr ""
 
-#: session.cxx:1719
+#: session.cxx:1723
 #, c-format
 msgid "ERROR: %s is an invalid argument for --runtime"
 msgstr ""
 
-#: session.cxx:1750
+#: session.cxx:1754
 msgid "Benchmark options are only for local use."
 msgstr ""
 
-#: session.cxx:1767
+#: session.cxx:1771
 msgid "A script must be specified."
 msgstr ""
 
-#: session.cxx:1768
+#: session.cxx:1772
 msgid "Try '-i' for building a script interactively."
 msgstr ""
 
-#: session.cxx:1773
+#: session.cxx:1777
 msgid "Cannot specify a script with -l/-L/--dump-* switches."
 msgstr ""
 
-#: session.cxx:1778
+#: session.cxx:1782
 msgid "Cannot specify -p with -l/-L/--dump-* switches."
 msgstr ""
 
-#: session.cxx:1783
+#: session.cxx:1787
 msgid "Cannot specify -i with -l/-L/--dump-* switches."
 msgstr ""
 
-#: session.cxx:1788
+#: session.cxx:1792
 msgid "Cannot specify --monitor with -l/-L/--dump-* switches."
 msgstr ""
 
-#: session.cxx:1850
+#: session.cxx:1854
 msgid ""
 "--privilege=stapsys was automatically selected because you are a member of "
 "the groups stapusr and stapsys.  [man stap]"
 msgstr ""
 
-#: session.cxx:1858
+#: session.cxx:1862
 msgid ""
 "--privilege=stapusr was automatically selected because you are a member of "
 "the group stapusr.  [man stap]"
 msgstr ""
 
-#: session.cxx:1864
+#: session.cxx:1868
 msgid ""
 "You are trying to run systemtap as a normal user.\n"
 "You should either be root, or be part of the group \"stapusr\" and possibly "
 "one of the groups \"stapsys\" or \"stapdev\".  [man stap]\n"
 msgstr ""
 
-#: session.cxx:1869
+#: session.cxx:1873
 msgid ""
 "Alternatively, you may specify --runtime=dyninst for userspace probing.\n"
 msgstr ""
 
-#: session.cxx:1879
+#: session.cxx:1883
 #, c-format
 msgid ""
 "For users with the privilege level %s, the module created by compiling your "
@@ -3914,39 +3919,39 @@ msgid ""
 "server]"
 msgstr ""
 
-#: session.cxx:1887
+#: session.cxx:1891
 #, c-format
 msgid "You can't specify %s when --privilege=%s is specified."
 msgstr ""
 
-#: session.cxx:1895 session.cxx:1912
+#: session.cxx:1899 session.cxx:1916
 #, c-format
 msgid "You can't specify %s and %s together."
 msgstr ""
 
-#: session.cxx:1903
+#: session.cxx:1907
 #, c-format
 msgid "You can't specify %s and --privilege=%s together."
 msgstr ""
 
-#: session.cxx:1954
+#: session.cxx:1958
 msgid ""
 "The kernel on your system requires modules to be signed for loading.\n"
 "The module created by compiling your script must be signed by a systemtap "
 "compile-server.  [man stap-server]"
 msgstr ""
 
-#: session.cxx:1973
+#: session.cxx:1977
 #, c-format
 msgid "Checking \"%s\" failed with error: %s"
 msgstr ""
 
-#: session.cxx:1997 session.cxx:2103
+#: session.cxx:2001 session.cxx:2107
 #, c-format
 msgid "Parsed kernel \"%s\", "
 msgstr ""
 
-#: session.cxx:1998
+#: session.cxx:2002
 #, c-format
 msgid "containing %zu tuple"
 msgid_plural "containing %zu tuples"
@@ -3954,14 +3959,14 @@ msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""
 
-#: session.cxx:2015
+#: session.cxx:2019
 #, c-format
 msgid ""
 "Checking \"%s\" failed with error: %s\n"
 "Ensure kernel development headers & makefiles are installed"
 msgstr ""
 
-#: session.cxx:2036
+#: session.cxx:2040
 #, c-format
 msgid "Parsed kernel \"%s\", containing one vmlinux export"
 msgid_plural "Parsed kernel \"%s\", containing %zu vmlinux exports"
@@ -3969,12 +3974,12 @@ msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""
 
-#: session.cxx:2056 session.cxx:2065
+#: session.cxx:2060 session.cxx:2069
 #, c-format
 msgid "Kernel symbol table %s unavailable, (%s)"
 msgstr ""
 
-#: session.cxx:2104
+#: session.cxx:2108
 #, c-format
 msgid "containing %zu symbol"
 msgid_plural "containing %zu symbols"
@@ -3982,131 +3987,131 @@ msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""
 
-#: session.cxx:2140
+#: session.cxx:2144
 msgid "command contains illegal characters"
 msgstr ""
 
-#: session.cxx:2142
+#: session.cxx:2146
 msgid "command contains undefined shell variables"
 msgstr ""
 
-#: session.cxx:2144
+#: session.cxx:2148
 msgid "command contains command substitutions"
 msgstr ""
 
-#: session.cxx:2146
+#: session.cxx:2150
 msgid "out of memory"
 msgstr ""
 
-#: session.cxx:2148
+#: session.cxx:2152
 msgid "command contains shell syntax errors"
 msgstr ""
 
-#: session.cxx:2150
+#: session.cxx:2154
 msgid "unspecified wordexp failure"
 msgstr ""
 
-#: session.cxx:2223
+#: session.cxx:2227
 #, c-format
 msgid "Located kernel source tree (COPYING) at '%s'"
 msgstr ""
 
-#: session.cxx:2266
+#: session.cxx:2270
 #, c-format
 msgid "alias component %s contains illegal parameter"
 msgstr ""
 
-#: session.cxx:2278
+#: session.cxx:2282
 msgid "while registering probe alias"
 msgstr ""
 
-#: session.cxx:2345
+#: session.cxx:2349
 msgid "semantic error:"
 msgstr ""
 
-#: session.cxx:2353 session.cxx:2362
+#: session.cxx:2357 session.cxx:2366
 msgid "   thrown from: "
 msgstr ""
 
 #. TRANSLATORS: Here we are printing the source string of the error
-#: session.cxx:2399
+#: session.cxx:2403
 msgid "source: "
 msgstr ""
 
-#: session.cxx:2441
+#: session.cxx:2445
 msgid "\tin synthesized code from: "
 msgstr ""
 
-#: session.cxx:2443
+#: session.cxx:2447
 msgid "\tin expansion of macro: "
 msgstr ""
 
-#: session.cxx:2470 staprun/staprun.h:94
+#: session.cxx:2474 staprun/staprun.h:94
 #, fuzzy
 msgid "WARNING:"
 msgstr "UWAGA: "
 
-#: session.cxx:2516 session.cxx:2521
+#: session.cxx:2520 session.cxx:2525
 msgid "parse error:"
 msgstr ""
 
-#: session.cxx:2530
+#: session.cxx:2534
 msgid "    at: "
 msgstr ""
 
-#: session.cxx:2535 session.cxx:2540
+#: session.cxx:2539 session.cxx:2544
 msgid "   saw: "
 msgstr ""
 
-#: session.cxx:2551
+#: session.cxx:2555
 #, c-format
 msgid "Number of similar error messages suppressed: %d."
 msgstr ""
 
-#: session.cxx:2555
+#: session.cxx:2559
 #, c-format
 msgid "Number of similar warning messages suppressed: %d."
 msgstr ""
 
 #. TRANSLATORS: we can't make the directory due to the error
-#: session.cxx:2583
+#: session.cxx:2587
 #, c-format
 msgid "cannot create temporary directory (\" %s \"): %s"
 msgstr ""
 
-#: session.cxx:2597
+#: session.cxx:2601
 #, c-format
 msgid "Keeping temporary directory \"%s\""
 msgstr ""
 
-#: session.cxx:2607
+#: session.cxx:2611
 #, c-format
 msgid "Removed temporary directory \"%s\""
 msgstr ""
 
-#: session.cxx:2767
+#: session.cxx:2771
 #, c-format
 msgid "failed to get list of machine owner keys (MOK) fingerprints: rc %d"
 msgstr ""
 
-#: session.cxx:2804
+#: session.cxx:2808
 msgid ""
 "Unable to request compilation by a compile-server\n"
 ".Without NSS, --use-server is not supported by this version systemtap."
 msgstr ""
 
-#: session.cxx:2824
+#: session.cxx:2828
 msgid ""
 "--use-server was automatically selected in order to request compilation by a "
 "compile-server."
 msgstr ""
 
-#: session.h:483
+#: session.h:484
 #, c-format
 msgid "early exit requested, rc=%d"
 msgstr ""
 
-#: session.h:495
+#: session.h:496
 msgid "interrupt received"
 msgstr ""
 
@@ -4327,7 +4332,7 @@ msgstr ""
 #, c-format
 msgid ""
 "Systemtap module loader/runner (version %s, %s)\n"
-"Copyright (C) 2005-2017 Red Hat, Inc. and others\n"
+"Copyright (C) 2005-2018 Red Hat, Inc. and others\n"
 "This is free software; see the source for copying conditions.\n"
 msgstr ""
 
