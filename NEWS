@@ -1,3 +1,7 @@
+* What's new in version 4.0
+
+- Runtime/tapsets were ported to include up to kernel version PRERELEASE.
+
 * What's new in version 3.3, 2018-06-08
 
 - A new "stap --example FOO.stp" mode searches the example scripts

@@ -83,7 +83,7 @@
 %undefine __brp_mangle_shebangs  
 
 Name: systemtap
-Version: 3.3
+Version: 4.0
 Release: 1%{?dist}
 # for version, see also configure.ac
 
