@@ -2464,7 +2464,11 @@ parser::do_parse_functiondecl (vector<functiondecl*>& functions, const token* t,
     {
       swallow();
       literal* literal = parse_literal();
-      fd->priority = dynamic_cast<literal_number*>(literal)->value;
+      literal_number* ln = dynamic_cast<literal_number*>(literal);
+      if (ln == 0)
+	throw PARSE_ERROR (_("expected literal number"));
+      fd->priority = ln->value;
+      
       // reserve priority 0 for user script implementation
       if (fd->priority < 1)
         throw PARSE_ERROR (_("specified priority must be > 0"));

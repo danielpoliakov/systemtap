@@ -2342,11 +2342,15 @@ static void monitor_mode_write(systemtap_session& s)
           if (v->type == pe_long)
             {
               literal_number* ln = dynamic_cast<literal_number*>(v->init);
+              if (ln == 0)
+                throw SEMANTIC_ERROR (_("expected literal number"), 0);
               code << v->name << " = " << ln->value << endl;
             }
           else if (v->type == pe_string)
             {
               literal_string* ln = dynamic_cast<literal_string*>(v->init);
+              if (ln == 0)
+                throw SEMANTIC_ERROR (_("expected literal string"), 0);
               code << v->name << " = " << lex_cast_qstring(ln->value) << endl;
             }
         }
