@@ -180,26 +180,5 @@ def main():
     # At this point we've created the docker file, so we're done.
     sys.exit(0)
 
-
-    # build the docker container image. Arguments:
-    #
-    #   -t TAG:  Repository names (and optionally with tags) to be
-    #            applied to the resulting image in case of success.
-    #   -f, --file=PATH/Dockerfile:  Path to the Dockerfile to use.
-    #
-    cmd = ("docker build -t %s -f %s %s"
-           % (ivars['DOCKER_TAG'], dockerfile_path, tmpdir_path))
-    if verbose:
-        print("Running: %s" % cmd)
-    cmd_rc = os.system(cmd)
-    if cmd_rc != 0:
-        if os.WIFEXITED(cmd_rc):
-            cmd_rc = os.WEXITSTATUS(cmd_rc)
-        _eprint("Error: \"%s\" failed, status %d" % (cmd, cmd_rc))
-
-    # We're done with our temporary directory.
-    shutil.rmtree(tmpdir_path, True)
-    sys.exit(cmd_rc)
-
 if __name__ == '__main__':
     main()
