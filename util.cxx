@@ -1159,7 +1159,7 @@ bool identifier_string_needs_escape (const string& str)
   return false;
 }
 
-string escaped_indentifier_string (const string &str)
+string escaped_identifier_string (const string &str)
 {
   if (! identifier_string_needs_escape (str))
     return str;

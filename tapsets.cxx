@@ -4522,7 +4522,7 @@ dwarf_var_expanding_visitor::visit_target_symbol (target_symbol *e)
 				     ctx.e, lvalue, &endtype);
 
       string fname = (string(lvalue ? "_dwarf_tvar_set" : "_dwarf_tvar_get")
-                      + "_" + escaped_indentifier_string (e->sym_name())
+                      + "_" + escaped_identifier_string (e->sym_name())
                       + "_" + lex_cast(tick++));
 
       functioncall* n = synthetic_embedded_deref_call(q.dw, ctx, fname,
