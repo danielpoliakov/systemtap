@@ -908,9 +908,16 @@ probe __vfs.ext4_mpage_readpages.return =
 	size = @entry($nr_pages)
 }
 
+
+/* newer style */
+probe vfs.__add_to_page_cache =
+	kernel.function("add_to_page_cache_locked"),
+	kernel.function("add_to_page_cache_lru")
+     { }
+
 probe vfs.add_to_page_cache =
-	kernel.function("add_to_page_cache_locked") !,
-	kernel.function("add_to_page_cache")
+	vfs.__add_to_page_cache !,
+	kernel.function("add_to_page_cache")  /* older style */
 {
 	dev = $mapping->host->i_sb->s_dev
 	devname = __find_bdevname(dev, $mapping->host->i_sb->s_bdev)
@@ -925,9 +932,16 @@ probe vfs.add_to_page_cache =
 	argstr = sprintf("%d, %d", ino, $offset)
 }
 
+
+/* newer style */
+probe vfs.__add_to_page_cache.return =
+	kernel.function("add_to_page_cache_locked").return,
+	kernel.function("add_to_page_cache_lru").return
+     { }
+
 probe vfs.add_to_page_cache.return =
-	kernel.function("add_to_page_cache_locked").return !,
-	kernel.function("add_to_page_cache").return
+	vfs.__add_to_page_cache.return !,
+	kernel.function("add_to_page_cache").return  /* older style */
 {
 	name = "vfs.add_to_page_cache"
 	retstr = sprintf("%d", $return)

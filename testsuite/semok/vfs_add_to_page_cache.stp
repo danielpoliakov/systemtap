@@ -1,0 +1,4 @@
+#! stap -p2
+
+probe vfs.add_to_page_cache { println(name, argstr) }
+probe vfs.add_to_page_cache.return { println(name, retstr) }
