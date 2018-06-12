@@ -217,15 +217,8 @@ connection_info::postdataiterator(enum MHD_ValueKind kind,
 	// If we've got a filename, we need a temporary directory to
 	// put it in. Otherwise if we're handling multiple requests at
 	// once, the requests could overwrite each other's files.
-	if (post_dir.empty()) {
-	    char tmpdir[PATH_MAX];
-	    snprintf(tmpdir, PATH_MAX, "%s/stap-server.XXXXXX",
-		     getenv("TMPDIR") ?: "/tmp");
-	    char *rc = mkdtemp(tmpdir);
-	    if (rc == NULL) {
-		return MHD_NO;
-	    }
-	    post_dir = rc;
+	if (post_dir.empty() && !make_temp_dir(post_dir)) {
+	    return MHD_NO;
 	}
 
 	// See if we've seen this key before.
@@ -491,9 +484,9 @@ server::access_handler(struct MHD_Connection *connection,
 			      con_info->post_params.end());
 	con_info->post_params.clear();
     }
+    rq_info.base_dir = con_info->post_dir;
     if (!con_info->post_files.empty()) {
 	// Copy all the POST file info into the request.
-	rq_info.base_dir = con_info->post_dir;
 	for (auto i = con_info->post_files.begin();
 	     i != con_info->post_files.end(); i++) {
 	    for (auto j = i->second.begin(); j != i->second.end(); j++) {
