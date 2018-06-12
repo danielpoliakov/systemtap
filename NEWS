@@ -2,6 +2,9 @@
 
 - Runtime/tapsets were ported to include up to kernel version PRERELEASE.
 
+- When a systemtap module is loaded, the name of the original stap script
+  is now printed to dmesg by the kernel runtime.
+
 * What's new in version 3.3, 2018-06-08
 
 - A new "stap --example FOO.stp" mode searches the example scripts
