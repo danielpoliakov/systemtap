@@ -1181,6 +1181,87 @@ string escaped_identifier_string (const string &str)
   return op;
 }
 
+unsigned char
+octal_character (unsigned c)
+{
+  return '0' + c % 8;
+}
+
+string
+escaped_character (unsigned c)
+{
+  ostringstream o;
+  int oc = (int)c;
+
+  switch (oc)
+    {
+    case '\'':
+      o << "\\'";
+      break;
+
+    case '"':
+      o << "\\\"";
+      break;
+
+    case '\n':
+      o << "\\n";
+      break;
+
+    case '\t':
+      o << "\\t";
+      break;
+
+    case '\v':
+      o << "\\v";
+      break;
+
+    case '\b':
+      o << "\\b";
+      break;
+
+    case '\r':
+      o << "\\r";
+      break;
+
+    case '\f':
+      o << "\\f";
+      break;
+
+    case '\a':
+      o << "\\a";
+      break;
+
+    case '\\':
+      o << "\\\\";
+      break;
+
+    default:
+
+      if ((oc < 256) && isprint(oc))
+        {
+          o << (unsigned char) oc;
+        }
+      else
+        {
+          o << '\\' << octal_character(oc / 64)
+            << octal_character(oc / 8)
+            << octal_character(oc);
+        }
+    }
+  return o.str();
+}
+
+string
+escaped_literal_string (const string& str)
+{
+  string op;
+  for (unsigned i = 0; i < str.size (); i++)
+    {
+      op += escaped_character((unsigned)str[i]);
+    }
+  return op;
+}
+
 string
 normalize_machine(const string& machine)
 {
