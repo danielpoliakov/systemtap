@@ -2287,6 +2287,15 @@ systemtap_session::register_library_aliases()
     }
 }
 
+// The name of the primary stap file, if any -- usually user_files[0]->name:
+string
+systemtap_session::script_name()
+{
+  if (user_files.empty())
+    return "<unknown>";
+  return user_files[0]->name;
+}
+
 
 // Print this given token, but abbreviate it if the last one had the
 // same file name.

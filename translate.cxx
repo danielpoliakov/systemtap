@@ -1959,11 +1959,12 @@ c_unparser::emit_module_init ()
   // intended to help debug problems with systemtap modules.
   if (! session->runtime_usermode_p())
     o->newline() << "_stp_print_kernel_info("
-		 << "\"" << VERSION
-		 << "/" << dwfl_version (NULL) << "\""
-		 << ", (num_online_cpus() * sizeof(struct context))"
-		 << ", " << session->probes.size()
-		 << ");";
+                 << "\"" << escaped_literal_string(session->script_name()) /* TODO escape string */ << "\""
+                 << ", \"" << VERSION
+                 << "/" << dwfl_version (NULL) << "\""
+                 << ", (num_online_cpus() * sizeof(struct context))"
+                 << ", " << session->probes.size()
+                 << ");";
   // In dyninst mode, we need to know when all the globals have been
   // allocated and we're ready to run probe registration.
   else

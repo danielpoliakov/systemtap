@@ -346,6 +346,8 @@ public:
   std::vector<stapfile*> user_files;
   std::vector<stapfile*> library_files;
 
+  std::string script_name(); // usually user_files[0]->name
+
   // filters to run over all code before symbol resolution
   //   e.g. @cast expansion
   std::vector<update_visitor*> code_filters;

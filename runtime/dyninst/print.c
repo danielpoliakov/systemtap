@@ -21,7 +21,7 @@
 #include "transport.c"
 #include "vsprintf.c"
 
-static void _stp_print_kernel_info(char *vstr, int ctx, int num_probes)
+static void _stp_print_kernel_info(char *sname, char *vstr, int ctx, int num_probes)
 {
 	// nah...
 }
