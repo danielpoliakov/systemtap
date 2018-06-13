@@ -1,66 +1,104 @@
 #!/usr/bin/python3
 
+import os
+import sys
+import configparser
+import subprocess
+import shlex
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse
 from time import sleep, time
 from pathlib import Path
-import os
-import subprocess
-import shlex
 
-script_dir = '/home/amerey/stap/systemtap/stap-exporter'
 stap_path = '/home/amerey/stap/install/bin/stap'
 
+script_dir = os.path.abspath(__file__ + "/../") + "/scripts/"
 proc_path = "/proc/systemtap/__systemtap_exporter"
-scripts = ['/example1.stp']
-run_at_startup = []
 
 class Session:
-    def __init__(self, path, sess_id, timeout=None):
-        self.path = path
+    def __init__(self, name, sess_id):
+        self.name = name
         self.id = sess_id
-        self.cmd = self.get_cmd(path)
-        self.timeout = timeout
+        self.cmd = self.get_cmd(name)
+        self.timeout = None
+        self.process = None
+        self.start_time = None
+
+    def begin(self):
         self.process = subprocess.Popen(shlex.split(self.cmd))
 
     def get_proc_path(self):
-        return proc_path + str(self.id) + self.path
+        return proc_path + str(self.id) + "/" + self.name
 
     def get_cmd(self, script):
         return "%s -m __systemtap_exporter%d %s%s" % (stap_path, self.id,
                                                       script_dir, script)
 
 class SessionMgr:
-    def __init__(self, scripts, startup_cmds):
-      self.scripts = scripts
+    def __init__(self):
       self.counter = 0
       self.sessions = {}
+      self.parse_conf()
 
-      for script in run_at_startup:
-          self.start_sess(script)
-
-    # return 0 if init successful, else 1
-    def start_sess(self, script_name): 
-      sess = Session(script_name, self.counter)
+    def create_sess(self, script_name):
+      sess = Session(script_name, self.get_new_id())
       self.sessions[script_name] = sess
+      return sess
+
+    def start_sess(self, sess):
+        """ Begin execution of script and set session's start time """
+        sess.begin()
+        if self.wait_for_sess_init(sess) != 0:
+            # init failed
+            self.terminate_sess(sess.name, sess)
+            print("Failed to launch " + sess.name)
+            return 1
+        sess.start_time = time()
+        print("Successfully launched " + sess.name)
+        return 0
+
+    def start_sess_from_name(self, script_name):
+        sess = self.sessions[script_name]
+        return self.start_sess(sess)
+
+    def parse_conf(self):
+      print("Reading config file")
+      config = configparser.ConfigParser()
+
+      try:
+          config.read_file(open('exporter.conf'))
+      except Exception as e:
+          print("Unable to read exporter.conf: " + str(e))
+          sys.exit(-1)
+
+      for sec in config.sections():
+          sess = self.create_sess(sec)
+
+          if 'timeout' in config[sec]:
+              try:
+                  sess.timeout = int(config[sec]['timeout'])
+              except:
+                  print("Unable to parse option 'timeout' of section " + sec)
+                  sys.exit(-1)
+
+          if 'startup' in config[sec] and config[sec]['startup'] == 'True':
+              self.start_sess(sess)
+
+    def sess_exists(self, name):
+      return name in self.sessions
+
+    def sess_started(self, name):
+      return self.sessions[name].process is not None
+
+    def get_new_id(self):
+      ret = self.counter
       self.counter += 1
-      
-      if self.wait_for_sess_init(sess) != 0:
-          # init failed
-          del self.sessions[script_name]
-          sess.process.terminate()
-          return 1
-      return 0
+      return ret
 
-    def is_started(path):
-      return path in self.sessions
-
-    def open_metrics(path):
-      return open(module_path + path)
-
-    # return 0 if init ok within 30 seconds, else 1.
-    # Init is considered ok when the session's procfs probe file exists
     def wait_for_sess_init(self, sess):
+      """ Return 0 if init ok within 30 seconds, else 1.
+      Init is considered ok when the session's procfs probe file exists.
+      """
       max_wait = 30
       pause_duration = 3
       path = Path(sess.get_proc_path())
@@ -72,9 +110,22 @@ class SessionMgr:
           sleep(pause_duration)
       return 1
 
+    def terminate_sess(self, name, sess):
+        print("Terminating " + name)
+        sess.process.terminate()
+        sess.process = None
+        sess.start_time = None
+
+    def check_timeouts(self):
+        for (name, sess) in self.sessions.items():
+            if (sess.start_time is not None
+                    and sess.timeout is not None
+                    and time() - sess.start_time >= sess.timeout):
+                self.terminate_sess(name, sess)
+
 
 class HTTPHandler(BaseHTTPRequestHandler):
-    sessmgr = SessionMgr(scripts, run_at_startup)
+    sessmgr = SessionMgr()
 
     def set_headers(self, code, content_type, transfer_encoding=None):
         self.send_response(code)
@@ -103,23 +154,30 @@ class HTTPHandler(BaseHTTPRequestHandler):
         self.wfile.write(b'<html><body><h3>%b</h3></body></html>' % bytes(msg, 'utf-8'))
 
     def do_GET(self):
-        url = urlparse(self.path)
-
-        if url.path in self.sessmgr.sessions:
-            # send metrics from already started session
-            sess = self.sessmgr.sessions[url.path]
-            self.send_metrics(sess)
-        elif url.path in self.sessmgr.scripts:
-            if self.sessmgr.start_sess(url.path) != 0:
-               self.send_msg(500, "Unable to start stap session")
-            else:
-               self.send_msg(200, "Script successfully started. \
-                                   Refresh page to access metrics.")
-        else:
+        # remove the preceeding '/' from url
+        name = urlparse(self.path).path[1:]
+        mgr = self.sessmgr
+        if not mgr.sess_exists(name):
+            # exporter doesn't recognize the url
             self.send_msg(404, "Error 404: file not found") 
-
+        elif mgr.sess_started(name):
+            # session is already running, send metrics
+            self.send_metrics(mgr.sessions[name])
+        elif mgr.start_sess_from_name(name) == 0:
+            # session successfully launched
+            self.send_msg(200, "Script successfully started. \
+                                Refresh page to access metrics.")
+        else:
+            # session failed to start
+            self.send_msg(500, "Unable to start stap session")
 
 if __name__ == "__main__":
     server_address = ('', 9900)
+    sessmgr = HTTPHandler.sessmgr
     httpd = HTTPServer(server_address, HTTPHandler)
-    httpd.serve_forever()
+    httpd.timeout = 5
+    print("Exporter initialization complete")
+
+    while 1:
+        httpd.handle_request()
+        sessmgr.check_timeouts()

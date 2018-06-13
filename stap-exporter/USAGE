@@ -1,4 +1,4 @@
-Replace "script_dir" and "stap_path" near the top of exporter.py
+Replace "stap_path" near the top of exporter.py
 
 $ ./exporter.py &
 
