@@ -1702,9 +1702,10 @@ get_distro_info(vector<string> &info)
 	name = out.str();
 
 	vector<string> cmd2 { "lsb_release", "--short", "--release" };
-	rc = stap_system_read(0, cmd2, out);
+	stringstream out2;
+	rc = stap_system_read(0, cmd2, out2);
 	if (rc == 0) {
-	    version = out.str();
+	    version = out2.str();
 	}
     }
 

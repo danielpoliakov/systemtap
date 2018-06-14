@@ -434,6 +434,15 @@ AM_LDFLAGS = @PIELDFLAGS@
 @HAVE_HTTP_SUPPORT_TRUE@stap_httpd_LDADD = -lpthread -lmicrohttpd -luuid -ljson-c $(nss_LIBS)
 @HAVE_HTTP_SUPPORT_TRUE@stap_httpd_LDFLAGS = $(AM_LDFLAGS)
 
+# To run "buildah", the 'stap-server' user must be able to use sudo
+# only on "buildah". So, we'll install a custom sudo rule that does
+# this.
+#
+# Notice we're installing to $(sysconfdir)/sudoers.d. If your
+# sysconfdir isn't "/etc", "sudo" won't see this installed file. By
+# default, "sudo" only looks in /etc/sudoers.d.
+@HAVE_HTTP_SUPPORT_TRUE@SUDO_DATA_DIR = $(DESTDIR)/$(sysconfdir)/sudoers.d
+
 # Arrange for the top-level git_version.h to be regenerated at every "make".
 BUILT_SOURCES = git_version.stamp
 CLEANFILES = 
@@ -898,6 +907,8 @@ maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
 	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
+@HAVE_HTTP_SUPPORT_FALSE@uninstall-local:
+@HAVE_HTTP_SUPPORT_FALSE@install-data-local:
 clean: clean-recursive
 
 clean-am: clean-generic clean-pkglibexecPROGRAMS mostlyclean-am
@@ -920,7 +931,7 @@ info: info-recursive
 
 info-am:
 
-install-data-am:
+install-data-am: install-data-local
 
 install-dvi: install-dvi-recursive
 
@@ -965,7 +976,7 @@ ps: ps-recursive
 
 ps-am:
 
-uninstall-am: uninstall-pkglibexecPROGRAMS
+uninstall-am: uninstall-local uninstall-pkglibexecPROGRAMS
 
 .MAKE: $(am__recursive_targets) all check install install-am \
 	install-strip
@@ -975,18 +986,24 @@ uninstall-am: uninstall-pkglibexecPROGRAMS
 	cscopelist-am ctags ctags-am distclean distclean-compile \
 	distclean-generic distclean-tags dvi dvi-am html html-am info \
 	info-am install install-am install-data install-data-am \
-	install-dvi install-dvi-am install-exec install-exec-am \
-	install-html install-html-am install-info install-info-am \
-	install-man install-pdf install-pdf-am \
+	install-data-local install-dvi install-dvi-am install-exec \
+	install-exec-am install-html install-html-am install-info \
+	install-info-am install-man install-pdf install-pdf-am \
 	install-pkglibexecPROGRAMS install-ps install-ps-am \
 	install-strip installcheck installcheck-am installdirs \
 	installdirs-am maintainer-clean maintainer-clean-generic \
 	mostlyclean mostlyclean-compile mostlyclean-generic pdf pdf-am \
-	ps ps-am tags tags-am uninstall uninstall-am \
+	ps ps-am tags tags-am uninstall uninstall-am uninstall-local \
 	uninstall-pkglibexecPROGRAMS
 
 .PRECIOUS: Makefile
 
+
+@HAVE_HTTP_SUPPORT_TRUE@install-data-local:
+@HAVE_HTTP_SUPPORT_TRUE@	$(INSTALL_DATA) -m 0600 -D $(srcdir)/stap-server.sudoers $(SUDO_DATA_DIR)/stap-server
+
+@HAVE_HTTP_SUPPORT_TRUE@uninstall-local:
+@HAVE_HTTP_SUPPORT_TRUE@	rm -f $(SUDO_DATA_DIR)/stap-server
 git_version.stamp ../git_version.h:
 	$(MAKE) -C .. $(notdir $@)
 

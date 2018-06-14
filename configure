@@ -9088,6 +9088,12 @@ cat >>confdefs.h <<_ACEOF
 #define PYTHON_BASENAME "${python_basename}"
 _ACEOF
 
+if test -n "$PYTHON"; then
+
+$as_echo "#define PYTHON_EXISTS /**/" >>confdefs.h
+
+fi
+
 # AM_PATH_PYTHON defines 'pyexecdir'. Make sure the python and
 # pyexecdir variables get sent down to the subconfigure in the
 # testsuite directory.
@@ -9192,6 +9198,9 @@ _ACEOF
 # If we found python version 3, set up the other variables for python
 # version 3 that AM_PATH_PYTHON sets up for python version 2.
 if test -n "$PYTHON3"; then
+
+$as_echo "#define PYTHON3_EXISTS /**/" >>confdefs.h
+
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for python3 version" >&5
 $as_echo_n "checking for python3 version... " >&6; }
 if ${ac_cv_python3_version+:} false; then :

@@ -162,6 +162,14 @@ main(int argc, char *const argv[])
 	return 1;
     }
 
+    // Make sure we're not root. Since we connect directly to the
+    // internet, we can't (safely) run as root.
+    if (geteuid () == 0) {
+	server_error("For security reasons, invocation of stap-httpd as"
+		     " root is not supported.");
+	return 1;
+    }
+
     setup_main_signals(&tid);
 
     parse_cmdline(argc, argv);

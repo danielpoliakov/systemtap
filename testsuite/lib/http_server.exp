@@ -34,6 +34,7 @@ proc find_random_unused_tcp_port { } {
 
 proc http_server_p {} {
     global env
+    global systemtap_stap_server_user_exists
 
     # OK, there isn't a 'stap -V' test that will tell us if the HTTP
     # server was compiled into systemtap. So, we fake it. But, the
@@ -54,6 +55,14 @@ proc http_server_p {} {
 	verbose -log "http_server_p: no $http_server_path"
 	return 0
     }
+
+    # Let's also make sure the 'stap-server' user exists (we can't run
+    # the server as root).
+    if {! $systemtap_stap_server_user_exists} {
+	verbose -log "http_server_p: no 'stap-server' user"
+	return 0
+    }
+    
     return 1
 }
 
@@ -69,6 +78,34 @@ proc as_root_with_output { command {background 0} } {
     if {$effective_uid != 0} {
 	set command "sudo $command"
     }
+    if {$background == 1} {
+	set command "$command &"
+    }
+    verbose -log "running: [subst $command]"
+    set rc 0
+    if {[catch {eval exec $command} output]} {
+	# non-zero exit status, get it:
+	if {[lindex $::errorCode 0] eq "CHILDSTATUS"} {
+	    set rc [lindex $::errorCode 2]
+	}
+    }
+    verbose -log "RC: $rc"
+    verbose -log "$output"
+    return [list $rc $output]
+}
+
+# as_user_with_output: run 'command' as user 'user'. If the command
+# should be run in the background, set 'background' to non-zero.
+# Returns a list of [ RETURN_STATUS OUTPUT ]. A typical call would
+# look like:
+#
+#     lassign [as_user_with_output "user" "mktemp"] rc output
+#
+proc as_user_with_output { user command {background 0} } {
+    set effective_uid [exec /usr/bin/id -u]
+
+    # The following should work whether we're root or not.
+    set command "sudo -u $user -s -- $command"
     if {$background == 1} {
 	set command "$command &"
     }
@@ -108,7 +145,8 @@ proc http_start_server { } {
     
     # Create a temporary server log file. Note that we'll delete it
     # when shutting the server down.
-    if {[catch {exec mktemp} systemtap_http_server_logfile]} {
+    lassign [as_user_with_output "stap-server" "mktemp" 0] rc systemtap_http_server_logfile
+    if {$rc != 0} {
 	verbose -log "$systemtap_http_server_logfile"
 	return 1
     }
@@ -131,10 +169,10 @@ proc http_start_server { } {
 	return 1
     }
     
-    # Start the server with the random port as root.
+    # Start the server with the random port as the 'stap-server' user.
     set http_server_path "$env(PKGLIBDIR)/stap-httpd"
     set cmd "$http_server_path --port=$port --log=$systemtap_http_server_logfile"
-    lassign [as_root_with_output $cmd 1] rc output
+    lassign [as_user_with_output "stap-server" $cmd 1] rc output
     if {$rc != 0 || [string length $output] == 0
 	|| [catch {expr int($output)}]} {
 	verbose -log "Cannot start an http server: $output"
@@ -155,8 +193,10 @@ proc http_start_server { } {
 	catch { exec sleep 1 }
 	incr waited
 
+	verbose -log "running: [subst $cmd]"
 	set rc 0
 	if {[catch {eval exec $cmd} output] } {
+	    verbose -log "$output"
 	    # non-zero exit status, get it:
 	    if {[lindex $::errorCode 0] eq "CHILDSTATUS"} {
 		set rc [lindex $::errorCode 2]
@@ -233,7 +273,7 @@ proc http_shutdown_server { } {
 	
 	# Delete the temporary server log file. Note that we're
 	# ignoring success or failure.
-	catch {exec rm -f $systemtap_http_server_logfile}
+	as_user_with_output "stap-server" "rm -f $systemtap_http_server_logfile" 0]
     }
     
     # Make sure that stap can no longer find the server.

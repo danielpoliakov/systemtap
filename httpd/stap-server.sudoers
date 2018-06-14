@@ -1,0 +1,5 @@
+# Allow the 'stap-server' user to run the 'buildah' command
+# without a password.
+stap-server    ALL = NOPASSWD: /usr/bin/buildah
+
+

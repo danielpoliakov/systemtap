@@ -80,6 +80,11 @@ AM_PATH_PYTHON([2.6], [], [:])
 python_basename=$(basename "$PYTHON")
 AC_DEFINE_UNQUOTED([PYTHON_BASENAME], "${python_basename}",
 		   [Base name of the python2 interpreter binary.])
+if test -n "$PYTHON"; then
+AC_DEFINE([PYTHON_EXISTS], [],
+	  [The python2 interpreter binary exists.])
+fi
+
 # AM_PATH_PYTHON defines 'pyexecdir'. Make sure the python and
 # pyexecdir variables get sent down to the subconfigure in the
 # testsuite directory.
@@ -99,6 +104,8 @@ AC_DEFINE_UNQUOTED([PYTHON3_BASENAME], "${python3_basename}",
 # If we found python version 3, set up the other variables for python
 # version 3 that AM_PATH_PYTHON sets up for python version 2.
 if test -n "$PYTHON3"; then
+   AC_DEFINE([PYTHON3_EXISTS], [],
+	     [The python3 interpreter binary exists.])
    AC_CACHE_CHECK([for python3 version], [ac_cv_python3_version],
    		  [ac_cv_python3_version=`$PYTHON3 -c "import sys; sys.stdout.write(sys.version[[:3]])"`])
    AC_SUBST([PYTHON3_VERSION], [$ac_cv_python3_version])

@@ -224,11 +224,13 @@ proc print_systemtap_version {} {
 
 
 # Check for the optional 'stapusr', 'stapsys', and 'stapdev' users
-# (and make sure they belong to the correct groups).
+# (and make sure they belong to the correct groups). Check for the
+# optional 'stap-server' user.
 proc systemtap_check_users {} {
     global systemtap_stapusr_user_exists
     global systemtap_stapsys_user_exists
     global systemtap_stapdev_user_exists
+    global systemtap_stap_server_user_exists
 	     
     # The optional 'stapusr', 'stapsys', and 'stapdev' users are used
     # in server testing. If they don't exist, those tests won't get
@@ -265,6 +267,13 @@ proc systemtap_check_users {} {
 	    && [regexp {.*stapdev.*} "$user_info"]} {
 	    set systemtap_stapdev_user_exists 1
 	}
+    }
+
+    # The optional 'stap-server' user is used to run the http
+    # server. If it doesn't exist, we can't run the http server.
+    set systemtap_stap_server_user_exists 0
+    if {! [catch {exec /usr/bin/id stap-server} user_info]} {
+	set systemtap_stap_server_user_exists 1
     }
 }
 

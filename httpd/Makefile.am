@@ -24,6 +24,22 @@ stap_httpd_CXXFLAGS = $(AM_CXXFLAGS) $(nss_CFLAGS)
 stap_httpd_CPPFLAGS = $(AM_CPPFLAGS) $(nss_CFLAGS)
 stap_httpd_LDADD = -lpthread -lmicrohttpd -luuid -ljson-c $(nss_LIBS)
 stap_httpd_LDFLAGS =  $(AM_LDFLAGS)
+
+# To run "buildah", the 'stap-server' user must be able to use sudo
+# only on "buildah". So, we'll install a custom sudo rule that does
+# this.
+#
+# Notice we're installing to $(sysconfdir)/sudoers.d. If your
+# sysconfdir isn't "/etc", "sudo" won't see this installed file. By
+# default, "sudo" only looks in /etc/sudoers.d.
+SUDO_DATA_DIR = $(DESTDIR)/$(sysconfdir)/sudoers.d
+
+install-data-local:
+	$(INSTALL_DATA) -m 0600 -D $(srcdir)/stap-server.sudoers $(SUDO_DATA_DIR)/stap-server
+
+uninstall-local:
+	rm -f $(SUDO_DATA_DIR)/stap-server
+
 endif
 
 BUILT_SOURCES =
