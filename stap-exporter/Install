@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Install the exporter as a systemd service.
+
+EXPORTER_DIR="$( cd "$(dirname "$0")" ; pwd -P)"
+
+cat > /lib/systemd/system/stap-exporter.service << EOF
+[Unit]
+Description=stap-exporter
+
+[Service]
+ExecStart=/usr/bin/python3 $EXPORTER_DIR/exporter.py
+
+[Install]
+WantedBy=multi-user.target
+Alias=stap-exporter.service
+EOF
+
+sudo systemctl enable stap-exporter.service
+sudo systemctl start stap-exporter.service

@@ -10,8 +10,6 @@ from urllib.parse import urlparse
 from time import sleep, time
 from pathlib import Path
 
-stap_path = '/home/amerey/stap/install/bin/stap'
-
 script_dir = os.path.abspath(__file__ + "/../") + "/scripts/"
 proc_path = "/proc/systemtap/__systemtap_exporter"
 
@@ -31,8 +29,9 @@ class Session:
         return proc_path + str(self.id) + "/" + self.name
 
     def get_cmd(self, script):
-        return "%s -m __systemtap_exporter%d %s%s" % (stap_path, self.id,
-                                                      script_dir, script)
+        return "stap -m __systemtap_exporter%d %s%s" % (self.id,
+                                                        script_dir,
+                                                        script)
 
 class SessionMgr:
     def __init__(self):
@@ -66,7 +65,7 @@ class SessionMgr:
       config = configparser.ConfigParser()
 
       try:
-          config.read_file(open('exporter.conf'))
+          config.read_file(open(script_dir + '/../exporter.conf'))
       except Exception as e:
           print("Unable to read exporter.conf: " + str(e))
           sys.exit(-1)
@@ -142,7 +141,8 @@ class HTTPHandler(BaseHTTPRequestHandler):
         try:
             with open(metrics_path) as metrics:
                 for line in metrics:
-                    self.wfile.write(b'%lx\r\n%b\r\n' % (len(line), bytes(line, 'utf-8')))
+                    self.wfile.write(b'%lx\r\n%b\r\n'
+                                        % (len(line), bytes(line, 'utf-8')))
         except Exception as e:
             msg = bytes(str(e), 'utf-8')
             self.wfile.write(b'%lx\r\n%b\r\n' % (len(msg), msg))
@@ -150,8 +150,8 @@ class HTTPHandler(BaseHTTPRequestHandler):
         self.wfile.write(b'0\r\n\r\n')
 
     def send_msg(self, code, msg):
-        self.set_headers(code, 'text/html')
-        self.wfile.write(b'<html><body><h3>%b</h3></body></html>' % bytes(msg, 'utf-8'))
+        self.set_headers(code, 'text/plain')
+        self.wfile.write(bytes(msg, 'utf-8'))
 
     def do_GET(self):
         # remove the preceeding '/' from url
@@ -165,8 +165,8 @@ class HTTPHandler(BaseHTTPRequestHandler):
             self.send_metrics(mgr.sessions[name])
         elif mgr.start_sess_from_name(name) == 0:
             # session successfully launched
-            self.send_msg(200, "Script successfully started. \
-                                Refresh page to access metrics.")
+            self.send_msg(200, ("Script successfully started. "
+                                "Refresh page to access metrics."))
         else:
             # session failed to start
             self.send_msg(500, "Unable to start stap session")
