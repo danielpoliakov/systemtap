@@ -1,5 +1,5 @@
 // elaboration functions
-// Copyright (C) 2005-2017 Red Hat Inc.
+// Copyright (C) 2005-2018 Red Hat Inc.
 // Copyright (C) 2008 Intel Corporation
 //
 // This file is part of systemtap, and is free software.  You can
@@ -439,6 +439,9 @@ match_node::find_and_build (systemtap_session& s,
                             vector<derived_probe *>& results,
                             set<string>& builders)
 {
+  save_and_restore<unsigned> costly(& s.suppress_costly_diagnostics,
+                                    s.suppress_costly_diagnostics + (loc->optional || loc->sufficient ? 1 : 0));
+  
   assert (pos <= loc->components.size());
   if (pos == loc->components.size()) // matched all probe point components so far
     {
@@ -1010,8 +1013,8 @@ derive_probes (systemtap_session& s,
 
       probe_point *loc = p->locations[i];
 
-      if (s.verbose > 4)
-        clog << "derive-probes " << *loc << endl;
+      if (s.verbose > 1)
+        clog << "derive-probes (location #" << i << "): " << *loc << " of " << *p->tok << endl;
 
       try
         {
@@ -1109,7 +1112,9 @@ derive_probes (systemtap_session& s,
     }
 
   if (undo_parent_optional)
-    parent_optional = false;
+    {
+      parent_optional = false;
+    }
 }
 
 

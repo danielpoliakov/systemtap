@@ -740,7 +740,7 @@ get_kernel_build_id(systemtap_session &s)
 
   // Try to find BuildID from vmlinux.id
   string kernel_buildID_path = s.kernel_build_tree + "/vmlinux.id";
-  if(s.verbose > 1)
+  if(s.verbose > 2)
     clog << _F("Attempting to extract kernel debuginfo build ID from %s", kernel_buildID_path.c_str()) << endl;
   ifstream buildIDfile;
   buildIDfile.open(kernel_buildID_path.c_str());

@@ -101,6 +101,7 @@ systemtap_session::systemtap_session ():
   suppressed_errors(0),
   warningerr_count(0),
   target_namespaces_pid(0),
+  suppress_costly_diagnostics(0),
   last_token (0)
 {
   struct utsname buf;
@@ -176,6 +177,7 @@ systemtap_session::systemtap_session ():
   update_release_sysroot = false;
   suppress_time_limits = false;
   target_namespaces_pid = 0;
+  suppress_costly_diagnostics = 0;
   color_mode = color_auto;
   color_errors = isatty(STDERR_FILENO) // conditions for coloring when
     && strcmp(getenv("TERM") ?: "notdumb", "dumb"); // on auto
@@ -294,6 +296,7 @@ systemtap_session::systemtap_session (const systemtap_session& other,
   suppressed_errors(0),
   warningerr_count(0),
   target_namespaces_pid(0),
+  suppress_costly_diagnostics(0),
   last_token (0)
 {
   release = kernel_release = kern;

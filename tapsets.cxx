@@ -2527,7 +2527,7 @@ validate_module_elf (Dwfl_Module *mod, const char *name,  base_query *q)
       throw SEMANTIC_ERROR(msg.str ());
     }
 
-  if (q->sess.verbose>1)
+  if (q->sess.verbose>2)
     clog << _F("focused on module '%s' = [%#" PRIx64 "-%#" PRIx64 ", bias %#" PRIx64
                " file %s ELF machine %s|%s (code %d)\n",
                q->dw.module_name.c_str(), q->dw.module_start, q->dw.module_end,
@@ -7880,7 +7880,7 @@ suggest_marks(systemtap_session& sess,
               const string& mark,
               const string& provider)
 {
-  if (mark.empty() || modules.empty() || sess.module_cache == NULL)
+  if (mark.empty() || modules.empty() || sess.module_cache == NULL || sess.suppress_costly_diagnostics)
     return "";
 
   // PR18577: There isn't any point in generating a suggestion list if
@@ -7945,7 +7945,7 @@ suggest_plt_functions(systemtap_session& sess,
                       const set<string>& modules,
                       const string& func)
 {
-  if (func.empty() || modules.empty() || sess.module_cache == NULL)
+  if (func.empty() || modules.empty() || sess.module_cache == NULL || sess.suppress_costly_diagnostics)
     return "";
 
   // PR18577: There isn't any point in generating a suggestion list if
@@ -7992,7 +7992,7 @@ suggest_dwarf_functions(systemtap_session& sess,
   if (pos != string::npos)
     func.erase(pos);
 
-  if (func.empty() || modules.empty() || sess.module_cache == NULL)
+  if (func.empty() || modules.empty() || sess.module_cache == NULL || sess.suppress_costly_diagnostics)
     return "";
 
   // PR18577: There isn't any point in generating a suggestion list if
@@ -10105,7 +10105,7 @@ string
 suggest_kernel_functions(const systemtap_session& session, interned_string function)
 {
   const set<interned_string>& kernel_functions = session.kernel_functions;
-  if (function.empty() || kernel_functions.empty())
+  if (function.empty() || kernel_functions.empty() || session.suppress_costly_diagnostics)
     return "";
 
   // PR18577: There isn't any point in generating a suggestion list if

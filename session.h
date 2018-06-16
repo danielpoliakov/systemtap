@@ -1,5 +1,5 @@
 // -*- C++ -*-
-// Copyright (C) 2005-2016 Red Hat Inc.
+// Copyright (C) 2005-2018 Red Hat Inc.
 //
 // This file is part of systemtap, and is free software.  You can
 // redistribute it and/or modify it under the terms of the GNU General
@@ -441,6 +441,8 @@ public:
   translator_output* op_create_auxiliary(bool trailer_p = false);
 
   int target_namespaces_pid;
+
+  unsigned suppress_costly_diagnostics; /* set during processing of optional probes */
 
   const token* last_token;
   void print_token (std::ostream& o, const token* tok);
