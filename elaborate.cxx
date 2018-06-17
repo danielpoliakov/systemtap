@@ -966,24 +966,6 @@ alias_expansion_builder::checkForRecursiveExpansion (probe *use)
 // Pattern matching
 // ------------------------------------------------------------------------
 
-static unsigned max_recursion = 100;
-
-struct
-recursion_guard
-{
-  unsigned & i;
-  recursion_guard(unsigned & i) : i(i)
-    {
-      if (i > max_recursion)
-	throw SEMANTIC_ERROR(_("recursion limit reached"));
-      ++i;
-    }
-  ~recursion_guard()
-    {
-      --i;
-    }
-};
-
 // The match-and-expand loop.
 void
 derive_probes (systemtap_session& s,
