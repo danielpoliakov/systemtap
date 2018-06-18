@@ -11,9 +11,18 @@
 	argstr = sprintf("%d, %p, %u", fd, buf_uaddr, count)
 %)
 
-probe syscall.read = dw_syscall.read !, nd_syscall.read ? {}
-probe syscall.read.return = dw_syscall.read.return !,
-                            nd_syscall.read.return ? {}
+
+@define _SYSCALL_READ_REGARGS
+%(
+	asmlinkage()
+	fd = int_arg(1)
+	buf_uaddr = pointer_arg(2)
+	count = ulong_arg(3)
+%)
+
+
+probe syscall.read = dw_syscall.read !, nd_syscall.read { }
+probe syscall.read.return = dw_syscall.read.return !, nd_syscall.read.return {}
 
 # dw_read _____________________________________________________
 
@@ -57,41 +66,90 @@ probe __syscall.read.return = kernel.function("sys_read").return
 
 # nd_read _____________________________________________________
 
-probe nd_syscall.read =
+probe nd_syscall.read = nd1_syscall.read!, nd2_syscall.read!, tp_syscall.read
+  { }
+
+
+probe nd1_syscall.read =  
 %( arch == "s390" %?
-	__nd_syscall.read, kprobe.function("sys32_read") ?,
+	__nd1_syscall.read, kprobe.function("sys32_read") ?,
 	kprobe.function("compat_sys_s390_read") ?
 %:
-	__nd_syscall.read
+	__nd1_syscall.read
 %)
 {
 	@_SYSCALL_READ_NAME
-	asmlinkage()
-	fd = int_arg(1)
-	buf_uaddr = pointer_arg(2)
-	count = ulong_arg(3)
+	@_SYSCALL_READ_REGARGS
 	@_SYSCALL_READ_ARGSTR
 }
-probe __nd_syscall.read = kprobe.function("sys_read")
+  
+probe __nd1_syscall.read = kprobe.function("sys_read")
 {
 %( arch == "s390" %?
 	@__syscall_gate(@const("__NR_read"))
 %)
 }
-probe nd_syscall.read.return =
+
+/* kernel 4.17+ */
+probe nd2_syscall.read = kprobe.function("__*_sys_read") /* _x64_ etc. */
+{
+        asmlinkage()
+        __set_usermode_pt_regs(pointer_arg(1))
+	@_SYSCALL_READ_NAME
+	@_SYSCALL_READ_REGARGS
+	@_SYSCALL_READ_ARGSTR
+}
+
+  /* kernel 3.5+, but undesirable because of it affects all syscalls */
+probe tp_syscall.read = kernel.trace("sys_enter")
+{
+        if ($id != @const("__NR_read")) next;
+        __set_usermode_pt_regs($regs)
+	@_SYSCALL_READ_NAME
+	@_SYSCALL_READ_REGARGS
+	@_SYSCALL_READ_ARGSTR
+}
+
+  
+
+probe nd_syscall.read.return = nd1_syscall.read.return!, nd2_syscall.read.return!, tp_syscall.read.return
+  { }
+
+
+  
+probe nd1_syscall.read.return =
 %( arch == "s390" %?
-	__nd_syscall.read.return, kprobe.function("sys32_read").return ?,
+	__nd1_syscall.read.return, kprobe.function("sys32_read").return ?,
 	kprobe.function("compat_sys_s390_read").return ?
 %:
-	__nd_syscall.read.return
+	__nd1_syscall.read.return
 %)
 {
 	@_SYSCALL_READ_NAME
 	retstr = returnstr(1)
 }
-probe __nd_syscall.read.return = kprobe.function("sys_read").return
+probe __nd1_syscall.read.return = kprobe.function("sys_read").return
 {
 %( arch == "s390" %?
 	@__syscall_gate(@const("__NR_read"))
 %)
+}
+
+
+/* kernel 4.17+ */
+probe nd2_syscall.read.return = kprobe.function("__*_sys_read").return /* _x64_ etc. */
+{
+        asmlinkage()
+        __set_usermode_pt_regs(pointer_arg(1))
+	@_SYSCALL_READ_NAME
+	retstr = returnstr(1)
+}
+
+  /* kernel 3.5+, but undesirable because of it affects all syscalls */
+probe tp_syscall.read.return = kernel.trace("sys_exit")
+{
+ /* if ($id != @const("__NR_read")) next; */ /* XXX ... whoops, no $id passed for sys_exit */
+        __set_usermode_pt_regs($regs)
+	@_SYSCALL_READ_NAME
+	retstr = returnstr(1)
 }
