@@ -1008,7 +1008,11 @@ bpf_unparser::visit_binary_expression (binary_expression* e)
   else
     throw SEMANTIC_ERROR (_("unhandled binary operator"), e->tok);
 
-  value *s0 = emit_expr (e->left);
+  value *s0 = this_prog.new_reg();
+  // copy e->left into a seperate reg incase evaluating e->right
+  // causes e->left to mutate (ex. x + x++).
+  this_prog.mk_mov(this_ins, s0, emit_expr (e->left));
+
   value *s1 = emit_expr (e->right);
   value *d = this_prog.new_reg ();
   this_prog.mk_binary (this_ins, code, d, s0, s1);
