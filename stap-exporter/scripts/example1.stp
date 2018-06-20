@@ -5,6 +5,6 @@ probe  procfs("example1.stp").read.maxsize(0x10000) {
       $value .= "count [tid=".sprint(tid).",cpu=".sprint(cpu)."] ".sprint(k)."\n"
 }
 
-probe kernel.function("sys_read") {
+probe kprobe.function("sys_read") {
     arr[tid(), cpu()]++
 }
