@@ -1009,7 +1009,7 @@ bpf_unparser::visit_binary_expression (binary_expression* e)
     throw SEMANTIC_ERROR (_("unhandled binary operator"), e->tok);
 
   value *s0 = this_prog.new_reg();
-  // copy e->left into a seperate reg incase evaluating e->right
+  // copy e->left into a seperate reg in case evaluating e->right
   // causes e->left to mutate (ex. x + x++).
   this_prog.mk_mov(this_ins, s0, emit_expr (e->left));
 
