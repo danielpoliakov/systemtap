@@ -13,7 +13,9 @@ from pathlib import Path
 script_dir = os.path.abspath(__file__ + "/../") + "/scripts/"
 proc_path = "/proc/systemtap/__systemtap_exporter"
 
+
 class Session:
+
     def __init__(self, name, sess_id):
         self.name = name
         self.id = sess_id
@@ -33,16 +35,18 @@ class Session:
                                                         script_dir,
                                                         script)
 
+
 class SessionMgr:
+
     def __init__(self):
-      self.counter = 0
-      self.sessions = {}
-      self.parse_conf()
+        self.counter = 0
+        self.sessions = {}
+        self.parse_conf()
 
     def create_sess(self, script_name):
-      sess = Session(script_name, self.get_new_id())
-      self.sessions[script_name] = sess
-      return sess
+        sess = Session(script_name, self.get_new_id())
+        self.sessions[script_name] = sess
+        return sess
 
     def start_sess(self, sess):
         """ Begin execution of script and set session's start time """
@@ -61,53 +65,53 @@ class SessionMgr:
         return self.start_sess(sess)
 
     def parse_conf(self):
-      print("Reading config file")
-      config = configparser.ConfigParser()
+        print("Reading config file")
+        config = configparser.ConfigParser()
 
-      try:
-          config.read_file(open(script_dir + '/../exporter.conf'))
-      except Exception as e:
-          print("Unable to read exporter.conf: " + str(e))
-          sys.exit(-1)
+        try:
+            config.read_file(open(script_dir + '/../exporter.conf'))
+        except Exception as e:
+            print("Unable to read exporter.conf: " + str(e))
+            sys.exit(-1)
 
-      for sec in config.sections():
-          sess = self.create_sess(sec)
+        for sec in config.sections():
+            sess = self.create_sess(sec)
 
-          if 'timeout' in config[sec]:
-              try:
-                  sess.timeout = int(config[sec]['timeout'])
-              except:
-                  print("Unable to parse option 'timeout' of section " + sec)
-                  sys.exit(-1)
+            if 'timeout' in config[sec]:
+                try:
+                    sess.timeout = int(config[sec]['timeout'])
+                except:
+                    print("Unable to parse option 'timeout' of section " + sec)
+                    sys.exit(-1)
 
-          if 'startup' in config[sec] and config[sec]['startup'] == 'True':
-              self.start_sess(sess)
+            if 'startup' in config[sec] and config[sec]['startup'] == 'True':
+                self.start_sess(sess)
 
     def sess_exists(self, name):
-      return name in self.sessions
+        return name in self.sessions
 
     def sess_started(self, name):
-      return self.sessions[name].process is not None
+        return self.sessions[name].process is not None
 
     def get_new_id(self):
-      ret = self.counter
-      self.counter += 1
-      return ret
+        ret = self.counter
+        self.counter += 1
+        return ret
 
     def wait_for_sess_init(self, sess):
-      """ Return 0 if init ok within 30 seconds, else 1.
-      Init is considered ok when the session's procfs probe file exists.
-      """
-      max_wait = 30
-      pause_duration = 3
-      path = Path(sess.get_proc_path())
-      t0 = time()
+        """ Return 0 if init ok within 30 seconds, else 1.
+        Init is considered ok when the session's procfs probe file exists.
+        """
+        max_wait = 30
+        pause_duration = 3
+        path = Path(sess.get_proc_path())
+        t0 = time()
 
-      while time() - t0 < max_wait: 
-          if path.exists():
-              return 0
-          sleep(pause_duration)
-      return 1
+        while time() - t0 < max_wait:
+            if path.exists():
+                return 0
+            sleep(pause_duration)
+        return 1
 
     def terminate_sess(self, name, sess):
         print("Terminating " + name)
@@ -142,7 +146,7 @@ class HTTPHandler(BaseHTTPRequestHandler):
             with open(metrics_path) as metrics:
                 for line in metrics:
                     self.wfile.write(b'%lx\r\n%b\r\n'
-                                        % (len(line), bytes(line, 'utf-8')))
+                                     % (len(line), bytes(line, 'utf-8')))
         except Exception as e:
             msg = bytes(str(e), 'utf-8')
             self.wfile.write(b'%lx\r\n%b\r\n' % (len(msg), msg))
@@ -159,7 +163,7 @@ class HTTPHandler(BaseHTTPRequestHandler):
         mgr = self.sessmgr
         if not mgr.sess_exists(name):
             # exporter doesn't recognize the url
-            self.send_msg(404, "Error 404: file not found") 
+            self.send_msg(404, "Error 404: file not found")
         elif mgr.sess_started(name):
             # session is already running, send metrics
             self.send_metrics(mgr.sessions[name])
