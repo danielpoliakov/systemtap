@@ -2,18 +2,20 @@
  pulling in unnecessary larger pass-2 computations. */
 
 
-/* When a syscall interjection mechanism gives us a pt_regs*
-   structure for the syscall parameters/context, we can pretend
-   as though it were a user-space probe. */
-function __set_usermode_pt_regs(r)
+/* Some syscall interjection mechanisms give us a pt_regs* structure
+   for the syscall parameters/context. */
+private function __set_syscall_pt_regs(r)
 %{
-  c->uregs = (void*)STAP_ARG_r;
-  c->user_mode_p = 1;
+    CONTEXT->sregs = (void*)STAP_ARG_r;
 %}
 
 
 function _stp_syscall_nr:long ()
 %{ /* pure */
+  if (CONTEXT->sregs) {
+        /* NB: same abi? */
+	STAP_RETVALUE = _stp_syscall_get_nr(current, CONTEXT->sregs);
+  } else {
 	struct pt_regs *regs = _stp_current_pt_regs();
 	if (!regs) {
 		CONTEXT->last_error = ("Cannot access syscall number"
@@ -21,5 +23,6 @@ function _stp_syscall_nr:long ()
 		return;
 	}
 	STAP_RETVALUE = _stp_syscall_get_nr(current, regs);
+  }
 %}
 

@@ -186,6 +186,7 @@ common_probe_entryfn_prologue (systemtap_session& s,
   s.op->newline() << "c->nesting = -1;"; // NB: PR10516 packs locals[] tighter
   s.op->newline() << "c->uregs = 0;";
   s.op->newline() << "c->kregs = 0;";
+  s.op->newline() << "c->sregs = 0;";
   s.op->newline() << "#if defined __ia64__";
   s.op->newline() << "c->unwaddr = 0;";
   s.op->newline() << "#endif";
@@ -198,7 +199,7 @@ common_probe_entryfn_prologue (systemtap_session& s,
   s.op->newline() << "c->probe_type = " << probe_type << ";";
   // reset Individual Probe State union
   s.op->newline() << "memset(&c->ips, 0, sizeof(c->ips));";
-  s.op->newline() << "c->user_mode_p = 0; c->full_uregs_p = 0;";
+  s.op->newline() << "c->user_mode_p = 0; c->full_uregs_p = 0; ";
   s.op->newline() << "#ifdef STAP_NEED_REGPARM"; // i386 or x86_64 register.stp
   s.op->newline() << "c->regparm = 0;";
   s.op->newline() << "#endif";

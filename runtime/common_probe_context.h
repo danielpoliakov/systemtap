@@ -113,8 +113,9 @@ const char *last_stmt;
 /* Set when probe handler gets pt_regs handed to it. kregs holds the kernel
    registers when availble. uregs holds the user registers when available.
    uregs are at least available when user_mode_p == 1.  */
-struct pt_regs *kregs;
-struct pt_regs *uregs;
+struct pt_regs *kregs; /* !user_mode_p */
+struct pt_regs *uregs; /* user_mode_p */
+struct pt_regs *sregs; /* syscall mode only, untrustworthy since user-controlled */
 
 /* unwaddr is caching unwound address in each probe handler on ia64. */
 #if defined __ia64__
