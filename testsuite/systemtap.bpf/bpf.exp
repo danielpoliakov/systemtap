@@ -1,3 +1,10 @@
+# bpf.exp
+#
+# To restrict scripts to test, set the CHECK_ONLY environment variable.
+# For example, to only test the printf and uprobes scripts, run:
+#
+#    make installcheck RUNTESTFLAGS="bpf.exp" CHECK_ONLY="printf uprobes"
+
 set testdir "$srcdir/$subdir/bpf_tests"
 
 # All tests should start by printing "BEGIN". If OUTPUT_STR is "", then 
@@ -90,10 +97,21 @@ proc get_output_str { test } {
         default { set res "" }
     }
     return $res
-} 
+}
 
+if {[info exists env(CHECK_ONLY)]} {
+    set all_files [lsort [glob -nocomplain $testdir/*.stp]]
+    set stap_files ""
+    foreach file $env(CHECK_ONLY) {
+        if {[lsearch $all_files $testdir/$file.stp] >= 0} {
+            set stap_files "$stap_files $testdir/$file.stp"
+        }
+    }
+} else {
+    set stap_files [lsort [glob -nocomplain $testdir/*.stp]]
+}
 
-foreach file [lsort [glob -nocomplain $testdir/*.stp]] {
+foreach file $stap_files {
     global mypid
     set mypid 0
     set test [file tail $file]
