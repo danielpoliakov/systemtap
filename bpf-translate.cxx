@@ -219,7 +219,7 @@ struct bpf_unparser : public throwing_visitor
 };
 
 bpf_unparser::bpf_unparser(program &p, globals &g)
-  : throwing_visitor ("unhandled statement type"),
+  : throwing_visitor ("unhandled statement or expression type"),
     result(NULL), this_prog(p), glob(g), this_locals(NULL),
     ret0_block(NULL), exit_block(NULL)
 { }
