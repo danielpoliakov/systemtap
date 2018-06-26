@@ -601,10 +601,16 @@ cd ..
 %global httpd_config --disable-httpd
 %endif
 
+%if %{with_bpf}
+%global bpf_config --with-bpf
+%else
+%global bpf_config --without-bpf
+%endif
+
 # We don't ship compileworthy python code, just oddball samples
 %global py_auto_byte_compile 0
 
-%configure %{?elfutils_config} %{dyninst_config} %{sqlite_config} %{crash_config} %{docs_config} %{pie_config} %{rpm_config} %{java_config} %{virt_config} %{dracut_config} %{python3_config} %{python2_probes_config} %{python3_probes_config} %{httpd_config} --disable-silent-rules --with-extra-version="rpm %{version}-%{release}"
+%configure %{?elfutils_config} %{dyninst_config} %{sqlite_config} %{crash_config} %{docs_config} %{pie_config} %{rpm_config} %{java_config} %{virt_config} %{dracut_config} %{python3_config} %{python2_probes_config} %{python3_probes_config} %{httpd_config} %{bpf_config} --disable-silent-rules --with-extra-version="rpm %{version}-%{release}"
 make %{?_smp_mflags}
 
 %if %{with_emacsvim}
