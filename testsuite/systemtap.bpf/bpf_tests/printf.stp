@@ -1,23 +1,28 @@
 global x
+
+@define test_print
+%(
+  printf("abcd%d2", x)
+  printf("%d4%d%d", x + 2, y + 4, z + 3)
+  // printf("MESSAGE: %s\n", "hello, world")
+  // log("hello, again")
+%)
+
 probe begin {
-	printf("BEGIN")
-	x = 1; y = 1; z = 3
-        printf("abcd%d2", x)
-        printf("%d4%d%d", x + 2, y + 4, z + 3)
+  printf("BEGIN")
+  x = 1; y = 1; z = 3
+  @test_print
 }
 
 probe kernel.function("sys_read") {
-	y = 1; z = 3
-	printf("abcd%d2", x)
-	printf("%d4%d%d", x + 2, y + 4, z + 3)
-	exit()
+  y = 1; z = 3
+  @test_print
+  exit()
 }
 
 
 probe end {
-        y = 1; z = 3
-        printf("abcd%d2", x)
-        printf("%d4%d%d", x + 2, y + 4, z + 3)
-	printf("END\n")
+  y = 1; z = 3
+  @test_print
+  printf("END\n")
 }
-
