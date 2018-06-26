@@ -917,6 +917,7 @@ with_dyninst
 enable_virt
 with_python2_probes
 with_python3_probes
+with_bpf
 with_selinux
 with_java
 with_extra_version
@@ -1639,6 +1640,7 @@ Optional Packages:
   --without-python3-probes
                           Disable building python version 3 probe support,
                           even if it is available
+  --without-bpf           Do not try to build BPF components
   --without-selinux       Do not use libselinux even if present
   --with-java=DIRECTORY   Specify JDK directory to compile libHelperSDT.so
                           against (default is /usr/lib/jvm/java)
@@ -12306,9 +12308,16 @@ if test $stap_cv_sectionq = yes; then
 fi
 
 
-$as_echo "#define HAVE_BPF_DECLS 0" >>confdefs.h
 
-ac_fn_c_check_decl "$LINENO" "BPF_PROG_TYPE_PERF_EVENT" "ac_cv_have_decl_BPF_PROG_TYPE_PERF_EVENT" "#include <linux/bpf.h>
+# Check whether --with-bpf was given.
+if test "${with_bpf+set}" = set; then :
+  withval=$with_bpf;
+fi
+
+
+if test "x$with_bpf" != "xno"; then :
+
+    ac_fn_c_check_decl "$LINENO" "BPF_PROG_TYPE_PERF_EVENT" "ac_cv_have_decl_BPF_PROG_TYPE_PERF_EVENT" "#include <linux/bpf.h>
 "
 if test "x$ac_cv_have_decl_BPF_PROG_TYPE_PERF_EVENT" = xyes; then :
   ac_have_decl=1
@@ -12320,10 +12329,13 @@ cat >>confdefs.h <<_ACEOF
 #define HAVE_DECL_BPF_PROG_TYPE_PERF_EVENT $ac_have_decl
 _ACEOF
 if test $ac_have_decl = 1; then :
-  $as_echo "#define HAVE_BPF_DECLS 1" >>confdefs.h
+
+$as_echo "#define HAVE_BPF_DECLS 1" >>confdefs.h
 
 fi
 
+
+fi
  if test "x$ac_cv_have_decl_BPF_PROG_TYPE_PERF_EVENT" == "xyes"; then
   HAVE_BPF_DECLS_TRUE=
   HAVE_BPF_DECLS_FALSE='#'
@@ -12331,7 +12343,6 @@ else
   HAVE_BPF_DECLS_TRUE='#'
   HAVE_BPF_DECLS_FALSE=
 fi
-
 
 ac_config_files="$ac_config_files includes/sys/sdt-config.h po/Makefile.in"
 

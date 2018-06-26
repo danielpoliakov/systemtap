@@ -796,14 +796,20 @@ if test $stap_cv_sectionq = yes; then
   support_section_question=1
 fi
 
-dnl Check if we have <linux/bpf.h> for bpf backend.
-AC_DEFINE([HAVE_BPF_DECLS], [0], [Define to 1 if you have the necessary declarations in bpf.h])
-AC_CHECK_DECLS([BPF_PROG_TYPE_PERF_EVENT],
-               [AC_DEFINE([HAVE_BPF_DECLS], [1])],
+
+AC_ARG_WITH([bpf],
+  AS_HELP_STRING([--without-bpf],[Do not try to build BPF components]))
+
+dnl Allow --without-bpf to disable this autodetection, as some kernels
+dnl have some headers but missing some decls like __NR_bpf.  Too hard
+dnl to detect all the prereqs here.
+AS_IF([test "x$with_bpf" != "xno"], [
+    AC_CHECK_DECLS([BPF_PROG_TYPE_PERF_EVENT],
+               [AC_DEFINE([HAVE_BPF_DECLS], [1], [Define to 1 if you have the necessary declarations in bpf.h])],
                [],
                [#include <linux/bpf.h>])
+    ])
 AM_CONDITIONAL(HAVE_BPF_DECLS, [test "x$ac_cv_have_decl_BPF_PROG_TYPE_PERF_EVENT" == "xyes"])
-
 AC_CONFIG_FILES([includes/sys/sdt-config.h po/Makefile.in])
 
 if test $build_elfutils = yes -a $enable_translator = yes; then
