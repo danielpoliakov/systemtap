@@ -1,0 +1,85 @@
+@define prometheus_dump_array1(name,a) %(
+   foreach (_v = [_v1]  in @a) {
+      $value .= (@name . "[v1=" . sprint(_v1) .
+		 "] " . sprint(_v) . "\n")
+    }
+%)
+
+@define prometheus_dump_array2(name,a) %(
+   foreach (_v = [_v1,_v2]  in @a) {
+       $value .= (@name . "[v1=" . sprint(_v1) . ",v2=" . sprint(_v2) .
+		 "] " . sprint(_v) . "\n")
+    }
+%)
+
+@define prometheus_dump_array3(name,a) %(
+   foreach (_v = [_v1,_v2,_v3]  in @a) {
+      $value .= (@name . "[v1=" . sprint(_v1) . ",v2=" . sprint(_v2) .
+ 		 ",v3=" . sprint(_v3) . "] " . sprint(_v) . "\n")
+    }
+%)
+
+@define prometheus_dump_array4(name,a) %(
+   foreach (_v = [_v1,_v2,_v3,_v4]  in @a) {
+      $value .= (@name . "[v1=" . sprint(_v1) . ",v2=" . sprint(_v2) .
+ 		 ",v3=" . sprint(_v3) . ",v4=" . sprint(_v4) .
+		 "] " . sprint(_v) . "\n")
+    }
+%)
+
+@define prometheus_dump_array5(name,a) %(
+   foreach (_v = [_v1,_v2,_v3,_v4,_v5]  in @a) {
+      $value .= (@name . "[v1=" . sprint(_v1) . ",v2=" . sprint(_v2) .
+ 		 ",v3=" . sprint(_v3) . ",v4=" . sprint(_v4) .
+		 ",v5=" . sprint(_v5) . "] " . sprint(_v) . "\n")
+    }
+%)
+
+@define prometheus_dump_array6(name,a) %(
+   foreach (_v = [_v1,_v2,_v3,_v4,_v5,_v6]  in @a) {
+      $value .= (@name . "[v1=" . sprint(_v1) . ",v2=" . sprint(_v2) .
+ 		 ",v3=" . sprint(_v3) . ",v4=" . sprint(_v4) .
+		 ",v5=" . sprint(_v5) . ",v6=" . sprint(_v6) .
+		 "] " . sprint(_v) . "\n")
+    }
+%)
+
+@define prometheus_dump_array7(name,a) %(
+   foreach (_v = [_v1,_v2,_v3,_v4,_v5,_v6,_v7]  in @a) {
+      $value .= (@name . "[v1=" . sprint(_v1) . ",v2=" . sprint(_v2) .
+ 		 ",v3=" . sprint(_v3) . ",v4=" . sprint(_v4) .
+		 ",v5=" . sprint(_v5) . ",v6=" . sprint(_v6) .
+		 ",v7=" . sprint(_v7) . "] " . sprint(_v) . "\n")
+    }
+%)
+
+@define prometheus_dump_array8(name,a) %(
+   foreach (_v = [_v1,_v2,_v3,_v4,_v5,_v6,_v7,_v8]  in @a) {
+      $value .= (@name . "[v1=" . sprint(_v1) . ",v2=" . sprint(_v2) .
+ 		 ",v3=" . sprint(_v3) . ",v4=" . sprint(_v4) .
+		 ",v5=" . sprint(_v5) . ",v6=" . sprint(_v6) .
+		 ",v7=" . sprint(_v7) . ",v8=" . sprint(_v8) .
+		 "] " . sprint(_v) . "\n")
+    }
+%)
+
+@define prometheus_dump_array9(name,a) %(
+   foreach (_v = [_v1,_v2,_v3,_v4,_v5,_v6,_v7,_v8,_v9]  in @a) {
+      $value .= (@name . "[v1=" . sprint(_v1) . ",v2=" . sprint(_v2) .
+ 		 ",v3=" . sprint(_v3) . ",v4=" . sprint(_v4) .
+		 ",v5=" . sprint(_v5) . ",v6=" . sprint(_v6) .
+		 ",v7=" . sprint(_v7) . ",v8=" . sprint(_v8) .
+		 ",v9=" . sprint(_v9) . "] " . sprint(_v) . "\n")
+    }
+%)
+
+@define prometheus_dump_array10(name,a) %(
+    foreach (_v = [_v1,_v2,_v3,_v4,_v5,_v6,_v7,_v8,_v9,_v10]  in @a) {
+      $value .= (@name . "[v1=" . sprint(_v1) . ",v2=" . sprint(_v2) .
+ 		 ",v3=" . sprint(_v3) . ",v4=" . sprint(_v4) .
+		 ",v5=" . sprint(_v5) . ",v6=" . sprint(_v6) .
+		 ",v7=" . sprint(_v7) . ",v8=" . sprint(_v8) .
+		 ",v9=" . sprint(_v9) . ",v10=" . sprint(_v10) .
+		 "] " . sprint(_v) . "\n")
+    }
+%)
