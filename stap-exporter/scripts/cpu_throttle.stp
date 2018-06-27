@@ -15,10 +15,8 @@
 global throttled_time, throttled_state
 
 probe begin {
-    // initialize the accumlated time throttled for each processor
-    // FIXME need to know number of processors on system
-    for (i=0; i<8; ++i)
-        throttled_time[i] = 0
+    // Make sure there is an instance in the throttled_time
+    throttled_time[0] = 0
 }
 
 probe kprobe.function("therm_throt_process") {
