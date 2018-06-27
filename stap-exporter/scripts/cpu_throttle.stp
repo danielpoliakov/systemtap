@@ -1,0 +1,49 @@
+#! /usr/bin/env stap
+# Copyright (C) 2018 Red Hat, Inc.
+# Written by William Cohen <wcohen@redhat.com>
+#
+# cpu_throttle.stp provides total milliseconds each Intel x86
+# processor performance is restriced due to power or thermal
+# constrainsts formated for consumption by prometheus.
+# The data is read from /proc/systemtap/*/cpu_throttle.stp
+#
+# Run the script with:
+#   stap cpu_throttle.stp
+#
+# control-c to exit data collection
+
+global throttled_time, throttled_state
+
+probe begin {
+    // initialize the accumlated time throttled for each processor
+    // FIXME need to know number of processors on system
+    for (i=0; i<8; ++i)
+        throttled_time[i] = 0
+}
+
+probe kprobe.function("therm_throt_process") {
+    now = gettimeofday_ns()
+    // just started throttling
+    if (ulong_arg(1) && !(cpu() in throttled_state)) {
+        throttled_state[cpu()] = now
+    }
+    // just ending throttling
+    if (!ulong_arg(1) && cpu() in throttled_state) {
+        throttled_time[cpu()] += now - throttled_state[cpu()]
+        delete throttled_state[cpu()]
+    }
+}
+
+probe  procfs("cpu_throttle.stp").read.maxsize(0x10000) {
+    now = gettimeofday_ns()
+    $value .= "# HELP cpu_throttle_time accumulated time process is performance limited in ms.\n"
+    $value .= "# TYPE cpu_throttle_time counter\n"
+    foreach (cpu in throttled_time){
+      k = throttled_time[cpu]
+      // add in any existing throttled time
+      if (cpu in throttled_state)
+          k += now - throttled_state[cpu]
+          k /= 1000000 // scale from ns to ms
+      $value .= "cpu_throttle_time{cpu=\"".sprint(cpu)."\"} ".sprint(k)."\n"
+    }
+}
