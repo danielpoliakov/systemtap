@@ -224,6 +224,9 @@ Group: Development/System
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
 Requires: systemtap-devel = %{version}-%{release}
+Conflicts: systemtap-devel < %{version}-%{release}
+Conflicts: systemtap-runtime < %{version}-%{release}
+Conflicts: systemtap-client < %{version}-%{release}
 Requires: nss coreutils
 Requires: zip unzip
 Requires(pre): shadow-utils
@@ -256,6 +259,9 @@ URL: http://sourceware.org/systemtap/
 Requires: kernel-devel-uname-r
 %{?fedora:Suggests: kernel-devel}
 Requires: gcc make
+Conflicts: systemtap-client < %{version}-%{release}
+Conflicts: systemtap-server < %{version}-%{release}
+Conflicts: systemtap-runtime < %{version}-%{release}
 # Suggest: kernel-debuginfo
 
 %description devel
@@ -273,6 +279,9 @@ Group: Development/System
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
 Requires(pre): shadow-utils
+Conflicts: systemtap-devel < %{version}-%{release}
+Conflicts: systemtap-server < %{version}-%{release}
+Conflicts: systemtap-client < %{version}-%{release}
 
 %description runtime
 SystemTap runtime contains the components needed to execute
@@ -289,6 +298,9 @@ Requires: zip unzip
 Requires: systemtap-runtime = %{version}-%{release}
 Requires: coreutils grep sed unzip zip
 Requires: openssh-clients
+Conflicts: systemtap-devel < %{version}-%{release}
+Conflicts: systemtap-server < %{version}-%{release}
+Conflicts: systemtap-runtime < %{version}-%{release}
 %if %{with_mokutil}
 Requires: mokutil
 %endif
@@ -968,7 +980,7 @@ done
 
 # ------------------------------------------------------------------------
 
-%files -f systemtap.lang
+%files
 # The master "systemtap" rpm doesn't include any files.
 
 %files server -f systemtap.lang
