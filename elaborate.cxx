@@ -2708,10 +2708,11 @@ symresolution_info::visit_functioncall (functioncall* e)
   for (unsigned i=0; i<e->args.size(); i++)
     e->args[i]->visit (this);
 
+  // already resolved?
   if (!e->referents.empty())
     return;
 
-  vector<functiondecl*> fds = find_functions (e->function, e->args.size (), e->tok);
+  vector<functiondecl*> fds = find_functions (e, e->function, e->args.size (), e->tok);
   if (!fds.empty())
     {
       e->referents = fds;
@@ -2837,8 +2838,55 @@ symresolution_info::find_var (interned_string name, int arity, const token* tok)
 }
 
 
+class functioncall_security_check: public traversing_visitor
+{
+  systemtap_session& session;
+  functioncall* call;
+  functiondecl* current_function;
+public:
+  functioncall_security_check(systemtap_session&s, functioncall* c): session(s),call(c) {}
+  void traverse (functiondecl* d)
+  {
+    current_function = d;
+    current_function->body->visit(this);
+  }
+  
+  void visit_embeddedcode (embeddedcode *s)
+  {
+  // Don't allow embedded C functions in unprivileged mode unless
+  // they are tagged with /* unprivileged */ or /* myproc-unprivileged */
+  // or we're in a usermode runtime.
+  if (! pr_contains (session.privilege, pr_stapdev) &&
+      ! pr_contains (session.privilege, pr_stapsys) &&
+      ! session.runtime_usermode_p () &&
+      s->code.find ("/* unprivileged */") == string::npos &&
+      s->code.find ("/* myproc-unprivileged */") == string::npos)
+    throw SEMANTIC_ERROR (_F("function may not be used when --privilege=%s is specified",
+			     pr_name (session.privilege)),
+			  current_function->tok);
+
+  // Allow only /* bpf */ functions in bpf mode.
+  if ((session.runtime_mode == systemtap_session::bpf_runtime)
+      != (s->code.find ("/* bpf */") != string::npos))
+    {
+      if (session.runtime_mode == systemtap_session::bpf_runtime)
+	throw SEMANTIC_ERROR (_("function may not be used with bpf runtime"),
+                              current_function->tok);
+      else
+	throw SEMANTIC_ERROR (_("function requires bpf runtime"),
+                              current_function->tok);
+    }
+
+  // Don't allow /* guru */ functions unless caller is privileged.
+  if (!call->tok->location.file->privileged && s->code.find ("/* guru */") != string::npos)
+    throw SEMANTIC_ERROR (_("function may not be used unless -g is specified"),
+			  call->tok);
+  }    
+};
+
+
 vector<functiondecl*>
-symresolution_info::find_functions (const string& name, unsigned arity, const token *tok)
+symresolution_info::find_functions (functioncall *call, const string& name, unsigned arity, const token *tok)
 {
   vector<functiondecl*> functions;
   functiondecl* last = 0; // used for error message
@@ -2930,6 +2978,11 @@ symresolution_info::find_functions (const string& name, unsigned arity, const to
       throw SEMANTIC_ERROR(_F("arity mismatch found (function '%s' takes %zu args)",
                               name.c_str(), last->formal_args.size()), tok, last->tok);
     }
+
+  // check every function for safety/security constraints
+  functioncall_security_check fsc(session, call);
+  for (auto gi = functions.begin(); gi != functions.end(); gi++)
+    fsc.traverse(*gi);
 
   return functions;
 }

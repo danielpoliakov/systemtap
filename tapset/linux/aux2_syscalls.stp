@@ -4,8 +4,8 @@
 
 /* Some syscall interjection mechanisms give us a pt_regs* structure
    for the syscall parameters/context. */
-private function __set_syscall_pt_regs(r)
-%{
+function __set_syscall_pt_regs(r)
+%{ /* guru */
     CONTEXT->sregs = (void*)STAP_ARG_r;
 %}
 

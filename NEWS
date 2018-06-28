@@ -5,6 +5,15 @@
 - When a systemtap module is loaded, the name of the original stap script
   is now printed to dmesg by the kernel runtime.
 
+- Embedded-C functions marked /* guru */ may now be invoked from other
+  tapset probes / functions, while still being invalid for normal call
+  from an unprivileged user script.
+
+- The syscall tapset now includes an automatic fallback alias to the
+  sys_enter / sys_exit kernel tracepoints, if no other kprobe-based
+  mechanism is found.
+
+
 * What's new in version 3.3, 2018-06-08
 
 - A new "stap --example FOO.stp" mode searches the example scripts

@@ -90,12 +90,6 @@ probe __nd1_syscall.read = kprobe.function("sys_read")
 %)
 }
 
-/* kernel 4.17+ */
-private function __set_syscall_pt_regs(r)
-%{
-    CONTEXT->sregs = (void*)STAP_ARG_r;
-%}
-
   
 probe nd2_syscall.read = kprobe.function("__*_sys_read") /* _x64_ etc. */
 {

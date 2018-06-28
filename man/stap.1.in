@@ -1918,7 +1918,7 @@ own process.
 .I /* guru */
 means that the C code is so unsafe that a systemtap user must specify
 .IR \-g
-(guru mode) to use this.
+(guru mode) to use this.  (Tapsets are permitted and presumed to call them safely.)
 .TP
 .I /* unmangled */
 in an embedded-C function, means that the legacy (pre-1.8) argument

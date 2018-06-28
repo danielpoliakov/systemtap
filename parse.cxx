@@ -731,6 +731,7 @@ stapfile*
 parser::parse_library_macros ()
 {
   stapfile* f = new stapfile;
+  f->privileged = this->privileged;
   input.set_current_file (f);
 
   try
@@ -1900,6 +1901,7 @@ stapfile*
 parser::parse ()
 {
   stapfile* f = new stapfile;
+  f->privileged = this->privileged;
   input.set_current_file (f);
 
   bool empty = true;
@@ -2002,6 +2004,7 @@ parser::parse_synthetic_probe (const token* chain)
 {
   probe* p = NULL;
   stapfile* f = new stapfile;
+  f->privileged = this->privileged;
   f->synthetic = true;
   input.set_current_file (f);
   input.set_current_token_chain (chain);

@@ -768,7 +768,10 @@ passes_0_4 (systemtap_session &s)
 		  if (f == 0)
 		    s.print_warning(_F("tapset \"%s\" has errors, and will be skipped", it->c_str()));
 		  else
-		    s.library_files.push_back (f);
+                    {
+                      assert (f->privileged);
+                      s.library_files.push_back (f);
+                    }
 		}
 
 	      unsigned next_s_library_files = s.library_files.size();
