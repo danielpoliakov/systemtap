@@ -23,6 +23,35 @@ import platform
 import getopt
 import shutil
 
+
+# split_nvra() is based on rpmUtils.miscutils.splitFilename() from
+# yum. Why not just use that? There isn't a python3 version supported
+# and yum is going away (at some point) from Fedora.
+def split_nvra(pkg_nvr):
+    """
+    Pass in a standard style rpm name
+
+    Returns a name, version, release, arch, e.g.::
+        foo-1.0-1.i386.rpm returns foo, 1.0, 1, i386
+    """
+
+    # If we've got a build id link target, it will end with
+    # '.debug'. Remove it.
+    if pkg_nvr[-6:] == '.debug':
+        pkg_nvr = pkg_nvr[:-6]
+
+    arch_index = pkg_nvr.rfind('.')
+    arch = pkg_nvr[arch_index+1:]
+
+    rel_index = pkg_nvr[:arch_index].rfind('-')
+    rel = pkg_nvr[rel_index+1:arch_index]
+
+    ver_index = pkg_nvr[:rel_index].rfind('-')
+    ver = pkg_nvr[ver_index+1:rel_index]
+
+    name = pkg_nvr[:ver_index]
+    return name, ver, rel, arch
+
 def which(cmd):
     """Find the full path of a command."""
     for path in os.environ["PATH"].split(os.pathsep):
@@ -35,19 +64,36 @@ def _eprint(*args, **kwargs):
     """Print to stderr."""
     print(*args, file=sys.stderr, **kwargs)
 
+def build_id_symlink_is_valid(bid_path):
+    """Check if a build id symlink is valid."""
+    symlink_exists = os.path.exists(bid_path) and os.path.islink(bid_path)
+    bid_target = ''
+    if symlink_exists:
+        bid_target = os.readlink(bid_path)
+        if not os.path.isabs(bid_target):
+            bid_target = \
+                os.path.abspath(os.path.join(os.path.dirname(bid_path),
+                                             bid_target))
+        if not os.path.exists(bid_target) \
+           or os.path.islink(bid_target):
+            symlink_exists = 0
+    return symlink_exists, bid_target
+
 class PkgSystem(object):
     "A class to hide the details of package management."
+    # pylint: disable=too-many-instance-attributes
     __verbose = 0
     __distro_id = None
     __release = None
     __pkgr_path = None
     __pkgmgr_path = None
+    __using_dnf = 0
     __wget_path = None
     __local_repo_path = ''
     __local_rpm_dir = ''
 
     def __init__(self, verbose):
-        __verbose = verbose
+        self.__verbose = verbose
 
         #
         # Try to figure out what distro/release we've got. We might
@@ -59,11 +105,15 @@ class PkgSystem(object):
         lsb_release = which("lsb_release")
         if lsb_release != None:
             try:
+                if self.__verbose:
+                    print("Running: %s" % [lsb_release, "-is"])
                 self.__distro_id = subprocess.check_output([lsb_release, "-is"])
                 self.__distro_id = self.__distro_id.strip()
             except subprocess.CalledProcessError:
                 pass
             try:
+                if self.__verbose:
+                    print("Running: %s" % [lsb_release, "-rs"])
                 self.__release = subprocess.check_output([lsb_release, "-rs"])
                 self.__release = self.__release.strip()
             except subprocess.CalledProcessError:
@@ -84,9 +134,11 @@ class PkgSystem(object):
         # Find the package manager for this system.
         self.__pkgmgr_path = which("dnf")
         self.__debuginfo_install = [self.__pkgmgr_path, 'debuginfo-install']
+        self.__using_dnf = 1
         if self.__pkgmgr_path is None:
             self.__pkgmgr_path = which("yum")
             self.__debuginfo_install = [which('debuginfo-install')]
+            self.__using_dnf = 0
         if self.__pkgmgr_path is None:
             _eprint("Can't find a package manager (either 'dnr' or 'yum').")
             sys.exit(1)
@@ -98,11 +150,21 @@ class PkgSystem(object):
 
     def build_id_is_valid(self, name, build_id):
         """Return true if the 'name' matches the build id."""
+        # If we don't have a build id, pretend it matched.
+        if build_id == '':
+            return 1
         # First, make sure the build id symbolic link exists. This has
-        # to be an exact match.
-        build_id_path = '/usr/lib/debug/.build-id/' + build_id[:2] \
-                        + '/' + build_id[2:]
-        if not os.path.exists(build_id_path):
+        # to be an exact match. Note that Centos build id symbolic
+        # links don't end in '.debug', Fedora build id symbolic links
+        # do. Handle both.
+        bid_path = '/usr/lib/debug/.build-id/' + build_id[:2] \
+            + '/' + build_id[2:]
+        (symlink_exists, bid_target) = build_id_symlink_is_valid(bid_path)
+        if not symlink_exists:
+            bid_path = '/usr/lib/debug/.build-id/' + build_id[:2] \
+                + '/' + build_id[2:] + '.debug'
+            (symlink_exists, bid_target) = build_id_symlink_is_valid(bid_path)
+        if not symlink_exists:
             if self.__verbose:
                 print("Build id %s doesn't exist." % build_id)
             return 0
@@ -112,45 +174,88 @@ class PkgSystem(object):
         # (1) The kernel doesn't really have a "path". (2)
         # "/usr/bin/FOO" is really the same file as "/bin/FOO"
         # (UsrMove feature).
-        sym_target = os.path.basename(os.readlink(build_id_path))
+        sym_target = os.path.basename(bid_target)
         if name == 'kernel':
             name = 'vmlinux'
         else:
             name = os.path.basename(name)
-        if sym_target != name:
+        matchp = (sym_target == name)
+        if not matchp:
+            # On Fedora 28, the link doesn't point to "FOO", but
+            # "FOO-V-R.A.debug".
+            pkg_details = split_nvra(sym_target)
+            if pkg_details[0] == name:
+                matchp = 1
+        if not matchp:
             if self.__verbose:
                 print("Build id %s doesn't match '%s'." % (build_id, name))
             return 0
         return 1
 
-    def pkg_exists(self, name, pkg_nvr, build_id):
+    def pkg_exists(self, pkg_nvr):
         """Return true if the package and its debuginfo exists."""
-        if subprocess.call([self.__pkgr_path, "-qi", pkg_nvr]) != 0:
+        if self.__verbose:
+            print("Running: %s" % [self.__pkgr_path, '-qi', '--quiet',
+                                   pkg_nvr])
+        if subprocess.call([self.__pkgr_path, '-qi', '--quiet', pkg_nvr]) != 0:
             return 0
-        if not build_id:
-            if self.__verbose:
-                print("Package %s already exists on the system." % pkg_nvr)
-            return 1
+        return 1
 
-        return self.build_id_is_valid(name, build_id)
-
-    def pkg_install(self, name, pkg_nvr, build_id):
+    def pkg_install(self, pkg_nvr, build_id):
         """Install a package and its debuginfo."""
-        if subprocess.call([self.__pkgmgr_path, 'install', '-y',
-                            pkg_nvr]) != 0:
-            return 0
-        if not build_id:
+        if not self.pkg_exists(pkg_nvr):
+            # Why are we using the "noscripts" option here? Background
+            # - building a Fedora 28 container on a Centos 7 host. On
+            # a kernel install, the Fedora kernel rpm %post script ran
+            # "dracut" to create a new initrd. The dracut command hit
+            # an error, then proceeded to spew lots of errors and
+            # ended up deleting /tmp in the container. So, to avoid
+            # this, we won't run %pre/%post rpm scripts (which
+            # hopefully shouldn't be needed anyway). If the %pre/%post
+            # scripts end up being needed, we could only use
+            # "noscripts" when installing a kernel.
+            #
+            # If we're using dnf, add the '--allowerasing' option so that
+            # we can override conflicting packages.
+            cmd = [self.__pkgmgr_path, 'install', '-y', '--quiet'] \
+                + (['--allowerasing'] if self.__using_dnf else []) \
+                + ['--setopt=tsflags=noscripts', pkg_nvr]
             if self.__verbose:
-                print("Package %s installed." % pkg_nvr)
+                print("Running: %s" % cmd)
+            if subprocess.call(cmd) != 0:
+                return 0
+
+        # If we don't have a build id, we don't need to install
+        # debuginfo.
+        if build_id == '':
             return 1
-        if subprocess.call(self.__debuginfo_install + ['-y', pkg_nvr]) != 0:
+
+        # Here we're assuming the debuginfo package doesn't already exist.
+        cmd = self.__debuginfo_install + ['-y', '--quiet', pkg_nvr]
+        if self.__verbose:
+            print("Running: %s" % cmd)
+        if subprocess.call(cmd) != 0:
             return 0
+        # 'dnf debuginfo' has a *really* annoying habit of not
+        # installing the exact version you asked for if the version
+        # you asked for isn't available. So, make sure we actually
+        # installed the right debuginfo package.
+        pkg_details = split_nvra(pkg_nvr)
+        debuginfo_nvr = (pkg_details[0] + '-debuginfo-' + pkg_details[1]
+                         + '-' + pkg_details[2] + '.' + pkg_details[3])
+        if not self.pkg_exists(debuginfo_nvr):
+            # The wrong debuginfo package got installed. Try to remove
+            # it.
+            debuginfo_wildcard = pkg_details[0] + '-debuginfo-*'
+            cmd = [self.__pkgmgr_path, 'remove', '-y',
+                   '--setopt=tsflags=noscripts', debuginfo_wildcard]
+            if self.__verbose:
+                print("Running: %s" % cmd)
+            subprocess.call(cmd)
+            return 0
+        return 1
 
-        # OK, at this point we know the package and its debuginfo has
-        # been installed. Validiate the build id.
-        return self.build_id_is_valid(name, build_id)
-
-    def pkg_download_and_install(self, name, pkg_nvr, build_id):
+    def pkg_download_and_install(self, pkg_nvr, build_id):
         """Manually download and install a package."""
         # If we're not on Fedora, we don't know how to get the
         # package.
@@ -160,21 +265,13 @@ class PkgSystem(object):
             return 0
 
         # Try downloading the package from koji, Fedora's build system.
-        nvra_regexp = re.compile(r'^(\w+)-([^-]+)-([^-]+)\.(\w+)$')
-        match = nvra_regexp.match(pkg_nvr)
-        if not match:
-            _eprint("Can't parse package nvr '%s'" % pkg_nvr)
-            return 0
-
-        pkg_name = match.group(1)
-        pkg_version = match.group(2)
-        pkg_release = match.group(3)
-        pkg_arch = match.group(4)
-
+        #
         # Build up the koji url. Koji urls look like:
         # http://kojipkgs.fedoraproject.org/packages/NAME/VER/RELEASE/ARCH/
+        pkg_details = split_nvra(pkg_nvr)
         koji_url = ("http://kojipkgs.fedoraproject.org/packages/%s/%s/%s/%s"
-                    % (pkg_name, pkg_version, pkg_release, pkg_arch))
+                    % (pkg_details[0], pkg_details[1], pkg_details[2],
+                       pkg_details[3]))
         _eprint("URL: '%s'" % koji_url)
 
         # Download the entire arch directory. Here's a description of
@@ -187,6 +284,9 @@ class PkgSystem(object):
         #   -r: Turn on recursive retrieving.
         #   -l 1: Maximum recursion depth is 1.
         #
+        if self.__verbose:
+            print("Running: %s" % ['wget', '--quiet', '-nH', '--cut-dirs=4',
+                                   '-r', '-l', '1', koji_url])
         if subprocess.call(['wget', '--quiet', '-nH', '--cut-dirs=4',
                             '-r', '-l', '1', koji_url]) != 0:
             _eprint("Can't download package '%s'" % pkg_nvr)
@@ -205,7 +305,7 @@ class PkgSystem(object):
 
         # First create the repo file.
         self.__local_repo_path = '/etc/yum.repos.d/local.repo'
-        self.__local_rpm_dir = '/root/%s' % pkg_arch
+        self.__local_rpm_dir = '/root/%s' % pkg_details[3]
         if not os.path.exists(self.__local_repo_path):
             repo_file = open(self.__local_repo_path, 'w')
             repo_file.write('[local]\n')
@@ -217,13 +317,15 @@ class PkgSystem(object):
             repo_file.close()
 
         # Next run 'createrepo_c' on the directory.
-        if subprocess.call(['createrepo_c', '--quiet', pkg_arch]) != 0:
+        if self.__verbose:
+            print("Running: %s" % ['createrepo_c', '--quiet', self.__local_rpm_dir])
+        if subprocess.call(['createrepo_c', '--quiet', self.__local_rpm_dir]) != 0:
             _eprint("Can't run createrepo_c")
             return 0
 
         # At this point we should be set up to let the package manager
         # install the package.
-        return self.pkg_install(name, pkg_nvr, build_id)
+        return self.pkg_install(pkg_nvr, build_id)
 
     def cleanup(self):
         """Perform cleanup (if necessary)."""
@@ -290,23 +392,43 @@ def main():
     if match:
         devel_name = name + '-devel'
         devel_nvr = re.sub(name, devel_name, pkg_nvr)
+        # Notice we're not including the build id. When there's no
+        # build id, build_id_is_valid() returns a 1.
         packages.append([devel_name, devel_nvr, ''])
 
     pkgsys = PkgSystem(verbose)
     for (name, pkg_nvr, build_id) in packages:
-        # Is the correct package version already installed?
-        if pkgsys.pkg_exists(name, pkg_nvr, build_id):
-            continue
-
-        # Try using the package manager to install the package
-        if pkgsys.pkg_install(name, pkg_nvr, build_id):
-            continue
+        # Try using the package manager to install the package and its
+        # debuginfo.
+        if pkgsys.pkg_install(pkg_nvr, build_id):
+            # The package and its debuginfo exist. Does the build id
+            # match?
+            if pkgsys.build_id_is_valid(name, build_id):
+                continue
+            # If the package and its debuginfo exists, but the build
+            # ids don't match, we're done.
+            _eprint("Package '%s' is installed, but the build id"
+                    " doesn't match" % pkg_nvr)
+            pkgsys.cleanup()
+            sys.exit(1)
 
         # As a last resort, try downloading and installing the package
         # manually.
-        if pkgsys.pkg_download_and_install(name, pkg_nvr, build_id):
-            continue
+        if pkgsys.pkg_download_and_install(pkg_nvr, build_id):
+            # The package and its debuginfo exist. Does the build id
+            # match?
+            if pkgsys.build_id_is_valid(name, build_id):
+                continue
+            # If the package and its debuginfo exists, but the build
+            # ids don't match, we're done.
+            _eprint("Package '%s' is installed, but the build id"
+                    " doesn't match" % pkg_nvr)
+            pkgsys.cleanup()
+            sys.exit(1)
 
+        # If the package manager couldn't install the package, and we
+        # couldn't download and install the package manually, we're
+        # done.
         _eprint("Can't find package '%s'" % pkg_nvr)
         sys.exit(1)
 
@@ -315,7 +437,6 @@ def main():
 
     # Perform cleanup, if needed.
     pkgsys.cleanup()
-
     sys.exit(0)
 
 if __name__ == '__main__':
