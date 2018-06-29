@@ -1,0 +1,15 @@
+probe begin
+{
+	println("systemtap starting probe")
+}
+
+probe kernel.function("vfs_read")
+{
+	println("systemtap ending probe")
+
+	if (@kderef(4, $pos) != kernel_int($pos))
+		println("systemtap test failure")
+	else
+		println("systemtap test success")
+	exit()
+}

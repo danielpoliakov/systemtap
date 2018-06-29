@@ -208,6 +208,8 @@ private: // nonterminals
   expression* parse_defined_op (const token* t);
   expression* parse_const_op (const token* t);
   expression* parse_perf_op (const token* t);
+  expression* parse_target_register (const token* t);
+  expression* parse_target_deref (const token* t);
   expression* parse_expression ();
   expression* parse_assignment ();
   expression* parse_ternary ();
@@ -1457,6 +1459,13 @@ lexer::lexer (istream& input, const string& in, systemtap_session& s, bool cc):
         {
           atwords.insert("const");
           atwords.insert("variance");
+        }
+      if (has_version("4.0"))
+        {
+          atwords.insert("kregister");
+          atwords.insert("uregister");
+          atwords.insert("kderef");
+          atwords.insert("uderef");
         }
     }
 }
@@ -3826,6 +3835,15 @@ expression* parser::parse_symbol ()
       if (name == "@perf")
         return parse_perf_op (t);
 
+      if (input.has_version("4.0"))
+        {
+          if (name == "@kregister" || name == "@uregister")
+            return parse_target_register (t);
+
+          if (name == "@kderef" || name == "@uderef")
+            return parse_target_deref (t);
+        }
+
       if (name.size() > 0 && name[0] == '@')
 	{
 	  stat_op *sop = new stat_op;
@@ -4187,6 +4205,35 @@ expression* parser::parse_perf_op (const token* t)
   return pop;
 }
 
+// Parse a @kregister or @uregister.  Given head token has already been consumed.
+expression* parser::parse_target_register (const token* t)
+{
+  target_register *treg = new target_register;
+  int64_t regno;
+  treg->tok = t;
+  treg->userspace_p = (t->content[1] == 'u');
+  expect_op("(");
+  expect_number(regno);
+  treg->regno = regno;
+  expect_op(")");
+  return treg;
+}
+
+// Parse a @kderef or @uderef.  Given head token has already been consumed.
+expression* parser::parse_target_deref (const token* t)
+{
+  target_deref *tderef = new target_deref;
+  int64_t size;
+  tderef->tok = t;
+  tderef->userspace_p = (t->content[1] == 'u');
+  expect_op("(");
+  expect_number(size);
+  tderef->size = size;
+  expect_op(",");
+  tderef->addr = parse_expression();
+  expect_op(")");
+  return tderef;
+}
 
 bool
 parser::peek_target_symbol_components ()

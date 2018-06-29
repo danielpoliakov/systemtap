@@ -1979,6 +1979,44 @@ manual page.  The functions are described in the
 .IR stapprobes (3stap)
 manual page.
 
+.SS DEREFERENCING
+Integers can be dereferenced from pointers saved as a script integer
+variables using the
+.I @kderef()
+or
+.I @uderef()
+operators.
+.I @kderef()
+is used for kernel space addresses and
+.I @uderef()
+is used for user space addresses.
+.SAMPLE
+@kderef(SIZE, addr)
+@uderef(SIZE, addr)
+.ESAMPLE
+This will interpert
+.I addr
+as a kernel/user address and read
+.I SIZE
+bytes starting at that address.
+.I SIZE
+should be either 1, 2, 4 or 8 bytes.
+
+.SS REGISTERS
+The value stored within a register can be accessed using the
+.I @kregister()
+or
+.I @uregister()
+operators.
+.I @kregister()
+is used for kernel space registers and
+.I @uregister()
+is used for user space registers. The register of interest is
+specified using its DWARF number.
+.SAMPLE
+@kregister(0)
+@uregister(5)
+
 .SH PROCESSING
 The translator begins pass 1 by parsing the given input script,
 and all scripts (files named

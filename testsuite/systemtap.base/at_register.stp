@@ -1,0 +1,39 @@
+global errors
+
+%( arch == "i386" || arch == "x86_64" %?
+global regname = "ax"
+%)
+%( arch == "powerpc" || arch == "s390x" %?
+global regname = "r0"
+%)
+%( arch == "aarch64" %?
+global regname = "x0"
+%)
+
+probe begin
+{
+	println("systemtap starting probe")
+}
+
+probe process.function("main")
+{
+	if (@uregister(0) != register(regname)) {
+		errors++
+		println("user register mismatch")
+	}
+}
+
+probe syscall.getpid
+{
+	if (@kregister(0) != register(regname)) {
+		errors++
+		println("kernel register mismatch")
+	}
+}
+
+probe end
+{
+	println("systemtap ending probe")
+	if (errors == 0)
+		println("systemtap test success")
+}

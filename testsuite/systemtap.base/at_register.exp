@@ -1,0 +1,14 @@
+set test "at_register"
+set testpath "$srcdir/$subdir"
+
+set res [target_compile ${testpath}/${test}.c ${test} executable "additional_flags=-O2 additional_flags=-g"]
+if { $res != "" } {
+    verbose "target_compile failed: $res" 2
+    fail "${test}: unable to compile ${test}.c"
+} else {
+    stap_run $test no_load $all_pass_string $srcdir/$subdir/$test.stp -c ./${test} -w
+}
+
+# Cleanup
+if { $verbose == 0 } { catch { exec rm -f $test } }
+

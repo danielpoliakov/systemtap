@@ -1,0 +1,15 @@
+probe begin
+{
+	println("systemtap starting probe")
+}
+
+probe process.function("main")
+{
+	println("systemtap ending probe")
+	
+	if (@uderef(4, $foo_ptr) != $foo)
+		println("systemtap test failure")
+	else
+		println("systemtap test success")
+	exit()
+}

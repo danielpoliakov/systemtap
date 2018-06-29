@@ -1,0 +1,17 @@
+set test "at_deref"
+set subtest1 "at_kderef"
+set subtest2 "at_uderef"
+
+stap_run $subtest1 no_load $all_pass_string $srcdir/$subdir/at_deref1.stp -c "cat /dev/null" -w
+
+set res [target_compile $srcdir/$subdir/${test}.c ${test} executable "additional_flags=-O2 additional_flags=-g"]
+if { $res != "" } {
+    verbose "target_compile failed: $res" 2
+    fail "${test}: unable to compile ${test}.c"
+} else {
+    stap_run  $subtest2 no_load $all_pass_string $srcdir/$subdir/at_deref2.stp -c ./${test} -w
+}
+
+# Cleanup
+if { $verbose == 0 } { catch { exec rm -f $test } }
+
