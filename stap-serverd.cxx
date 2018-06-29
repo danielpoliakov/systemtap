@@ -3,7 +3,7 @@
   the data into a temporary file, calls the systemtap translator and
   then transmits the resulting file back to the client.
 
-  Copyright (C) 2011-2014 Red Hat Inc.
+  Copyright (C) 2011-2018 Red Hat Inc.
 
   This file is part of systemtap, and is free software.  You can
   redistribute it and/or modify it under the terms of the GNU General Public
@@ -1125,7 +1125,7 @@ readDataFromSocket(PRFileDesc *sslSocket, const char *requestFileName)
 /* Function:  setupSSLSocket()
  *
  * Purpose:  Configure a socket for SSL.
- *
+ * In case of failure, clean up the incoming tcpSocket and/or any partially setup sslSocket.
  *
  */
 static PRFileDesc * 
@@ -1140,8 +1140,7 @@ setupSSLSocket (PRFileDesc *tcpSocket, CERTCertificate *cert, SECKEYPrivateKey *
   if (sslSocket == NULL)
     {
       server_error (_("Could not import socket into SSL"));
-      nssError ();
-      return NULL;
+      goto error;
     }
    
   /* Set the appropriate flags. */
@@ -1149,32 +1148,28 @@ setupSSLSocket (PRFileDesc *tcpSocket, CERTCertificate *cert, SECKEYPrivateKey *
   if (secStatus != SECSuccess)
     {
       server_error (_("Error setting SSL security for socket"));
-      nssError ();
-      return NULL;
+      goto error;
     }
 
   secStatus = SSL_OptionSet(sslSocket, SSL_HANDSHAKE_AS_SERVER, PR_TRUE);
   if (secStatus != SECSuccess)
     {
       server_error (_("Error setting handshake as server for socket"));
-      nssError ();
-      return NULL;
+      goto error;
     }
 
   secStatus = SSL_OptionSet(sslSocket, SSL_REQUEST_CERTIFICATE, PR_FALSE);
   if (secStatus != SECSuccess)
     {
       server_error (_("Error setting SSL client authentication mode for socket"));
-      nssError ();
-      return NULL;
+      goto error;
     }
 
   secStatus = SSL_OptionSet(sslSocket, SSL_REQUIRE_CERTIFICATE, PR_FALSE);
   if (secStatus != SECSuccess)
     {
       server_error (_("Error setting SSL client authentication mode for socket"));
-      nssError ();
-      return NULL;
+      goto error;
     }
 
   /* Set the appropriate callback routines. */
@@ -1182,18 +1177,16 @@ setupSSLSocket (PRFileDesc *tcpSocket, CERTCertificate *cert, SECKEYPrivateKey *
   secStatus = SSL_AuthCertificateHook (sslSocket, myAuthCertificate, CERT_GetDefaultCertDB());
   if (secStatus != SECSuccess)
     {
-      nssError ();
       server_error (_("Error in SSL_AuthCertificateHook"));
-      return NULL;
+      goto error;
     }
 #endif
 #if 0 /* Use the default */
   secStatus = SSL_BadCertHook(sslSocket, (SSLBadCertHandler)myBadCertHandler, &certErr);
   if (secStatus != SECSuccess)
     {
-      nssError ();
       server_error (_("Error in SSL_BadCertHook"));
-      return NULL;
+      goto error;
     }
 #endif
 #if 0 /* no handshake callback */
@@ -1201,8 +1194,7 @@ setupSSLSocket (PRFileDesc *tcpSocket, CERTCertificate *cert, SECKEYPrivateKey *
   if (secStatus != SECSuccess)
     {
       server_error (_("Error in SSL_HandshakeCallback"));
-      nssError ();
-      return NULL;
+      goto error;
     }
 #endif
 
@@ -1212,11 +1204,27 @@ setupSSLSocket (PRFileDesc *tcpSocket, CERTCertificate *cert, SECKEYPrivateKey *
   if (secStatus != SECSuccess)
     {
       server_error (_("Error configuring SSL server"));
-      nssError ();
-      return NULL;
+      goto error;
     }
 
   return sslSocket;
+
+ error:
+  nssError();
+
+  if (sslSocket) {
+    if (PR_Close (sslSocket) != PR_SUCCESS) {
+      server_error (_("Error closing ssl socket"));
+      nssError ();
+    }
+  } else {
+    if (PR_Close (tcpSocket) != PR_SUCCESS) {
+      server_error (_("Error closing tcp/ssl socket"));
+      nssError ();
+    }
+  }
+  
+  return NULL;
 }
 
 #if 0 /* No client authentication (for now) and not authenticating after each transaction.  */
