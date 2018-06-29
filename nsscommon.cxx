@@ -155,22 +155,23 @@ nssError (void)
   // See if PR_GetError can tell us what the error is.
   PRErrorCode errorNumber = PR_GetError ();
 
-  // PR_ErrorToString always returns a valid string for errors in this range.
-  if (errorNumber >= PR_NSPR_ERROR_BASE && errorNumber <= PR_MAX_ERROR)
-    {
-      nsscommon_error (_F("(%d) %s", errorNumber, PR_ErrorToString (errorNumber, PR_LANGUAGE_EN)));
-      return;
-    }
+   // Try PR_ErrorToName and PR_ErrorToString; they are wise.
+   const char* errorName = PR_ErrorToName(errorNumber);
+   const char* errorText = PR_ErrorToString (errorNumber, PR_LANGUAGE_EN);
 
-  // PR_ErrorToString does not handle errors outside the range above, so we handle them ourselves.
-  const char *errorText;
+   if (errorName && errorText)
+     {
+       nsscommon_error (_F("(%d %s) %s", errorNumber, errorName, errorText));
+       return;
+     }
+
+   // Fall back to our own scraped ssl error text.                  
   switch (errorNumber) {
   default: errorText = "Unknown error"; break;
 #define NSSYERROR(code,msg) case code: errorText = msg; break
 #include "stapsslerr.h"
 #undef NSSYERROR
     }
-
   nsscommon_error (_F("(%d) %s", errorNumber, errorText));
 }
 

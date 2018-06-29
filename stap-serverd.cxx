@@ -2497,7 +2497,8 @@ accept_connections (PRFileDesc *listenSocket, CERTCertificate *cert)
 				      certUsageSSLServer, NULL/*wincx*/);
       if (secStatus != SECSuccess)
 	{
-	  // Not an error. Exit the loop so a new cert can be generated.
+	  // Not a serious error. Exit the loop so a new cert can be generated.
+          nssError ();
 	  break;
 	}
     }
