@@ -13,9 +13,10 @@
   sys_enter / sys_exit kernel tracepoints, if no other kprobe-based
   mechanism is found.
 
-- New operators @kderef/@uderef and @kregister/@uregister were added.
-  @kderef/@uderef can be used to dereference integers and
-  @kregister/@uregister can be used to access register values.
+- New script language operators @kderef/@uderef and @kregister/@uregister
+  were added.
+  @kderef/@uderef (size,address) can be used to dereference integers and
+  @kregister/@uregister (dwarf#) can be used to access register values.
 
 * What's new in version 3.3, 2018-06-08
 
