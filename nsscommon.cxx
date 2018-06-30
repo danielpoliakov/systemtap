@@ -1,7 +1,7 @@
 /*
   Common functions used by the NSS-aware code in systemtap.
 
-  Copyright (C) 2009-2014 Red Hat Inc.
+  Copyright (C) 2009-2018 Red Hat Inc.
 
   This file is part of systemtap, and is free software.  You can
   redistribute it and/or modify it under the terms of the GNU General Public
@@ -60,7 +60,11 @@ server_cert_nickname ()
 
 string
 add_cert_db_prefix (const string &db_path) {
-#if (NSS_VMAJOR > 3) || (NSS_VMAJOR == 3 && NSS_VMINOR >= 12)
+#if (NSS_VMAJOR > 3) || (NSS_VMAJOR == 3 && NSS_VMINOR >= 37)
+  // https://wiki.mozilla.org/NSS_Shared_DB
+  if (db_path.find (':') == string::npos)
+    return string("sql:") + db_path;
+#elif (NSS_VMAJOR > 3) || (NSS_VMAJOR == 3 && NSS_VMINOR >= 12)
   // Use the dbm prefix, if a prefix is not already specified,
   // since we're using the old database format.
   if (db_path.find (':') == string::npos)
@@ -443,7 +447,7 @@ generate_private_key (const string &db_path, PK11SlotInfo *slot, SECKEYPublicKey
 
   // Set up for RSA.
   PK11RSAGenParams rsaparams;
-  rsaparams.keySizeInBits = 1024;
+  rsaparams.keySizeInBits = 4096; /* 1024 too small; SEC_ERROR_CERT_SIGNATURE_ALGORITHM_DISABLED */
   rsaparams.pe = 0x010001;
   CK_MECHANISM_TYPE mechanism = CKM_RSA_PKCS_KEY_PAIR_GEN;
 
