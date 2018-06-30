@@ -2395,6 +2395,9 @@ cleanup:
 	log (_F("Request from [%s]:%d complete", buf, addr.ipv6.port));
     }
 
+  if (privKey)
+    SECKEY_DestroyPrivateKey (privKey); /* Destroy our copy of the private key. */
+  
   /* Increment semephore to indicate this thread is finished. */
   free(t_arg);
   if (max_threads > 0)
@@ -2486,7 +2489,7 @@ accept_connections (PRFileDesc *listenSocket, CERTCertificate *cert)
         fatal(_("No memory available for new thread arg!"));
       t_arg->tcpSocket = tcpSocket;
       t_arg->cert = cert;
-      t_arg->privKey = privKey;
+      t_arg->privKey = SECKEY_CopyPrivateKey(privKey); /* pass by value */
       t_arg->addr = addr;
 
       /* Handle the conncection */
@@ -2511,7 +2514,7 @@ accept_connections (PRFileDesc *listenSocket, CERTCertificate *cert)
 	}
     }
 
-  SECKEY_DestroyPrivateKey (privKey);
+  SECKEY_DestroyPrivateKey (privKey); /* Safe to destroy, even if thread still running. */
   return SECSuccess;
 }
 
@@ -2745,7 +2748,8 @@ listen ()
       if (check_cert (cert_db_path, server_cert_nickname (), use_db_password) != 0)
 	{
 	  // Message already issued
-	  goto done;
+          server_error (_("Cannot check/create certificate, giving up."));
+          goto done;
 	}
 
       // Ensure that our certificate is trusted by our local client.
