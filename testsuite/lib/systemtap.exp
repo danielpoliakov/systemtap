@@ -415,7 +415,9 @@ proc shutdown_server {} {
 	catch {exec stap-stop-server $server_pid}
 	set server_pid 0
 
-	# Delete the temporary server log file
+	# Collect then delete the temporary server log file
+	set output [exec cat $server_logfile]
+        verbose -log $output
 	catch {exec rm -f $server_logfile}
     }
 
