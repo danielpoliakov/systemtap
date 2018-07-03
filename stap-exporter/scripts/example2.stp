@@ -1,10 +1,9 @@
 global arr
 
-probe  procfs("example2.stp").read.maxsize(0x10000) {
-    foreach (k = [tid,cpu] in arr) 
-      $value .= "count [tid=".sprint(tid).",cpu=".sprint(cpu)."] ".sprint(k)."\n"
+probe kprobe.function("sys_open") {
+    arr[cpu(), tid(), gid()]++
 }
 
-probe kprobe.function("sys_open") {
-    arr[tid(), cpu()]++
+probe prometheus {
+    @prometheus_dump_array3(arr, "count", "cpu", "tid", "gid")
 }

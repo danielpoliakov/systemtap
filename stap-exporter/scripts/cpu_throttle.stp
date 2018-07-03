@@ -32,7 +32,7 @@ probe kprobe.function("therm_throt_process") {
     }
 }
 
-probe  procfs("cpu_throttle.stp").read.maxsize(0x10000) {
+probe prometheus {
     now = gettimeofday_ns()
     $value .= "# HELP cpu_throttle_time accumulated time process is performance limited in ms.\n"
     $value .= "# TYPE cpu_throttle_time counter\n"
