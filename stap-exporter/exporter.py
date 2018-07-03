@@ -7,8 +7,7 @@ import subprocess
 import shlex
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse
-from time import sleep, time
-from pathlib import Path
+from time import time
 
 script_dir = os.path.abspath(__file__ + "/../") + "/scripts/"
 proc_path = "/proc/systemtap/__systemtap_exporter"
