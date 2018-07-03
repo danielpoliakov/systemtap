@@ -67,6 +67,7 @@ class SessionMgr:
             print("Unable to read exporter.conf: " + str(e))
             sys.exit(-1)
 
+        self.port = int(config['DEFAULT']['port'])
         for sec in config.sections():
             sess = self.create_sess(sec)
 
@@ -143,8 +144,8 @@ class HTTPHandler(BaseHTTPRequestHandler):
             self.send_msg(301, "Script launched, refresh page to access metrics.")
 
 if __name__ == "__main__":
-    server_address = ('', 9900)
     sessmgr = HTTPHandler.sessmgr
+    server_address = ('', sessmgr.port)
     httpd = HTTPServer(server_address, HTTPHandler)
     httpd.timeout = 5
     print("Exporter initialization complete")
