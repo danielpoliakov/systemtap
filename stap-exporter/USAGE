@@ -1,10 +1,14 @@
-$ ./exporter.py &
+Scripts must be placed in stap-exporter/scripts and must have their name included
+in stap-exporter/exporter.conf in order to be run by the exporter.
+The Install script installs the exporter as a systemd service named "stap-exporter".
+
+$ ./Install
 
 $ curl localhost:9900/example1.stp
-Script successfully started. Refresh page to access metrics.
+Script launched, refresh page to access metrics.
 
 $ curl localhost:9900/example1.stp
-count [tid=15262,cpu=5] 20
-count [tid=2221,cpu=3] 13
-count [tid=15265,cpu=6] 46
+count{tid="15262",cpu="5"} 20
+count{tid="2221",cpu="3"} 13
+count{tid="15265",cpu="6"} 46
 [...]
