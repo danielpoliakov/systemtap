@@ -1,83 +1,83 @@
 @define prometheus_dump_array1(a,name,c1) %(
    foreach (_v = [_v1]  in @a) {
-      $value .= (@name . "[" . text_str(@c1) . "=" . string_quoted(sprint(_v1))
-                 . "] " . text_str(sprint(_v)) . "\n")
+      $value .= (@name . "{" . @c1 . "=" . string_quoted(sprint(_v1))
+                 . "} " . text_str(sprint(_v)) . "\n")
     }
 %)
 
 @define prometheus_dump_array2(a,name,c1,c2) %(
    foreach (_v = [_v1,_v2]  in @a) {
-      $value .= (@name . "[" . text_str(@c1) . "=" . string_quoted(sprint(_v1))
-                 . "," . text_str(@c2) . "=" . string_quoted(sprint(_v2))
-                 . "] " . text_str(sprint(_v)) . "\n")
+      $value .= (@name . "{" . @c1 . "=" . string_quoted(sprint(_v1))
+                 . "," . @c2 . "=" . string_quoted(sprint(_v2))
+                 . "} " . text_str(sprint(_v)) . "\n")
     }
 %)
 
 @define prometheus_dump_array3(a,name,c1,c2,c3) %(
    foreach (_v = [_v1,_v2,_v3]  in @a) {
-      $value .= (@name . "[" . text_str(@c1) . "=" . string_quoted(sprint(_v1))
-                 . "," . text_str(@c2) . "=" . string_quoted(sprint(_v2))
-                 . "," . text_str(@c3) . "=" . string_quoted(sprint(_v3))
-                 . "] " . text_str(sprint(_v)) . "\n")
+      $value .= (@name . "{" . @c1 . "=" . string_quoted(sprint(_v1))
+                 . "," . @c2 . "=" . string_quoted(sprint(_v2))
+                 . "," . @c3 . "=" . string_quoted(sprint(_v3))
+                 . "} " . text_str(sprint(_v)) . "\n")
     }
 %)
 
 @define prometheus_dump_array4(a,name,c1,c2,c3,c4) %(
    foreach (_v = [_v1,_v2,_v3,_v4]  in @a) {
-      $value .= (@name . "[" . text_str(@c1) . "=" . string_quoted(sprint(_v1))
-                 . "," . text_str(@c2) . "=" . string_quoted(sprint(_v2))
-                 . "," . text_str(@c3) . "=" . string_quoted(sprint(_v3))
-                 . "," . text_str(@c4) . "=" . string_quoted(sprint(_v4))
-                 . "] " . text_str(sprint(_v)) . "\n")
+      $value .= (@name . "{" . @c1 . "=" . string_quoted(sprint(_v1))
+                 . "," . @c2 . "=" . string_quoted(sprint(_v2))
+                 . "," . @c3 . "=" . string_quoted(sprint(_v3))
+                 . "," . @c4 . "=" . string_quoted(sprint(_v4))
+                 . "} " . text_str(sprint(_v)) . "\n")
     }
 %)
 
 @define prometheus_dump_array5(a,name,c1,c2,c3,c4,c5) %(
    foreach (_v = [_v1,_v2,_v3,_v4,_v5]  in @a) {
-      $value .= (@name . "[" . text_str(@c1) . "=" . string_quoted(sprint(_v1))
-                 . "," . text_str(@c2) . "=" . string_quoted(sprint(_v2))
-                 . "," . text_str(@c3) . "=" . string_quoted(sprint(_v3))
-                 . "," . text_str(@c4) . "=" . string_quoted(sprint(_v4))
-                 . "," . text_str(@c5) . "=" . string_quoted(sprint(_v5))
-                 . "] " . text_str(sprint(_v)) . "\n")
+      $value .= (@name . "{" . @c1 . "=" . string_quoted(sprint(_v1))
+                 . "," . @c2 . "=" . string_quoted(sprint(_v2))
+                 . "," . @c3 . "=" . string_quoted(sprint(_v3))
+                 . "," . @c4 . "=" . string_quoted(sprint(_v4))
+                 . "," . @c5 . "=" . string_quoted(sprint(_v5))
+                 . "} " . text_str(sprint(_v)) . "\n")
     }
 %)
 
 @define prometheus_dump_array6(a,name,c1,c2,c3,c4,c5,c6) %(
    foreach (_v = [_v1,_v2,_v3,_v4,_v5,_v6]  in @a) {
-      $value .= (@name . "[" . text_str(@c1) . "=" . string_quoted(sprint(_v1))
-                 . "," . text_str(@c2) . "=" . string_quoted(sprint(_v2))
-                 . "," . text_str(@c3) . "=" . string_quoted(sprint(_v3))
-                 . "," . text_str(@c4) . "=" . string_quoted(sprint(_v4))
-                 . "," . text_str(@c5) . "=" . string_quoted(sprint(_v5))
-                 . "," . text_str(@c6) . "=" . string_quoted(sprint(_v6))
-                 . "] " . text_str(sprint(_v)) . "\n")
+      $value .= (@name . "{" . @c1 . "=" . string_quoted(sprint(_v1))
+                 . "," . @c2 . "=" . string_quoted(sprint(_v2))
+                 . "," . @c3 . "=" . string_quoted(sprint(_v3))
+                 . "," . @c4 . "=" . string_quoted(sprint(_v4))
+                 . "," . @c5 . "=" . string_quoted(sprint(_v5))
+                 . "," . @c6 . "=" . string_quoted(sprint(_v6))
+                 . "} " . text_str(sprint(_v)) . "\n")
     }
 %)
 
 @define prometheus_dump_array7(a,name,c1,c2,c3,c4,c5,c6,c7) %(
    foreach (_v = [_v1,_v2,_v3,_v4,_v5,_v6,_v7]  in @a) {
-      $value .= (@name . "[" . text_str(@c1) . "=" . string_quoted(sprint(_v1))
-                 . "," . text_str(@c2) . "=" . string_quoted(sprint(_v2))
-                 . "," . text_str(@c3) . "=" . string_quoted(sprint(_v3))
-                 . "," . text_str(@c4) . "=" . string_quoted(sprint(_v4))
-                 . "," . text_str(@c5) . "=" . string_quoted(sprint(_v5))
-                 . "," . text_str(@c6) . "=" . string_quoted(sprint(_v6))
-                 . "," . text_str(@c7) . "=" . string_quoted(sprint(_v7))
-                 . "] " . text_str(sprint(_v)) . "\n")
+      $value .= (@name . "{" . @c1 . "=" . string_quoted(sprint(_v1))
+                 . "," . @c2 . "=" . string_quoted(sprint(_v2))
+                 . "," . @c3 . "=" . string_quoted(sprint(_v3))
+                 . "," . @c4 . "=" . string_quoted(sprint(_v4))
+                 . "," . @c5 . "=" . string_quoted(sprint(_v5))
+                 . "," . @c6 . "=" . string_quoted(sprint(_v6))
+                 . "," . @c7 . "=" . string_quoted(sprint(_v7))
+                 . "} " . text_str(sprint(_v)) . "\n")
     }
 %)
 
 @define prometheus_dump_array8(a,name,c1,c2,c3,c4,c5,c6,c7,c8) %(
    foreach (_v = [_v1,_v2,_v3,_v4,_v5,_v6,_v7,_v8]  in @a) {
-      $value .= (@name . "[" . text_str(@c1) . "=" . string_quoted(sprint(_v1))
-                 . "," . text_str(@c2) . "=" . string_quoted(sprint(_v2))
-                 . "," . text_str(@c3) . "=" . string_quoted(sprint(_v3))
-                 . "," . text_str(@c4) . "=" . string_quoted(sprint(_v4))
-                 . "," . text_str(@c5) . "=" . string_quoted(sprint(_v5))
-                 . "," . text_str(@c6) . "=" . string_quoted(sprint(_v6))
-                 . "," . text_str(@c7) . "=" . string_quoted(sprint(_v7))
-                 . "," . text_str(@c8) . "=" . string_quoted(sprint(_v8))
-                 . "] " . text_str(sprint(_v)) . "\n")
+      $value .= (@name . "{" . @c1 . "=" . string_quoted(sprint(_v1))
+                 . "," . @c2 . "=" . string_quoted(sprint(_v2))
+                 . "," . @c3 . "=" . string_quoted(sprint(_v3))
+                 . "," . @c4 . "=" . string_quoted(sprint(_v4))
+                 . "," . @c5 . "=" . string_quoted(sprint(_v5))
+                 . "," . @c6 . "=" . string_quoted(sprint(_v6))
+                 . "," . @c7 . "=" . string_quoted(sprint(_v7))
+                 . "," . @c8 . "=" . string_quoted(sprint(_v8))
+                 . "} " . text_str(sprint(_v)) . "\n")
     }
 %)
