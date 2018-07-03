@@ -130,28 +130,20 @@ class SessionMgr:
 class HTTPHandler(BaseHTTPRequestHandler):
     sessmgr = SessionMgr()
 
-    def set_headers(self, code, content_type, transfer_encoding=None):
+    def set_headers(self, code, content_type):
         self.send_response(code)
         self.send_header('Content-type', content_type)
-
-        if transfer_encoding:
-            self.send_header('Transfer-Encoding', transfer_encoding)
-
         self.end_headers()
 
     def send_metrics(self, sess):
         metrics_path = sess.get_proc_path()
-        self.set_headers(200, 'text/plain', 'chunked')
+        self.set_headers(200, 'text/plain')
         try:
             with open(metrics_path) as metrics:
-                for line in metrics:
-                    self.wfile.write(b'%lx\r\n%b\r\n'
-                                     % (len(line), bytes(line, 'utf-8')))
+                self.wfile.write(bytes(metrics.read(), 'utf-8'))
         except Exception as e:
             msg = bytes(str(e), 'utf-8')
-            self.wfile.write(b'%lx\r\n%b\r\n' % (len(msg), msg))
-
-        self.wfile.write(b'0\r\n\r\n')
+            self.wfile.write(bytes(str(e), 'utf-8'))
 
     def send_msg(self, code, msg):
         self.set_headers(code, 'text/plain')
