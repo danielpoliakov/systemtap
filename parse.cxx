@@ -4212,6 +4212,9 @@ expression* parser::parse_target_register (const token* t)
   int64_t regno;
   treg->tok = t;
   treg->userspace_p = (t->content[1] == 'u');
+  if (! treg->userspace_p && ! privileged)
+    throw PARSE_ERROR (_("using @kregister operator not permitted; need stap -g"),
+                       false /* don't skip tokens for parse resumption */);
   expect_op("(");
   expect_number(regno);
   treg->regno = regno;
@@ -4226,6 +4229,9 @@ expression* parser::parse_target_deref (const token* t)
   int64_t size;
   tderef->tok = t;
   tderef->userspace_p = (t->content[1] == 'u');
+  if (! tderef->userspace_p && ! privileged)
+    throw PARSE_ERROR (_("using @kderef operator not permitted; need stap -g"),
+                       false /* don't skip tokens for parse resumption */);
   expect_op("(");
   expect_number(size);
   tderef->size = size;

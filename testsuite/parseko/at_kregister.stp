@@ -1,0 +1,3 @@
+#! stap -p1
+
+probe oneshot { @kregister(0) }
