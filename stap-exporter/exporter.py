@@ -49,20 +49,14 @@ class SessionMgr:
         return sess
 
     def start_sess(self, sess):
-        """ Begin execution of script and set session's start time """
+        """ Begin execution of script and record start time """
         sess.begin()
-        if self.wait_for_sess_init(sess) != 0:
-            # init failed
-            self.terminate_sess(sess.name, sess)
-            print("Failed to launch " + sess.name)
-            return 1
         sess.start_time = time()
-        print("Successfully launched " + sess.name)
-        return 0
+        print("Launched " + sess.name)
 
     def start_sess_from_name(self, script_name):
         sess = self.sessions[script_name]
-        return self.start_sess(sess)
+        self.start_sess(sess)
 
     def parse_conf(self):
         print("Reading config file")
@@ -98,21 +92,6 @@ class SessionMgr:
         self.counter += 1
         return ret
 
-    def wait_for_sess_init(self, sess):
-        """ Return 0 if init ok within 30 seconds, else 1.
-        Init is considered ok when the session's procfs probe file exists.
-        """
-        max_wait = 30
-        pause_duration = 3
-        path = Path(sess.get_proc_path())
-        t0 = time()
-
-        while time() - t0 < max_wait:
-            if path.exists():
-                return 0
-            sleep(pause_duration)
-        return 1
-
     def terminate_sess(self, name, sess):
         print("Terminating " + name)
         sess.process.terminate()
@@ -137,13 +116,13 @@ class HTTPHandler(BaseHTTPRequestHandler):
 
     def send_metrics(self, sess):
         metrics_path = sess.get_proc_path()
-        self.set_headers(200, 'text/plain')
         try:
             with open(metrics_path) as metrics:
+                self.set_headers(200, 'text/plain')
                 self.wfile.write(bytes(metrics.read(), 'utf-8'))
-        except Exception as e:
-            msg = bytes(str(e), 'utf-8')
-            self.wfile.write(bytes(str(e), 'utf-8'))
+        except:
+            self.set_headers(501, 'text/plain')
+            self.wfile.write(bytes('Metrics currently unavailable', 'utf-8'))
 
     def send_msg(self, code, msg):
         self.set_headers(code, 'text/plain')
@@ -155,17 +134,14 @@ class HTTPHandler(BaseHTTPRequestHandler):
         mgr = self.sessmgr
         if not mgr.sess_exists(name):
             # exporter doesn't recognize the url
-            self.send_msg(404, "Error 404: file not found")
+            self.send_msg(404, "File not found")
         elif mgr.sess_started(name):
             # session is already running, send metrics
             self.send_metrics(mgr.sessions[name])
-        elif mgr.start_sess_from_name(name) == 0:
-            # session successfully launched
-            self.send_msg(200, ("Script successfully started. "
-                                "Refresh page to access metrics."))
         else:
-            # session failed to start
-            self.send_msg(500, "Unable to start stap session")
+            # launch session
+            mgr.start_sess_from_name(name)
+            self.send_msg(301, "Script launched, refresh page to access metrics.")
 
 if __name__ == "__main__":
     server_address = ('', 9900)
