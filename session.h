@@ -347,6 +347,7 @@ public:
   std::vector<stapfile*> library_files;
 
   std::string script_name(); // usually user_files[0]->name
+  std::string script_basename(); // basename of script_name()
 
   // filters to run over all code before symbol resolution
   //   e.g. @cast expansion

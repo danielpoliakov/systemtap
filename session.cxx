@@ -2300,6 +2300,16 @@ systemtap_session::script_name()
 }
 
 
+// The basename of the primary stap file, if any:
+string
+systemtap_session::script_basename()
+{
+  if (user_files.empty())
+    return "<unknown>";
+  return user_files[0]->name.substr(user_files[0]->name.rfind('/')+1); // basename
+}
+
+
 // Print this given token, but abbreviate it if the last one had the
 // same file name.
 void

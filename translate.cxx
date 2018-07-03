@@ -1959,7 +1959,7 @@ c_unparser::emit_module_init ()
   // intended to help debug problems with systemtap modules.
   if (! session->runtime_usermode_p())
     o->newline() << "_stp_print_kernel_info("
-                 << "\"" << escaped_literal_string(session->script_name()) /* TODO escape string */ << "\""
+                 << "\"" << escaped_literal_string(session->script_basename()) << "\""
                  << ", \"" << VERSION
                  << "/" << dwfl_version (NULL) << "\""
                  << ", (num_online_cpus() * sizeof(struct context))"
