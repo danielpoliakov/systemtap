@@ -28,6 +28,7 @@ struct vardecl;
 namespace bpf {
 
 #define MAX_BPF_STACK 512
+#define BPF_MAXSTRINGLEN 64 // TODO: For strings as first-class values.
 #define BPF_REG_SIZE 8
 
 typedef unsigned short regno;

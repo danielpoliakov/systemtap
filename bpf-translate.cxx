@@ -2167,6 +2167,20 @@ output_license(BPF_Output &eo)
 }
 
 static void
+output_stapbpf_script_name(BPF_Output &eo, const std::string script_name)
+{
+  BPF_Section *so = eo.new_scn("stapbpf_script_name");
+  Elf_Data *data = so->data;
+  size_t script_name_len = strlen(script_name.c_str());
+  data->d_buf = (void *)malloc(script_name_len + 1);
+  char *script_name_buf = (char *)data->d_buf;
+  script_name.copy(script_name_buf, script_name_len);
+  script_name_buf[script_name_len] = '\0';
+  data->d_size = script_name_len + 1;
+  so->shdr->sh_type = SHT_PROGBITS;
+}
+
+static void
 output_maps(BPF_Output &eo, globals &glob)
 {
   unsigned nmaps = glob.maps.size();
@@ -2635,6 +2649,7 @@ translate_bpf_pass (systemtap_session& s)
 
       output_kernel_version(eo, s.kernel_base_release);
       output_license(eo);
+      output_stapbpf_script_name(eo, escaped_literal_string(s.script_basename()));
       output_symbols_sections(eo);
 
       int64_t r = elf_update(eo.elf, ELF_C_WRITE_MMAP);

@@ -69,8 +69,11 @@ int log_level = 0;
 };
 static int warnings = 1;
 static FILE *output_f = stdout;
+static FILE *kmsg;
 
 static const char *module_name;
+static const char *module_basename;
+static const char *script_name; // name of original systemtap script
 static const char *module_license;
 static Elf *module_elf;
 
@@ -261,6 +264,9 @@ prog_load(Elf_Data *data, const char *name)
   if (data->d_size % sizeof(bpf_insn))
     fatal("program size not a multiple of %zu\n", sizeof(bpf_insn));
 
+  fprintf (kmsg, "%s (%s): stapbpf: %s, name: %s, d_size: %lu\n",
+           module_basename, script_name, VERSION, name, data->d_size);
+  fflush (kmsg); // Otherwise, flush will only happen after the prog runs.
   int fd = bpf_prog_load(prog_type, static_cast<bpf_insn *>(data->d_buf),
 			 data->d_size, module_license, kernel_version);
   if (fd < 0)
@@ -983,6 +989,16 @@ static void
 load_bpf_file(const char *module)
 {
   module_name = module;
+
+  /* Extract basename: */
+  char *buf = (char *)malloc(BPF_MAXSTRINGLEN * sizeof(char));
+  string module_name_str(module);
+  string module_basename_str
+    = module_name_str.substr(module_name_str.rfind('/')+1); // basename
+  size_t len = module_basename_str.copy(buf, BPF_MAXSTRINGLEN-1);
+  buf[len] = '\0';
+  module_basename = buf;
+
   int fd = open(module, O_RDONLY);
   if (fd < 0)
     fatal_sys();
@@ -1037,6 +1053,7 @@ load_bpf_file(const char *module)
   unsigned maps_idx = 0;
   unsigned version_idx = 0;
   unsigned license_idx = 0;
+  unsigned script_name_idx = 0;
   unsigned kprobes_idx = 0;
   unsigned begin_idx = 0;
   unsigned end_idx = 0;
@@ -1071,6 +1088,8 @@ load_bpf_file(const char *module)
 
       if (strcmp(shname, "license") == 0)
 	license_idx = i;
+      else if (strcmp(shname, "stapbpf_script_name") == 0)
+	script_name_idx = i;
       else if (strcmp(shname, "version") == 0)
 	version_idx = i;
       else if (strcmp(shname, "maps") == 0)
@@ -1088,6 +1107,10 @@ load_bpf_file(const char *module)
     module_license = static_cast<char *>(sh_data[license_idx]->d_buf);
   else
     fatal("missing license section\n");
+  if (script_name_idx != 0)
+    script_name = static_cast<char *>(sh_data[script_name_idx]->d_buf);
+  else
+    script_name = "<unknown>";
   if (version_idx != 0)
     {
       unsigned long long size = shdrs[version_idx]->sh_size;
@@ -1351,6 +1374,8 @@ main(int argc, char **argv)
   if (optind != argc - 1)
     goto do_usage;
 
+  kmsg = fopen("/dev/kmsg", "a");
+
   load_bpf_file(argv[optind]);
   init_internal_globals();
 
@@ -1398,5 +1423,6 @@ main(int argc, char **argv)
 		  map_fds, output_f);
 
   elf_end(module_elf);
+  fclose(kmsg);
   return 0;
 }
