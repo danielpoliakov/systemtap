@@ -265,7 +265,7 @@ prog_load(Elf_Data *data, const char *name)
     fatal("program size not a multiple of %zu\n", sizeof(bpf_insn));
 
   fprintf (kmsg, "%s (%s): stapbpf: %s, name: %s, d_size: %lu\n",
-           module_basename, script_name, VERSION, name, data->d_size);
+           module_basename, script_name, VERSION, name, (unsigned long)data->d_size);
   fflush (kmsg); // Otherwise, flush will only happen after the prog runs.
   int fd = bpf_prog_load(prog_type, static_cast<bpf_insn *>(data->d_buf),
 			 data->d_size, module_license, kernel_version);
