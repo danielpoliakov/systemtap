@@ -141,6 +141,9 @@
 #ifndef __NR_ia32_close
 #define __NR_ia32_close 6
 #endif
+#ifndef __NR_ia32_creat
+#define __NR_ia32_creat 8
+#endif
 #ifndef __NR_ia32_dup3
 #define __NR_ia32_dup3 330
 #endif
@@ -201,6 +204,9 @@
 #ifndef __NR_ia32_open
 #define __NR_ia32_open 5
 #endif
+#ifndef __NR_ia32_openat
+#define __NR_ia32_openat 295
+#endif
 #ifndef __NR_ia32_pipe2
 #define __NR_ia32_pipe2 331
 #endif
@@ -208,6 +214,9 @@
 // Since a kernel that had a pselect7 syscall can't be found, just use
 // __NR_syscall_max for __NR_ia32_pselect7.
 #define __NR_ia32_pselect7 (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_ia32_read
+#define __NR_ia32_read 3
 #endif
 #ifndef __NR_ia32_readlinkat
 #define __NR_ia32_readlinkat 305
@@ -248,7 +257,7 @@
 #ifndef __NR_ia32_setuid32
 #define __NR_ia32_setuid32 213
 #endif
-// Since a kernel that had a 32-biy shmctl syscall can't be found
+// Since a kernel that had a 32-bit shmctl syscall can't be found
 // (they all used __NR_ipc), just use __NR_syscall_max.
 #ifndef __NR_ia32_shmctl
 #define __NR_ia32_shmctl (__NR_syscall_max + 1)
@@ -264,6 +273,9 @@
 #endif
 #ifndef __NR_ia32_wait4
 #define __NR_ia32_wait4 114
+#endif
+#ifndef __NR_ia32_write
+#define __NR_ia32_write 4
 #endif
 
 #define __NR_compat_clone		__NR_ia32_clone

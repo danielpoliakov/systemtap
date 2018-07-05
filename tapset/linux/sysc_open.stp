@@ -10,12 +10,17 @@
 
 @define _SYSCALL_OPEN_ARGSTR
 %(
-	argstr = sprintf("%s, %s, %#o", filename, flags_str, mode) 
+	if (flags & @const("O_CREAT"))
+		argstr = sprintf("%s, %s, %#o", filename, flags_str, mode)
+	else
+		argstr = sprintf("%s, %s", filename, flags_str)
 %)
 
-@define _SYSCALL_OPEN_ARGSTR_2
+@define _SYSCALL_OPEN_REGARGS
 %(
-	argstr = sprintf("%s, %s", filename, flags_str) 
+	filename = user_string_quoted(pointer_arg(1))
+	flags = int_arg(2)
+	mode = uint_arg(3)
 %)
 
 probe syscall.open = dw_syscall.open !, nd_syscall.open ? {}
@@ -29,10 +34,7 @@ probe dw_syscall.open = __syscall.compat_open ?, __syscall.open
 	@_SYSCALL_OPEN_NAME
 	flags = __int32($flags)
 	flags_str = _sys_open_flag_str(flags)
-	if ($flags & @const("O_CREAT"))
-		@_SYSCALL_OPEN_ARGSTR
-	else
-		@_SYSCALL_OPEN_ARGSTR_2
+	@_SYSCALL_OPEN_ARGSTR
 }
 probe __syscall.compat_open = kernel.function("compat_sys_open").call ?,
 			      kernel.function("sys32_open").call ?
@@ -58,27 +60,65 @@ probe dw_syscall.open.return = kernel.function("compat_sys_open").return ?,
 
 # nd_open _____________________________________________________
 
-probe nd_syscall.open = kprobe.function("compat_sys_open") ?,
+probe nd_syscall.open = nd1_syscall.open!, nd2_syscall.open!, tp_syscall.open
+  { }
+
+probe nd1_syscall.open = kprobe.function("compat_sys_open") ?,
                         kprobe.function("sys32_open") ?,
                         kprobe.function("sys_open") ?
 {
 	@__syscall_compat_gate(@const("__NR_open"), @const("__NR_compat_open"))
 	@_SYSCALL_OPEN_NAME
 	asmlinkage()
-	filename = user_string_quoted(pointer_arg(1))
-	flags = int_arg(2)
+	@_SYSCALL_OPEN_REGARGS
 	flags_str = _sys_open_flag_str(flags)
-	mode = uint_arg(3)
-	if (flags & @const("O_CREAT"))
-		@_SYSCALL_OPEN_ARGSTR
-	else
-		@_SYSCALL_OPEN_ARGSTR_2
+	@_SYSCALL_OPEN_ARGSTR
 }
-probe nd_syscall.open.return = kprobe.function("compat_sys_open").return ?,
+
+probe nd2_syscall.open = kprobe.function("__*_sys_open") /* _x64_ etc. */
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_OPEN_NAME
+	@_SYSCALL_OPEN_REGARGS
+	flags_str = _sys_open_flag_str(flags)
+	@_SYSCALL_OPEN_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because of it affects all syscalls */
+probe tp_syscall.open = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_open"), @const("__NR_compat_open"))
+	@_SYSCALL_OPEN_NAME
+	@_SYSCALL_OPEN_REGARGS
+	flags_str = _sys_open_flag_str(flags)
+	@_SYSCALL_OPEN_ARGSTR
+}
+
+probe nd_syscall.open.return = nd1_syscall.open.return!, nd2_syscall.open.return!, tp_syscall.open.return
+  { }
+
+probe nd1_syscall.open.return = kprobe.function("compat_sys_open").return ?,
                                kprobe.function("sys32_open").return ?,
                                kprobe.function("sys_open").return ?
 {
 	@__syscall_compat_gate(@const("__NR_open"), @const("__NR_compat_open"))
 	@_SYSCALL_OPEN_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.open.return = kprobe.function("__*_sys_open").return /* _x64_ etc. */
+{
+	@_SYSCALL_OPEN_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+
+/* kernel 3.5+, but undesirable because of it affects all syscalls */
+probe tp_syscall.open.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_open"), @const("__NR_compat_open"))
+	@_SYSCALL_OPEN_NAME
+	retstr = return_str(1,$ret)
 }

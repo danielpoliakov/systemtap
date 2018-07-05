@@ -11,6 +11,11 @@
 	argstr = sprint(fd)
 %)
 
+@define _SYSCALL_CLOSE_REGARGS
+%(
+	fd = int_arg(1)
+%)
+
 probe syscall.close = dw_syscall.close !, nd_syscall.close ? {}
 probe syscall.close.return = dw_syscall.close.return !, nd_syscall.close.return ? {}
 
@@ -32,17 +37,59 @@ probe dw_syscall.close.return = kernel.function("sys_close").return
 
 # nd_close _____________________________________________________
 
-probe nd_syscall.close = kprobe.function("sys_close") ?
+probe nd_syscall.close = nd1_syscall.close!, nd2_syscall.close!, tp_syscall.close
+  { }
+
+probe nd1_syscall.close = kprobe.function("sys_close") ?
 {
 	@__syscall_compat_gate(@const("__NR_close"), @const("__NR_compat_close"))
 	@_SYSCALL_CLOSE_NAME
 	asmlinkage()
-	fd = int_arg(1)
+	@_SYSCALL_CLOSE_REGARGS
 	@_SYSCALL_CLOSE_ARGSTR
 }
-probe nd_syscall.close.return = kprobe.function("sys_close").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.close = kprobe.function("__*_sys_close") /* _x64_ etc. */
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_CLOSE_NAME
+	@_SYSCALL_CLOSE_REGARGS
+	@_SYSCALL_CLOSE_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.close = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_close"), @const("__NR_compat_close"))
+	@_SYSCALL_CLOSE_NAME
+	@_SYSCALL_CLOSE_REGARGS
+	@_SYSCALL_CLOSE_ARGSTR
+}
+
+probe nd_syscall.close.return = nd1_syscall.close.return!, nd2_syscall.close.return!, tp_syscall.close.return
+  { }
+
+probe nd1_syscall.close.return = kprobe.function("sys_close").return ?
 {
 	@__syscall_compat_gate(@const("__NR_close"), @const("__NR_compat_close"))
 	@_SYSCALL_CLOSE_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.close.return = kprobe.function("__*_sys_close").return /* _x64_ etc. */
+{
+	@_SYSCALL_CLOSE_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.close.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_close"), @const("__NR_compat_close"))
+	@_SYSCALL_CLOSE_NAME
+	retstr = return_str(1,$ret)
 }

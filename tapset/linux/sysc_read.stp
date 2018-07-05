@@ -91,6 +91,7 @@ probe __nd1_syscall.read = kprobe.function("sys_read")
 }
 
   
+/* kernel 4.17+ */
 probe nd2_syscall.read = kprobe.function("__*_sys_read") /* _x64_ etc. */
 {
         __set_syscall_pt_regs(pointer_arg(1))
@@ -99,11 +100,15 @@ probe nd2_syscall.read = kprobe.function("__*_sys_read") /* _x64_ etc. */
 	@_SYSCALL_READ_ARGSTR
 }
 
-/* kernel 3.5+, but undesirable because of it affects all syscalls */
+/* kernel 3.5+, but undesirable because it affects all syscalls */
 probe tp_syscall.read = kernel.trace("sys_enter")
 {
         __set_syscall_pt_regs($regs)
+%( arch == "x86_64" %?
+	@__syscall_compat_gate(@const("__NR_read"), @const("__NR_ia32_read"))
+%:
 	@__syscall_gate(@const("__NR_read"))
+%)
 	@_SYSCALL_READ_NAME
 	@_SYSCALL_READ_REGARGS
 	@_SYSCALL_READ_ARGSTR
@@ -143,11 +148,15 @@ probe nd2_syscall.read.return = kprobe.function("__*_sys_read").return /* _x64_ 
 }
 
   
-  /* kernel 3.5+, but undesirable because of it affects all syscalls */
+/* kernel 3.5+, but undesirable because it affects all syscalls */
 probe tp_syscall.read.return = kernel.trace("sys_exit")
 {
         __set_syscall_pt_regs($regs)
+%( arch == "x86_64" %?
+	@__syscall_compat_gate(@const("__NR_read"), @const("__NR_ia32_read"))
+%:
 	@__syscall_gate(@const("__NR_read"))
+%)
 	@_SYSCALL_READ_NAME
         retstr = return_str(1,$ret)
 }

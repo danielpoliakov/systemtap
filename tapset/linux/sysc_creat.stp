@@ -11,6 +11,12 @@
 	argstr = sprintf("%s, %#o", pathname, mode)
 %)
 
+@define _SYSCALL_CREAT_REGARGS
+%(
+	pathname = user_string_quoted(pointer_arg(1))
+	mode = uint_arg(2)
+%)
+
 probe syscall.creat = dw_syscall.creat !, nd_syscall.creat ? {}
 probe syscall.creat.return = dw_syscall.creat.return !, nd_syscall.creat.return ? {}
 
@@ -31,16 +37,64 @@ probe dw_syscall.creat.return = kernel.function("sys_creat").return ?
 
 # nd_creat _____________________________________________________
 
-probe nd_syscall.creat = kprobe.function("sys_creat") ?
+probe nd_syscall.creat = nd1_syscall.creat!, nd2_syscall.creat!, tp_syscall.creat
+  { }
+
+probe nd1_syscall.creat = kprobe.function("sys_creat") ?
 {
 	@_SYSCALL_CREAT_NAME
 	asmlinkage()
-	mode = uint_arg(2)
-	pathname = user_string_quoted(pointer_arg(1))
+	@_SYSCALL_CREAT_REGARGS
 	@_SYSCALL_CREAT_ARGSTR
 }
-probe nd_syscall.creat.return = kprobe.function("sys_creat").return ?
+
+probe nd2_syscall.creat = kprobe.function("__*_sys_creat") /* _x64_ etc. */
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+        @_SYSCALL_CREAT_NAME
+        @_SYSCALL_CREAT_REGARGS
+        @_SYSCALL_CREAT_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because of it affects all syscalls */
+probe tp_syscall.creat = kernel.trace("sys_enter")
+{
+        __set_syscall_pt_regs($regs)
+%( arch == "x86_64" %?
+	@__syscall_compat_gate(@const("__NR_creat"), @const("__NR_ia32_creat"))
+%:
+	@__syscall_gate(@const("__NR_creat"))
+%)
+        @_SYSCALL_CREAT_NAME
+        @_SYSCALL_CREAT_REGARGS
+        @_SYSCALL_CREAT_ARGSTR
+}
+
+probe nd_syscall.creat.return = nd1_syscall.creat.return!, nd2_syscall.creat.return!, tp_syscall.creat.return
+  { }
+
+probe nd1_syscall.creat.return = kprobe.function("sys_creat").return ?
 {
 	@_SYSCALL_CREAT_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.creat.return = kprobe.function("__*_sys_creat").return /* _x64_ etc. */
+{
+	@_SYSCALL_CREAT_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+
+  /* kernel 3.5+, but undesirable because of it affects all syscalls */
+probe tp_syscall.creat.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+%( arch == "x86_64" %?
+	@__syscall_compat_gate(@const("__NR_creat"), @const("__NR_ia32_creat"))
+%:
+	@__syscall_gate(@const("__NR_creat"))
+%)
+	@_SYSCALL_CREAT_NAME
+	retstr = return_str(1,$ret)
 }

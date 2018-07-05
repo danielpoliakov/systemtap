@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -17,6 +18,13 @@
 #define GLIBC_SUPPORT \
   (_XOPEN_SOURCE >= 700 || _POSIX_C_SOURCE >= 200809L \
    || defined(_ATFILE_SOURCE))
+
+#if GLIBC_SUPPORT
+static inline int __open(const char* pathname, int flags, mode_t mode)
+{
+  return syscall(SYS_open, pathname, flags, mode);
+}
+#endif
 
 int main()
 {
@@ -169,6 +177,30 @@ int main()
 
   close(-1);
   //staptest// close (-1) = -NNNN (EBADF)
+
+// Note glibc's wrapper function for open() calls openat() so we need to run some extra
+// tests using our own wrapper to make sure open() works.
+#if GLIBC_SUPPORT
+  fd1 = __open("foobar2", O_WRONLY|O_CREAT, S_IRWXU);
+  //staptest// open ("foobar2", O_WRONLY|O_CREAT[[[[.O_LARGEFILE]]]]?, 0700) = NNNN
+  close(fd1);
+  //staptest// close (NNNN) = 0
+
+  __open((char *)-1, O_WRONLY|O_CREAT|O_EXCL, S_IRWXU);
+#ifdef __s390__
+  //staptest// open (0x[7]?[f]+, O_WRONLY|O_CREAT|O_EXCL[[[[.O_LARGEFILE]]]]?, 0700) =
+#else
+  //staptest// open (0x[f]+, O_WRONLY|O_CREAT|O_EXCL[[[[.O_LARGEFILE]]]]?, 0700) =
+#endif
+
+  __open("foobarX", -1, S_IRWXU);
+  //staptest// open ("foobarX", O_[^ ]+|XXXX, 0700) =
+
+  fd1 = __open("foobarY", O_WRONLY|O_CREAT, -1);
+  //staptest// open ("foobarY", O_WRONLY|O_CREAT[[[[|O_LARGEFILE]]]]?, 037777777777) = NNNN
+  close(fd1);
+  //staptest// close (NNNN) = 0
+#endif
 
   return 0;
 }
