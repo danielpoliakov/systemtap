@@ -2177,6 +2177,7 @@ output_stapbpf_script_name(BPF_Output &eo, const std::string script_name)
   script_name.copy(script_name_buf, script_name_len);
   script_name_buf[script_name_len] = '\0';
   data->d_size = script_name_len + 1;
+  so->free_data = true;
   so->shdr->sh_type = SHT_PROGBITS;
 }
 
