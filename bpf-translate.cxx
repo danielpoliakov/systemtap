@@ -1799,7 +1799,8 @@ bpf_unparser::visit_print_format (print_format *e)
   if (e->hist)
     throw SEMANTIC_ERROR (_("unhandled histogram print"), e->tok);
 
-  print_format_add_tag(e);
+  if (e->print_to_stream)
+    print_format_add_tag(e);
 
   // ??? Traditional stap allows max 32 args; trace_printk allows only 3.
   // ??? Could split the print into multiple calls, such that each is
@@ -1918,7 +1919,13 @@ bpf_unparser::visit_print_format (print_format *e)
   for (i = 0; i < nargs; ++i)
     emit_mov(this_prog.lookup_reg(BPF_REG_3 + i), actual[i]);
 
-  this_prog.mk_call(this_ins, BPF_FUNC_trace_printk, nargs + 2);
+  if (e->print_to_stream)
+    this_prog.mk_call(this_ins, BPF_FUNC_trace_printk, nargs + 2);
+  else
+    {
+      this_prog.mk_call(this_ins, BPF_FUNC_sprintf, nargs + 2);
+      result = this_prog.lookup_reg(BPF_REG_0);
+    }
 }
 
 // } // anon namespace

@@ -93,7 +93,8 @@ proc stapbpf_run { TEST_NAME OUTPUT_STR args } {
 proc get_output_str { test } {
     global res
     switch $test {
-        printf.stp {set res [string repeat "abcd123456" 3] }
+        printf.stp { set res [string repeat "abcd123456" 3] }
+        sprintf.stp { set res [string repeat "0123456789" 2] }
         default { set res "" }
     }
     return $res

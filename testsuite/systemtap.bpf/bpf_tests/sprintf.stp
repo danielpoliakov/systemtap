@@ -1,0 +1,16 @@
+probe begin {
+	printf("BEGIN\n")
+	for (i = 0; i < 10; i++) {
+	  x = sprintf("%d", i)
+	  printf("%s", x)
+	}
+	exit()
+}
+
+probe end {
+	for (i = 0; i < 10; i++) {
+	  x = sprintf("%d", i)
+	  printf("%s", x)
+	}
+	printf("END\n")
+}

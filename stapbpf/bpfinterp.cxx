@@ -144,6 +144,22 @@ empty:
 }
 
 uint64_t
+bpf_sprintf(std::vector<std::string> &strings, char *fstr,
+            uint64_t arg1, uint64_t arg2, uint64_t arg3)
+{
+  char s[256];
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+  sprintf(s, fstr, arg1, arg2, arg3);
+#pragma GCC diagnostic pop
+  strings.push_back(std::string(s));
+
+  // Elements of "strings" should not be mutated to avoid
+  // invalidating c_str() pointers.
+  return reinterpret_cast<uint64_t>(strings.back().c_str());
+}
+
+uint64_t
 bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
               std::vector<int> &map_fds, FILE *output_f)
 {
@@ -151,6 +167,7 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
   uint64_t regs[MAX_BPF_REG];
   uint64_t lookup_tmp = 0xdeadbeef;
   const struct bpf_insn *i = insns;
+  std::vector<std::string> strings;
   map_keys keys[map_fds.size()];
 
   regs[BPF_REG_10] = (uintptr_t)stack + sizeof(stack);
@@ -364,6 +381,10 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
               fflush(output_f);
 #pragma GCC diagnostic pop
 	      break;
+            case bpf::BPF_FUNC_sprintf:
+              dr = bpf_sprintf(strings, as_str(regs[1]),
+                               regs[3], regs[4], regs[5]);
+              break;
             case bpf::BPF_FUNC_map_get_next_key:
               dr = map_get_next_key(regs[1], regs[2], regs[3], regs[4],
                                     regs[5],  map_fds, keys[regs[1]]);

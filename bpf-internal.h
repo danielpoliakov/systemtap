@@ -87,10 +87,11 @@ unsigned bpf_function_nargs (unsigned id);
 
 const opcode BPF_LD_MAP = BPF_LD | BPF_IMM | BPF_DW | (BPF_PSEUDO_MAP_FD << 8);
 
-// Not actually a BPF helper, but treating it like one simplifies
-// some of the interpreter logic. We give it an ID that won't conflict
-// with IDs of real BPF helpers.
-const bpf_func_id BPF_FUNC_map_get_next_key = __BPF_FUNC_MAX_ID;
+// Not actual BPF helpers, but treating them like one simplifies some of the
+// interpreter logic. We give them IDs that shouldn't conflict with IDs of
+// real BPF helpers.
+const bpf_func_id BPF_FUNC_map_get_next_key    = (bpf_func_id) -1;
+const bpf_func_id BPF_FUNC_sprintf             = (bpf_func_id) -2;
 
 
 struct insn
