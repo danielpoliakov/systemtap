@@ -50,7 +50,7 @@ probe nd1_syscall.close = kprobe.function("sys_close") ?
 }
 
 /* kernel 4.17+ */
-probe nd2_syscall.close = kprobe.function("__*_sys_close") /* _x64_ etc. */
+probe nd2_syscall.close = kprobe.function(@arch_syscall_prefix "sys_close") ?
 {
 	__set_syscall_pt_regs(pointer_arg(1))
 	@_SYSCALL_CLOSE_NAME
@@ -79,7 +79,7 @@ probe nd1_syscall.close.return = kprobe.function("sys_close").return ?
 }
 
 /* kernel 4.17+ */
-probe nd2_syscall.close.return = kprobe.function("__*_sys_close").return /* _x64_ etc. */
+probe nd2_syscall.close.return = kprobe.function(@arch_syscall_prefix "sys_close").return ?
 {
 	@_SYSCALL_CLOSE_NAME
 	retstr = returnstr(1) /* NB: not in the $regs */

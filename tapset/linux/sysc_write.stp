@@ -93,7 +93,7 @@ probe __nd1_syscall.write = kprobe.function("sys_write")
 }
 
 /* kernel 4.17+ */
-probe nd2_syscall.write = kprobe.function("__*_sys_write") /* _x64_ etc. */
+probe nd2_syscall.write = kprobe.function(@arch_syscall_prefix "sys_write")
 {
 	__set_syscall_pt_regs(pointer_arg(1))
 	@_SYSCALL_WRITE_NAME
@@ -139,7 +139,7 @@ probe __nd1_syscall.write.return = kprobe.function("sys_write").return
 }
 
 /* kernel 4.17+ */
-probe nd2_syscall.write.return = kprobe.function("__*_sys_write").return /* _x64_ etc. */
+probe nd2_syscall.write.return = kprobe.function(@arch_syscall_prefix "sys_write").return
 {
 	@_SYSCALL_WRITE_NAME
 	retstr = returnstr(1) /* NB: not in the $regs */

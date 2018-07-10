@@ -120,6 +120,7 @@ int regexp_match (const std::string& value, const std::string& re, std::vector<s
 bool contains_glob_chars (const std::string &str);
 std::string escape_glob_chars (const std::string& str);
 std::string unescape_glob_chars (const std::string& str);
+std::string csh_to_ksh (const std::string& csh);
 bool identifier_string_needs_escape (const std::string& str);
 std::string escaped_identifier_string (const std::string& str);
 std::string escaped_character (unsigned c);

@@ -66,7 +66,8 @@ probe nd1_syscall.openat = kprobe.function("compat_sys_openat") ?,
 }
 
 /* kernel 4.17+ */
-probe nd2_syscall.openat = kprobe.function("__*_sys_openat") /* _x64_ etc. */
+probe nd2_syscall.openat = kprobe.function(@arch_syscall_prefix "compat_sys_openat") ?,
+                           kprobe.function(@arch_syscall_prefix "sys_openat") ?
 {
 	__set_syscall_pt_regs(pointer_arg(1))
 	@_SYSCALL_OPENAT_NAME
@@ -103,7 +104,8 @@ probe nd1_syscall.openat.return = kprobe.function("compat_sys_openat").return ?,
 }
 
 /* kernel 4.17+ */
-probe nd2_syscall.openat.return = kprobe.function("__*_sys_openat").return /* _x64_ etc. */
+probe nd2_syscall.openat.return = kprobe.function(@arch_syscall_prefix "compat_sys_openat").return ?,
+                                  kprobe.function(@arch_syscall_prefix "sys_openat").return ?
 {
 	@_SYSCALL_OPENAT_NAME
 	retstr = returnstr(1) /* NB: not in the $regs */

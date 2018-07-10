@@ -68,7 +68,6 @@ probe __syscall.read.return = kernel.function("sys_read").return
 probe nd_syscall.read = nd1_syscall.read!, nd2_syscall.read!, tp_syscall.read
   { }
 
-
 probe nd1_syscall.read =  
 %( arch == "s390" %?
 	__nd1_syscall.read, kprobe.function("sys32_read") ?,
@@ -90,9 +89,8 @@ probe __nd1_syscall.read = kprobe.function("sys_read")
 %)
 }
 
-  
 /* kernel 4.17+ */
-probe nd2_syscall.read = kprobe.function("__*_sys_read") /* _x64_ etc. */
+probe nd2_syscall.read = kprobe.function(@arch_syscall_prefix "sys_read")
 {
         __set_syscall_pt_regs(pointer_arg(1))
 	@_SYSCALL_READ_NAME
@@ -114,12 +112,8 @@ probe tp_syscall.read = kernel.trace("sys_enter")
 	@_SYSCALL_READ_ARGSTR
 }
 
-  
-
 probe nd_syscall.read.return = nd1_syscall.read.return!, nd2_syscall.read.return!, tp_syscall.read.return
   { }
-
-
   
 probe nd1_syscall.read.return =
 %( arch == "s390" %?
@@ -139,15 +133,13 @@ probe __nd1_syscall.read.return = kprobe.function("sys_read").return
 %)
 }
 
-
 /* kernel 4.17+ */
-probe nd2_syscall.read.return = kprobe.function("__*_sys_read").return /* _x64_ etc. */
+probe nd2_syscall.read.return = kprobe.function(@arch_syscall_prefix "sys_read").return
 {
 	@_SYSCALL_READ_NAME
 	retstr = returnstr(1) /* NB: not in the $regs */
 }
-
-  
+ 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
 probe tp_syscall.read.return = kernel.trace("sys_exit")
 {

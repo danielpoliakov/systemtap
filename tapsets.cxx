@@ -10190,19 +10190,19 @@ kprobe_builder::build(systemtap_session & sess,
           vector<interned_string> matches;
 
           // Simple names can be found directly
-          if (function_string_val.find_first_of("*?[") == string::npos)
+          if (function_string_val.find_first_of("*?[{") == string::npos)
             {
               if (sess.kernel_functions.count(function_string_val))
                 matches.push_back(function_string_val);
             }
           else // Search function name list for matching names
             {
-              const string& val = function_string_val;
+              const string& val = csh_to_ksh(function_string_val);
               for (auto it = sess.kernel_functions.cbegin();
                    it != sess.kernel_functions.cend(); it++)
                 {
                   // fnmatch returns zero for matching.
-                  if (fnmatch(val.c_str(), it->to_string().c_str(), 0) == 0)
+                  if (fnmatch(val.c_str(), it->to_string().c_str(), FNM_EXTMATCH) == 0)
                     matches.push_back(*it);
                 }
             }

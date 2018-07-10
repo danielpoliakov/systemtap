@@ -1147,6 +1147,26 @@ string unescape_glob_chars (const string& str)
   return op;
 }
 
+// PR23391, this is still incomplete but enough is
+// complete to handle "__{ia32,x64}_sys_$syscall"
+// functions.
+string csh_to_ksh (const string& csh)
+{
+  string ksh;
+  for (unsigned i=0; i<csh.size(); i++)
+    {
+      if (csh[i] == '{')
+        ksh += "@(";
+      else if (csh[i] == '}')
+        ksh += ')';
+      else if (csh[i] == ',')
+        ksh += '|';
+      else
+        ksh += csh[i];
+    }
+  return ksh;
+}
+
 bool identifier_string_needs_escape (const string& str)
 {
   for (unsigned i = 0; i < str.size (); i++)
