@@ -14,7 +14,7 @@ probe begin {
   @test_print
 }
 
-probe kernel.function("sys_read") {
+probe kernel.function("vfs_read") {
   y = 1; z = 3
   @test_print
   exit()

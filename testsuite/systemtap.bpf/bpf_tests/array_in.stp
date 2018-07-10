@@ -7,7 +7,7 @@ probe begin {
 	printf("BEGIN\n")
 }
 
-probe kernel.function("sys_read") {
+probe kernel.function("vfs_read") {
 	res = res && 3 in arr && 5 in arr && !(9 in arr) && !(25 in arr)
         exit()
 }

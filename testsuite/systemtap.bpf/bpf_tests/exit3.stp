@@ -3,7 +3,7 @@ probe begin {
 	printf("BEGIN\n")
 }
 
-probe kernel.function("sys_read") {
+probe kernel.function("vfs_read") {
 	count++
 	exit()
 }

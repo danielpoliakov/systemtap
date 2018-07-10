@@ -4,7 +4,7 @@ probe begin {
 	printf("BEGIN\n")
 }
 
-probe kernel.function("sys_read") {
+probe kernel.function("vfs_read") {
 	count++
         arr[0] = arr[1]++
 	arr[2] = ++arr[3]
