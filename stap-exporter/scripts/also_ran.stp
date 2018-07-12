@@ -1,0 +1,31 @@
+#! /usr/bin/env stap
+# Copyright (C) 2018 Red Hat, Inc.
+# Written by William Cohen <wcohen@redhat.com>
+#
+# also_ran.stp provides a tally of the executables and
+# shared libraries used on the system formatted for
+# consumption by prometheus.
+# The data is read from /proc/systemtap/*/also_ran.stp
+#
+# Run the script with:
+#   stap also_ran.stp
+#
+# control-c to exit data collection
+
+global arr
+
+# count processes starting up
+probe kprocess.exec {
+    arr[filename]++
+}
+
+# count shared libraries opened via dlopen operations
+probe process("/usr/lib*/ld-*.so").function("_dl_map_object_from_fd")?
+{
+    # get 5th argument (char* realname) from the function
+    arr[user_string(pointer_arg(5))]++
+}
+
+probe prometheus {
+    @prometheus_dump_array1(arr, "count", "path")
+}
