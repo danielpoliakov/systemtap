@@ -1,6 +1,6 @@
 global arr
 
-probe kprobe.function("sys_read") {
+probe kprobe.function(@arch_syscall_prefix "sys_read") {
     arr[tid(), cpu()]++
 }
 
