@@ -3,8 +3,8 @@
 # Written by William Cohen <wcohen@redhat.com>
 #
 # cpu_throttle.stp provides total milliseconds each Intel x86
-# processor performance is restriced due to power or thermal
-# constrainsts formated for consumption by prometheus.
+# processor performance is restricted due to power or thermal
+# constraints formatted for consumption by prometheus.
 # The data is read from /proc/systemtap/*/cpu_throttle.stp
 #
 # Run the script with:
