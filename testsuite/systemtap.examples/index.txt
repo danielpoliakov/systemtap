@@ -2,7 +2,7 @@ SYSTEMTAP EXAMPLES INDEX
 (see also keyword-index.txt)
 
 
-For systemtap version 3.3.
+For systemtap version 4.0.
 
 general/alias_suffixes.stp - Count I/O Syscalls using Alias Suffixes
 keywords: io statistics
@@ -16,6 +16,18 @@ keywords: io statistics
   the distributions of times.
 
   # stap alias_suffixes.stp -T 1
+
+
+general/also_ran.stp - Keep a tally of executables run on the system
+keywords: prometheus
+
+  The also_ran.stp script tallies each time a executable is started or
+  a shared library is loaded for execution.  This information can be
+  useful to determine what software is actually being used on the
+  system.  The script makes the information available via procfs in
+  Prometheus readable format.
+
+  # stap also_ran.stp -T 1
 
 
 general/ansi_colors.stp - Color Table for ansi_set_color()
@@ -55,6 +67,19 @@ keywords: simple trace callgraph
 
   # stap callgraph.stp 'kernel.function("*@fs/proc*.c")' -c "cat \
   /proc/sys/vm/* || true"
+
+
+general/cpu_throttle.stp - Monitor Intel processors for throttling due to power or thermal limits
+keywords: prometheus limit
+
+  Intel processors have hardware mechanisms that will reduce the
+  effective processors speed to avoid exceeding set thermal or power
+  constraints. The cpu_throttle.stp script monitors when CPU throttling
+  occurs and accumulates the amount of time in milliseconds that each
+  processor is throttled.  The script makes the information available
+  via procfs in Prometheus readable format.
+
+  # stap cpu_throttle.stp -T 1
 
 
 general/eventcount.stp - Interactive Count Specified Events

@@ -38,7 +38,7 @@
            		<li><a href="keyword-index.html">By Keyword</a></li>
          	</ul>
 
-<p><em>For systemtap version 3.3.</em></p><h2>Best Examples</h2>
+<p><em>For systemtap version 4.0.</em></p><h2>Best Examples</h2>
 <ul>
 <li><a href="#general/helloworld.stp">general/helloworld.stp - SystemTap "Hello World" Program</a></li>
 <li><a href="#general/para-callgraph.stp">general/para-callgraph.stp - Callgraph Tracing with Arguments</a></li>
@@ -59,11 +59,14 @@
 <li><a href="#virtualization/kvm_service_time.stp">virtualization/kvm_service_time.stp - Time Statistics on KVM Exit Reasons</a></li>
 </ul>
 
-<h2>All 170 Examples</h2>
+<h2>All 172 Examples</h2>
 <ul>
 <li><a name="general/alias_suffixes.stp"></a><a href="#general/alias_suffixes.stp">&para;</a> <a href="general/alias_suffixes.stp">general/alias_suffixes.stp</a> - Count I/O Syscalls using Alias Suffixes<br>
 keywords: <a href="keyword-index.html#IO">IO</a> <a href="keyword-index.html#STATISTICS">STATISTICS</a> <br>
 <p>alias_suffixes.stp is a demonstration of how alias suffixes in the systemtap language might be used. The script tracks the wall clock time for each invocation of the system calls open, close, read, and write. When the script exists it prints out the minimum, average, and maximum times in microseconds for each system call, followed by a count of times that each syscall was invoked and a histogram showing the distributions of times.</p><p><font size="-2"><pre># stap alias_suffixes.stp -T 1</pre></font></p>
+</li><li><a name="general/also_ran.stp"></a><a href="#general/also_ran.stp">&para;</a> <a href="general/also_ran.stp">general/also_ran.stp</a> - Keep a tally of executables run on the system<br>
+keywords: <a href="keyword-index.html#PROMETHEUS">PROMETHEUS</a> <br>
+<p>The also_ran.stp script tallies each time a executable is started or a shared library is loaded for execution.  This information can be useful to determine what software is actually being used on the system.  The script makes the information available via procfs in Prometheus readable format.</p><p><font size="-2"><pre># stap also_ran.stp -T 1</pre></font></p>
 </li><li><a name="general/ansi_colors.stp"></a><a href="#general/ansi_colors.stp">&para;</a> <a href="general/ansi_colors.stp">general/ansi_colors.stp</a> - Color Table for ansi_set_color()<br>
 keywords: <a href="keyword-index.html#FORMAT">FORMAT</a> <br>
 <p>The script prints a table showing the available color combinations for the ansi_set_color() function in the ansi.stp tapset.</p><p><font size="-2"><pre># stap ansi_colors.stp</pre></font></p>
@@ -76,6 +79,9 @@ keywords: <a href="keyword-index.html#FILESYSTEM">FILESYSTEM</a> <a href="keywor
 </li><li><a name="general/callgraph.stp"></a><a href="#general/callgraph.stp">&para;</a> <a href="general/callgraph.stp">general/callgraph.stp</a> - Callgraph Tracing<br>
 keywords: <a href="keyword-index.html#SIMPLE">SIMPLE</a> <a href="keyword-index.html#TRACE">TRACE</a> <a href="keyword-index.html#CALLGRAPH">CALLGRAPH</a> <br>
 <p>Print a timed per-thread microsecond-timed nested callgraph.  The first parameter names the function probe points to trace.</p><p><i><a href="general/callgraph.txt">sample usage in general/callgraph.txt</i></font></p>
+</li><li><a name="general/cpu_throttle.stp"></a><a href="#general/cpu_throttle.stp">&para;</a> <a href="general/cpu_throttle.stp">general/cpu_throttle.stp</a> - Monitor Intel processors for throttling due to power or thermal limits<br>
+keywords: <a href="keyword-index.html#PROMETHEUS">PROMETHEUS</a> <a href="keyword-index.html#LIMIT">LIMIT</a> <br>
+<p>Intel processors have hardware mechanisms that will reduce the effective processors speed to avoid exceeding set thermal or power constraints. The cpu_throttle.stp script monitors when CPU throttling occurs and accumulates the amount of time in milliseconds that each processor is throttled.  The script makes the information available via procfs in Prometheus readable format.</p><p><font size="-2"><pre># stap cpu_throttle.stp -T 1</pre></font></p>
 </li><li><a name="general/eventcount.stp"></a><a href="#general/eventcount.stp">&para;</a> <a href="general/eventcount.stp">general/eventcount.stp</a> - Interactive Count Specified Events<br>
 keywords: <a href="keyword-index.html#INTERACTIVE">INTERACTIVE</a> <a href="keyword-index.html#STATISTICS">STATISTICS</a> <a href="keyword-index.html#THREAD">THREAD</a> <a href="keyword-index.html#PROCESS">PROCESS</a> <br>
 <p>The script periodically prints a count of specified events and their related tid&#39;s over the course of execution. Numerous configuration options exist to control filtering / reporting, some of which can be modified at runtime. See the script source for more information.</p><p><i><a href="general/eventcount.txt">sample usage in general/eventcount.txt</i></font></p>

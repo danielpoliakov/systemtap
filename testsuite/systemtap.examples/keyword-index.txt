@@ -2,7 +2,7 @@ SYSTEMTAP EXAMPLES INDEX BY KEYWORD
 (see also index.txt)
 
 
-For systemtap version 3.3.
+For systemtap version 4.0.
 
 = _BEST =
 
@@ -1201,6 +1201,21 @@ keywords: virtualization qemu kvm io
   times each IO port read and written.
 
   # stap qemu_io.stp -T 1
+
+
+= LIMIT =
+
+general/cpu_throttle.stp - Monitor Intel processors for throttling due to power or thermal limits
+keywords: prometheus limit
+
+  Intel processors have hardware mechanisms that will reduce the
+  effective processors speed to avoid exceeding set thermal or power
+  constraints. The cpu_throttle.stp script monitors when CPU throttling
+  occurs and accumulates the amount of time in milliseconds that each
+  processor is throttled.  The script makes the information available
+  via procfs in Prometheus readable format.
+
+  # stap cpu_throttle.stp -T 1
 
 
 = LIMITS =
@@ -2473,6 +2488,33 @@ keywords: profiling
   frequent.
 
   # stap topsys.stp -T 1
+
+
+= PROMETHEUS =
+
+general/also_ran.stp - Keep a tally of executables run on the system
+keywords: prometheus
+
+  The also_ran.stp script tallies each time a executable is started or
+  a shared library is loaded for execution.  This information can be
+  useful to determine what software is actually being used on the
+  system.  The script makes the information available via procfs in
+  Prometheus readable format.
+
+  # stap also_ran.stp -T 1
+
+
+general/cpu_throttle.stp - Monitor Intel processors for throttling due to power or thermal limits
+keywords: prometheus limit
+
+  Intel processors have hardware mechanisms that will reduce the
+  effective processors speed to avoid exceeding set thermal or power
+  constraints. The cpu_throttle.stp script monitors when CPU throttling
+  occurs and accumulates the amount of time in milliseconds that each
+  processor is throttled.  The script makes the information available
+  via procfs in Prometheus readable format.
+
+  # stap cpu_throttle.stp -T 1
 
 
 = QEMU =

@@ -38,8 +38,8 @@
            		<li><a href="keyword-index.html">By Keyword</a></li>
          	</ul>
 
-<p><em>For systemtap version 3.3.</em></p><h2>Examples by Keyword</h2>
-<p><tt><a href="#_BEST">_BEST(17)</a> <a href="#BACKTRACE">BACKTRACE(8)</a> <a href="#CALLGRAPH">CALLGRAPH(3)</a> <a href="#CONTAINER">CONTAINER(1)</a> <a href="#DIAGRAM">DIAGRAM(1)</a> <a href="#DISK">DISK(5)</a> <a href="#FILE">FILE(2)</a> <a href="#FILESYSTEM">FILESYSTEM(4)</a> <a href="#FORMAT">FORMAT(2)</a> <a href="#FUNCTION">FUNCTION(4)</a> <a href="#FUTEX">FUTEX(2)</a> <a href="#GURU">GURU(18)</a> <a href="#INTERACTIVE">INTERACTIVE(2)</a> <a href="#INTERRUPT">INTERRUPT(3)</a> <a href="#IO">IO(30)</a> <a href="#JSON">JSON(2)</a> <a href="#KVM">KVM(3)</a> <a href="#LIMITS">LIMITS(2)</a> <a href="#LOCKING">LOCKING(6)</a> <a href="#MEMORY">MEMORY(19)</a> <a href="#MONITORING">MONITORING(8)</a> <a href="#NANOSLEEP">NANOSLEEP(1)</a> <a href="#NETWORK">NETWORK(21)</a> <a href="#NFS">NFS(5)</a> <a href="#NUMA">NUMA(1)</a> <a href="#PACKETS">PACKETS(1)</a> <a href="#PROCESS">PROCESS(24)</a> <a href="#PROFILING">PROFILING(21)</a> <a href="#QEMU">QEMU(2)</a> <a href="#REGEX">REGEX(1)</a> <a href="#RETRANSMISSION">RETRANSMISSION(1)</a> <a href="#SCHEDULER">SCHEDULER(9)</a> <a href="#SCSI">SCSI(1)</a> <a href="#SECURITY">SECURITY(12)</a> <a href="#SIGNALS">SIGNALS(5)</a> <a href="#SIMPLE">SIMPLE(10)</a> <a href="#SOCKET">SOCKET(8)</a> <a href="#SPECULATION">SPECULATION(1)</a> <a href="#STAPGAMES">STAPGAMES(5)</a> <a href="#STATISTICS">STATISTICS(10)</a> <a href="#SYSCALL">SYSCALL(14)</a> <a href="#TCP">TCP(4)</a> <a href="#THREAD">THREAD(2)</a> <a href="#TIME">TIME(4)</a> <a href="#TRACE">TRACE(7)</a> <a href="#TRACEPOINT">TRACEPOINT(5)</a> <a href="#TRAFFIC">TRAFFIC(8)</a> <a href="#TTY">TTY(1)</a> <a href="#VIRTUALIZATION">VIRTUALIZATION(3)</a> <a href="#WATCHDOG">WATCHDOG(1)</a> <a href="#WATCHPOINT">WATCHPOINT(2)</a> </tt></p>
+<p><em>For systemtap version 4.0.</em></p><h2>Examples by Keyword</h2>
+<p><tt><a href="#_BEST">_BEST(17)</a> <a href="#BACKTRACE">BACKTRACE(8)</a> <a href="#CALLGRAPH">CALLGRAPH(3)</a> <a href="#CONTAINER">CONTAINER(1)</a> <a href="#DIAGRAM">DIAGRAM(1)</a> <a href="#DISK">DISK(5)</a> <a href="#FILE">FILE(2)</a> <a href="#FILESYSTEM">FILESYSTEM(4)</a> <a href="#FORMAT">FORMAT(2)</a> <a href="#FUNCTION">FUNCTION(4)</a> <a href="#FUTEX">FUTEX(2)</a> <a href="#GURU">GURU(18)</a> <a href="#INTERACTIVE">INTERACTIVE(2)</a> <a href="#INTERRUPT">INTERRUPT(3)</a> <a href="#IO">IO(30)</a> <a href="#JSON">JSON(2)</a> <a href="#KVM">KVM(3)</a> <a href="#LIMIT">LIMIT(1)</a> <a href="#LIMITS">LIMITS(2)</a> <a href="#LOCKING">LOCKING(6)</a> <a href="#MEMORY">MEMORY(19)</a> <a href="#MONITORING">MONITORING(8)</a> <a href="#NANOSLEEP">NANOSLEEP(1)</a> <a href="#NETWORK">NETWORK(21)</a> <a href="#NFS">NFS(5)</a> <a href="#NUMA">NUMA(1)</a> <a href="#PACKETS">PACKETS(1)</a> <a href="#PROCESS">PROCESS(24)</a> <a href="#PROFILING">PROFILING(21)</a> <a href="#PROMETHEUS">PROMETHEUS(2)</a> <a href="#QEMU">QEMU(2)</a> <a href="#REGEX">REGEX(1)</a> <a href="#RETRANSMISSION">RETRANSMISSION(1)</a> <a href="#SCHEDULER">SCHEDULER(9)</a> <a href="#SCSI">SCSI(1)</a> <a href="#SECURITY">SECURITY(12)</a> <a href="#SIGNALS">SIGNALS(5)</a> <a href="#SIMPLE">SIMPLE(10)</a> <a href="#SOCKET">SOCKET(8)</a> <a href="#SPECULATION">SPECULATION(1)</a> <a href="#STAPGAMES">STAPGAMES(5)</a> <a href="#STATISTICS">STATISTICS(10)</a> <a href="#SYSCALL">SYSCALL(14)</a> <a href="#TCP">TCP(4)</a> <a href="#THREAD">THREAD(2)</a> <a href="#TIME">TIME(4)</a> <a href="#TRACE">TRACE(7)</a> <a href="#TRACEPOINT">TRACEPOINT(5)</a> <a href="#TRAFFIC">TRAFFIC(8)</a> <a href="#TTY">TTY(1)</a> <a href="#VIRTUALIZATION">VIRTUALIZATION(3)</a> <a href="#WATCHDOG">WATCHDOG(1)</a> <a href="#WATCHPOINT">WATCHPOINT(2)</a> </tt></p>
 <h3><a name="_BEST"><a href="#_BEST">&para;</a> _BEST</a></h3>
 <ul>
 <li><a href="general/helloworld.stp">general/helloworld.stp</a> - SystemTap "Hello World" Program<br>
@@ -414,6 +414,12 @@ keywords: <a href="keyword-index.html#VIRTUALIZATION">VIRTUALIZATION</a> <a href
 keywords: <a href="keyword-index.html#VIRTUALIZATION">VIRTUALIZATION</a> <a href="keyword-index.html#QEMU">QEMU</a> <a href="keyword-index.html#KVM">KVM</a> <a href="keyword-index.html#IO">IO</a> <br>
 <p>The qemu_io.stp script tallies the number of times each of the IO port on the guest virtual machines is touched by a input or output operation. When the script exits, it prints a count of the number of times each IO port read and written.</p><p><font size="-2"><pre># stap qemu_io.stp -T 1</pre></font></p>
 </li></ul>
+<h3><a name="LIMIT"><a href="#LIMIT">&para;</a> LIMIT</a></h3>
+<ul>
+<li><a href="general/cpu_throttle.stp">general/cpu_throttle.stp</a> - Monitor Intel processors for throttling due to power or thermal limits<br>
+keywords: <a href="keyword-index.html#PROMETHEUS">PROMETHEUS</a> <a href="keyword-index.html#LIMIT">LIMIT</a> <br>
+<p>Intel processors have hardware mechanisms that will reduce the effective processors speed to avoid exceeding set thermal or power constraints. The cpu_throttle.stp script monitors when CPU throttling occurs and accumulates the amount of time in milliseconds that each processor is throttled.  The script makes the information available via procfs in Prometheus readable format.</p><p><font size="-2"><pre># stap cpu_throttle.stp -T 1</pre></font></p>
+</li></ul>
 <h3><a name="LIMITS"><a href="#LIMITS">&para;</a> LIMITS</a></h3>
 <ul>
 <li><a href="memory/overcommit.stp">memory/overcommit.stp</a> - Log Failed Process Memory Allocation Due to Overcommit Limits<br>
@@ -775,6 +781,15 @@ keywords: <a href="keyword-index.html#PROFILING">PROFILING</a> <br>
 </li><li><a href="profiling/topsys.stp">profiling/topsys.stp</a> - Show Processes Doing Polling Operations<br>
 keywords: <a href="keyword-index.html#PROFILING">PROFILING</a> <br>
 <p> The topsys.stp script lists out the top twenty systemcalls for the previous 5 seconds. The output is sorted from most frequent to least frequent.</p><p><font size="-2"><pre># stap topsys.stp -T 1</pre></font></p>
+</li></ul>
+<h3><a name="PROMETHEUS"><a href="#PROMETHEUS">&para;</a> PROMETHEUS</a></h3>
+<ul>
+<li><a href="general/also_ran.stp">general/also_ran.stp</a> - Keep a tally of executables run on the system<br>
+keywords: <a href="keyword-index.html#PROMETHEUS">PROMETHEUS</a> <br>
+<p>The also_ran.stp script tallies each time a executable is started or a shared library is loaded for execution.  This information can be useful to determine what software is actually being used on the system.  The script makes the information available via procfs in Prometheus readable format.</p><p><font size="-2"><pre># stap also_ran.stp -T 1</pre></font></p>
+</li><li><a href="general/cpu_throttle.stp">general/cpu_throttle.stp</a> - Monitor Intel processors for throttling due to power or thermal limits<br>
+keywords: <a href="keyword-index.html#PROMETHEUS">PROMETHEUS</a> <a href="keyword-index.html#LIMIT">LIMIT</a> <br>
+<p>Intel processors have hardware mechanisms that will reduce the effective processors speed to avoid exceeding set thermal or power constraints. The cpu_throttle.stp script monitors when CPU throttling occurs and accumulates the amount of time in milliseconds that each processor is throttled.  The script makes the information available via procfs in Prometheus readable format.</p><p><font size="-2"><pre># stap cpu_throttle.stp -T 1</pre></font></p>
 </li></ul>
 <h3><a name="QEMU"><a href="#QEMU">&para;</a> QEMU</a></h3>
 <ul>
