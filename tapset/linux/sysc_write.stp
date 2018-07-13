@@ -20,6 +20,7 @@
 	fd = int_arg(1)
 	buf_uaddr = pointer_arg(2)
 	count = ulong_arg(3)
+	buf_str = user_buffer_quoted(buf_uaddr, count, syscall_string_trunc)
 %)
 
 probe syscall.write = dw_syscall.write !, nd_syscall.write ? {}
@@ -82,7 +83,6 @@ probe nd1_syscall.write =
 	@_SYSCALL_WRITE_NAME
 	asmlinkage()
 	@_SYSCALL_WRITE_REGARGS
-	buf_str = user_buffer_quoted(buf_uaddr, count, syscall_string_trunc)
 	@_SYSCALL_WRITE_ARGSTR
 }
 probe __nd1_syscall.write = kprobe.function("sys_write")
@@ -98,7 +98,6 @@ probe nd2_syscall.write = kprobe.function(@arch_syscall_prefix "sys_write")
 	__set_syscall_pt_regs(pointer_arg(1))
 	@_SYSCALL_WRITE_NAME
 	@_SYSCALL_WRITE_REGARGS
-	buf_str = user_buffer_quoted(buf_uaddr, count, syscall_string_trunc)
 	@_SYSCALL_WRITE_ARGSTR
 }
 
@@ -106,14 +105,9 @@ probe nd2_syscall.write = kprobe.function(@arch_syscall_prefix "sys_write")
 probe tp_syscall.write = kernel.trace("sys_enter")
 {
 	__set_syscall_pt_regs($regs)
-%( arch == "x86_64" %?
-	@__syscall_compat_gate(@const("__NR_write"), @const("__NR_ia32_write"))
-%:
-	@__syscall_gate(@const("__NR_write"))
-%)
+	@__syscall_compat_gate(@const("__NR_write"), @const("__NR_compat_write"))
 	@_SYSCALL_WRITE_NAME
 	@_SYSCALL_WRITE_REGARGS
-	buf_str = user_buffer_quoted(buf_uaddr, count, syscall_string_trunc)
 	@_SYSCALL_WRITE_ARGSTR
 }
 
@@ -149,11 +143,7 @@ probe nd2_syscall.write.return = kprobe.function(@arch_syscall_prefix "sys_write
 probe tp_syscall.write.return = kernel.trace("sys_exit")
 {
 	__set_syscall_pt_regs($regs)
-%( arch == "x86_64" %?
-	@__syscall_compat_gate(@const("__NR_write"), @const("__NR_ia32_write"))
-%:
-	@__syscall_gate(@const("__NR_write"))
-%)
+	@__syscall_compat_gate(@const("__NR_write"), @const("__NR_compat_write"))
 	@_SYSCALL_WRITE_NAME
 	retstr = return_str(1,$ret)
 }

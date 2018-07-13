@@ -20,6 +20,7 @@
 %(
 	filename = user_string_quoted(pointer_arg(1))
 	flags = int_arg(2)
+	flags_str = _sys_open_flag_str(flags)
 	mode = uint_arg(3)
 %)
 
@@ -64,25 +65,23 @@ probe nd_syscall.open = nd1_syscall.open!, nd2_syscall.open!, tp_syscall.open
   { }
 
 probe nd1_syscall.open = kprobe.function("compat_sys_open") ?,
-                        kprobe.function("sys32_open") ?,
-                        kprobe.function("sys_open") ?
+                         kprobe.function("sys32_open") ?,
+                         kprobe.function("sys_open") ?
 {
 	@__syscall_compat_gate(@const("__NR_open"), @const("__NR_compat_open"))
 	@_SYSCALL_OPEN_NAME
 	asmlinkage()
 	@_SYSCALL_OPEN_REGARGS
-	flags_str = _sys_open_flag_str(flags)
 	@_SYSCALL_OPEN_ARGSTR
 }
 
 probe nd2_syscall.open = kprobe.function(@arch_syscall_prefix "compat_sys_open") ?,
-                        kprobe.function(@arch_syscall_prefix "sys32_open") ?,
-                        kprobe.function(@arch_syscall_prefix "sys_open") ?
+                         kprobe.function(@arch_syscall_prefix "sys32_open") ?,
+                         kprobe.function(@arch_syscall_prefix "sys_open") ?
 {
 	__set_syscall_pt_regs(pointer_arg(1))
 	@_SYSCALL_OPEN_NAME
 	@_SYSCALL_OPEN_REGARGS
-	flags_str = _sys_open_flag_str(flags)
 	@_SYSCALL_OPEN_ARGSTR
 }
 
@@ -93,7 +92,6 @@ probe tp_syscall.open = kernel.trace("sys_enter")
 	@__syscall_compat_gate(@const("__NR_open"), @const("__NR_compat_open"))
 	@_SYSCALL_OPEN_NAME
 	@_SYSCALL_OPEN_REGARGS
-	flags_str = _sys_open_flag_str(flags)
 	@_SYSCALL_OPEN_ARGSTR
 }
 
@@ -101,8 +99,8 @@ probe nd_syscall.open.return = nd1_syscall.open.return!, nd2_syscall.open.return
   { }
 
 probe nd1_syscall.open.return = kprobe.function("compat_sys_open").return ?,
-                               kprobe.function("sys32_open").return ?,
-                               kprobe.function("sys_open").return ?
+                                kprobe.function("sys32_open").return ?,
+                                kprobe.function("sys_open").return ?
 {
 	@__syscall_compat_gate(@const("__NR_open"), @const("__NR_compat_open"))
 	@_SYSCALL_OPEN_NAME
@@ -111,8 +109,8 @@ probe nd1_syscall.open.return = kprobe.function("compat_sys_open").return ?,
 
 /* kernel 4.17+ */
 probe nd2_syscall.open.return = kprobe.function(@arch_syscall_prefix "compat_sys_open").return ?,
-                               kprobe.function(@arch_syscall_prefix "sys32_open").return ?,
-                               kprobe.function(@arch_syscall_prefix "sys_open").return ?
+                                kprobe.function(@arch_syscall_prefix "sys32_open").return ?,
+                                kprobe.function(@arch_syscall_prefix "sys_open").return ?
 {
 	@_SYSCALL_OPEN_NAME
 	retstr = returnstr(1) /* NB: not in the $regs */

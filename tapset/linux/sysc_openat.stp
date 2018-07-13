@@ -19,8 +19,10 @@
 @define _SYSCALL_OPENAT_REGARGS
 %(
 	dfd = int_arg(1)
+	dfd_str = _dfd_str(dfd)
 	filename = user_string_quoted(pointer_arg(2))
 	flags = int_arg(3)
+	flags_str = _sys_open_flag_str(flags)
 	mode = uint_arg(4)
 %)
 
@@ -60,8 +62,6 @@ probe nd1_syscall.openat = kprobe.function("compat_sys_openat") ?,
 	@_SYSCALL_OPENAT_NAME
 	asmlinkage()
 	@_SYSCALL_OPENAT_REGARGS
-	dfd_str = _dfd_str(dfd)
-	flags_str = _sys_open_flag_str(flags)
 	@_SYSCALL_OPENAT_ARGSTR
 }
 
@@ -72,8 +72,6 @@ probe nd2_syscall.openat = kprobe.function(@arch_syscall_prefix "compat_sys_open
 	__set_syscall_pt_regs(pointer_arg(1))
 	@_SYSCALL_OPENAT_NAME
 	@_SYSCALL_OPENAT_REGARGS
-	dfd_str = _dfd_str(dfd)
-	flags_str = _sys_open_flag_str(flags)
 	@_SYSCALL_OPENAT_ARGSTR
 }
 
@@ -81,15 +79,9 @@ probe nd2_syscall.openat = kprobe.function(@arch_syscall_prefix "compat_sys_open
 probe tp_syscall.openat = kernel.trace("sys_enter")
 {
 	__set_syscall_pt_regs($regs)
-%( arch == "x86_64" %?
-	@__syscall_compat_gate(@const("__NR_openat"), @const("__NR_ia32_openat"))
-%:
-	@__syscall_gate(@const("__NR_openat"))
-%)
+	@__syscall_compat_gate(@const("__NR_openat"), @const("__NR_compat_openat"))
 	@_SYSCALL_OPENAT_NAME
 	@_SYSCALL_OPENAT_REGARGS
-	dfd_str = _dfd_str(dfd)
-	flags_str = _sys_open_flag_str(flags)
 	@_SYSCALL_OPENAT_ARGSTR
 }
 
@@ -115,11 +107,7 @@ probe nd2_syscall.openat.return = kprobe.function(@arch_syscall_prefix "compat_s
 probe tp_syscall.openat.return = kernel.trace("sys_exit")
 {
 	__set_syscall_pt_regs($regs)
-%( arch == "x86_64" %?
-	@__syscall_compat_gate(@const("__NR_openat"), @const("__NR_ia32_openat"))
-%:
-	@__syscall_gate(@const("__NR_openat"))
-%)
+	@__syscall_compat_gate(@const("__NR_openat"), @const("__NR_compat_openat"))
 	@_SYSCALL_OPENAT_NAME
 	retstr = return_str(1,$ret)
 }

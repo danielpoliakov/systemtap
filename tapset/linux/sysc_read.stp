@@ -19,7 +19,6 @@
 	count = ulong_arg(3)
 %)
 
-
 probe syscall.read = dw_syscall.read !, nd_syscall.read { }
 probe syscall.read.return = dw_syscall.read.return !, nd_syscall.read.return {}
 
@@ -101,12 +100,8 @@ probe nd2_syscall.read = kprobe.function(@arch_syscall_prefix "sys_read")
 /* kernel 3.5+, but undesirable because it affects all syscalls */
 probe tp_syscall.read = kernel.trace("sys_enter")
 {
-        __set_syscall_pt_regs($regs)
-%( arch == "x86_64" %?
-	@__syscall_compat_gate(@const("__NR_read"), @const("__NR_ia32_read"))
-%:
-	@__syscall_gate(@const("__NR_read"))
-%)
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_read"), @const("__NR_compat_read"))
 	@_SYSCALL_READ_NAME
 	@_SYSCALL_READ_REGARGS
 	@_SYSCALL_READ_ARGSTR
@@ -143,12 +138,8 @@ probe nd2_syscall.read.return = kprobe.function(@arch_syscall_prefix "sys_read")
 /* kernel 3.5+, but undesirable because it affects all syscalls */
 probe tp_syscall.read.return = kernel.trace("sys_exit")
 {
-        __set_syscall_pt_regs($regs)
-%( arch == "x86_64" %?
-	@__syscall_compat_gate(@const("__NR_read"), @const("__NR_ia32_read"))
-%:
-	@__syscall_gate(@const("__NR_read"))
-%)
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_read"), @const("__NR_compat_read"))
 	@_SYSCALL_READ_NAME
-        retstr = return_str(1,$ret)
+	retstr = return_str(1,$ret)
 }

@@ -280,6 +280,7 @@
 
 #define __NR_compat_clone		__NR_ia32_clone
 #define __NR_compat_close		__NR_ia32_close
+#define __NR_compat_creat		__NR_ia32_creat
 #define __NR_compat_dup3		__NR_ia32_dup3
 #define __NR_compat_epoll_wait		__NR_ia32_epoll_wait
 #define __NR_compat_eventfd2		__NR_ia32_eventfd2
@@ -297,8 +298,10 @@
 #define __NR_compat_msgctl		__NR_ia32_msgctl
 #define __NR_compat_nfsservctl		__NR_ia32_nfsservctl
 #define __NR_compat_open		__NR_ia32_open
+#define __NR_compat_openat		__NR_ia32_openat
 #define __NR_compat_pipe2		__NR_ia32_pipe2
 #define __NR_compat_pselect7		__NR_ia32_pselect7
+#define __NR_compat_read		__NR_ia32_read
 #define __NR_compat_readlinkat		__NR_ia32_readlinkat
 #define __NR_compat_renameat		__NR_ia32_renameat
 #define __NR_compat_renameat2		__NR_ia32_renameat2
@@ -309,6 +312,7 @@
 #define __NR_compat_truncate		__NR_ia32_truncate
 #define __NR_compat_umount2		__NR_ia32_umount2
 #define __NR_compat_wait4		__NR_ia32_wait4
+#define __NR_compat_write		__NR_ia32_write
 
 #endif	/* __x86_64__ */
 
@@ -323,6 +327,7 @@
 
 #define __NR_compat_clone		__NR_clone
 #define __NR_compat_close		__NR_close
+#define __NR_compat_creat		__NR_creat
 #define __NR_compat_dup3		__NR_dup3
 #define __NR_compat_epoll_wait		__NR_epoll_wait
 #define __NR_compat_eventfd2		__NR_eventfd2
@@ -340,8 +345,10 @@
 #define __NR_compat_msgctl		__NR_msgctl
 #define __NR_compat_nfsservctl		__NR_nfsservctl
 #define __NR_compat_open		__NR_open
+#define __NR_compat_openat		__NR_openat
 #define __NR_compat_pipe2		__NR_pipe2
 #define __NR_compat_pselect7		__NR_pselect7
+#define __NR_compat_read		__NR_read
 #define __NR_compat_readlinkat		__NR_readlinkat
 #define __NR_compat_renameat		__NR_renameat
 #define __NR_compat_renameat2		__NR_renameat2
@@ -352,6 +359,7 @@
 #define __NR_compat_truncate		__NR_truncate
 #define __NR_compat_umount2		__NR_umount2
 #define __NR_compat_wait4		__NR_wait4
+#define __NR_compat_write		__NR_write
 
 #endif	/* __powerpc64__ || __s390x__ || __aarch64__ */
 
