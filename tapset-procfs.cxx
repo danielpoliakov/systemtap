@@ -639,8 +639,8 @@ procfs_builder::build(systemtap_session & sess,
       if (p.empty())
         throw SEMANTIC_ERROR (_("Script name must be specified"));
 
-      if (p.back() == '/')
-        p.pop_back();
+      if (p.find_last_of('/') == p.length() - 1)
+        p = p.substr(0, p.length() - 1);
 
       path = p.substr(p.find_last_of('/') + 1);
     }
