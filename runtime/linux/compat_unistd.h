@@ -132,6 +132,24 @@
 
 // On older kernels (like RHEL5), we have to define our own 32-bit
 // syscall numbers.
+#ifndef __NR_ia32_access
+#define __NR_ia32_access 33
+#endif
+#ifndef __NR_ia32_acct
+#define __NR_ia32_acct 51
+#endif
+#ifndef __NR_ia32_bpf
+#define __NR_ia32_bpf 357
+#endif
+#ifndef __NR_ia32_capget
+#define __NR_ia32_capget 184
+#endif
+#ifndef __NR_ia32_capset
+#define __NR_ia32_capset 185
+#endif
+#ifndef __NR_ia32_chdir
+#define __NR_ia32_chdir 12
+#endif
 #ifndef __NR_ia32_chown32
 #define __NR_ia32_chown32 212
 #endif
@@ -155,6 +173,9 @@
 #endif
 #ifndef __NR_ia32_faccessat
 #define __NR_ia32_faccessat 307
+#endif
+#ifndef __NR_ia32_fchdir
+#define __NR_ia32_fchdir 133
 #endif
 #ifndef __NR_ia32_fchmodat
 #define __NR_ia32_fchmodat 306
@@ -185,6 +206,9 @@
 #endif
 #ifndef __NR_ia32_lchown32
 #define __NR_ia32_lchown32 198
+#endif
+#ifndef __NR_ia32_mkdir
+#define __NR_ia32_mkdir 39
 #endif
 #ifndef __NR_ia32_mkdirat
 #define __NR_ia32_mkdirat 296
@@ -226,6 +250,9 @@
 #endif
 #ifndef __NR_ia32_renameat2
 #define __NR_ia32_renameat2 353
+#endif
+#ifndef __NR_ia32_rmdir
+#define __NR_ia32_rmdif 40
 #endif
 #ifndef __NR_ia32_rt_sigprocmask
 #define __NR_ia32_rt_sigprocmask 175
@@ -278,6 +305,12 @@
 #define __NR_ia32_write 4
 #endif
 
+#define __NR_compat_access		__NR_ia32_access
+#define __NR_compat_acct		__NR_ia32_acct
+#define __NR_compat_bpf			__NR_ia32_bpf
+#define __NR_compat_capget		__NR_ia32_capget
+#define __NR_compat_capset		__NR_ia32_capset
+#define __NR_compat_chdir		__NR_ia32_chdir
 #define __NR_compat_clone		__NR_ia32_clone
 #define __NR_compat_close		__NR_ia32_close
 #define __NR_compat_creat		__NR_ia32_creat
@@ -285,6 +318,7 @@
 #define __NR_compat_epoll_wait		__NR_ia32_epoll_wait
 #define __NR_compat_eventfd2		__NR_ia32_eventfd2
 #define __NR_compat_faccessat		__NR_ia32_faccessat
+#define __NR_compat_fchdir		__NR_ia32_fchdir
 #define __NR_compat_fchmodat		__NR_ia32_fchmodat
 #define __NR_compat_fchownat		__NR_ia32_fchownat
 #define __NR_compat_ftruncate		__NR_ia32_ftruncate
@@ -293,6 +327,7 @@
 #define __NR_compat_inotify_init1	__NR_ia32_inotify_init1
 #define __NR_compat_ipc			__NR_ia32_ipc
 #define __NR_compat_linkat		__NR_ia32_linkat
+#define __NR_compat_mkdir		__NR_ia32_mkdir
 #define __NR_compat_mkdirat		__NR_ia32_mkdirat
 #define __NR_compat_mknodat		__NR_ia32_mknodat
 #define __NR_compat_msgctl		__NR_ia32_msgctl
@@ -305,6 +340,7 @@
 #define __NR_compat_readlinkat		__NR_ia32_readlinkat
 #define __NR_compat_renameat		__NR_ia32_renameat
 #define __NR_compat_renameat2		__NR_ia32_renameat2
+#define __NR_compat_rmdir		__NR_ia32_rmdir
 #define __NR_compat_rt_sigprocmask	__NR_ia32_rt_sigprocmask
 #define __NR_compat_sendmmsg		__NR_ia32_sendmmsg
 #define __NR_compat_shmctl		__NR_ia32_shmctl
@@ -325,6 +361,12 @@
 // 64-bit syscalls, but the majority do not. The following syscalls
 // use the same number.
 
+#define __NR_compat_access		__NR_access
+#define __NR_compat_acct		__NR_acct
+#define __NR_compat_bpf			__NR_bpf
+#define __NR_compat_capget		__NR_capget
+#define __NR_compat_capset		__NR_capset
+#define __NR_compat_chdir		__NR_chdir
 #define __NR_compat_clone		__NR_clone
 #define __NR_compat_close		__NR_close
 #define __NR_compat_creat		__NR_creat
@@ -332,6 +374,7 @@
 #define __NR_compat_epoll_wait		__NR_epoll_wait
 #define __NR_compat_eventfd2		__NR_eventfd2
 #define __NR_compat_faccessat		__NR_faccessat
+#define __NR_compat_fchdir		__NR_fchdir
 #define __NR_compat_fchmodat		__NR_fchmodat
 #define __NR_compat_fchownat		__NR_fchownat
 #define __NR_compat_ftruncate		__NR_ftruncate
@@ -340,6 +383,7 @@
 #define __NR_compat_inotify_init1	__NR_inotify_init1
 #define __NR_compat_ipc			__NR_ipc
 #define __NR_compat_linkat		__NR_linkat
+#define __NR_compat_mkdir		__NR_mkdir
 #define __NR_compat_mkdirat		__NR_mkdirat
 #define __NR_compat_mknodat		__NR_mknodat
 #define __NR_compat_msgctl		__NR_msgctl
@@ -352,6 +396,7 @@
 #define __NR_compat_readlinkat		__NR_readlinkat
 #define __NR_compat_renameat		__NR_renameat
 #define __NR_compat_renameat2		__NR_renameat2
+#define __NR_compat_rmdir		__NR_rmdir
 #define __NR_compat_rt_sigprocmask	__NR_rt_sigprocmask
 #define __NR_compat_sendmmsg		__NR_sendmmsg
 #define __NR_compat_shmctl		__NR_shmctl

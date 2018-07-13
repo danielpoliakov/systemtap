@@ -11,6 +11,13 @@
 	argstr = sprintf("%s, %#o", pathname, mode)
 %)
 
+@define _SYSCALL_MKDIR_REGARGS
+%(
+	pathname_uaddr = pointer_arg(1)
+	pathname = user_string_quoted(pathname_uaddr)
+	mode = uint_arg(2)
+%)
+
 probe syscall.mkdir = dw_syscall.mkdir !, nd_syscall.mkdir ? {}
 probe syscall.mkdir.return = dw_syscall.mkdir.return !, nd_syscall.mkdir.return ? {}
 
@@ -32,17 +39,57 @@ probe dw_syscall.mkdir.return = kernel.function("sys_mkdir").return
 
 # nd_mkdir _____________________________________________________
 
-probe nd_syscall.mkdir = kprobe.function("sys_mkdir") ?
+probe nd_syscall.mkdir = nd1_syscall.mkdir!, nd2_syscall.mkdir!, tp_syscall.mkdir
+  { }
+
+probe nd1_syscall.mkdir = kprobe.function("sys_mkdir") ?
 {
 	@_SYSCALL_MKDIR_NAME
 	asmlinkage()
-	pathname_uaddr = pointer_arg(1)
-	pathname = user_string_quoted(pathname_uaddr)
-	mode = uint_arg(2)
+	@_SYSCALL_MKDIR_REGARGS
 	@_SYSCALL_MKDIR_ARGSTR
 }
-probe nd_syscall.mkdir.return = kprobe.function("sys_mkdir").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.mkdir = kprobe.function(@arch_syscall_prefix "sys_mkdir")
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_MKDIR_NAME
+	@_SYSCALL_MKDIR_REGARGS
+	@_SYSCALL_MKDIR_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.mkdir = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_mkdir"), @const("__NR_compat_mkdir"))
+	@_SYSCALL_MKDIR_NAME
+	@_SYSCALL_MKDIR_REGARGS
+	@_SYSCALL_MKDIR_ARGSTR
+}
+
+probe nd_syscall.mkdir.return = nd1_syscall.mkdir.return!, nd2_syscall.mkdir.return!, tp_syscall.mkdir.return
+  { }
+
+probe nd1_syscall.mkdir.return = kprobe.function("sys_mkdir").return ?
 {
 	@_SYSCALL_MKDIR_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.mkdir.return = kprobe.function(@arch_syscall_prefix "sys_mkdir").return
+{
+	@_SYSCALL_MKDIR_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.mkdir.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_mkdir"), @const("__NR_compat_mkdir"))
+	@_SYSCALL_MKDIR_NAME
+	retstr = return_str(1,$ret)
 }

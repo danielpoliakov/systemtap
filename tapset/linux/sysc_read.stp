@@ -91,7 +91,7 @@ probe __nd1_syscall.read = kprobe.function("sys_read")
 /* kernel 4.17+ */
 probe nd2_syscall.read = kprobe.function(@arch_syscall_prefix "sys_read")
 {
-        __set_syscall_pt_regs(pointer_arg(1))
+	__set_syscall_pt_regs(pointer_arg(1))
 	@_SYSCALL_READ_NAME
 	@_SYSCALL_READ_REGARGS
 	@_SYSCALL_READ_ARGSTR
