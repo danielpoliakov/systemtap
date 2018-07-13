@@ -1,0 +1,13 @@
+title: Keep a tally of executables run on the system
+name: also_ran.stp
+version: 1.0
+author: William Cohen
+keywords: prometheus
+subsystem: process
+status: experimental
+exit: user-controlled
+output: proc
+scope: system-wide
+description: The also_ran.stp script tallies each time a executable is started or a shared library is loaded for execution.  This information can be useful to determine what software is actually being used on the system.  The script makes the information available via procfs in Prometheus readable format.
+test_check: stap -p4 also_ran.stp
+test_installcheck: stap also_ran.stp -T 1

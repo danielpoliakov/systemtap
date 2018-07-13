@@ -1,0 +1,14 @@
+title: Monitor Intel processors for throttling due to power or thermal limits
+name: cpu_throttle.stp
+version: 1.0
+author: William Cohen
+keywords: prometheus limit
+subsystem: process
+status: experimental
+exit: user-controlled
+output: on-exit
+scope: process
+description: Intel processors have hardware mechanisms that will reduce the effective processors speed to avoid exceeding set thermal or power constraints. The cpu_throttle.stp script monitors when CPU throttling occurs and accumulates the amount of time in milliseconds that each processor is throttled.  The script makes the information available via procfs in Prometheus readable format.
+test_support: stap -l 'kprobe.function("therm_throt_process")'
+test_check: stap -p4 cpu_throttle.stp
+test_installcheck: stap cpu_throttle.stp -T 1
