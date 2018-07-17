@@ -15,6 +15,13 @@
 	argstr = sprintf("%s, %p, %d", path, buf_uaddr, bufsiz)
 %)
 
+@define _SYSCALL_READLINK_REGARGS
+%(
+	path = user_string_quoted(pointer_arg(1))
+	buf_uaddr = pointer_arg(2)
+	bufsiz = int_arg(3)
+%)
+
 probe syscall.readlink = dw_syscall.readlink !, nd_syscall.readlink ? {}
 probe syscall.readlink.return = dw_syscall.readlink.return !,
                                 nd_syscall.readlink.return ? {}
@@ -37,17 +44,57 @@ probe dw_syscall.readlink.return = kernel.function("sys_readlink").return
 
 # nd_readlink _____________________________________________________
 
-probe nd_syscall.readlink = kprobe.function("sys_readlink") ?
+probe nd_syscall.readlink = nd1_syscall.readlink!, nd2_syscall.readlink!, tp_syscall.readlink
+  { }
+
+probe nd1_syscall.readlink = kprobe.function("sys_readlink") ?
 {
 	@_SYSCALL_READLINK_NAME
 	asmlinkage()
-	path = user_string_quoted(pointer_arg(1))
-	buf_uaddr = pointer_arg(2)
-	bufsiz = int_arg(3)
+	@_SYSCALL_READLINK_REGARGS
 	@_SYSCALL_READLINK_ARGSTR
 }
-probe nd_syscall.readlink.return = kprobe.function("sys_readlink").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.readlink = kprobe.function(@arch_syscall_prefix "sys_readlink") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_READLINK_NAME
+	@_SYSCALL_READLINK_REGARGS
+	@_SYSCALL_READLINK_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.readlink = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_readlink"), @const("__NR_compat_readlink"))
+	@_SYSCALL_READLINK_NAME
+	@_SYSCALL_READLINK_REGARGS
+	@_SYSCALL_READLINK_ARGSTR
+}
+
+probe nd_syscall.readlink.return = nd1_syscall.readlink.return!, nd2_syscall.readlink.return!, tp_syscall.readlink.return
+  { }
+  
+probe nd1_syscall.readlink.return = kprobe.function("sys_readlink").return ?
 {
 	@_SYSCALL_READLINK_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.readlink.return = kprobe.function(@arch_syscall_prefix "sys_readlink").return ?
+{
+	@_SYSCALL_READLINK_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.readlink.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_readlink"), @const("__NR_compat_readlink"))
+	@_SYSCALL_READLINK_NAME
+	retstr = return_str(1,$ret)
 }

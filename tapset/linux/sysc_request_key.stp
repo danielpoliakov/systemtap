@@ -18,6 +18,16 @@
 	                 callout_info_uaddr, destringid)
 %)
 
+@define _SYSCALL_REQUEST_KEY_REGARGS
+%(
+	type_uaddr = pointer_arg(1)
+	type_str = user_string_quoted(type_uaddr)
+	description_uaddr = pointer_arg(2)
+	description_str = user_string_quoted(description_uaddr)
+	callout_info_uaddr = pointer_arg(3)
+	destringid = int_arg(4)
+%)
+
 probe syscall.request_key = dw_syscall.request_key !, nd_syscall.request_key ? {}
 probe syscall.request_key.return = dw_syscall.request_key.return !,
                                    nd_syscall.request_key.return ? {}
@@ -43,20 +53,57 @@ probe dw_syscall.request_key.return = kernel.function("sys_request_key").return 
 
 # nd_request_key _____________________________________________________
 
-probe nd_syscall.request_key = kprobe.function("sys_request_key") ?
+probe nd_syscall.request_key = nd1_syscall.request_key!, nd2_syscall.request_key!, tp_syscall.request_key
+  { }
+
+probe nd1_syscall.request_key = kprobe.function("sys_request_key") ?
 {
 	@_SYSCALL_REQUEST_KEY_NAME
 	asmlinkage()
-	type_uaddr = pointer_arg(1)
-	type_str = user_string_quoted(type_uaddr)
-	description_uaddr = pointer_arg(2)
-	description_str = user_string_quoted(description_uaddr)
-	callout_info_uaddr = pointer_arg(3)
-	destringid = int_arg(4)
+	@_SYSCALL_REQUEST_KEY_REGARGS
 	@_SYSCALL_REQUEST_KEY_ARGSTR
 }
-probe nd_syscall.request_key.return = kprobe.function("sys_request_key").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.request_key = kprobe.function(@arch_syscall_prefix "sys_request_key") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_REQUEST_KEY_NAME
+	@_SYSCALL_REQUEST_KEY_REGARGS
+	@_SYSCALL_REQUEST_KEY_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.request_key = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_request_key"), @const("__NR_compat_request_key"))
+	@_SYSCALL_REQUEST_KEY_NAME
+	@_SYSCALL_REQUEST_KEY_REGARGS
+	@_SYSCALL_REQUEST_KEY_ARGSTR
+}
+
+probe nd_syscall.request_key.return = nd1_syscall.request_key.return!, nd2_syscall.request_key.return!, tp_syscall.request_key.return
+  { }
+
+probe nd1_syscall.request_key.return = kprobe.function("sys_request_key").return ?
 {
 	@_SYSCALL_REQUEST_KEY_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.request_key.return = kprobe.function(@arch_syscall_prefix "sys_request_key").return ?
+{
+	@_SYSCALL_REQUEST_KEY_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.request_key.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_request_key"), @const("__NR_compat_request_key"))
+	@_SYSCALL_REQUEST_KEY_NAME
+	retstr = return_str(1,$ret)
 }

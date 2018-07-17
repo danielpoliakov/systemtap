@@ -15,6 +15,15 @@
 	argstr = sprintf("%s, %s, %p, %d", dfd_str, path, buf_uaddr, bufsiz)
 %)
 
+@define _SYSCALL_READLINKAT_REGARGS
+%(
+	dfd = int_arg(1)
+	dfd_str = _dfd_str(dfd)
+	path = user_string_quoted(pointer_arg(2))
+	buf_uaddr = pointer_arg(3)
+	bufsiz = int_arg(4)
+%)
+
 probe syscall.readlinkat = dw_syscall.readlinkat !, nd_syscall.readlinkat ? {}
 probe syscall.readlinkat.return = dw_syscall.readlinkat.return !,
                                   nd_syscall.readlinkat.return ? {}
@@ -44,23 +53,63 @@ probe dw_syscall.readlinkat.return = kernel.function("sys_readlinkat").return ?
 
 # nd_readlinkat _____________________________________________________
 
-probe nd_syscall.readlinkat = kprobe.function("sys_readlinkat") ?
+probe nd_syscall.readlinkat = nd1_syscall.readlinkat!, nd2_syscall.readlinkat!, tp_syscall.readlinkat
+  { }
+
+probe nd1_syscall.readlinkat = kprobe.function("sys_readlinkat") ?
 {
 	@__syscall_compat_gate(@const("__NR_readlinkat"),
 			       @const("__NR_compat_readlinkat"))
 	@_SYSCALL_READLINKAT_NAME
 	asmlinkage()
-	dfd = int_arg(1)
-	dfd_str = _dfd_str(dfd)
-	path = user_string_quoted(pointer_arg(2))
-	buf_uaddr = pointer_arg(3)
-	bufsiz = int_arg(4)
+	@_SYSCALL_READLINKAT_REGARGS
 	@_SYSCALL_READLINKAT_ARGSTR
 }
-probe nd_syscall.readlinkat.return = kprobe.function("sys_readlinkat").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.readlinkat = kprobe.function(@arch_syscall_prefix "sys_readlinkat") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_READLINKAT_NAME
+	@_SYSCALL_READLINKAT_REGARGS
+	@_SYSCALL_READLINKAT_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.readlinkat = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_readlinkat"),
+			       @const("__NR_compat_readlinkat"))
+	@_SYSCALL_READLINKAT_NAME
+	@_SYSCALL_READLINKAT_REGARGS
+	@_SYSCALL_READLINKAT_ARGSTR
+}
+
+probe nd_syscall.readlinkat.return = nd1_syscall.readlinkat.return!, nd2_syscall.readlinkat.return!, tp_syscall.readlinkat.return
+  { }
+  
+probe nd1_syscall.readlinkat.return = kprobe.function("sys_readlinkat").return ?
 {
 	@__syscall_compat_gate(@const("__NR_readlinkat"),
 			       @const("__NR_compat_readlinkat"))
 	@_SYSCALL_READLINKAT_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.readlinkat.return = kprobe.function(@arch_syscall_prefix "sys_readlinkat").return ?
+{
+	@_SYSCALL_READLINKAT_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.readlinkat.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_readlinkat"),
+			       @const("__NR_compat_readlinkat"))
+	@_SYSCALL_READLINKAT_NAME
+	retstr = return_str(1,$ret)
 }

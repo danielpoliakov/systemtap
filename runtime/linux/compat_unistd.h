@@ -138,6 +138,9 @@
 #ifndef __NR_ia32_acct
 #define __NR_ia32_acct 51
 #endif
+#ifndef __NR_ia32_add_key
+#define __NR_ia32_add_key 286
+#endif
 #ifndef __NR_ia32_bpf
 #define __NR_ia32_bpf 357
 #endif
@@ -205,7 +208,7 @@
 #define __NR_ia32_fgetxattr 231
 #endif
 #ifndef __NR_ia32_flistxattr
-#define __NR_ia32_flistxattr 228
+#define __NR_ia32_flistxattr 234
 #endif
 #ifndef __NR_ia32_flock
 #define __NR_ia32_flock 143
@@ -231,11 +234,32 @@
 #ifndef __NR_ia32_getrandom
 #define __NR_ia32_getrandom 355
 #endif 
+#ifndef __NR_ia32_getsid
+#define __NR_ia32_getsid 147
+#endif
 #ifndef __NR_ia32_inotify_init1
 #define __NR_ia32_inotify_init1 332
 #endif
+#ifndef __NR_ia32_ioprio_get
+#define __NR_ia32_ioprio_get 290
+#endif
+#ifndef __NR_ia32_ioprio_set
+#define __NR_ia32_ioprio_set 289
+#endif
 #ifndef __NR_ia32_ipc
 #define __NR_ia32_ipc 117
+#endif
+#ifndef __NR_ia32_kcmp
+#define __NR_ia32_kcmp 349 
+#endif
+#ifndef __NR_ia32_keyctl
+#define __NR_ia32_keyctl 288
+#endif
+#ifndef __NR_ia32_kill
+#define __NR_ia32_kill 37
+#endif
+#ifndef __NR_ia32_link
+#define __NR_ia32_link 9
 #endif
 #ifndef __NR_ia32_linkat
 #define __NR_ia32_linkat 303
@@ -258,11 +282,17 @@
 #ifndef __NR_ia32_msgctl
 #define __NR_ia32_msgctl 192
 #endif
+#ifndef __NR_ia32_name_to_handle_at
+#define __NR_ia32_name_to_handle_at 341
+#endif
 #ifndef __NR_ia32_nfsservctl
 #define __NR_ia32_nfsservctl 169
 #endif
 #ifndef __NR_ia32_open
 #define __NR_ia32_open 5
+#endif
+#ifndef __NR_ia32_open_by_handle_at
+#define __NR_ia32_open_by_handle_at 342
 #endif
 #ifndef __NR_ia32_openat
 #define __NR_ia32_openat 295
@@ -278,6 +308,9 @@
 #ifndef __NR_ia32_read
 #define __NR_ia32_read 3
 #endif
+#ifndef __NR_ia32_readlink
+#define __NR_ia32_readlink 85 
+#endif
 #ifndef __NR_ia32_readlinkat
 #define __NR_ia32_readlinkat 305
 #endif
@@ -286,6 +319,9 @@
 #endif
 #ifndef __NR_ia32_renameat2
 #define __NR_ia32_renameat2 353
+#endif
+#ifndef __NR_ia32_request_key
+#define __NR_ia32_request_key 287
 #endif
 #ifndef __NR_ia32_rmdir
 #define __NR_ia32_rmdif 40
@@ -325,6 +361,9 @@
 #ifndef __NR_ia32_shmctl
 #define __NR_ia32_shmctl (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_ia32_symlink
+#define __NR_ia32_symlink 83
+#endif
 #ifndef __NR_ia32_symlinkat
 #define __NR_ia32_symlinkat 304
 #endif
@@ -343,6 +382,7 @@
 
 #define __NR_compat_access		__NR_ia32_access
 #define __NR_compat_acct		__NR_ia32_acct
+#define __NR_compat_add_key		__NR_ia32_add_key
 #define __NR_compat_bpf			__NR_ia32_bpf
 #define __NR_compat_capget		__NR_ia32_capget
 #define __NR_compat_capset		__NR_ia32_capset
@@ -372,26 +412,38 @@
 #define __NR_compat_getcpu		__NR_ia32_getcpu
 #define __NR_compat_getpgid		__NR_ia32_getpgid
 #define __NR_compat_getrandom		__NR_ia32_getrandom
+#define __NR_compat_getsid		__NR_ia32_getsid
 #define __NR_compat_inotify_init1	__NR_ia32_inotify_init1
+#define __NR_compat_ioprio_get		__NR_ia32_ioprio_get
+#define __NR_compat_ioprio_set		__NR_ia32_ioprio_set
 #define __NR_compat_ipc			__NR_ia32_ipc
+#define __NR_compat_kcmp		__NR_ia32_kcmp
+#define __NR_compat_keyctl		__NR_ia32_keyctl
+#define __NR_compat_kill		__NR_ia32_kill
+#define __NR_compat_link		__NR_ia32_link
 #define __NR_compat_linkat		__NR_ia32_linkat
 #define __NR_compat_mkdir		__NR_ia32_mkdir
 #define __NR_compat_mkdirat		__NR_ia32_mkdirat
 #define __NR_compat_mknodat		__NR_ia32_mknodat
 #define __NR_compat_msgctl		__NR_ia32_msgctl
+#define __NR_compat_name_to_handle_at	__NR_ia32_name_to_handle_at
 #define __NR_compat_nfsservctl		__NR_ia32_nfsservctl
 #define __NR_compat_open		__NR_ia32_open
+#define __NR_compat_open_by_handle_at	__NR_ia32_open_by_handle_at
 #define __NR_compat_openat		__NR_ia32_openat
 #define __NR_compat_pipe2		__NR_ia32_pipe2
 #define __NR_compat_pselect7		__NR_ia32_pselect7
 #define __NR_compat_read		__NR_ia32_read
+#define __NR_compat_readlink		__NR_ia32_readlink
 #define __NR_compat_readlinkat		__NR_ia32_readlinkat
 #define __NR_compat_renameat		__NR_ia32_renameat
 #define __NR_compat_renameat2		__NR_ia32_renameat2
+#define __NR_compat_request_key		__NR_ia32_request_key
 #define __NR_compat_rmdir		__NR_ia32_rmdir
 #define __NR_compat_rt_sigprocmask	__NR_ia32_rt_sigprocmask
 #define __NR_compat_sendmmsg		__NR_ia32_sendmmsg
 #define __NR_compat_shmctl		__NR_ia32_shmctl
+#define __NR_compat_symlink		__NR_ia32_symlink
 #define __NR_compat_symlinkat		__NR_ia32_symlinkat
 #define __NR_compat_truncate		__NR_ia32_truncate
 #define __NR_compat_umount2		__NR_ia32_umount2
@@ -411,6 +463,7 @@
 
 #define __NR_compat_access		__NR_access
 #define __NR_compat_acct		__NR_acct
+#define __NR_compat_add_key		__NR_add_key
 #define __NR_compat_bpf			__NR_bpf
 #define __NR_compat_capget		__NR_capget
 #define __NR_compat_capset		__NR_capset
@@ -440,26 +493,38 @@
 #define __NR_compat_getcpu		__NR_getcpu
 #define __NR_compat_getpgid		__NR_getpgid
 #define __NR_compat_getrandom		__NR_getrandom
+#define __NR_compat_getsid		__NR_getsid
 #define __NR_compat_inotify_init1	__NR_inotify_init1
+#define __NR_compat_ioprio_get		__NR_ioprio_get
+#define __NR_compat_ioprio_set		__NR_ioprio_set
 #define __NR_compat_ipc			__NR_ipc
+#define __NR_compat_kcmp		__NR_kcmp
+#define __NR_compat_keyctl		__NT_keyctl
+#define __NR_compat_kill		__NR_kill
+#define __NR_compat_link		__NR_link
 #define __NR_compat_linkat		__NR_linkat
 #define __NR_compat_mkdir		__NR_mkdir
 #define __NR_compat_mkdirat		__NR_mkdirat
 #define __NR_compat_mknodat		__NR_mknodat
 #define __NR_compat_msgctl		__NR_msgctl
+#define __NR_compat_name_to_handle_at	__NR_name_to_handle_at
 #define __NR_compat_nfsservctl		__NR_nfsservctl
 #define __NR_compat_open		__NR_open
+#define __NR_compat_open_by_handle_at	__NR_open_by_handle_at
 #define __NR_compat_openat		__NR_openat
 #define __NR_compat_pipe2		__NR_pipe2
 #define __NR_compat_pselect7		__NR_pselect7
 #define __NR_compat_read		__NR_read
+#define __NR_compat_readlink		__NR_readlink
 #define __NR_compat_readlinkat		__NR_readlinkat
 #define __NR_compat_renameat		__NR_renameat
 #define __NR_compat_renameat2		__NR_renameat2
+#define __NR_compat_request_key		__NR_request_key
 #define __NR_compat_rmdir		__NR_rmdir
 #define __NR_compat_rt_sigprocmask	__NR_rt_sigprocmask
 #define __NR_compat_sendmmsg		__NR_sendmmsg
 #define __NR_compat_shmctl		__NR_shmctl
+#define __NR_compat_symlink		__NR_symlink
 #define __NR_compat_symlinkat		__NR_symlinkat
 #define __NR_compat_truncate		__NR_truncate
 #define __NR_compat_umount2		__NR_umount2

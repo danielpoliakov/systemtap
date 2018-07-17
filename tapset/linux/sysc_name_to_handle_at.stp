@@ -15,6 +15,17 @@
 	                 handle_uaddr, mnt_id_uaddr, flags_str)
 %)
 
+@define _SYSCALL_NAME_TO_HANDLE_AT_REGARGS
+%(
+	dfd = int_arg(1)
+	dfd_str = _dfd_str(dfd)
+	pathname = user_string_quoted(pointer_arg(2))
+	handle_uaddr = pointer_arg(3)
+	mnt_id_uaddr = pointer_arg(4)
+	flags = int_arg(5)
+	flags_str = _at_flag_str(flags)
+%)
+
 probe syscall.name_to_handle_at = dw_syscall.name_to_handle_at !,
                                   nd_syscall.name_to_handle_at ? {}
 probe syscall.name_to_handle_at.return = dw_syscall.name_to_handle_at.return !,
@@ -44,23 +55,63 @@ probe dw_syscall.name_to_handle_at.return =
 
 # nd_name_to_handle_at _____________________________________________________
 
-probe nd_syscall.name_to_handle_at =
+probe nd_syscall.name_to_handle_at = nd1_syscall.name_to_handle_at!, nd2_syscall.name_to_handle_at!, tp_syscall.name_to_handle_at
+  { }
+
+probe nd1_syscall.name_to_handle_at =
 	kprobe.function("sys_name_to_handle_at").call ?
 {
 	@_SYSCALL_NAME_TO_HANDLE_AT_NAME
 	asmlinkage()
-	dfd = int_arg(1)
-	dfd_str = _dfd_str(dfd)
-	pathname = user_string_quoted(pointer_arg(2))
-	handle_uaddr = pointer_arg(3)
-	mnt_id_uaddr = pointer_arg(4)
-	flags = int_arg(5)
-	flags_str = _at_flag_str(flags)
+	@_SYSCALL_NAME_TO_HANDLE_AT_REGARGS
 	@_SYSCALL_NAME_TO_HANDLE_AT_ARGSTR
 }
-probe nd_syscall.name_to_handle_at.return =
+
+/* kernel 4.17+ */
+probe nd2_syscall.name_to_handle_at =
+	kprobe.function(@arch_syscall_prefix "sys_name_to_handle_at") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_NAME_TO_HANDLE_AT_NAME
+	@_SYSCALL_NAME_TO_HANDLE_AT_REGARGS
+	@_SYSCALL_NAME_TO_HANDLE_AT_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.name_to_handle_at = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_name_to_handle_at"), 
+			       @const("__NR_compat_name_to_handle_at"))
+	@_SYSCALL_NAME_TO_HANDLE_AT_NAME
+	@_SYSCALL_NAME_TO_HANDLE_AT_REGARGS
+	@_SYSCALL_NAME_TO_HANDLE_AT_ARGSTR
+}
+
+probe nd_syscall.name_to_handle_at.return = nd1_syscall.name_to_handle_at.return!, nd2_syscall.name_to_handle_at.return!, tp_syscall.name_to_handle_at.return
+  { }
+  
+probe nd1_syscall.name_to_handle_at.return =
 	kprobe.function("sys_name_to_handle_at").return ?
 {
 	@_SYSCALL_NAME_TO_HANDLE_AT_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.name_to_handle_at.return =
+	kprobe.function(@arch_syscall_prefix "sys_name_to_handle_at").return ?
+{
+	@_SYSCALL_NAME_TO_HANDLE_AT_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.name_to_handle_at.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_name_to_handle_at"), 
+			       @const("__NR_compat_name_to_handle_at"))
+	@_SYSCALL_NAME_TO_HANDLE_AT_NAME
+	retstr = return_str(1,$ret)
 }

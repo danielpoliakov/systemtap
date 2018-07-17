@@ -12,6 +12,15 @@
 	name = "keyctl"
 %)
 
+@define _SYSCALL_KEYCTL_REGARGS
+%(
+	option = int_arg(1)
+	arg2 = ulong_arg(2)
+	arg3 = ulong_arg(3)
+	arg4 = ulong_arg(4)
+	arg5 = ulong_arg(5)
+%)
+
 probe syscall.keyctl = dw_syscall.keyctl !, nd_syscall.keyctl ? {}
 probe syscall.keyctl.return = dw_syscall.keyctl.return !, nd_syscall.keyctl.return ? {}
 
@@ -37,22 +46,61 @@ probe dw_syscall.keyctl.return = kernel.function("compat_sys_keyctl").return ?,
 
 # nd_keyctl _____________________________________________________
 
-probe nd_syscall.keyctl = kprobe.function("compat_sys_keyctl") ?,
-                          kprobe.function("sys_keyctl") ?
+probe nd_syscall.keyctl = nd1_syscall.keyctl!, nd2_syscall.keyctl!, tp_syscall.keyctl
+  { }
+
+probe nd1_syscall.keyctl = kprobe.function("compat_sys_keyctl") ?,
+                           kprobe.function("sys_keyctl") ?
 {
 	@_SYSCALL_KEYCTL_NAME
 	asmlinkage()
-	option = int_arg(1)
-	arg2 = ulong_arg(2)
-	arg3 = ulong_arg(3)
-	arg4 = ulong_arg(4)
-	arg5 = ulong_arg(5)
+	@_SYSCALL_KEYCTL_REGARGS
 	@__keyctl_argstr(option, arg2, arg3, arg4, arg5)
-
 }
-probe nd_syscall.keyctl.return = kprobe.function("compat_sys_keyctl").return ?,
-                                 kprobe.function("sys_keyctl").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.keyctl = kprobe.function(@arch_syscall_prefix "compat_sys_keyctl") ?,
+                           kprobe.function(@arch_syscall_prefix "sys_keyctl") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_KEYCTL_NAME
+	@_SYSCALL_KEYCTL_REGARGS
+	@__keyctl_argstr(option, arg2, arg3, arg4, arg5)
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.keyctl = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_keyctl"), @const("__NR_compat_keyctl"))
+	@_SYSCALL_KEYCTL_NAME
+	@_SYSCALL_KEYCTL_REGARGS
+	@__keyctl_argstr(option, arg2, arg3, arg4, arg5)
+}
+
+probe nd_syscall.keyctl.return = nd1_syscall.keyctl.return!, nd2_syscall.keyctl.return!, tp_syscall.keyctl.return
+  { }
+
+probe nd1_syscall.keyctl.return = kprobe.function("compat_sys_keyctl").return ?,
+                                  kprobe.function("sys_keyctl").return ?
 {
 	@_SYSCALL_KEYCTL_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.keyctl.return = kprobe.function(@arch_syscall_prefix "compat_sys_keyctl").return ?,
+                                  kprobe.function(@arch_syscall_prefix "sys_keyctl").return ?
+{
+	@_SYSCALL_KEYCTL_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.keyctl.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_keyctl"), @const("__NR_compat_keyctl"))
+	@_SYSCALL_KEYCTL_NAME
+	retstr = return_str(1,$ret)
 }
