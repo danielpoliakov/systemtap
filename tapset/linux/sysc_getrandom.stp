@@ -11,6 +11,14 @@
 	argstr = sprintf("%s, %u, %s", buf, count, flags_str)
 %)
 
+@define _SYSCALL_GETRANDOM_REGARGS
+%(
+	buf = user_string_quoted(pointer_arg(1))
+	count = ulong_arg(2)
+	flags = uint_arg(3)
+	flags_str = _getrandom_flags_str(uint_arg(3))
+%)
+
 probe syscall.getrandom = dw_syscall.getrandom !, nd_syscall.getrandom ? {}
 probe syscall.getrandom.return = dw_syscall.getrandom.return !,
                                  nd_syscall.getrandom.return ? {}
@@ -34,18 +42,57 @@ probe dw_syscall.getrandom.return = kernel.function("sys_getrandom").return ?
 
 # nd_getrandom _____________________________________________________
 
+probe nd_syscall.getrandom = nd1_syscall.getrandom!, nd2_syscall.getrandom!, tp_syscall.getrandom
+  { }
+
 probe nd_syscall.getrandom = kprobe.function("sys_getrandom") ?
 {
 	@_SYSCALL_GETRANDOM_NAME
 	asmlinkage()
-	buf = user_string_quoted(pointer_arg(1))
-	count = ulong_arg(2)
-	flags = uint_arg(3)
-	flags_str = _getrandom_flags_str(uint_arg(3))
+	@_SYSCALL_GETRANDOM_REGARGS
 	@_SYSCALL_GETRANDOM_ARGSTR
 }
+
+/* kernel 4.17+ */
+probe nd2_syscall.getrandom = kprobe.function(@arch_syscall_prefix "sys_getrandom") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_GETRANDOM_NAME
+	@_SYSCALL_GETRANDOM_REGARGS
+	@_SYSCALL_GETRANDOM_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.getrandom = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_getrandom"), @const("__NR_compat_getrandom"))
+	@_SYSCALL_GETRANDOM_NAME
+	@_SYSCALL_GETRANDOM_REGARGS
+	@_SYSCALL_GETRANDOM_ARGSTR
+}
+
+probe nd_syscall.getrandom.return = nd1_syscall.getrandom.return!, nd2_syscall.getrandom.return!, tp_syscall.getrandom.return
+  { }
+  
 probe nd_syscall.getrandom.return = kprobe.function("sys_getrandom").return ?
 {
 	@_SYSCALL_GETRANDOM_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.getrandom.return = kprobe.function(@arch_syscall_prefix "sys_getrandom").return ?
+{
+	@_SYSCALL_GETRANDOM_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.getrandom.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_getrandom"), @const("__NR_compat_getrandom"))
+	@_SYSCALL_GETRANDOM_NAME
+	retstr = return_str(1,$ret)
 }

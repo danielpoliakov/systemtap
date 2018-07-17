@@ -11,6 +11,13 @@
 	argstr = sprintf("%d, %s", filedes, name_str)
 %)
 
+@define _SYSCALL_FREMOVEXATTR_REGARGS
+%(
+	filedes = int_arg(1)
+	name_uaddr = pointer_arg(2)
+	name_str = user_string_quoted(pointer_arg(2))
+%)
+
 probe syscall.fremovexattr = dw_syscall.fremovexattr !, nd_syscall.fremovexattr ? {}
 probe syscall.fremovexattr.return = dw_syscall.fremovexattr.return !, nd_syscall.fremovexattr.return ? {}
 
@@ -32,17 +39,57 @@ probe dw_syscall.fremovexattr.return = kernel.function("sys_fremovexattr").retur
 
 # nd_fremovexattr _____________________________________________________
 
-probe nd_syscall.fremovexattr = kprobe.function("sys_fremovexattr") ?
+probe nd_syscall.fremovexattr = nd1_syscall.fremovexattr!, nd2_syscall.fremovexattr!, tp_syscall.fremovexattr
+  { }
+
+probe nd1_syscall.fremovexattr = kprobe.function("sys_fremovexattr") ?
 {
 	@_SYSCALL_FREMOVEXATTR_NAME
 	asmlinkage()
-	filedes = int_arg(1)
-	name_uaddr = pointer_arg(2)
-	name_str = user_string_quoted(pointer_arg(2))
+	@_SYSCALL_FREMOVEXATTR_REGARGS
 	@_SYSCALL_FREMOVEXATTR_ARGSTR
 }
-probe nd_syscall.fremovexattr.return = kprobe.function("sys_fremovexattr").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.fremovexattr = kprobe.function(@arch_syscall_prefix "sys_fremovexattr") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_FREMOVEXATTR_NAME
+	@_SYSCALL_FREMOVEXATTR_REGARGS
+	@_SYSCALL_FREMOVEXATTR_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.fremovexattr = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_fremovexattr"), @const("__NR_compat_fremovexattr"))
+	@_SYSCALL_FREMOVEXATTR_NAME
+	@_SYSCALL_FREMOVEXATTR_REGARGS
+	@_SYSCALL_FREMOVEXATTR_ARGSTR
+}
+
+probe nd_syscall.fremovexattr.return = nd1_syscall.fremovexattr.return!, nd2_syscall.fremovexattr.return!, tp_syscall.fremovexattr.return
+  { }
+  
+probe nd1_syscall.fremovexattr.return = kprobe.function("sys_fremovexattr").return ?
 {
 	@_SYSCALL_FREMOVEXATTR_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.fremovexattr.return = kprobe.function(@arch_syscall_prefix "sys_fremovexattr").return ?
+{
+	@_SYSCALL_FREMOVEXATTR_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.fremovexattr.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_fremovexattr"), @const("__NR_compat_fremovexattr"))
+	@_SYSCALL_FREMOVEXATTR_NAME
+	retstr = return_str(1,$ret)
 }

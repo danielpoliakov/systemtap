@@ -153,6 +153,9 @@
 #ifndef __NR_ia32_chown32
 #define __NR_ia32_chown32 212
 #endif
+#ifndef __NR_ia32_chroot
+#define __NR_ia32_chroot 61
+#endif
 #ifndef __NR_ia32_clone
 #define __NR_ia32_clone 120
 #endif
@@ -162,6 +165,12 @@
 #ifndef __NR_ia32_creat
 #define __NR_ia32_creat 8
 #endif
+#ifndef __NR_ia32_dup
+#define __NR_ia32_dup 41
+#endif
+#ifndef __NR_ia32_dup2
+#define __NR_ia32_dup2 63
+#endif
 #ifndef __NR_ia32_dup3
 #define __NR_ia32_dup3 330
 #endif
@@ -170,6 +179,12 @@
 #endif
 #ifndef __NR_ia32_eventfd2
 #define __NR_ia32_eventfd2 328
+#endif
+#ifndef __NR_ia32_exit
+#define __NR_ia32_exit 1
+#endif
+#ifndef __NR_ia32_exit_group
+#define __NR_ia32_exit_group 252
 #endif
 #ifndef __NR_ia32_faccessat
 #define __NR_ia32_faccessat 307
@@ -186,15 +201,36 @@
 #ifndef __NR_ia32_fchownat
 #define __NR_ia32_fchownat 298
 #endif
+#ifndef __NR_ia32_fgetxattr
+#define __NR_ia32_fgetxattr 231
+#endif
+#ifndef __NR_ia32_flistxattr
+#define __NR_ia32_flistxattr 228
+#endif
+#ifndef __NR_ia32_flock
+#define __NR_ia32_flock 143
+#endif
+#ifndef __NR_ia32_fremovexattr
+#define __NR_ia32_fremovexattr 237
+#endif
+#ifndef __NR_ia32_fsetxattr
+#define __NR_ia32_fsetxattr 228
+#endif
 #ifndef __NR_ia32_ftruncate
 #define __NR_ia32_ftruncate 93
 #endif
 #ifndef __NR_ia32_futimesat
 #define __NR_ia32_futimesat 299
 #endif
+#ifndef __NR_ia32_getcpu
+#define __NR_ia32_getcpu 318
+#endif
 #ifndef __NR_ia32_getpgid
 #define __NR_ia32_getpgid 132
 #endif
+#ifndef __NR_ia32_getrandom
+#define __NR_ia32_getrandom 355
+#endif 
 #ifndef __NR_ia32_inotify_init1
 #define __NR_ia32_inotify_init1 332
 #endif
@@ -311,19 +347,31 @@
 #define __NR_compat_capget		__NR_ia32_capget
 #define __NR_compat_capset		__NR_ia32_capset
 #define __NR_compat_chdir		__NR_ia32_chdir
+#define __NR_compat_chroot		__NR_ia32_chroot
 #define __NR_compat_clone		__NR_ia32_clone
 #define __NR_compat_close		__NR_ia32_close
 #define __NR_compat_creat		__NR_ia32_creat
+#define __NR_compat_dup			__NR_ia32_dup
+#define __NR_compat_dup2		__NR_ia32_dup2
 #define __NR_compat_dup3		__NR_ia32_dup3
 #define __NR_compat_epoll_wait		__NR_ia32_epoll_wait
 #define __NR_compat_eventfd2		__NR_ia32_eventfd2
+#define __NR_compat_exit		__NR_ia32_exit
+#define __NR_compat_exit_group		__NR_ia32_exit_group
 #define __NR_compat_faccessat		__NR_ia32_faccessat
 #define __NR_compat_fchdir		__NR_ia32_fchdir
 #define __NR_compat_fchmodat		__NR_ia32_fchmodat
 #define __NR_compat_fchownat		__NR_ia32_fchownat
+#define __NR_compat_fgetxattr		__NR_ia32_fgetxattr
+#define __NR_compat_flistxattr		__NR_ia32_flistxattr
+#define __NR_compat_flock		__NR_ia32_flock
+#define __NR_compat_fremovexattr	__NR_ia32_fremovexattr
+#define __NR_compat_fsetxattr		__NR_ia32_fsetxattr
 #define __NR_compat_ftruncate		__NR_ia32_ftruncate
 #define __NR_compat_futimesat		__NR_ia32_futimesat
+#define __NR_compat_getcpu		__NR_ia32_getcpu
 #define __NR_compat_getpgid		__NR_ia32_getpgid
+#define __NR_compat_getrandom		__NR_ia32_getrandom
 #define __NR_compat_inotify_init1	__NR_ia32_inotify_init1
 #define __NR_compat_ipc			__NR_ia32_ipc
 #define __NR_compat_linkat		__NR_ia32_linkat
@@ -367,19 +415,31 @@
 #define __NR_compat_capget		__NR_capget
 #define __NR_compat_capset		__NR_capset
 #define __NR_compat_chdir		__NR_chdir
+#define __NR_compat_chroot		__NR_chroot
 #define __NR_compat_clone		__NR_clone
 #define __NR_compat_close		__NR_close
 #define __NR_compat_creat		__NR_creat
+#define __NR_compat_dup			__NR_dup
+#define __NR_compat_dup2		__NR_dup2
 #define __NR_compat_dup3		__NR_dup3
 #define __NR_compat_epoll_wait		__NR_epoll_wait
 #define __NR_compat_eventfd2		__NR_eventfd2
+#define __NR_compat_exit		__NR_exit
+#define __NR_compat_exit_group		__NR_exit_group
 #define __NR_compat_faccessat		__NR_faccessat
 #define __NR_compat_fchdir		__NR_fchdir
 #define __NR_compat_fchmodat		__NR_fchmodat
 #define __NR_compat_fchownat		__NR_fchownat
+#define __NR_compat_fgetxattr		__NR_fgetxattr
+#define __NR_compat_flistxattr		__NR_flistxattr
+#define __NR_compat_flock		__NR_flock
+#define __NR_compat_fremovexattr	__NR_fremovexattr
+#define __NR_compat_fsetxattr		__NR_fsetxattr
 #define __NR_compat_ftruncate		__NR_ftruncate
 #define __NR_compat_futimesat		__NR_futimesat
+#define __NR_compat_getcpu		__NR_getcpu
 #define __NR_compat_getpgid		__NR_getpgid
+#define __NR_compat_getrandom		__NR_getrandom
 #define __NR_compat_inotify_init1	__NR_inotify_init1
 #define __NR_compat_ipc			__NR_ipc
 #define __NR_compat_linkat		__NR_linkat

@@ -11,6 +11,11 @@
 	argstr = path
 %)
 
+@define _SYSCALL_CHROOT_REGARGS
+%(
+	path = user_string_quoted(pointer_arg(1))
+%)
+
 probe syscall.chroot = dw_syscall.chroot !, nd_syscall.chroot ? {}
 probe syscall.chroot.return = dw_syscall.chroot.return !, nd_syscall.chroot.return ? {}
 
@@ -30,15 +35,57 @@ probe dw_syscall.chroot.return = kernel.function("sys_chroot").return
 
 # nd_chroot _____________________________________________________
 
-probe nd_syscall.chroot = kprobe.function("sys_chroot") ?
+probe nd_syscall.chroot = nd1_syscall.chroot!, nd2_syscall.chroot!, tp_syscall.chroot
+  { }
+
+probe nd1_syscall.chroot = kprobe.function("sys_chroot") ?
 {
 	@_SYSCALL_CHROOT_NAME
 	asmlinkage()
-	path = user_string_quoted(pointer_arg(1))
+	@_SYSCALL_CHROOT_REGARGS
 	@_SYSCALL_CHROOT_ARGSTR
 }
-probe nd_syscall.chroot.return = kprobe.function("sys_chroot").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.chroot = kprobe.function(@arch_syscall_prefix "sys_chroot") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_CHROOT_NAME
+	@_SYSCALL_CHROOT_REGARGS
+	@_SYSCALL_CHROOT_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.chroot = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_chroot"), @const("__NR_compat_chroot"))
+	@_SYSCALL_CHROOT_NAME
+	@_SYSCALL_CHROOT_REGARGS
+	@_SYSCALL_CHROOT_ARGSTR
+}
+
+probe nd_syscall.chroot.return = nd1_syscall.chroot.return!, nd2_syscall.chroot.return!, tp_syscall.chroot.return
+  { }
+  
+probe nd1_syscall.chroot.return = kprobe.function("sys_chroot").return ?
 {
 	@_SYSCALL_CHROOT_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.chroot.return = kprobe.function(@arch_syscall_prefix "sys_chroot").return ?
+{
+	@_SYSCALL_CHROOT_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.chroot.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_chroot"), @const("__NR_compat_chroot"))
+	@_SYSCALL_CHROOT_NAME
+	retstr = return_str(1,$ret)
 }
