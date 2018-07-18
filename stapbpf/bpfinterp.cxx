@@ -65,6 +65,7 @@ remove_tag(const char *fstr)
   ++fstr;
   const char *end = fstr + strlen(fstr);
   while (*(--end) != '<');
+  assert(end >= fstr);
   return std::string(fstr, end - fstr);
 }
 

@@ -172,34 +172,58 @@ struct bpf_unparser : public throwing_visitor
   block *get_ret0_block();
   block *get_exit_block();
 
+  // TODO General triage of bpf-possible functionality:
   virtual void visit_block (::block *s);
-  virtual void visit_embeddedcode (embeddedcode *s);
+  // TODO visit_try_block -> UNHANDLED
+  virtual void visit_embeddedcode (embeddedcode *s); // TODO need to find testcase/example for this
   virtual void visit_null_statement (null_statement *s);
   virtual void visit_expr_statement (expr_statement *s);
   virtual void visit_if_statement (if_statement* s);
   virtual void visit_for_loop (for_loop* s);
   virtual void visit_foreach_loop (foreach_loop* s);
   virtual void visit_return_statement (return_statement* s);
+  virtual void visit_delete_statement (delete_statement* s);
+  // TODO visit_next_statement -> UNHANDLED
   virtual void visit_break_statement (break_statement* s);
   virtual void visit_continue_statement (continue_statement* s);
-  virtual void visit_delete_statement (delete_statement* s);
+  virtual void visit_literal_string (literal_string *e);
   virtual void visit_literal_number (literal_number* e);
+  // TODO visit_embedded_expr -> UNHANDLED, could be handled like embedded_code with a return value?
   virtual void visit_binary_expression (binary_expression* e);
   virtual void visit_unary_expression (unary_expression* e);
   virtual void visit_pre_crement (pre_crement* e);
   virtual void visit_post_crement (post_crement* e);
   virtual void visit_logical_or_expr (logical_or_expr* e);
   virtual void visit_logical_and_expr (logical_and_expr* e);
+  virtual void visit_array_in (array_in* e);
+  // ??? visit_regex_query is UNHANDLED, requires adding new kernel functionality.
+  virtual void visit_compound_expression (compound_expression *e);
   virtual void visit_comparison (comparison* e);
+  // TODO visit_concatenation -> (2) pseudo-LOOP: copy the strings while concatenating
   virtual void visit_ternary_expression (ternary_expression* e);
   virtual void visit_assignment (assignment* e);
   virtual void visit_symbol (symbol* e);
-  virtual void visit_arrayindex (arrayindex *e);
-  virtual void visit_array_in (array_in* e);
-  virtual void visit_functioncall (functioncall* e);
-  virtual void visit_print_format (print_format* e);
   virtual void visit_target_register (target_register* e);
   virtual void visit_target_deref (target_deref* e);
+  // visit_target_bitfield -> ?? should already be handled in earlier pass?
+  // visit_target_symbol -> ?? should already be handled in earlier pass
+  virtual void visit_arrayindex (arrayindex *e);
+  virtual void visit_functioncall (functioncall* e);
+  virtual void visit_print_format (print_format* e);
+  // TODO visit_stat_op -> (3) possibly userspace-only :: get the correct stat value out of BPF_MAP_TYPE_PERCPU_?
+  // TODO visit_hist_op -> implement as a userspace-only helper
+  // visit_atvar_op -> ?? should already be handled in earlier pass
+  // visit_cast_op -> ?? should already be handled in earlier pass
+  // visit_autocast_op -> ?? should already be handled in earlier pass
+  // visit_defined_op -> ?? should already be handled in earlier pass
+  // visit_entry_op -> ?? should already be handled in earlier pass
+  // visit_perf_op -> ?? should already be handled in earlier pass
+
+  // TODO: Other bpf functionality to take advantage of in tapsets, or as alternate implementations:
+  // - backtrace.stp :: BPF_MAP_TYPE_STACKTRACE + bpf_getstackid
+  // - BPF_MAP_TYPE_LRU_HASH :: for size-limited maps
+  // - BPF_MAP_GET_NEXT_KEY :: for user-space iteration through maps
+  // see https://ferrisellis.com/posts/ebpf_syscall_and_maps/#ebpf-map-types
 
   void emit_stmt(statement *s);
   void emit_mov(value *d, value *s);
@@ -973,6 +997,49 @@ bpf_unparser::visit_delete_statement (delete_statement *s)
   throw SEMANTIC_ERROR (_("unknown lvalue"), e->tok);
 }
 
+// TODO: Move to a logical location.
+// Translate string escape characters.
+std::string
+translate_escapes (interned_string &str)
+{
+  std::string result;
+  bool saw_esc = false;
+  for (interned_string::const_iterator j = str.begin();
+       j != str.end(); ++j)
+    {
+      if (saw_esc)
+        {
+          saw_esc = false;
+          switch (*j)
+            {
+            case 'f': result += '\f'; break;
+            case 'n': result += '\n'; break;
+            case 'r': result += '\r'; break;
+            case 't': result += '\t'; break;
+            case 'v': result += '\v'; break;
+            default:  result += *j; break;
+            }
+        }
+      else if (*j == '\\')
+        saw_esc = true;
+      else
+        result += *j;
+    }
+  return result;
+}
+
+void
+bpf_unparser::visit_literal_string (literal_string* e)
+{
+  interned_string v = e->value;
+  std::string str = translate_escapes(v);
+
+  size_t str_bytes = str.size() + 1;
+  if (str_bytes > BPF_MAXSTRINGLEN)
+    throw SEMANTIC_ERROR(_("String literal too long"), e->tok);
+  result = this_prog.new_str(str); // will be lowered to a pointer by bpf-opt.cxx
+}
+
 void
 bpf_unparser::visit_literal_number (literal_number* e)
 {
@@ -1101,6 +1168,14 @@ void
 bpf_unparser::visit_logical_and_expr (logical_and_expr* e)
 {
   result = emit_bool (e);
+}
+
+// TODO: This matches translate.cxx, but it looks like the functionality is disabled in the parser.
+void
+bpf_unparser::visit_compound_expression (compound_expression* e)
+{
+  e->left->visit(this);
+  e->right->visit(this); // overwrite result of first expression
 }
 
 void
@@ -1821,30 +1896,8 @@ bpf_unparser::visit_print_format (print_format *e)
     {
       // ??? If this is a long string with no actual arguments,
       // intern the string as a global and use "%s" as the format.
-      // Translate string escape characters.
       interned_string fstr = e->raw_components;
-      bool saw_esc = false;
-      for (interned_string::const_iterator j = fstr.begin();
-	   j != fstr.end(); ++j)
-	{
-	  if (saw_esc)
-	    {
-	      saw_esc = false;
-	      switch (*j)
-		{
-		case 'f': format += '\f'; break;
-		case 'n': format += '\n'; break;
-		case 'r': format += '\r'; break;
-		case 't': format += '\t'; break;
-		case 'v': format += '\v'; break;
-		default:  format += *j; break;
-		}
-	    }
-	  else if (*j == '\\')
-	    saw_esc = true;
-	  else
-	    format += *j;
-	}
+      format += translate_escapes(fstr);
     }
   else
     {
@@ -1890,12 +1943,16 @@ bpf_unparser::visit_print_format (print_format *e)
     }
 
   // The bpf verifier requires that the format string be stored on the
-  // bpf program stack.  Write it out in 4 byte units.
-  // ??? Endianness of the target comes into play here.
+  // bpf program stack.  This is handled by bpf-opt.cxx lowering STR values.
   size_t format_bytes = format.size() + 1;
-  if (format_bytes > 256)
+  if (format_bytes > BPF_MAXFORMATLEN)
     throw SEMANTIC_ERROR(_("Format string for print too long"), e->tok);
-
+#if 1
+  this_prog.mk_mov(this_ins, this_prog.lookup_reg(BPF_REG_1),
+                   this_prog.new_str(format));
+#endif
+#if 0
+  // TODO: MOVED TO bpf-opt.cxx => emit_literal_str
   size_t format_words = (format_bytes + 3) / 4;
   value *frame = this_prog.lookup_reg(BPF_REG_10);
   for (i = 0; i < format_words; ++i)
@@ -1915,6 +1972,7 @@ bpf_unparser::visit_print_format (print_format *e)
 
   this_prog.mk_binary(this_ins, BPF_ADD, this_prog.lookup_reg(BPF_REG_1),
 		      frame, this_prog.new_imm(-(int32_t)format_words * 4));
+#endif
   emit_mov(this_prog.lookup_reg(BPF_REG_2), this_prog.new_imm(format_bytes));
   for (i = 0; i < nargs; ++i)
     emit_mov(this_prog.lookup_reg(BPF_REG_3 + i), actual[i]);

@@ -1,0 +1,31 @@
+// stapbpf string manipulation -- store string in global data structure
+
+// TODO global var
+// TODO global tab1
+// TODO global tab2
+
+probe begin {
+  printf("BEGIN\n")
+  var = "str1"
+  // TODO tab1[0] = "str2"
+  // TODO tab2["key"] = "str3"
+  printf("[[%s]]\n", var) // TODO: temporary
+}
+
+probe kernel.function("vfs_read") {
+  var = "str1" // TODO: temporary
+  printf("[%s]\n", "str0")
+  printf("{%s}\n", var)
+  // TODO printf("<%s>\n", tab1[0])
+  // TODO printf("(%s)\n", tab2["key"])
+  exit()
+}
+
+probe end {
+  var = "str1" // TODO: temporary
+  printf("[%s]\n", "str0")
+  printf("{%s}\n", var)
+  // TODO printf("<%s>\n", tab1[0])
+  // TODO printf("(%s)\n", tab2["key"])
+  printf("END PASS\n") // TODO check output string in bpf.exp
+}

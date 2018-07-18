@@ -10,6 +10,7 @@
 #include "bpf-internal.h"
 #include "elaborate.h"
 #include "session.h"
+#include "util.h"
 
 using namespace std;
 
@@ -24,6 +25,8 @@ value::print(std::ostream &o) const
       return o << "#";
     case IMM:
       return o << "$" << imm_val;
+    case STR:
+      return o << "$\"" << escaped_literal_string (str_val) << "\"";
     case HARDREG:
       return o << "r" << reg_val;
     case TMPREG:
@@ -528,6 +531,8 @@ program::~program()
     delete *i;
   for (auto i = imm_map.begin (); i != imm_map.end (); ++i)
     delete i->second;
+  for (auto i = str_map.begin (); i != str_map.end (); ++i)
+    delete i->second;
   #endif
 }
 
@@ -566,6 +571,19 @@ program::new_imm(int64_t i)
 
   value *v = new value(value::mk_imm(i));
   auto ok = imm_map.insert(std::pair<int64_t, value *>(i, v));
+  assert(ok.second);
+  return v;
+}
+
+value *
+program::new_str(std::string str)
+{
+  auto old = str_map.find(str);
+  if (old != str_map.end())
+    return old->second;
+
+  value *v = new value(value::mk_str(str));
+  auto ok = str_map.insert(std::pair<std::string, value *>(str, v));
   assert(ok.second);
   return v;
 }

@@ -28,8 +28,10 @@ struct vardecl;
 namespace bpf {
 
 #define MAX_BPF_STACK 512
-#define BPF_MAXSTRINGLEN 64 // TODO: For strings as first-class values.
+#define BPF_MAXSTRINGLEN 64
+#define BPF_MAXFORMATLEN 256
 #define BPF_REG_SIZE 8
+// TODO: BPF_MAX{STRING,FORMAT}LEN should be user-configurable.
 
 typedef unsigned short regno;
 static const regno max_regno = BPF_MAXINSNS;
@@ -48,24 +50,33 @@ enum condition
 
 struct value
 {
-  enum value_type { UNINIT, IMM, HARDREG, TMPREG };
+  enum value_type { UNINIT,
+                    IMM,
+                    STR, /* <- lowered to HARDREG by the optimizer */
+                    HARDREG,
+                    TMPREG, /* <- lowered to HARDREG by the optimizer */ };
 
   value_type type	: 16;
   regno reg_val		: 16;
   int64_t imm_val;
+  std::string str_val;
 
-  value(value_type t = UNINIT, regno r = noreg, int64_t c = 0)
-    : type(t), reg_val(r), imm_val(c)
+  value(value_type t = UNINIT, regno r = noreg, int64_t c = 0, std::string s = "")
+    : type(t), reg_val(r), imm_val(c), str_val(s)
   { }
 
   static value mk_imm(int64_t i) { return value(IMM, noreg, i); }
+  static value mk_str(std::string s) { return value(STR, noreg, 0, s); }
   static value mk_reg(regno r) { return value(TMPREG, r); }
   static value mk_hardreg(regno r) { return value(HARDREG, r); }
 
   bool is_reg() const { return type >= HARDREG; }
   bool is_imm() const { return type == IMM; }
+  bool is_str() const { return type == STR; }
+
   regno reg() const { assert(is_reg()); return reg_val; }
   int64_t imm() const { assert(is_imm()); return imm_val; }
+  std::string str() const { assert(is_str()); return str_val; }
 
   std::ostream& print(std::ostream &) const;
 };
@@ -205,12 +216,16 @@ struct program
 
   std::vector<value> hardreg_vals;
   std::vector<value *> reg_vals;
+
+  // Store at most one of each IMM and STR value:
   std::unordered_map<int64_t, value *> imm_map;
+  std::unordered_map<std::string, value *> str_map;
 
   regno max_reg() const { return reg_vals.size() + MAX_BPF_REG; }
   value *lookup_reg(regno r);
   value *new_reg();
   value *new_imm(int64_t);
+  value *new_str(std::string);
 
   // The BPF local stack is [0, -512] indexed off BPF_REG_10.
   // The translator has dibs on the low bytes, [0, -max_tmp_space],

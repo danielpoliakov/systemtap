@@ -17,6 +17,81 @@
 
 namespace bpf {
 
+// Write a string literal out to the stack in 4-byte chunks.
+//
+// ??? Could use 8-byte chunks if we're starved for instruction counts.
+// ??? Endianness of the target comes into play here.
+static value *
+emit_literal_string(program &p, insn_inserter &ins, value *val)
+{
+  // Append the string to existing temporary data.
+  //
+  // TODO: This could produce significant size limitations.
+  // A better solution would be to integrate with the
+  // register allocator and reclaim the space after
+  // the string literal is no longer live.
+  size_t str_off = p.max_tmp_space;
+  str_off += 4 - str_off % 4; // verifier requires rounding to nearest multiple of 4
+  p.use_tmp_space(str_off);
+
+  std::string str = val->str();
+  size_t str_bytes = str.size() + 1;
+  size_t str_words = (str_bytes + 3) / 4;
+  if (str_off + str_bytes > MAX_BPF_STACK)
+    throw std::runtime_error("string allocation failed due to lack of room on stack");
+
+  value *frame = p.lookup_reg(BPF_REG_10);
+  for (unsigned i = 0; i < str_words; ++i)
+    {
+      uint32_t word = 0;
+      for (unsigned j = 0; j < 4; ++j)
+        if (i * 4 + j < str_bytes - 1)
+          {
+            // ??? little-endian target
+            word |= (uint32_t)str[i * 4 + j] << (j * 8);
+          }
+      p.mk_st(ins, BPF_W, frame,
+              (int32_t)(-str_words + i) * 4 + (-str_off),
+              p.new_imm(word));
+    }
+  p.max_tmp_space += str_bytes; // add to existing space!
+
+  value *out = p.new_reg();
+  p.mk_binary(ins, BPF_ADD, out,
+              frame, p.new_imm(-(int32_t)str_words * 4 - (int32_t)str_off));
+  return out;
+}
+
+static void
+lower_str_values(program &p)
+{
+  const unsigned nblocks = p.blocks.size();
+
+  for (unsigned i = 0; i < nblocks; ++i)
+    {
+      block *b = p.blocks[i];
+
+      for (insn *j = b->first; j != NULL; j = j->next)
+        {
+          value *s0 = j->src0;
+          if (s0 && s0->is_str())
+            {
+              insn_before_inserter ins(b, j);
+              value *new_s0 = emit_literal_string(p, ins, s0);
+              j->src0 = new_s0;
+            }
+
+          value *s1 = j->src1;
+          if (s1 && s1->is_str())
+            {
+              insn_before_inserter ins(b, j);
+              value *new_s1 = emit_literal_string(p, ins, s1);
+              j->src1 = new_s1;
+            }
+        }
+    }
+}
+
 static void
 fixup_operands(program &p)
 {
@@ -758,7 +833,7 @@ finalize_allocation(std::vector<regno> &partition, program &p)
 
       // Hard registers are partition[i] == i,
       // and while other partition members should require
-      // no more than three dereferences to yeild a hard reg,
+      // no more than three dereferences to yield a hard reg,
       // we allow for up to ten dereferences.
       unsigned r = partition[i];
       for (int j = 0; r >= MAX_BPF_REG && j < 10; j++)
@@ -804,7 +879,7 @@ reg_alloc(program &p)
 
       merge(partition, ordered, life, igraph, p);
 
-      // ??? Use C++14 lambda.
+      // XXX: Consider using C++14 lambda.
       pref_sort_reg sort_obj(life);
       std::sort(ordered.begin(), ordered.end(), sort_obj);
 
@@ -875,12 +950,13 @@ post_alloc_cleanup (program &p)
 void
 program::generate()
 {
+  lower_str_values(*this);
   fixup_operands(*this);
   thread_jumps(*this);
   fold_jumps(*this);
   reorder_blocks(*this);
   reg_alloc(*this);
-  post_alloc_cleanup (*this);
+  post_alloc_cleanup(*this);
 }
 
 } // namespace bpf
