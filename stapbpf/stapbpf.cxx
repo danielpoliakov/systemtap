@@ -1250,6 +1250,7 @@ print_trace_output(pthread_t main_thread)
         fatal("error opening trace_pipe: %s\n", strerror(errno));
 
       bool start_tag_seen = false;
+      unsigned bytes_written = 0;
       string line, buf;
       while (getline(trace_pipe, line))
         {
@@ -1270,11 +1271,13 @@ print_trace_output(pthread_t main_thread)
                 {
                   line = line.substr(0, pos);
                   start_tag_seen = false;
+                  bytes_written = 0;
 
                   // exit() causes "" to be written to trace_pipe. If
                   // "" is seen and the exit flag is set, wake up main
                   // thread to begin program shutdown.
-                  if (line == "" && buf == "" && get_exit_status())
+                  if (line == "" && buf == "" && bytes_written == 0
+                      && get_exit_status())
                     {
                       pthread_kill(main_thread, SIGINT);
                       return;
@@ -1285,6 +1288,7 @@ print_trace_output(pthread_t main_thread)
               if (fwrite(buf.c_str(), sizeof(char), buf.size(), output_f)
                    != buf.size())
                 fatal("error writing to output file: %s\n", strerror(errno));
+              bytes_written += buf.size();
 
               fflush(output_f);
               buf = "";
