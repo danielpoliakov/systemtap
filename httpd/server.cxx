@@ -39,7 +39,7 @@ get_key_values(void *cls, enum MHD_ValueKind /*kind*/,
         json_object *root = json_tokener_parse_verbose (value, &json_error);
         if (root == NULL)
           {
-	    server_error(json_tokener_error_desc (json_error));
+	    server_error(_F("JSON parse error: %s", json_tokener_error_desc (json_error)));
             return MHD_NO;
           }
 
@@ -135,6 +135,7 @@ struct connection_info
 
     MHD_PostProcessor *postprocessor;
     post_params_t post_params;
+    string post_data;
 
     string post_dir;
     map<string, vector<upload_file_info>> post_files;
@@ -143,7 +144,7 @@ struct connection_info
     connection_info(struct MHD_Connection *connection)
     {
         postprocessor
-	    = MHD_create_post_processor(connection, 1024,
+	    = MHD_create_post_processor(connection, 65535,
 					&connection_info::postdataiterator_shim,
 					this);
     }
@@ -207,7 +208,7 @@ connection_info::postdataiterator(enum MHD_ValueKind kind,
 				  const char */*content_type*/,
 				  const char */*transfer_encoding*/,
 				  const char *data,
-				  uint64_t /*offset*/,
+				  uint64_t offset,
 				  size_t size)
 {
     if (filename && key) {
@@ -267,8 +268,24 @@ connection_info::postdataiterator(enum MHD_ValueKind kind,
 	}
     }
     else if (key) {
-	string value(data, size);
-	return get_key_values(&post_params, kind, key, value.c_str());
+	// If offset is 0, this is the start of the POST
+	// data. Otherwise, a non-zero offset means this is
+	// (hopefully) the rest of the POST data.
+	if (offset == 0) {
+	    post_data = string(data, size);
+	}
+	else {
+	    post_data.append(data, size);
+	}
+	// We can't return the value of get_key_values(), since
+	// we don't know if the POST data was complete. The entire
+	// POST data could have come in the first call, or take
+	// several calls to get completely. But, if get_key_values()
+	// does succeed, we know the data was complete.
+	if (get_key_values(&post_params, kind, key, post_data.c_str())
+	    == MHD_YES) {
+	    post_data.clear();
+	}
     }
     return MHD_YES;
 }
@@ -433,8 +450,6 @@ server::access_handler(struct MHD_Connection *connection,
 
     struct request rq_info;
     request_handler *rh = NULL;
-    server_error(_F("Looking for a matching request handler match with '%s'...",
-		    url_str.c_str()));
     {
 	// Use a lock_guard to ensure the mutex gets released even if an
 	// exception is thrown.
@@ -446,7 +461,6 @@ server::access_handler(struct MHD_Connection *connection,
 	    string url_path_re = get<0>(*it);
 	    if (regexp_match(url_str, url_path_re, rq_info.matches) == 0) {
 		rh = get<1>(*it);
-		server_error(_F("Found a match with '%s'", rh->name.c_str()));
 		break;
 	    }
 	}

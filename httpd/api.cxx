@@ -534,8 +534,6 @@ public:
 
 response individual_build_rh::GET(const request &req)
 {
-    server_error("individual_build_rh::GET");
-
     // matches[0] is the entire string '/builds/XXXX'. matches[1] is
     // just the buildid 'XXXX'.
     string buildid = req.matches[1];
@@ -603,8 +601,6 @@ public:
 
 response individual_result_rh::GET(const request &req)
 {
-    server_error("individual_result_rh::GET");
-
     // matches[0] is the entire string '/results/XXXX'. matches[1] is
     // just the id_str 'XXXX'.
     string id_str = req.matches[1];
@@ -641,8 +637,6 @@ public:
 
 response result_file_rh::GET(const request &req)
 {
-    server_error("result_file_rh::GET");
-
     // matches[0] is the entire string
     // '/results/XXXX/FILE'. matches[1] is the result uuid string
     // 'XXXX'. matches[2] is the filename 'FILE'.
