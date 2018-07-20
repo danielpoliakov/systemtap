@@ -4,6 +4,6 @@ probe syscall.open {
     arr[cpu(), tid(), gid()]++
 }
 
-probe prometheus {
+probe procfs("__prometheus").read { #.maxsize(0x10000) {
     @prometheus_dump_array3(arr, "count", "cpu", "tid", "gid")
 }

@@ -2,14 +2,15 @@
 
 import os
 import sys
-import configparser
+import argparse
 import subprocess
 import shlex
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse
 from time import time
 
-script_dir = os.path.abspath(__file__ + "/../") + "/scripts/"
+script_dir = (os.path.abspath(__file__ + "/../../") 
+              + "/testsuite/systemtap.examples/stap-exporter-scripts/")
 proc_path = "/proc/systemtap/__systemtap_exporter"
 
 
@@ -19,7 +20,6 @@ class Session:
         self.name = name
         self.id = sess_id
         self.cmd = self.get_cmd(name)
-        self.timeout = None
         self.process = None
         self.start_time = None
 
@@ -29,81 +29,66 @@ class Session:
     def get_proc_path(self):
         return proc_path + str(self.id) + "/" + self.name
 
+    def set_start_time(self):
+        self.start_time = time()
+
     def get_cmd(self, script):
-        return "stap -m __systemtap_exporter%d %s%s" % (self.id,
-                                                        script_dir,
-                                                        script)
+        return "stap -m __systemtap_exporter%d --example %s" % (self.id,
+                                                                script)
 
 
 class SessionMgr:
 
     def __init__(self):
         self.counter = 0
+        self.port = None
+        self.timeout = None
         self.sessions = {}
-        self.parse_conf()
+        self.parse_cmdline()
+        self.run_autostart_scripts()
 
-    def create_sess(self, script_name):
-        sess = Session(script_name, self.get_new_id())
-        self.sessions[script_name] = sess
-        return sess
-
-    def start_sess(self, sess):
+    def start_sess(self, script_name):
         """ Begin execution of script and record start time """
-        sess.begin()
-        sess.start_time = time()
-        print("Launched " + sess.name)
+        s = Session(script_name, self.get_new_id())
+        self.sessions[script_name] = s
+        s.begin()
+        s.set_start_time()
 
-    def start_sess_from_name(self, script_name):
-        sess = self.sessions[script_name]
-        self.start_sess(sess)
+    def parse_cmdline(self):
+         p = argparse.ArgumentParser(description='Systemtap-prometheus interoperation mechanism')
+         p.add_argument('-p', '--port', nargs=1, default=[9900], type=int)
+         p.add_argument('-t', '--timeout', nargs=1, default=[None], type=int)
+          
+         opts = p.parse_args()
+         self.port = opts.port[0]
+         self.timeout = opts.timeout[0]
 
-    def parse_conf(self):
-        print("Reading config file")
-        config = configparser.ConfigParser()
-
-        try:
-            config.read_file(open(script_dir + '/../exporter.conf'))
-        except Exception as e:
-            print("Unable to read exporter.conf: " + str(e))
-            sys.exit(-1)
-
-        self.port = int(config['DEFAULT']['port'])
-        for sec in config.sections():
-            sess = self.create_sess(sec)
-
-            if 'timeout' in config[sec]:
-                try:
-                    sess.timeout = int(config[sec]['timeout'])
-                except:
-                    print("Unable to parse option 'timeout' of section " + sec)
-                    sys.exit(-1)
-
-            if 'startup' in config[sec] and config[sec]['startup'] == 'True':
-                self.start_sess(sess)
-
-    def sess_exists(self, name):
-        return name in self.sessions
+    def run_autostart_scripts(self):
+        scripts = os.listdir(script_dir + "autostart/")
+        for name in scripts:
+            self.start_sess(name)
 
     def sess_started(self, name):
-        return self.sessions[name].process is not None
+         return name in self.sessions 
 
     def get_new_id(self):
         ret = self.counter
         self.counter += 1
         return ret
 
-    def terminate_sess(self, name, sess):
-        print("Terminating " + name)
-        sess.process.terminate()
-        sess.process = None
-        sess.start_time = None
-
     def check_timeouts(self):
+        term = []
         for (name, sess) in self.sessions.items():
-            if (sess.start_time is not None
-                    and sess.timeout is not None
-                    and time() - sess.start_time >= sess.timeout):
-                self.terminate_sess(name, sess)
+            if ((sess.start_time is not None
+                    and self.timeout is not None
+                    and time() - sess.start_time >= self.timeout)
+                    or sess.process.poll() is not None):
+                print("Terminating " + name)
+                sess.process.terminate()
+                term.append(name)
+        for name in term:
+                self.sessions[name].process.wait(1)
+                self.sessions.pop(name, None)
 
 
 class HTTPHandler(BaseHTTPRequestHandler):
@@ -123,6 +108,7 @@ class HTTPHandler(BaseHTTPRequestHandler):
         except:
             self.set_headers(501, 'text/plain')
             self.wfile.write(bytes('Metrics currently unavailable', 'utf-8'))
+        sess.set_start_time()
 
     def send_msg(self, code, msg):
         self.set_headers(code, 'text/plain')
@@ -132,16 +118,13 @@ class HTTPHandler(BaseHTTPRequestHandler):
         # remove the preceeding '/' from url
         name = urlparse(self.path).path[1:]
         mgr = self.sessmgr
-        if not mgr.sess_exists(name):
-            # exporter doesn't recognize the url
-            self.send_msg(404, "File not found")
-        elif mgr.sess_started(name):
+        if mgr.sess_started(name):
             # session is already running, send metrics
             self.send_metrics(mgr.sessions[name])
         else:
             # launch session
-            mgr.start_sess_from_name(name)
-            self.send_msg(301, "Script launched, refresh page to access metrics.")
+            mgr.start_sess(name)
+            self.send_msg(301, "Refresh page to access metrics.")
 
 if __name__ == "__main__":
     sessmgr = HTTPHandler.sessmgr
