@@ -19,10 +19,16 @@
  * as efficient as printf and should be used only for urgent
  * messages. 
  */
-function log (msg:string) %{ /* unprivileged */ /* unmodified-fnargs */
+function log (msg:string)
+%( runtime != "bpf" %?
+   %{ /* unprivileged */ /* unmodified-fnargs */
 	STAP_PRINTF ("%s\n", STAP_ARG_msg);
-%}
-
+   %}
+%:
+   { /* unprivileged */ /* bpf */
+     printf("%s\n", msg)
+   }
+%)
 
 /**
  * sfunction warn - Send a line to the warning stream
@@ -33,9 +39,17 @@ function log (msg:string) %{ /* unprivileged */ /* unmodified-fnargs */
  * staprun. It is also sent over the bulk transport (relayfs) if it is
  * being used. If the last characater is not a newline, the one is added.
  */
-function warn (msg:string) %{ /* unprivileged */ /* unmodified-fnargs */
-    _stp_warn ("%s", STAP_ARG_msg);
-%}
+function warn (msg:string)
+%( runtime != "bpf" %?
+   %{ /* unprivileged */ /* unmodified-fnargs */
+        _stp_warn ("%s", STAP_ARG_msg);
+   %}
+%:
+   { /* unprivileged */ /* bpf */
+     // TODO: _stp_warn intelligently determines whether msg has a newline
+     printf("WARNING: %s\n", msg)
+   }
+%)
 
 
 /**
@@ -81,7 +95,8 @@ function error (msg:string)
   %}
 %:
    { /* bpf */ /* unprivileged */
-     printf("ERROR\n")
+     // TODO: should communicate an 'error' exit status
+     printf("ERROR: %s\n", msg)
      exit()
    }
 %)
