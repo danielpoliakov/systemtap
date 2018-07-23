@@ -821,13 +821,13 @@ http_client_backend::include_file_or_directory (const string &subdir,
       // It can not be canonicalized. Use the name relative to
       // the current working directory and let the server deal with it.
       char cwd[PATH_MAX];
+      rc = 1;
       if (getcwd (cwd, sizeof (cwd)) == NULL)
 	{
 	  rpath = path;
-	  rc = 1;
 	  goto done;
 	}
-	rpath = string (cwd) + "/" + path;
+      rpath = string (cwd) + "/" + path;
     }
   else
     {
