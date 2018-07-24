@@ -423,8 +423,7 @@ Requires: iproute
 
 %description runtime-java
 This package includes support files needed to run systemtap scripts
-that probe Java processes running on the OpenJDK 1.6 and OpenJDK 1.7
-runtimes using Byteman.
+that probe Java processes running on the OpenJDK runtimes using Byteman.
 %endif
 
 %if %{with_python2_probes}
