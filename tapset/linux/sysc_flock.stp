@@ -22,9 +22,6 @@ probe syscall.flock.return = dw_syscall.flock.return !, nd_syscall.flock.return 
 
 # dw_flock _____________________________________________________
 
-probe nd_syscall.flock = nd1_syscall.flock!, nd2_syscall.flock!, tp_syscall.flock
-  { }
-
 probe dw_syscall.flock = kernel.function("sys_flock").call
 {
 	@_SYSCALL_FLOCK_NAME
@@ -40,12 +37,15 @@ probe dw_syscall.flock.return = kernel.function("sys_flock").return
 
 # nd_flock _____________________________________________________
 
+probe nd_syscall.flock = nd1_syscall.flock!, nd2_syscall.flock!, tp_syscall.flock
+  { }
+
 probe nd1_syscall.flock = kprobe.function("sys_flock") ?
 {
 	@_SYSCALL_FLOCK_NAME
 	asmlinkage()
-	@_SYSCALL_FLOCK_ARGSTR
 	@_SYSCALL_FLOCK_REGARGS
+	@_SYSCALL_FLOCK_ARGSTR
 }
 
 /* kernel 4.17+ */

@@ -45,7 +45,7 @@ probe dw_syscall.getrandom.return = kernel.function("sys_getrandom").return ?
 probe nd_syscall.getrandom = nd1_syscall.getrandom!, nd2_syscall.getrandom!, tp_syscall.getrandom
   { }
 
-probe nd_syscall.getrandom = kprobe.function("sys_getrandom") ?
+probe nd1_syscall.getrandom = kprobe.function("sys_getrandom") ?
 {
 	@_SYSCALL_GETRANDOM_NAME
 	asmlinkage()

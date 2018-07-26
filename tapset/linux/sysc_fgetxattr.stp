@@ -57,6 +57,7 @@ probe nd1_syscall.fgetxattr = kprobe.function("sys_fgetxattr") ?
 {
 	@_SYSCALL_FGETXATTR_NAME
 	asmlinkage()
+	@_SYSCALL_FGETXATTR_REGARGS
 	@_SYSCALL_FGETXATTR_ARGSTR
 }
 

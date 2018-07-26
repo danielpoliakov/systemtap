@@ -73,6 +73,7 @@ probe tp_syscall.ioprio_get = kernel.trace("sys_enter")
 
 probe nd_syscall.ioprio_get.return = nd1_syscall.ioprio_get.return!, nd2_syscall.ioprio_get.return!, tp_syscall.ioprio_get.return
   { }
+
 probe nd1_syscall.ioprio_get.return = kprobe.function("sys_ioprio_get").return ?
 {
 	@_SYSCALL_IOPRIO_GET_NAME

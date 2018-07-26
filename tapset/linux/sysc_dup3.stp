@@ -77,7 +77,7 @@ probe tp_syscall.dup3 = kernel.trace("sys_enter")
 probe nd_syscall.dup3.return = nd1_syscall.dup3.return!, nd2_syscall.dup3.return!, tp_syscall.dup3.return
   { }
   
-probe nd_syscall.dup3.return = kprobe.function("sys_dup3").return ?
+probe nd1_syscall.dup3.return = kprobe.function("sys_dup3").return ?
 {
 	@__syscall_compat_gate(@const("__NR_dup3"), @const("__NR_compat_dup3"))
 	@_SYSCALL_DUP3_NAME

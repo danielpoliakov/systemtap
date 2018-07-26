@@ -31,6 +31,9 @@
 #ifndef __NR_bind
 #define __NR_bind (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_bpf
+#define __NR_bpf (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_connect
 #define __NR_connect (__NR_syscall_max + 1)
 #endif
@@ -43,14 +46,23 @@
 #ifndef __NR_futimesat
 #define __NR_futimesat (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_getcpu
+#define __NR_getcpu (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_getpeername
 #define __NR_getpeername (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_getrandom
+#define __NR_getrandom (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_getsockname
 #define __NR_getsockname (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_ipc
 #define __NR_ipc (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_kcmp
+#define __NR_kcmp (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_listen
 #define __NR_listen (__NR_syscall_max + 1)
@@ -324,7 +336,7 @@
 #define __NR_ia32_request_key 287
 #endif
 #ifndef __NR_ia32_rmdir
-#define __NR_ia32_rmdif 40
+#define __NR_ia32_rmdir 40
 #endif
 #ifndef __NR_ia32_rt_sigprocmask
 #define __NR_ia32_rt_sigprocmask 175

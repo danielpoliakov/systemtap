@@ -48,6 +48,7 @@ probe nd1_syscall.creat = kprobe.function("sys_creat") ?
 	@_SYSCALL_CREAT_ARGSTR
 }
 
+/* kernel 4.17+ */
 probe nd2_syscall.creat = kprobe.function(@arch_syscall_prefix "sys_creat") ?
 {
 	__set_syscall_pt_regs(pointer_arg(1))
@@ -82,7 +83,7 @@ probe nd2_syscall.creat.return = kprobe.function(@arch_syscall_prefix "sys_creat
 	retstr = returnstr(1) /* NB: not in the $regs */
 }
 
-  /* kernel 3.5+, but undesirable because of it affects all syscalls */
+/* kernel 3.5+, but undesirable because of it affects all syscalls */
 probe tp_syscall.creat.return = kernel.trace("sys_exit")
 {
 	__set_syscall_pt_regs($regs)
