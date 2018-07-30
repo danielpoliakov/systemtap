@@ -1774,11 +1774,6 @@ bpf_unparser::visit_functioncall (functioncall *e)
 
   assert (e->args.size () == f->formal_args.size ());
 
-  // ??? Needed for testsuite to run. This should be removed as soon
-  // as strings are supported and error can be properly implemented.
-  if (f->unmangled_name == "error")
-    return;
-
   // Create a new map for the function's local variables.
   locals_map *locals = new_locals(f->locals);
 

@@ -1261,6 +1261,7 @@ print_trace_output(pthread_t main_thread)
               if (pos != string::npos)
                 {
                   start_tag_seen = true;
+                  bytes_written = 0;
                   line = line.substr(pos + start_tag.size(), string::npos);
                 }
             }
@@ -1271,7 +1272,6 @@ print_trace_output(pthread_t main_thread)
                 {
                   line = line.substr(0, pos);
                   start_tag_seen = false;
-                  bytes_written = 0;
 
                   // exit() causes "" to be written to trace_pipe. If
                   // "" is seen and the exit flag is set, wake up main
