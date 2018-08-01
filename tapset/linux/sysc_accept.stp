@@ -14,6 +14,29 @@
 	argstr = sprintf("%d, %p, %p", sockfd, addr_uaddr, addrlen_uaddr)
 %)
 
+@define _SYSCALL_ACCEPT_REGARGS
+%(
+	sockfd = int_arg(1)
+	addr_uaddr = pointer_arg(2)
+	addrlen_uaddr = pointer_arg(3)
+%)
+
+@define _SYSCALL_SOCKETCALL_ACCEPT_REGARGS
+%(
+	__args = &@ulong_cast(pointer_arg(2))
+	sockfd = __int32(user_ulong(&@ulong_cast(__args)[0]))
+	addr_uaddr = user_ulong(&@ulong_cast(__args)[1])
+	addrlen_uaddr = user_ulong(&@ulong_cast(__args)[2])
+%)
+
+@define _SYSCALL_COMPAT_SOCKETCALL_ACCEPT_REGARGS
+%(
+	__args = &@uint_cast(pointer_arg(2))
+	sockfd = user_int(&@uint_cast(__args)[0])
+	addr_uaddr = user_uint32(&@uint_cast(__args)[1])
+	addrlen_uaddr = user_uint32(&@uint_cast(__args)[2])
+%)
+
 probe syscall.accept = dw_syscall.accept !, nd_syscall.accept ? {}
 probe syscall.accept.return = dw_syscall.accept.return !, nd_syscall.accept.return ? {}
 
@@ -74,9 +97,12 @@ probe __syscall.socketcall.accept.return =
 
 # nd_accept _____________________________________________________
 
-probe nd_syscall.accept = __nd_syscall.accept ?,
-	__nd_syscall.socketcall.accept ?,
-	__nd_syscall.compat_socketcall.accept ?
+probe nd_syscall.accept = nd1_syscall.accept!, nd2_syscall.accept!, tp_syscall.accept
+  { }
+
+probe nd1_syscall.accept = __nd1_syscall.accept ?,
+	__nd1_syscall.socketcall.accept ?,
+	__nd1_syscall.compat_socketcall.accept ?
 {
 	@_SYSCALL_ACCEPT_NAME
 %(systemtap_v <= "2.5" %?
@@ -89,46 +115,145 @@ probe nd_syscall.accept = __nd_syscall.accept ?,
 	@_SYSCALL_ACCEPT_ARGSTR
 %)
 }
-probe __nd_syscall.accept = kprobe.function("sys_accept").call
+probe __nd1_syscall.accept = kprobe.function("sys_accept").call
 {
 	asmlinkage()
 	@__syscall_gate(@const("__NR_accept"))
-	sockfd = int_arg(1)
-	addr_uaddr = pointer_arg(2)
-	addrlen_uaddr = pointer_arg(3)
+	@_SYSCALL_ACCEPT_REGARGS
 }
-probe __nd_syscall.socketcall.accept = kprobe.function("sys_socketcall").call ?
+probe __nd1_syscall.socketcall.accept = kprobe.function("sys_socketcall").call ?
 {
 	asmlinkage()
 	if (int_arg(1) != @const("SYS_ACCEPT")) next;
-	__args = &@ulong_cast(pointer_arg(2))
-	sockfd = __int32(user_ulong(&@ulong_cast(__args)[0]))
-	addr_uaddr = user_ulong(&@ulong_cast(__args)[1])
-	addrlen_uaddr = user_ulong(&@ulong_cast(__args)[2])
+	@_SYSCALL_SOCKETCALL_ACCEPT_REGARGS
 }
-probe __nd_syscall.compat_socketcall.accept =
+probe __nd1_syscall.compat_socketcall.accept =
 	kprobe.function("compat_sys_socketcall").call ?
 {
 	asmlinkage()
 	if (int_arg(1) != @const("SYS_ACCEPT")) next;
-	__args = &@uint_cast(pointer_arg(2))
-	sockfd = user_int(&@uint_cast(__args)[0])
-	addr_uaddr = user_uint32(&@uint_cast(__args)[1])
-	addrlen_uaddr = user_uint32(&@uint_cast(__args)[2])
+	@_SYSCALL_COMPAT_SOCKETCALL_ACCEPT_REGARGS
 }
-probe nd_syscall.accept.return = __nd_syscall.accept.return ?,
-	__nd_syscall.socketcall.accept.return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.accept = __nd2_syscall.accept ?,
+	__nd2_syscall.socketcall.accept ?,
+	__nd2_syscall.compat_socketcall.accept ?
+{
+	@_SYSCALL_ACCEPT_NAME
+%(systemtap_v <= "2.5" %?
+	# systemtap <= 2.5 combined accept and accept4
+	flags = 0
+	flags_str = "0x0"
+	argstr = sprintf("%d, %p, %p, %s", sockfd, addr_uaddr, addrlen_uaddr,
+			 flags_str)
+%:
+	@_SYSCALL_ACCEPT_ARGSTR
+%)
+}
+probe __nd2_syscall.accept = kprobe.function(@arch_syscall_prefix "sys_accept").call
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_ACCEPT_REGARGS
+}
+probe __nd2_syscall.socketcall.accept = kprobe.function(@arch_syscall_prefix "sys_socketcall").call ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	if (int_arg(1) != @const("SYS_ACCEPT")) next;
+	@_SYSCALL_SOCKETCALL_ACCEPT_REGARGS
+}
+probe __nd2_syscall.compat_socketcall.accept =
+	kprobe.function(@arch_syscall_prefix "compat_sys_socketcall").call ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	if (int_arg(1) != @const("SYS_ACCEPT")) next;
+	@_SYSCALL_COMPAT_SOCKETCALL_ACCEPT_REGARGS
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.accept = __tp_syscall.accept ?,
+	__tp_syscall.socketcall.accept ?
+{
+	@_SYSCALL_ACCEPT_NAME
+%(systemtap_v <= "2.5" %?
+	# systemtap <= 2.5 combined accept and accept4
+	flags = 0
+	flags_str = "0x0"
+	argstr = sprintf("%d, %p, %p, %s", sockfd, addr_uaddr, addrlen_uaddr,
+			 flags_str)
+%:
+	@_SYSCALL_ACCEPT_ARGSTR
+%)
+}
+probe __tp_syscall.accept = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_accept"))
+	@_SYSCALL_ACCEPT_REGARGS
+}
+probe __tp_syscall.socketcall.accept = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_socketcall"), @const("__NR_compat_socketcall"))
+	if (int_arg(1) != @const("SYS_ACCEPT")) next;
+	if (@__compat_task) {
+		@_SYSCALL_COMPAT_SOCKETCALL_ACCEPT_REGARGS
+	}
+	else {
+		@_SYSCALL_SOCKETCALL_ACCEPT_REGARGS
+	}
+}
+
+probe nd_syscall.accept.return = nd1_syscall.accept.return!, nd2_syscall.accept.return!, tp_syscall.accept.return
+  { }
+
+probe nd1_syscall.accept.return = __nd1_syscall.accept.return ?,
+	__nd1_syscall.socketcall.accept.return ?
 {
 	@_SYSCALL_ACCEPT_NAME
 	retstr = returnstr(1)
 }
-probe __nd_syscall.accept.return = kprobe.function("sys_accept").return ?
+probe __nd1_syscall.accept.return = kprobe.function("sys_accept").return ?
 {
 	@__syscall_gate(@const("__NR_accept"))
 }
-probe __nd_syscall.socketcall.accept.return =
+probe __nd1_syscall.socketcall.accept.return =
 	kprobe.function("sys_socketcall").return ?,
 	kprobe.function("compat_sys_socketcall").return ?
 {
 	if (@entry(__asmlinkage_int_arg(1)) != @const("SYS_ACCEPT")) next;
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.accept.return =
+	kprobe.function(@arch_syscall_prefix "sys_accept").return ?,
+	__nd2_syscall.socketcall.accept.return ?
+{
+	@_SYSCALL_ACCEPT_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+probe __nd2_syscall.socketcall.accept.return =
+	kprobe.function(@arch_syscall_prefix "sys_socketcall").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_socketcall").return ?
+{
+	__set_syscall_pt_regs(@entry(pointer_arg(1)))
+	if (int_arg(1) != @const("SYS_ACCEPT")) next;
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.accept.return = __tp_syscall.accept.return ?,
+	__tp_syscall.socketcall.accept.return ?
+{
+	@_SYSCALL_ACCEPT_NAME
+	retstr = return_str(1,$ret)
+}
+probe __tp_syscall.accept.return = kernel.trace("sys_exit")
+{
+	@__syscall_gate(@const("__NR_accept"))
+}
+probe __tp_syscall.socketcall.accept.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_socketcall"), @const("__NR_compat_socketcall"))
+	if (int_arg(1) != @const("SYS_ACCEPT")) next;
 }

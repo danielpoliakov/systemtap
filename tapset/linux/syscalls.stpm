@@ -59,6 +59,7 @@
 
 @define __compat_syscall_gate(compat_syscall_nr)
 %(
+	@__syscall_gate_noncompat_simple
     %( CONFIG_COMPAT == "y" %?
 	try { __nr = _stp_syscall_nr() } catch { next }
 	if (@__compat_task) {

@@ -139,11 +139,17 @@
 #ifndef __NR_truncate
 #define __NR_truncate (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_socketcall
+#define __NR_socketcall (__NR_syscall_max + 1)
+#endif
 
 #if defined(__x86_64__)
 
 // On older kernels (like RHEL5), we have to define our own 32-bit
 // syscall numbers.
+#ifndef __NR_ia32__newselect
+#define __NR_ia32__newselect 142
+#endif
 #ifndef __NR_ia32_access
 #define __NR_ia32_access 33
 #endif
@@ -326,6 +332,9 @@
 #ifndef __NR_ia32_readlinkat
 #define __NR_ia32_readlinkat 305
 #endif
+#ifndef __NR_ia32_recvmmsg
+#define __NR_ia32_recvmmsg 337
+#endif
 #ifndef __NR_ia32_renameat
 #define __NR_ia32_renameat 302
 #endif
@@ -373,6 +382,9 @@
 #ifndef __NR_ia32_shmctl
 #define __NR_ia32_shmctl (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_ia32_socketcall
+#define __NR_ia32_socketcall 102
+#endif
 #ifndef __NR_ia32_symlink
 #define __NR_ia32_symlink 83
 #endif
@@ -392,6 +404,7 @@
 #define __NR_ia32_write 4
 #endif
 
+#define __NR_compat__newselect		__NR_ia32__newselect
 #define __NR_compat_access		__NR_ia32_access
 #define __NR_compat_acct		__NR_ia32_acct
 #define __NR_compat_add_key		__NR_ia32_add_key
@@ -448,6 +461,7 @@
 #define __NR_compat_read		__NR_ia32_read
 #define __NR_compat_readlink		__NR_ia32_readlink
 #define __NR_compat_readlinkat		__NR_ia32_readlinkat
+#define __NR_compat_recvmmsg		__NR_ia32_recvmmsg
 #define __NR_compat_renameat		__NR_ia32_renameat
 #define __NR_compat_renameat2		__NR_ia32_renameat2
 #define __NR_compat_request_key		__NR_ia32_request_key
@@ -455,6 +469,7 @@
 #define __NR_compat_rt_sigprocmask	__NR_ia32_rt_sigprocmask
 #define __NR_compat_sendmmsg		__NR_ia32_sendmmsg
 #define __NR_compat_shmctl		__NR_ia32_shmctl
+#define __NR_compat_socketcall		__NR_ia32_socketcall
 #define __NR_compat_symlink		__NR_ia32_symlink
 #define __NR_compat_symlinkat		__NR_ia32_symlinkat
 #define __NR_compat_truncate		__NR_ia32_truncate
@@ -473,6 +488,7 @@
 // 64-bit syscalls, but the majority do not. The following syscalls
 // use the same number.
 
+#define __NR_compat__newselect		__NR__newselect
 #define __NR_compat_access		__NR_access
 #define __NR_compat_acct		__NR_acct
 #define __NR_compat_add_key		__NR_add_key
@@ -529,6 +545,7 @@
 #define __NR_compat_read		__NR_read
 #define __NR_compat_readlink		__NR_readlink
 #define __NR_compat_readlinkat		__NR_readlinkat
+#define __NR_compat_recvmmsg		__NR_recvmmsg
 #define __NR_compat_renameat		__NR_renameat
 #define __NR_compat_renameat2		__NR_renameat2
 #define __NR_compat_request_key		__NR_request_key
@@ -536,6 +553,7 @@
 #define __NR_compat_rt_sigprocmask	__NR_rt_sigprocmask
 #define __NR_compat_sendmmsg		__NR_sendmmsg
 #define __NR_compat_shmctl		__NR_shmctl
+#define __NR_compat_socketcall		__NR_socketcall
 #define __NR_compat_symlink		__NR_symlink
 #define __NR_compat_symlinkat		__NR_symlinkat
 #define __NR_compat_truncate		__NR_truncate

@@ -12,6 +12,29 @@
 			 _struct_sockaddr_u(my_addr_uaddr, addrlen), addrlen)
 %)
 
+@define _SYSCALL_BIND_REGARGS
+%(
+	sockfd = int_arg(1)
+	my_addr_uaddr = pointer_arg(2)
+	addrlen = int_arg(3)
+%)
+
+@define _SYSCALL_SOCKETCALL_BIND_REGARGS
+%(
+	__args = &@ulong_cast(pointer_arg(2))
+	sockfd = __int32(user_ulong(&@ulong_cast(__args)[0]))
+	my_addr_uaddr = user_ulong(&@ulong_cast(__args)[1])
+	addrlen = __int32(user_ulong(&@ulong_cast(__args)[2]))
+%)
+
+@define _SYSCALL_COMPAT_SOCKETCALL_BIND_REGARGS
+%(
+	__args = &@uint_cast(pointer_arg(2))
+	sockfd = user_int(&@uint_cast(__args)[0])
+	my_addr_uaddr = user_uint32(&@uint_cast(__args)[1])
+	addrlen = user_int(&@uint_cast(__args)[2])
+%)
+
 probe syscall.bind = dw_syscall.bind !, nd_syscall.bind ? {}
 probe syscall.bind.return = dw_syscall.bind.return !, nd_syscall.bind.return ? {}
 
@@ -65,53 +88,141 @@ probe __syscall.socketcall.bind.return =
 
 # nd_bind _____________________________________________________
 
-probe nd_syscall.bind = __nd_syscall.bind ?, __nd_syscall.socketcall.bind ?,
-	__nd_syscall.compat_socketcall.bind ?
+probe nd_syscall.bind = nd1_syscall.bind!, nd2_syscall.bind!, tp_syscall.bind
+  { }
+
+probe nd1_syscall.bind = __nd1_syscall.bind ?, __nd1_syscall.socketcall.bind ?,
+	__nd1_syscall.compat_socketcall.bind ?
 {
 	@_SYSCALL_BIND_NAME
 	@_af_inet_info_u(my_addr_uaddr, addrlen)
 	@_SYSCALL_BIND_ARGSTR
 }
-probe __nd_syscall.bind = kprobe.function("sys_bind") ?
+probe __nd1_syscall.bind = kprobe.function("sys_bind") ?
 {
 	@__syscall_gate(@const("__NR_bind"))
 	asmlinkage()
-	sockfd = int_arg(1)
-	my_addr_uaddr = pointer_arg(2)
-	addrlen = int_arg(3)
+	@_SYSCALL_BIND_REGARGS
 }
-probe __nd_syscall.socketcall.bind = kprobe.function("sys_socketcall").call ?
+probe __nd1_syscall.socketcall.bind = kprobe.function("sys_socketcall").call ?
 {
 	asmlinkage()
 	if (int_arg(1) != @const("SYS_BIND")) next;
-	__args = &@ulong_cast(pointer_arg(2))
-	sockfd = __int32(user_ulong(&@ulong_cast(__args)[0]))
-	my_addr_uaddr = user_ulong(&@ulong_cast(__args)[1])
-	addrlen = __int32(user_ulong(&@ulong_cast(__args)[2]))
+	@_SYSCALL_SOCKETCALL_BIND_REGARGS
 }
-probe __nd_syscall.compat_socketcall.bind =
+probe __nd1_syscall.compat_socketcall.bind =
 	kprobe.function("compat_sys_socketcall").call ?
 {
 	asmlinkage()
 	if (int_arg(1) != @const("SYS_BIND")) next;
-	__args = &@uint_cast(pointer_arg(2))
-	sockfd = user_int(&@uint_cast(__args)[0])
-	my_addr_uaddr = user_uint32(&@uint_cast(__args)[1])
-	addrlen = user_int(&@uint_cast(__args)[2])
+	@_SYSCALL_COMPAT_SOCKETCALL_BIND_REGARGS
 }
-probe nd_syscall.bind.return = __nd_syscall.bind.return ?,
-	__nd_syscall.socketcall.bind.return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.bind = __nd2_syscall.bind ?,
+	__nd2_syscall.socketcall.bind ?,
+	__nd2_syscall.compat_socketcall.bind ?
+{
+	@_SYSCALL_BIND_NAME
+	@_af_inet_info_u(my_addr_uaddr, addrlen)
+	@_SYSCALL_BIND_ARGSTR
+}
+probe __nd2_syscall.bind = kprobe.function(@arch_syscall_prefix "sys_bind") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_BIND_REGARGS
+}
+probe __nd2_syscall.socketcall.bind = kprobe.function(@arch_syscall_prefix "sys_socketcall").call ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	if (int_arg(1) != @const("SYS_BIND")) next;
+	@_SYSCALL_SOCKETCALL_BIND_REGARGS
+}
+probe __nd2_syscall.compat_socketcall.bind =
+	kprobe.function(@arch_syscall_prefix "compat_sys_socketcall").call ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	if (int_arg(1) != @const("SYS_BIND")) next;
+	@_SYSCALL_COMPAT_SOCKETCALL_BIND_REGARGS
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.bind = __tp_syscall.bind ?,
+	__tp_syscall.socketcall.bind ?
+{
+	@_SYSCALL_BIND_NAME
+	@_af_inet_info_u(my_addr_uaddr, addrlen)
+	@_SYSCALL_BIND_ARGSTR
+}
+probe __tp_syscall.bind = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_bind"))
+	@_SYSCALL_BIND_REGARGS
+}
+probe __tp_syscall.socketcall.bind = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_socketcall"), @const("__NR_compat_socketcall"))
+	if (int_arg(1) != @const("SYS_BIND")) next;
+	if (@__compat_task) {
+		@_SYSCALL_COMPAT_SOCKETCALL_BIND_REGARGS
+	}
+	else {
+		@_SYSCALL_SOCKETCALL_BIND_REGARGS
+	}
+}
+
+probe nd_syscall.bind.return = nd1_syscall.bind.return!, nd2_syscall.bind.return!, tp_syscall.bind.return
+  { }
+
+probe nd1_syscall.bind.return = __nd1_syscall.bind.return ?,
+	__nd1_syscall.socketcall.bind.return ?
 {
 	@_SYSCALL_BIND_NAME
 	retstr = returnstr(1)
 }
-probe __nd_syscall.bind.return = kprobe.function("sys_bind").return ?
+probe __nd1_syscall.bind.return = kprobe.function("sys_bind").return ?
 {
 	@__syscall_gate(@const("__NR_bind"))
 }
-probe __nd_syscall.socketcall.bind.return =
+probe __nd1_syscall.socketcall.bind.return =
 	kprobe.function("sys_socketcall").return ?,
 	kprobe.function("compat_sys_socketcall").return ?
 {
 	if (@entry(__asmlinkage_int_arg(1)) != @const("SYS_BIND")) next;
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.bind.return =
+	kprobe.function(@arch_syscall_prefix "sys_bind").return ?,
+	__nd2_syscall.socketcall.bind.return ?
+{
+	@_SYSCALL_BIND_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+probe __nd2_syscall.socketcall.bind.return =
+	kprobe.function(@arch_syscall_prefix "sys_socketcall").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_socketcall").return ?
+{
+	__set_syscall_pt_regs(@entry(pointer_arg(1)))
+	if (int_arg(1) != @const("SYS_BIND")) next;
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.bind.return = __tp_syscall.bind.return ?,
+	__tp_syscall.socketcall.bind.return ?
+{
+	@_SYSCALL_BIND_NAME
+	retstr = return_str(1,$ret)
+}
+probe __tp_syscall.bind.return = kernel.trace("sys_exit")
+{
+	@__syscall_gate(@const("__NR_bind"))
+}
+probe __tp_syscall.socketcall.bind.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_socketcall"), @const("__NR_compat_socketcall"))
+	if (int_arg(1) != @const("SYS_BIND")) next;
 }
