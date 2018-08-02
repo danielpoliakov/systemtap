@@ -65,10 +65,16 @@ bool log_ok ();
 void log (const std::string &msg);
 void end_log ();
 
+bool get_host_name (CERTCertificate *c, std::string &host_name);
+#ifdef HAVE_HTTP_SUPPORT
+bool cvt_nss_to_pem (CERTCertificate *c, std::string &cert_pem);
+bool get_pem_cert (const std::string &db_path, const std::string &nss_cert_name, const std::string &host, std::string &cert);
+bool have_san_match (std::string & hostname, std::string & server_cert);
+#endif
+
 int check_cert (const std::string &db_path, const std::string &nss_cert_name, bool use_db_password = false);
 int gen_cert_db (const std::string &db_path, const std::string &extraDnsNames, bool use_password);
-SECStatus add_client_cert (const std::string &inFileName, const std::string &db_path);
-
+SECStatus add_client_cert (const std::string &inFileName, const std::string &db_path, bool init_db);
 void sign_file (
   const std::string &db_path,
   const std::string &nss_cert_name,

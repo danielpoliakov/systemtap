@@ -33,7 +33,6 @@ extern "C" {
 #include <glob.h>
 #include <sys/stat.h>
 #include <sys/utsname.h>
-
 #include <nss.h>
 #include <nspr.h>
 #include <ssl.h>
@@ -44,6 +43,10 @@ extern "C" {
 #include <keyhi.h>
 #include <secder.h>
 #include <cert.h>
+#include <openssl/bio.h>
+#include <openssl/x509.h>
+#include <openssl/pem.h>
+#include <openssl/x509v3.h>
 }
 
 #include "nsscommon.h"
@@ -759,7 +762,7 @@ done:
 }
 
 SECStatus
-add_client_cert (const string &inFileName, const string &db_path)
+add_client_cert (const string &inFileName, const string &db_path, bool init_db)
 {
   FILE *inFile = fopen (inFileName.c_str (), "rb");
   if (! inFile)
@@ -799,32 +802,38 @@ add_client_cert (const string &inFileName, const string &db_path)
       return SECFailure;
     }
 
-  // See if the database already exists and can be initialized.
-  SECStatus secStatus = nssInit (db_path.c_str (), 1/*readwrite*/, 0/*issueMessage*/);
-  if (secStatus != SECSuccess)
+  SECStatus secStatus;
+  if (init_db)
     {
-      // Try again with a fresh database.
-      if (clean_cert_db (db_path.c_str ()) != 0)
-	{
-	  // Message already issued.
-	  return SECFailure;
-	}
-
-      // Make sure the given path exists.
-      if (create_client_cert_db (db_path.c_str ()) != 0)
-	{
-	  nsscommon_error (_F("Could not create certificate database directory %s",
-			      db_path.c_str ()));
-	  return SECFailure;
-	}
-
-      // Initialize the new database.
-      secStatus = nssInit (db_path.c_str (), 1/*readwrite*/);
+      // The http client adds a cert by calling us via add_server_trust which
+      // first has already called nssInit; we don't want to call nssInit twice
+      // See if the database already exists and can be initialized.
+      secStatus = nssInit (db_path.c_str (), 1/*readwrite*/, 0/*issueMessage*/);
       if (secStatus != SECSuccess)
-	{
-	  // Message already issued.
-	  return SECFailure;
-	}
+        {
+          // Try again with a fresh database.
+          if (clean_cert_db (db_path.c_str ()) != 0)
+            {
+              // Message already issued.
+              return SECFailure;
+            }
+
+          // Make sure the given path exists.
+          if (create_client_cert_db (db_path.c_str ()) != 0)
+            {
+              nsscommon_error (_F("Could not create certificate database directory %s",
+                  db_path.c_str ()));
+              return SECFailure;
+            }
+
+          // Initialize the new database.
+          secStatus = nssInit (db_path.c_str (), 1/*readwrite*/);
+          if (secStatus != SECSuccess)
+            {
+              // Message already issued.
+              return SECFailure;
+            }
+        }
     }
 
   // Predeclare these to keep C++ happy about jumps to the label 'done'.
@@ -898,7 +907,8 @@ add_client_cert (const string &inFileName, const string &db_path)
     CERT_DestroyCertificate (cert);
   if (certDER.data)
     PORT_Free (certDER.data);
-  nssCleanup (db_path.c_str ());
+  if (init_db)
+    nssCleanup (db_path.c_str ());
 
   // Make sure that the cert database files are read/write by the owner and
   // readable by all.
@@ -1170,8 +1180,55 @@ cert_is_valid (CERTCertificate *cert)
   return secStatus == SECSuccess;
 }
 
+
+bool
+get_host_name (CERTCertificate *c, string &host_name)
+{
+  // Get the host name. It is in the alt-name extension of the
+  // certificate.
+
+  SECStatus secStatus;
+  PRArenaPool *tmpArena = NULL;
+  // A memory pool to work in
+  tmpArena = PORT_NewArena(DER_DEFAULT_CHUNKSIZE);
+  if (! tmpArena)
+    {
+      clog << _("Out of memory:");
+      return false;
+    }
+
+  SECItem subAltName;
+  subAltName.data = NULL;
+  secStatus = CERT_FindCertExtension (c,
+				      SEC_OID_X509_SUBJECT_ALT_NAME,
+				      & subAltName);
+  if (secStatus != SECSuccess || ! subAltName.data)
+    {
+      clog << _("Unable to find alt name extension on server certificate: ") << endl;
+      PORT_FreeArena (tmpArena, PR_FALSE);
+      return false;
+    }
+
+  // Decode the extension.
+  CERTGeneralName *nameList = CERT_DecodeAltNameExtension (tmpArena, & subAltName);
+  SECITEM_FreeItem(& subAltName, PR_FALSE);
+  if (! nameList)
+    {
+      clog << _("Unable to decode alt name extension on server certificate: ") << endl;
+      return false;
+    }
+
+  // We're interested in the first alternate name.
+  assert (nameList->type == certDNSName);
+  host_name = string ((const char *)nameList->name.other.data,
+		      nameList->name.other.len);
+  PORT_FreeArena (tmpArena, PR_FALSE);
+  return true;
+}
+
 static bool
-cert_db_is_valid (const string &db_path, const string &nss_cert_name)
+cert_db_is_valid (const string &db_path, const string &nss_cert_name, 
+		  CERTCertificate *this_cert)
 {
   // Make sure the given path exists.
   if (! file_exists (db_path))
@@ -1226,6 +1283,8 @@ cert_db_is_valid (const string &db_path, const string &nss_cert_name)
 	  // The cert is valid. One valid cert is enough.
 	  log (_("Certificate is valid"));
 	  valid_p = true;
+	  if (this_cert)
+	    *this_cert = *c;
 	  break;
 	}
 
@@ -1239,12 +1298,176 @@ cert_db_is_valid (const string &db_path, const string &nss_cert_name)
   return valid_p;
 }
 
+
+#ifdef HAVE_HTTP_SUPPORT
+/*
+ * Similar to cert_db_is_valid; additionally it checks host_name and does no logging
+ */
+static bool
+get_pem_cert_is_valid (const string &db_path, const string &nss_cert_name,
+                       const string &host_name, CERTCertificate *this_cert)
+{
+  bool nss_already_init_p = false;
+  bool found_match = false;
+
+  if (! file_exists (db_path))
+    return false;
+
+  if (file_exists (db_path + "/pw"))
+    return false;
+
+  if (NSS_IsInitialized ())
+    nss_already_init_p = true;
+
+  if (nssInit (db_path.c_str ()) != SECSuccess)
+    return false;
+
+  CERTCertList *certs = get_cert_list_from_db (nss_cert_name);
+  if (! certs)
+    {
+      nssCleanup (db_path.c_str ());
+      return false;
+    }
+
+  for (CERTCertListNode *node = CERT_LIST_HEAD (certs);
+       ! CERT_LIST_END (node, certs);
+       node = CERT_LIST_NEXT (node))
+    {
+      CERTCertificate *c = node->cert;
+      // An http client searches for the corresponding server's certificate
+      if (host_name.length() > 0)
+	{
+	  string cert_host_name;
+	  if (get_host_name (c, cert_host_name) == false)
+	      continue;
+
+	  if (cert_host_name != host_name)
+	    {
+	      size_t dot;
+	      if ((dot = host_name.find ('.')) == string::npos
+	          || cert_host_name != host_name.substr(0,dot))
+	        continue;
+	    }
+	}
+
+      // Now ask NSS to check the validity.
+      if (cert_is_valid (c))
+	{
+	  if (this_cert)
+	    *this_cert = *c;
+	  found_match = true;
+	  break;
+	}
+    }
+  CERT_DestroyCertList (certs);
+
+  // NSS shutdown is global and is forceful
+  if (!nss_already_init_p)
+    nssCleanup (db_path.c_str ());
+  return found_match;
+}
+
+
+bool
+cvt_nss_to_pem (CERTCertificate *c, string &cert_pem)
+{
+  BIO *bio;
+  X509 *certificate_509;
+
+  bio = BIO_new(BIO_s_mem());
+  certificate_509 = X509_new();
+  // Load the nss certificate into the openssl BIO
+  int count = BIO_write (bio, (const void*)c->derCert.data, c->derCert.len);
+  if (count == 0)
+    return false;
+  // Parse the BIO into an X509
+  certificate_509 = d2i_X509_bio(bio, &certificate_509);
+  // Convert the X509 to PEM form
+  int rc = PEM_write_bio_X509(bio, certificate_509);
+  if (rc != 1)
+    return false;
+  BUF_MEM *mem = NULL;
+  // Load the buffer from the PEM form
+  BIO_get_mem_ptr(bio, &mem);
+  cert_pem = string(mem->data, mem->length);
+  BIO_free(bio);
+  X509_free(certificate_509);
+  return true;
+}
+
+
+bool
+get_pem_cert (const string &db_path, const string &nss_cert_name, const string &host,
+    string &cert)
+{
+  CERTCertificate cc;
+  CERTCertificate *c = &cc;
+  // Do we have an nss certificate in the nss cert db for server host?
+  if (get_pem_cert_is_valid (db_path, nss_cert_name, host, c))
+    {
+      // If we do, then convert to PEM form
+      cvt_nss_to_pem (c, cert);
+      return true;
+    }
+  return false;
+}
+
+bool
+have_san_match (string & hostname, string & pem_cert)
+{
+  bool have_match = false;
+  STACK_OF (GENERAL_NAME) * san_names = NULL;
+
+  BIO *bio = BIO_new(BIO_s_mem());
+  BIO_puts(bio, pem_cert.c_str());
+  X509 *server_cert = PEM_read_bio_X509(bio, NULL, NULL, NULL);
+
+  // Extract the source alternate names from the certificate
+  san_names =
+    (stack_st_GENERAL_NAME *) X509_get_ext_d2i ((X509 *) server_cert,
+                                                NID_subject_alt_name, NULL,
+                                                NULL);
+  if (san_names == NULL)
+    {
+      return false;
+    }
+
+  for (int i = 0; i < sk_GENERAL_NAME_num (san_names); i++)
+    {
+      const GENERAL_NAME *current_name = sk_GENERAL_NAME_value (san_names, i);
+
+      if (current_name->type == GEN_DNS)
+        {
+          const int scheme_len = 8; // https://
+          string dns_name =
+              string ((char *) ASN1_STRING_get0_data (current_name->d.dNSName));
+
+          if ((size_t) ASN1_STRING_length (current_name->d.dNSName) ==
+              dns_name.length ())
+            {
+              if (hostname.compare(scheme_len,dns_name.length(), dns_name))
+                {
+                  have_match = true;
+                  break;
+                }
+            }
+        }
+    }
+  sk_GENERAL_NAME_pop_free (san_names, GENERAL_NAME_free);
+  BIO_free(bio);
+  X509_free(server_cert);
+
+  return have_match;
+}
+#endif
+
+
 // Ensure that our certificate exists and is valid. Generate a new one if not.
 int
 check_cert (const string &db_path, const string &nss_cert_name, bool use_db_password)
 {
   // Generate a new cert database if the current one does not exist or is not valid.
-  if (! cert_db_is_valid (db_path, nss_cert_name))
+  if (! cert_db_is_valid (db_path, nss_cert_name, NULL))
     {
       if (gen_cert_db (db_path, "", use_db_password) != 0)
 	{

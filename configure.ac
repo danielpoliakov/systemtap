@@ -425,6 +425,20 @@ AS_IF([test "x$with_nss" != "xno"], [
 
 AM_CONDITIONAL([HAVE_NSS], [test "${have_nss}" = "yes"])
 
+dnl See if we have the openssl headers and libraries
+AC_ARG_WITH([openssl],
+  AS_HELP_STRING([--without-openssl],
+    [Do not use OPENSSL even if present]))
+
+AS_IF([test "x$with_openssl" != "xno"], [
+  PKG_CHECK_MODULES([openssl], [openssl],
+    [have_openssl=yes
+     AC_DEFINE([HAVE_OPENSSL], [1], [Define to 1 if you have the openssl libraries.])
+    ], [have_openssl=no])
+], [have_openssl=no])
+
+AM_CONDITIONAL([HAVE_OPENSSL], [test "${have_openssl}" = "yes"])
+
 dnl Handle dracut directory configuration.  Note we hard-code /usr by default,
 dnl instead of $prefix, because dracut is a system service that doesn't listen
 dnl at relocatable directories.
@@ -951,7 +965,7 @@ AS_IF([test "x$enable_http" = "xyes"],
    dnl If we have all of the libraries, the json-c and nss libraries,
    dnl and full C++11 support, we could build the httpd web
    dnl compilation service.
-   AS_IF([test "x$have_libmicrohttpd" == "xtrue" -a "x$have_libuuid" == "xtrue" -a "x$have_libcurl" == "xtrue" -a "x$have_jsonc" == "xyes" -a "x$have_nss" == "xyes" -a "x$have_cxx0x" == "xno"], [have_http_support=yes])])
+   AS_IF([test "x$have_libmicrohttpd" == "xtrue" -a "x$have_libuuid" == "xtrue" -a "x$have_libcurl" == "xtrue" -a "x$have_jsonc" == "xyes" -a "x$have_nss" == "xyes" -a "x$have_openssl" == "xyes" -a "x$have_cxx0x" == "xno"], [have_http_support=yes])])
 
 AS_IF([test "x$have_http_support" = "xyes"],
   [AC_DEFINE([HAVE_HTTP_SUPPORT], [1],

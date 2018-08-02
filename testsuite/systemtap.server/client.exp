@@ -345,11 +345,11 @@ expect {
 catch {close}; catch {wait}
 
 # Our server should no longer be trusted.
-list_servers "List current trusted servers after revokation by host name" trusted
+list_servers "List current trusted servers after revocation by host name" trusted
 array unset current_trusted_servers
 array set current_trusted_servers [array get servers]
 
-set test "No longer trusted after revokation by host name"
+set test "No longer trusted after revocation by host name"
 if {[array_equal current_trusted_servers existing_trusted_servers]} {
     pass "$test"
 } else {
@@ -598,11 +598,11 @@ if {$rc == 0} {
 }
 
 # Our server should no longer be trusted as a signer in the namespace.
-ns_list_servers "List namespace current signing servers after revokation " signer
+ns_list_servers "List namespace current signing servers after revocation " signer
 array unset ns_current_signing_servers
 array set ns_current_signing_servers [array get servers]
 
-set test "No longer trusted as a signer after revokation"
+set test "No longer trusted as a signer after revocation"
 if {[array_in ns_current_signing_servers ns_existing_signing_servers]} {
     pass "$test"
 } else {

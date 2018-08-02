@@ -102,6 +102,9 @@
 /* Define to 1 if you have the `openat' function. */
 #undef HAVE_OPENAT
 
+/* Define to 1 if you have the openssl libraries. */
+#undef HAVE_OPENSSL
+
 /* Define to 1 if you have the `ppoll' function. */
 #undef HAVE_PPOLL
 

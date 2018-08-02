@@ -1,5 +1,5 @@
 // -*- C++ -*-
-// Copyright (C) 2017 Red Hat Inc.
+// Copyright (C) 2017, 2018 Red Hat Inc.
 //
 // This file is part of systemtap, and is free software.  You can
 // redistribute it and/or modify it under the terms of the GNU General
@@ -14,6 +14,7 @@
 #include "util.h"
 #include "staptree.h"
 #include "elaborate.h"
+#include "nsscommon.h"
 
 #include <iostream>
 #include <sstream>
@@ -36,6 +37,7 @@ extern "C" {
 #include <elfutils/libdwfl.h>
 #include <elfutils/libdw.h>
 #include <fcntl.h>
+#include <nss3/nss.h>
 }
 
 using namespace std;
@@ -50,15 +52,20 @@ public:
     curl(0),
     retry(0),
     location(nullptr) { }
-  ~http_client () {if (curl) curl_easy_cleanup(curl);};
+  ~http_client () {if (curl) curl_easy_cleanup(curl);
+                   remove_file_or_dir (pem_cert_file.c_str());}
 
   json_object *root;
-  std::string host;
   std::map<std::string, std::string> header_values;
   std::vector<std::tuple<std::string, std::string>> env_vars;
   enum download_type {json_type, file_type};
+  std::string pem_cert_file;
+  std::string host;
+  enum cert_type {signer_trust, ssl_trust};
 
-  bool download (const std::string & url, enum download_type type);
+
+  bool download (const std::string & url, enum download_type type, bool report_errors);
+  bool download_pem_cert (const std::string & url, std::string & certs);
   bool post (const string & url, vector<tuple<string, string>> & request_parameters);
   void add_file (std::string filename);
   void add_module (std::string module);
@@ -70,8 +77,10 @@ public:
   void get_buildid (string fname);
   void get_kernel_buildid (void);
   long get_response_code (void);
+  bool add_server_cert_to_client (std::string & tmpdir, bool init_db);
   static int trace (CURL *, curl_infotype type, unsigned char *data, size_t size, void *);
   bool delete_op (const std::string & url);
+  bool check_trust (enum cert_type, vector<compile_server_info> &specified_servers);
 
 private:
   size_t get_header (void *ptr, size_t size, size_t nitems);
@@ -83,7 +92,7 @@ private:
   std::vector<std::string> modules;
   std::vector<std::tuple<std::string, std::string>> buildids;
   systemtap_session &s;
-  void *curl;
+  CURL *curl;
   int retry;
   std::string *location;
   std::string buildid;
@@ -232,10 +241,77 @@ http_client::trace(CURL *, curl_infotype type, unsigned char *data, size_t size,
 }
 
 
-// Do a download of type TYPE from URL
+static size_t
+null_writefunction (void *ptr,  size_t  size,  size_t  nmemb,  void *stream)
+{
+  (void)stream;
+  (void)ptr;
+  return size * nmemb;
+}
+
+
+// Read the certificate bundle corresponding to 'url into 'certs'
 
 bool
-http_client::download (const std::string & url, http_client::download_type type)
+http_client::download_pem_cert (const std::string & url, string & certs)
+{
+  CURL *dpc_curl;
+  CURLcode res;
+  bool have_certs = false;
+  struct curl_certinfo *certinfo;
+
+  // Get the certificate info for the url
+  curl_global_init (CURL_GLOBAL_DEFAULT);
+  dpc_curl = curl_easy_init ();
+
+  curl_easy_setopt(dpc_curl, CURLOPT_URL, url.c_str());
+  curl_easy_setopt(dpc_curl, CURLOPT_WRITEFUNCTION, null_writefunction);
+  curl_easy_setopt(dpc_curl, CURLOPT_SSL_VERIFYPEER, 0L);
+  curl_easy_setopt(dpc_curl, CURLOPT_SSL_VERIFYHOST, 0L);
+  curl_easy_setopt(dpc_curl, CURLOPT_VERBOSE, 0L);
+  curl_easy_setopt(dpc_curl, CURLOPT_CERTINFO, 1L);
+
+  res = curl_easy_perform (dpc_curl);
+
+  if (res)
+    return false;
+
+  res = curl_easy_getinfo (dpc_curl, CURLINFO_CERTINFO, &certinfo);
+
+  // Create a certificate bundle from the certificate info
+  if (!res && certinfo)
+    {
+      for (int i = 0; i < certinfo->num_of_certs; i++)
+        {
+          struct curl_slist *slist;
+
+          for (slist = certinfo->certinfo[i]; slist; slist = slist->next)
+            {
+              string one_cert;
+              string slist_data = string (slist->data);
+              size_t cert_begin, cert_end;
+              if ((cert_begin = slist_data.find("-----BEGIN CERTIFICATE-----")) == string::npos)
+                continue;
+              if ((cert_end = slist_data.find("-----END CERTIFICATE-----", cert_begin)) == string::npos)
+                continue;
+              certs += string (slist_data.substr(cert_begin, cert_end - cert_begin + 28));
+              have_certs = true;
+            }
+        }
+    }
+
+  if (s.verbose >= 2)
+    clog << "Server returned certificate chain with: " << certinfo->num_of_certs << " members" << endl;
+
+  curl_easy_cleanup(dpc_curl);
+  curl_global_cleanup();
+
+  return have_certs;
+}
+
+
+bool
+http_client::download (const std::string & url, http_client::download_type type, bool report_errors)
 {
   struct curl_slist *headers = NULL;
 
@@ -255,12 +331,18 @@ http_client::download (const std::string & url, http_client::download_type type)
   headers = curl_slist_append (headers, "Content-Type: text/html");
   curl_easy_setopt (curl, CURLOPT_HTTPHEADER, headers);
   curl_easy_setopt (curl, CURLOPT_HTTPGET, 1);
+  curl_easy_setopt (curl, CURLOPT_SSLCERTTYPE, "PEM");
+  curl_easy_setopt (curl, CURLOPT_SSL_VERIFYPEER, 1L);
+  // Enabling verifyhost  causes a mismatch between "hostname" in the
+  // server cert db and "hostname.domain" given as the client url
+  curl_easy_setopt (curl, CURLOPT_SSL_VERIFYHOST, 0L);
+  curl_easy_setopt (curl, CURLOPT_CAINFO, pem_cert_file.c_str());
 
   if (type == json_type)
     {
       curl_easy_setopt (curl, CURLOPT_WRITEDATA, http);
       curl_easy_setopt (curl, CURLOPT_WRITEFUNCTION,
-			http_client::get_data_shim);
+                       http_client::get_data_shim);
     }
   else if (type == file_type)
     {
@@ -282,9 +364,10 @@ http_client::download (const std::string & url, http_client::download_type type)
 
   CURLcode res = curl_easy_perform (curl);
 
-  if (res != CURLE_OK)
+  if (res != CURLE_OK && res != CURLE_GOT_NOTHING)
     {
-      clog << "curl_easy_perform() failed: " << curl_easy_strerror (res) << endl;
+      if (report_errors)
+        clog << "curl_easy_perform() failed: " << curl_easy_strerror (res) << endl;
       return false;
     }
   else
@@ -337,7 +420,7 @@ http_client::get_rpmname (std::string &search_file)
                       break;
                     case RPMTAG_EVR:
                       rpmhdr.evr = rpmval;
-		      break;
+                      break;
                     case RPMTAG_ARCH:
                       rpmhdr.arch = rpmval;
                       break;
@@ -747,6 +830,35 @@ http_client::add_module (std::string module)
 }
 
 
+// Add the server certificate to the client certificate database
+
+bool
+http_client::add_server_cert_to_client (string &tmpdir, bool init_db)
+{
+  const char *certificate;
+  json_object *cert_obj;
+
+  // Get the certificate returned by the server
+  if  (json_object_object_get_ex (root, "certificate", &cert_obj))
+    certificate = json_object_get_string(cert_obj);
+  else
+    return false;
+  string pem_tmp = tmpdir + "pemXXXXXX";
+  int fd = mkstemp ((char*)pem_tmp.c_str());
+  close(fd);
+  std::ofstream pem_out(pem_tmp);
+  pem_out << certificate;
+  pem_out.close();
+
+  // Add the certificate to the client nss certificate database
+  if (add_client_cert(pem_tmp, local_client_cert_db_path(), init_db) == SECSuccess)
+    {
+      remove_file_or_dir (pem_tmp.c_str());
+      return true;
+    }
+  return false;
+ }
+
 // Ask the server to delete a URL.
 
 bool
@@ -776,6 +888,59 @@ http_client::delete_op (const std::string & url)
 }
 
 
+// Can a certificate having trust 'this_cert_trust' be handled by the corresponding host
+
+bool
+http_client::check_trust (enum cert_type this_cert_type, vector<compile_server_info> &specified_servers)
+{
+  vector<compile_server_info> server_list;
+
+  string cert_db_path;
+  string cert_string;
+    
+
+  if (this_cert_type == signer_trust)
+    {
+      cert_db_path = signing_cert_db_path ();
+      cert_string = "signing";
+    }
+  else if (this_cert_type == ssl_trust)
+      {
+	cert_db_path = local_client_cert_db_path ();
+	cert_string = "trusted";
+      }
+  
+  get_server_info_from_db (s, server_list, cert_db_path);
+  vector<compile_server_info>::iterator i = specified_servers.begin ();
+  while (i != specified_servers.end ())
+    {
+      bool have_match = false;
+      for (vector<compile_server_info>::const_iterator j = server_list.begin ();
+	   j != server_list.end ();
+	   ++j)
+	{
+	  if (j->host_name == i->host_name
+	      || j->host_name == i->unresolved_host_name.substr(0,j->host_name.length()))
+	    {
+	      have_match = true;
+	      break;
+	    }
+	}
+      if (!have_match)
+	i = specified_servers.erase (i);
+      else
+	++i;
+    }
+  if (specified_servers.size() == 0)
+    {
+      clog << "No matching " << cert_string << " server; the " << cert_string << " servers are\n" << server_list << endl;
+      return false;
+    }
+  else
+    return true;
+}
+
+
 http_client_backend::http_client_backend (systemtap_session &s)
   : client_backend(s), files_seen(false)
 {
@@ -785,8 +950,10 @@ http_client_backend::http_client_backend (systemtap_session &s)
 int
 http_client_backend::initialize ()
 {
-  http = new http_client (s);
+  if (!http)
+    http = new http_client (s);
   request_parameters.clear();
+
   return 0;
 }
 
@@ -821,13 +988,13 @@ http_client_backend::include_file_or_directory (const string &subdir,
       // It can not be canonicalized. Use the name relative to
       // the current working directory and let the server deal with it.
       char cwd[PATH_MAX];
-      rc = 1;
       if (getcwd (cwd, sizeof (cwd)) == NULL)
 	{
 	  rpath = path;
+	  rc = 1;
 	  goto done;
 	}
-      rpath = string (cwd) + "/" + path;
+	rpath = string (cwd) + "/" + path;
     }
   else
     {
@@ -943,17 +1110,55 @@ http_client_backend::package_request ()
   return rc;
 }
 
+
 int
 http_client_backend::find_and_connect_to_server ()
 {
-  for (vector<std::string>::const_iterator i = s.http_servers.begin ();
-      i != s.http_servers.end ();
-      ++i)
+  const string cert_db = local_client_cert_db_path ();
+  const string nick = server_cert_nickname ();
+
+  vector<compile_server_info> specified_servers;
+  nss_get_specified_server_info (s, specified_servers);
+
+  if (! pr_contains (s.privilege, pr_stapdev))
+    if (! http->check_trust (http->signer_trust, specified_servers))
+      return 1;
+
+  if (! http->check_trust (http->ssl_trust, specified_servers))
+    return 1;
+
+  for (vector<compile_server_info>::const_iterator i = specified_servers.begin ();
+       i != specified_servers.end ();
+       ++i)
     {
       // Try to connect to the server. We'll try to grab the base
       // directory of the server just to see if we can make a
       // connection.
-      if (http->download (*i + "/", http->json_type))
+      string pem_cert;
+      bool add_cert = false;
+      string url = "https://" + i->host_specification();
+      http->host = i->unresolved_host_name;
+
+      // We don't have a suitable certificate so download the server certificate bundle
+      if (get_pem_cert(cert_db, nick, http->host, pem_cert) == false)
+        {
+          if (http->download_pem_cert (url, pem_cert) == false)
+            continue;
+          else
+            add_cert = true;
+        }
+      string pem_tmp = client_tmpdir + "/pemXXXXXX";
+      int fd = mkstemp ((char*)pem_tmp.c_str());
+      close(fd);
+      std::ofstream pem_out(pem_tmp);
+      pem_out << pem_cert;
+      pem_out.close();
+      http->pem_cert_file = pem_tmp;
+      // Similar to CURLOPT_VERIFYHOST: compare source alternate names to hostname
+      if (have_san_match (url, pem_cert) == false)
+        continue;
+
+      if (http->download (url + "/", http->json_type, true))
         {
 	  // FIXME: The server returns its version number. We might
 	  // need to check it for compatibility.
@@ -962,10 +1167,12 @@ http_client_backend::find_and_connect_to_server ()
 	  // need to check and see if it is trusted.
 
 	  // Send our build request.
-	  if (http->post (*i + "/builds", request_parameters))
+	  if (http->post (url + "/builds", request_parameters))
 	    {
-	      s.winning_server = *i;
-	      http->host = *i;
+	      s.winning_server = url;
+	      http->host = url;
+	      if (add_cert)
+	        http->add_server_cert_to_client (client_tmpdir, true);
 	      return 0;
 	    }
 	}
@@ -1002,7 +1209,7 @@ http_client_backend::unpack_response ()
 	clog << "Waiting " << retry << " seconds" << endl;
       sleep (retry);
       if (http->download (http->host + http->header_values["Location"],
-			  http->json_type))
+			  http->json_type, true))
         {
 	  // We need to wait until we get a 303 (See Other)
 	  long response_code = http->get_response_code();
@@ -1024,7 +1231,7 @@ http_client_backend::unpack_response ()
   // If we're here, we got a '303' (See Other). Read the "other"
   // location, which should contain our results.
   if (! http->download (http->host + http->header_values["Location"],
-			http->json_type))
+			http->json_type, true))
     {
       clog << "Couldn't read result information" << endl;
       return 1;
@@ -1071,7 +1278,7 @@ http_client_backend::unpack_response ()
 	  json_object *loc;
 	  jfound = json_object_object_get_ex (files_element, "location", &loc);
 	  string location = json_object_get_string (loc);
-	  http->download (http->host + location, http->file_type);
+	  http->download (http->host + location, http->file_type, true);
 	}
     }
 
@@ -1081,7 +1288,7 @@ http_client_backend::unpack_response ()
   if (jfound)
     {
       string loc_str = json_object_get_string (loc_obj);
-      http->download (http->host + loc_str, http->file_type);
+      http->download (http->host + loc_str, http->file_type, true);
     }
   else
     {
@@ -1093,7 +1300,7 @@ http_client_backend::unpack_response ()
   if (jfound)
     {
       string loc_str = json_object_get_string (loc_obj);
-      http->download (http->host + loc_str, http->file_type);
+      http->download (http->host + loc_str, http->file_type, true);
     }
   else
     {
@@ -1101,8 +1308,7 @@ http_client_backend::unpack_response ()
       return 1;
     }
 
-  // Tell the server to delete this build (and any associated result).
-  http->delete_op (build_uri);
+  delete http;
   return 0;
 }
 
@@ -1168,15 +1374,34 @@ http_client_backend::add_mok_fingerprint (const std::string &)
 void
 http_client_backend::fill_in_server_info (compile_server_info &info)
 {
-  // Try to connect to the server. We'll try to grab the base
+  const string cert_db = local_client_cert_db_path ();
+  const string nick = server_cert_nickname ();
+  string host = info.unresolved_host_name;
+  string url = "https://" + host + ":" + std::to_string(info.port);
+  string pem_cert;
+
+  // Try to get the server certificate and the base
   // directory of the server just to see if we can make a
   // connection.
-  string host_spec = info.host_specification ();
-  if (host_spec.empty())
+  if (host.empty())
     return;
 
-  string url = host_spec + "/";
-  if (http->download (url, http->json_type))
+  if (file_exists (cert_db) == false
+      || get_pem_cert(cert_db, nick, info.unresolved_host_name, pem_cert) == false)
+     {
+       if (http->download_pem_cert (url, pem_cert) == false)
+         return;
+     }
+  string pem_tmp = s.tmpdir + "/pemXXXXXX";
+  int fd = mkstemp ((char*)pem_tmp.c_str());
+  close(fd);
+  std::ofstream pem_out(pem_tmp);
+  pem_out << pem_cert;
+  pem_out.close();
+  http->pem_cert_file = pem_tmp;
+
+
+  if (http->download (url, http->json_type, false))
     {
       json_object *ver_obj;
       json_bool jfound;
@@ -1202,11 +1427,32 @@ http_client_backend::fill_in_server_info (compile_server_info &info)
 }
 
 int
-http_client_backend::trust_server_info (const compile_server_info &)
+http_client_backend::trust_server_info (const compile_server_info &info)
 {
-    // FIXME: need to implement!
-    clog << "Unimplemented HTTP client trust support" << endl;
-    return NSS_GENERAL_ERROR;
+  const string cert_db = local_client_cert_db_path ();
+  const string nick = server_cert_nickname ();
+  string pem_cert;
+  string host = info.unresolved_host_name;
+  string url = "https://" + host + ":" + std::to_string(info.port);
+
+  if (http->download_pem_cert (url, pem_cert) == false)
+    return 1;
+
+  string pem_tmp = s.tmpdir + "/pemXXXXXX";
+  int fd = mkstemp ((char*)pem_tmp.c_str());
+  close(fd);
+  std::ofstream pem_out(pem_tmp);
+  pem_out << pem_cert;
+  pem_out.close();
+  http->pem_cert_file = pem_tmp;
+  // Similar to CURLOPT_VERIFYHOST: compare source alternate names to hostname
+  if (have_san_match (url, pem_cert) == false)
+    return 1;
+
+  if (http->download (url + "/", http->json_type, false))
+    http->add_server_cert_to_client (s.tmpdir, false);
+
+  return 0;
 }
 
 #endif /* HAVE_HTTP_SUPPORT */

@@ -42,6 +42,10 @@ staprun_CXXFLAGS += $(nss_CFLAGS)
 staprun_LDADD += $(nss_LIBS)
 endif
 
+if HAVE_HTTP_SUPPORT
+staprun_LDADD += $(openssl_LIBS)
+endif
+
 stapio_SOURCES = stapio.c mainloop.c common.c ctl.c relay.c relay_old.c monitor.c
 stapio_LDADD = libstrfloctime.a -lpthread
 

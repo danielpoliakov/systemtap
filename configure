@@ -703,6 +703,10 @@ BUILD_SERVER_FALSE
 BUILD_SERVER_TRUE
 dracutbindir
 dracutstap
+HAVE_OPENSSL_FALSE
+HAVE_OPENSSL_TRUE
+openssl_LIBS
+openssl_CFLAGS
 HAVE_NSS_FALSE
 HAVE_NSS_TRUE
 nss_LIBS
@@ -906,6 +910,7 @@ enable_docs
 enable_refdocs
 enable_htmldocs
 with_nss
+with_openssl
 with_dracutstap
 with_dracutbindir
 enable_server
@@ -943,6 +948,8 @@ sqlite3_CFLAGS
 sqlite3_LIBS
 nss_CFLAGS
 nss_LIBS
+openssl_CFLAGS
+openssl_LIBS
 avahi_CFLAGS
 avahi_LIBS
 CXXCPP
@@ -1625,6 +1632,7 @@ Optional Packages:
   --with-libintl-prefix[=DIR]  search for libintl in DIR/include and DIR/lib
   --without-libintl-prefix     don't search for libintl in includedir and libdir
   --without-nss           Do not use NSS even if present
+  --without-openssl       Do not use OPENSSL even if present
   --with-dracutstap=DIR   Install dracut module files in DIR
   --with-dracutbindir=DIR Use the dracut binary located in DIR
   --without-avahi         Do not use Avahi even if present
@@ -1670,6 +1678,10 @@ Some influential environment variables:
               linker flags for sqlite3, overriding pkg-config
   nss_CFLAGS  C compiler flags for nss, overriding pkg-config
   nss_LIBS    linker flags for nss, overriding pkg-config
+  openssl_CFLAGS
+              C compiler flags for openssl, overriding pkg-config
+  openssl_LIBS
+              linker flags for openssl, overriding pkg-config
   avahi_CFLAGS
               C compiler flags for avahi, overriding pkg-config
   avahi_LIBS  linker flags for avahi, overriding pkg-config
@@ -10831,6 +10843,104 @@ fi
 
 
 
+# Check whether --with-openssl was given.
+if test "${with_openssl+set}" = set; then :
+  withval=$with_openssl;
+fi
+
+
+if test "x$with_openssl" != "xno"; then :
+
+
+pkg_failed=no
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for openssl" >&5
+$as_echo_n "checking for openssl... " >&6; }
+
+if test -n "$openssl_CFLAGS"; then
+    pkg_cv_openssl_CFLAGS="$openssl_CFLAGS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"openssl\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "openssl") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_openssl_CFLAGS=`$PKG_CONFIG --cflags "openssl" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+if test -n "$openssl_LIBS"; then
+    pkg_cv_openssl_LIBS="$openssl_LIBS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"openssl\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "openssl") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_openssl_LIBS=`$PKG_CONFIG --libs "openssl" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+
+
+
+if test $pkg_failed = yes; then
+   	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+
+if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
+        _pkg_short_errors_supported=yes
+else
+        _pkg_short_errors_supported=no
+fi
+        if test $_pkg_short_errors_supported = yes; then
+	        openssl_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "openssl" 2>&1`
+        else
+	        openssl_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "openssl" 2>&1`
+        fi
+	# Put the nasty error message in config.log where it belongs
+	echo "$openssl_PKG_ERRORS" >&5
+
+	have_openssl=no
+elif test $pkg_failed = untried; then
+     	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+	have_openssl=no
+else
+	openssl_CFLAGS=$pkg_cv_openssl_CFLAGS
+	openssl_LIBS=$pkg_cv_openssl_LIBS
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+	have_openssl=yes
+
+$as_echo "#define HAVE_OPENSSL 1" >>confdefs.h
+
+
+fi
+
+else
+  have_openssl=no
+fi
+
+ if test "${have_openssl}" = "yes"; then
+  HAVE_OPENSSL_TRUE=
+  HAVE_OPENSSL_FALSE='#'
+else
+  HAVE_OPENSSL_TRUE='#'
+  HAVE_OPENSSL_FALSE=
+fi
+
+
+
 # Check whether --with-dracutstap was given.
 if test "${with_dracutstap+set}" = set; then :
   withval=$with_dracutstap;
@@ -12899,7 +13009,7 @@ $as_echo "yes" >&6; }
 	have_libcurl=true
 fi
 
-            if test "x$have_libmicrohttpd" == "xtrue" -a "x$have_libuuid" == "xtrue" -a "x$have_libcurl" == "xtrue" -a "x$have_jsonc" == "xyes" -a "x$have_nss" == "xyes" -a "x$have_cxx0x" == "xno"; then :
+            if test "x$have_libmicrohttpd" == "xtrue" -a "x$have_libuuid" == "xtrue" -a "x$have_libcurl" == "xtrue" -a "x$have_jsonc" == "xyes" -a "x$have_nss" == "xyes" -a "x$have_openssl" == "xyes" -a "x$have_cxx0x" == "xno"; then :
   have_http_support=yes
 fi
 fi
@@ -13178,6 +13288,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${HAVE_NSS_TRUE}" && test -z "${HAVE_NSS_FALSE}"; then
   as_fn_error $? "conditional \"HAVE_NSS\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${HAVE_OPENSSL_TRUE}" && test -z "${HAVE_OPENSSL_FALSE}"; then
+  as_fn_error $? "conditional \"HAVE_OPENSSL\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${BUILD_SERVER_TRUE}" && test -z "${BUILD_SERVER_FALSE}"; then

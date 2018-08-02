@@ -23,6 +23,7 @@ stap_httpd_CFLAGS = $(AM_CFLAGS) $(nss_CFLAGS)
 stap_httpd_CXXFLAGS = $(AM_CXXFLAGS) $(nss_CFLAGS)
 stap_httpd_CPPFLAGS = $(AM_CPPFLAGS) $(nss_CFLAGS)
 stap_httpd_LDADD = -lpthread -lmicrohttpd -luuid -ljson-c $(nss_LIBS)
+stap_httpd_LDADD += $(openssl_LIBS)
 stap_httpd_LDFLAGS =  $(AM_LDFLAGS)
 
 # To run "buildah", the 'stap-server' user must be able to use sudo

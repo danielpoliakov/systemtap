@@ -173,6 +173,9 @@ proc http_start_server { } {
     set http_server_path "$env(PKGLIBDIR)/stap-httpd"
     set cmd "$http_server_path --port=$port --log=$systemtap_http_server_logfile"
     lassign [as_user_with_output "stap-server" $cmd 1] rc output
+    # Give stap_httpd a chance to get setup, especially pk12util/openssl spawn
+    # Check output log for spawn result instead?
+    sleep 5
     if {$rc != 0 || [string length $output] == 0
 	|| [catch {expr int($output)}]} {
 	verbose -log "Cannot start an http server: $output"
@@ -238,18 +241,15 @@ proc http_start_server { } {
     set rc [catch {eval exec $cmd} output]
     verbose -log "$output"
     
-    # FIXME: handle adding trust here (if necessary). We'll also need
-    # to revoke this trust in http_shutdown_server().
-
-#    set cmd {stap --trust-servers=ssl,no-prompt --use-http-server=$systemtap_http_server_spec}
-#    verbose -log "running: [subst $cmd]"
-#    set rc [catch {eval exec $cmd} output]
-#    verbose -log "$output"
-#    if {$rc != 0} {
-#	verbose -log "Couldn't add trust in the http server"
-#	http_shutdown_server
-#	return 1
-#    }
+    set cmd {stap --trust-servers=ssl,no-prompt --use-http-server=$systemtap_http_server_spec}
+    verbose -log "running: [subst $cmd]"
+    set rc [catch {eval exec $cmd} output]
+    set errorcode "$::errorCode"
+    if {$errorcode != "NONE"} {
+	verbose -log "Couldn't add trust in the http server $errorcode"
+	http_shutdown_server
+	return 1
+    }
 
     verbose -log "Started an http server as $systemtap_http_server_pid"
     return 0
@@ -267,6 +267,14 @@ proc http_shutdown_server { } {
     }
 
     if {$systemtap_http_server_pid != 0} {
+	set cmd {stap --trust-servers=revoke,ssl,no-prompt --use-http-server=$systemtap_http_server_spec}
+	verbose -log "running: [subst $cmd]"
+	set rc [catch {eval exec $cmd} output]
+	set errorcode "$::errorCode"
+	if {$errorcode != "NONE"} {
+	    verbose -log "Couldn't revoke trust in the http server $errorcode"
+	}
+
 	verbose -log "Stopping the systemtap http server with PID==$systemtap_http_server_pid"
 	kill -INT $systemtap_http_server_pid 5 1
 	set systemtap_http_server_pid 0

@@ -9,9 +9,11 @@
 #include "server.h"
 #include <iostream>
 #include <string>
+#include <fstream>
 #include "../util.h"
 #include "utils.h"
 #include "nss_funcs.h"
+#include "../nsscommon.h"
 
 extern "C"
 {
@@ -327,6 +329,7 @@ public:
     response GET(const request &req);
     string arch;
     string cert_info;
+    string cert_pem;
 };
 
 base_dir_rh::base_dir_rh(string n) : request_handler(n)
@@ -346,7 +349,7 @@ response base_dir_rh::GET(const request &)
     // call nss_get_server_cert_info() in the base_dir_rh class
     // constructor, since NSS hasn't been initialized at that point.
     if (cert_info.empty())
-	cert_info = nss_get_server_cert_info();
+	nss_get_server_cert_info(cert_info, cert_pem);
 
     server_error("base_dir_rh::GET");
     r.status_code = 200;
@@ -354,7 +357,8 @@ response base_dir_rh::GET(const request &)
     os << "{" << endl;
     os << "  \"version\": \"" VERSION "\"," << endl;
     os << "  \"arch\": \"" << arch << "\"," << endl;
-    os << "  \"cert_info\": \"" << cert_info << "\"" << endl;
+    os << "  \"cert_info\": \"" << cert_info << "\"," << endl;
+    os << "  \"certificate\": \"" << cert_pem << "\"" << endl;
     os << "}" << endl;
     r.content = os.str();
     return r;
@@ -572,6 +576,14 @@ server::queue_response(const response &response, MHD_Connection *connection)
 void
 server::start()
 {
+    // Get the certificate and private key for use by https
+    string key_pk12;
+    string cert_pk12;
+    const string db_path = string(server_cert_db_path());
+    const string cert_nick = string(server_cert_nickname());
+    if (nss_get_server_pw_info (db_path, cert_nick, key_pk12, cert_pk12) == false)
+      throw runtime_error("Error getting certificates");
+
     dmn_ipv4 = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY
 #ifdef MHD_USE_EPOLL
 				| MHD_USE_EPOLL
@@ -583,13 +595,16 @@ server::start()
 				| MHD_USE_POLL
 #endif
 #endif
-				| MHD_USE_DEBUG,
+				| MHD_USE_DEBUG
+				| MHD_USE_SSL,
 				port,
 				NULL, NULL, // default accept policy
 				&server::access_handler_shim, this,
 				MHD_OPTION_THREAD_POOL_SIZE, 4,
 				MHD_OPTION_NOTIFY_COMPLETED,
 				&server::request_completed_handler_shim, this,
+				MHD_OPTION_HTTPS_MEM_KEY, key_pk12.c_str(),
+				MHD_OPTION_HTTPS_MEM_CERT, cert_pk12.c_str(),
 				MHD_OPTION_END);
 
     if (dmn_ipv4 == NULL) {

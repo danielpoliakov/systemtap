@@ -379,6 +379,8 @@ ncurses_LIBS = @ncurses_LIBS@
 nss_CFLAGS = @nss_CFLAGS@
 nss_LIBS = @nss_LIBS@
 oldincludedir = @oldincludedir@
+openssl_CFLAGS = @openssl_CFLAGS@
+openssl_LIBS = @openssl_LIBS@
 pdfdir = @pdfdir@
 pkgpyexecdir = @pkgpyexecdir@
 pkgpythondir = @pkgpythondir@
@@ -671,9 +673,9 @@ maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
 	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
-@HAVE_JAVA_FALSE@install-exec-local:
-@HAVE_JAVA_FALSE@uninstall-local:
 @HAVE_JAVA_FALSE@install-data-local:
+@HAVE_JAVA_FALSE@uninstall-local:
+@HAVE_JAVA_FALSE@install-exec-local:
 clean: clean-am
 
 clean-am: clean-binPROGRAMS clean-generic clean-noinstPROGRAMS \

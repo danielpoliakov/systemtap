@@ -67,7 +67,7 @@ main (int argc, char **argv) {
   PK11_SetPasswordFunc (nssPasswordCallback);
 
   // Add the certificate to the database.
-  SECStatus secStatus = add_client_cert (certFileName, certDBName);
+  SECStatus secStatus = add_client_cert (certFileName, certDBName, true);
   if (secStatus != SECSuccess)
     {
       // NSS message already issued.

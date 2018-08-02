@@ -36,6 +36,7 @@ struct compile_server_info
   compile_server_info ();
 
   std::string host_name;
+  std::string unresolved_host_name;
   PRNetAddr address;
   unsigned short port;
   bool fully_specified;
@@ -63,6 +64,13 @@ std::ostream &operator<< (std::ostream &s,
 
 
 std::string global_client_cert_db_path ();
+
+std::string signing_cert_db_path ();
+
+void get_server_info_from_db (systemtap_session &s,
+			 std::vector<compile_server_info> &servers,
+			 const std::string &cert_db_path);
+
 
 void
 nss_get_all_server_info (systemtap_session &s,

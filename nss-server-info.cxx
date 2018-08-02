@@ -267,7 +267,7 @@ static void
 revoke_server_trust (systemtap_session &s, const string &cert_db_path,
 		     const vector<compile_server_info> &server_list);
 
-static void
+void
 get_server_info_from_db (systemtap_session &s,
 			 vector<compile_server_info> &servers,
 			 const string &cert_db_path);
@@ -290,7 +290,7 @@ global_ssl_cert_db_path ()
   return global_client_cert_db_path ();
 }
 
-static string
+string
 signing_cert_db_path ()
 {
   return SYSCONFDIR "/systemtap/staprun";
@@ -473,11 +473,14 @@ add_server_trust (
 	}
 
       // At a minimum we need an ip_address along with a port
-      // number in order to contact the server.
-      if (! server->hasAddress() || server->port == 0)
-	continue;
-      // Set the port within the address.
-      server->setAddressPort (server->port);
+      // number in order to contact an nss server.
+      if (s.http_servers.empty ())
+        {
+          if (! server->hasAddress() || server->port == 0)
+            continue;
+          // Set the port within the address.
+          server->setAddressPort (server->port);
+        }
 
       int rc = backend->trust_server_info (*server);
       if (rc != NSS_SUCCESS)
@@ -673,12 +676,12 @@ revoke_server_trust (
 }
 
 // Obtain information about servers from the certificates in the given database.
-static void
+void
 get_server_info_from_db (
-  systemtap_session &s,
-  vector<compile_server_info> &servers,
-  const string &cert_db_path
-)
+    systemtap_session &s,
+    vector<compile_server_info> &servers,
+    const string &cert_db_path
+  )
 {
   // Make sure the given path exists.
   if (! file_exists (cert_db_path))
@@ -700,8 +703,6 @@ get_server_info_from_db (
       return;
     }
 
-  // Must predeclare this because of jumps to cleanup: below.
-  PRArenaPool *tmpArena = NULL;
   CERTCertList *certs = get_cert_list_from_db (server_cert_nickname ());
   if (! certs)
     {
@@ -710,14 +711,6 @@ get_server_info_from_db (
       goto cleanup;
     }
 
-  // A memory pool to work in
-  tmpArena = PORT_NewArena(DER_DEFAULT_CHUNKSIZE);
-  if (! tmpArena) 
-    {
-      clog << _("Out of memory:");
-      nssError ();
-      goto cleanup;
-    }
   for (CERTCertListNode *node = CERT_LIST_HEAD (certs);
        ! CERT_LIST_END (node, certs);
        node = CERT_LIST_NEXT (node))
@@ -727,35 +720,8 @@ get_server_info_from_db (
       // The certificate we're working with.
       CERTCertificate *db_cert = node->cert;
 
-      // Get the host name. It is in the alt-name extension of the
-      // certificate.
-      SECItem subAltName;
-      subAltName.data = NULL;
-      secStatus = CERT_FindCertExtension (db_cert,
-					  SEC_OID_X509_SUBJECT_ALT_NAME,
-					  & subAltName);
-      if (secStatus != SECSuccess || ! subAltName.data)
-	{
-	  clog << _("Unable to find alt name extension on server certificate: ") << endl;
-	  nssError ();
-	  continue;
-	}
-
-      // Decode the extension.
-      CERTGeneralName *nameList = CERT_DecodeAltNameExtension (tmpArena, & subAltName);
-      SECITEM_FreeItem(& subAltName, PR_FALSE);
-      if (! nameList)
-	{
-	  clog << _("Unable to decode alt name extension on server certificate: ") << endl;
-	  nssError ();
-	  continue;
-	}
-
-      // We're interested in the first alternate name.
-      assert (nameList->type == certDNSName);
-      server_info.host_name = string ((const char *)nameList->name.other.data,
-				      nameList->name.other.len);
-      // Don't free nameList. It's part of the tmpArena.
+      if (get_host_name (db_cert, server_info.host_name) == false)
+        continue;
 
       // Get the serial number.
       server_info.certinfo = get_cert_serial_number (db_cert);
@@ -774,8 +740,6 @@ get_server_info_from_db (
  cleanup:
   if (certs)
     CERT_DestroyCertList (certs);
-  if (tmpArena)
-    PORT_FreeArena (tmpArena, PR_FALSE);
 
   nssCleanup (cert_db_path.c_str ());
 }
@@ -1547,13 +1511,17 @@ isDomain (const string &server, compile_server_info &server_info)
   assert (! server.empty());
   string host = server;
   vector<string> components;
+  unsigned scheme_offset = 0;
+  if (host.substr (0, 6) == "https:")
+    scheme_offset = 1;
   tokenize (host, components, ":");
   switch (components.size ())
     {
+    case 3:
     case 2:
       if (! isPort (components.back().c_str(), server_info))
 	return false; // not a valid port
-      host = host.substr (0, host.find_last_of (':'));
+      host = components[(0 + scheme_offset)].substr (scheme_offset * 2);
       // fall through
     case 1:
       server_info.host_name = host;
@@ -1657,13 +1625,14 @@ nss_get_specified_server_info (
 		   ++i)
 		{
 		  // If this item was fully specified, then just add it.
-		  if (i->fully_specified) {
+		  if (i->fully_specified || ! s.http_servers.empty ()) {
 		    // In this instance, "fully specified" means
 		    // address and port. At this point we haven't
 		    // tried to contact the server to get online
 		    // information, certificate information,
 		    // etc. Certain server types need us to connect to
 		    // the server directly to get this information.
+		    // Assume http servers are fully specified
 		    if (backend)
 		      backend->fill_in_server_info (*i);
 		    nss_add_server_info (*i, new_servers);
@@ -2032,7 +2001,10 @@ resolve_host (
 	    new_server.address.ipv6.ip = it->address.ipv6.ip;
 	  }
 	if (!it->host_name.empty())
-	  new_server.host_name = it->host_name;
+	  {
+	    new_server.unresolved_host_name = new_server.host_name;
+	    new_server.host_name = it->host_name;
+	  }
 	nss_add_server_info (new_server, new_servers);
       }
 
@@ -2272,7 +2244,7 @@ nss_get_or_keep_online_server_info (
   // We only need to obtain this once per session. This is a good thing(tm)
   // since obtaining this information is expensive.
   vector<compile_server_info>& online_servers = cscache(s)->online_servers;
-  if (online_servers.empty ())
+  if (online_servers.empty () && s.http_servers.empty ())
     {
       // Maintain an empty entry to indicate that this search has been
       // performed, in case the search comes up empty.
@@ -2362,6 +2334,24 @@ nss_get_or_keep_online_server_info (
 	  clog << online_servers;
 	}
     } // Server information is not cached.
+
+  if (!s.http_servers.empty ())
+    {
+      // http server does not depend on avahi, so discover which servers are online by
+      // getting a list of potential servers and trying to connect to them
+      vector<compile_server_info>& specified_servers = cscache(s)->specified_servers;
+
+      nss_get_specified_server_info (s, specified_servers);
+
+      for (vector<compile_server_info>::const_iterator i = specified_servers.begin ();
+           i != specified_servers.end ();
+           ++i)
+        {
+	  client_backend *backend = nss_get_client_backend (s);
+	  if (backend)
+	    backend->fill_in_server_info ((compile_server_info&)*i);
+        }
+    }
 
   if (keep)
     {

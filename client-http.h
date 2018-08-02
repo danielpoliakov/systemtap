@@ -20,6 +20,7 @@ class http_client_backend : public client_backend
 {
 public:
   http_client_backend (systemtap_session &s);
+  ~http_client_backend ();
 
   friend class http_client;
 

@@ -325,6 +325,8 @@ ncurses_LIBS = @ncurses_LIBS@
 nss_CFLAGS = @nss_CFLAGS@
 nss_LIBS = @nss_LIBS@
 oldincludedir = @oldincludedir@
+openssl_CFLAGS = @openssl_CFLAGS@
+openssl_LIBS = @openssl_LIBS@
 pdfdir = @pdfdir@
 pkgpyexecdir = @pkgpyexecdir@
 pkgpythondir = @pkgpythondir@
@@ -533,8 +535,8 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-@BUILD_DOCS_FALSE@uninstall-local:
 @BUILD_DOCS_FALSE@clean-local:
+@BUILD_DOCS_FALSE@uninstall-local:
 @BUILD_DOCS_FALSE@install-data-hook:
 clean: clean-recursive
 

@@ -102,7 +102,8 @@ pkglibexec_PROGRAMS = stapio$(EXEEXT)
 @HAVE_NSS_TRUE@am__append_4 = $(nss_CFLAGS)
 @HAVE_NSS_TRUE@am__append_5 = $(nss_CFLAGS)
 @HAVE_NSS_TRUE@am__append_6 = $(nss_LIBS)
-@HAVE_MONITOR_LIBS_TRUE@am__append_7 = $(jsonc_LIBS) -lpanel $(ncurses_LIBS)
+@HAVE_HTTP_SUPPORT_TRUE@am__append_7 = $(openssl_LIBS)
+@HAVE_MONITOR_LIBS_TRUE@am__append_8 = $(jsonc_LIBS) -lpanel $(ncurses_LIBS)
 subdir = staprun
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
@@ -156,8 +157,9 @@ am_staprun_OBJECTS = staprun-staprun.$(OBJEXT) \
 	../staprun-util.$(OBJEXT) $(am__objects_1)
 staprun_OBJECTS = $(am_staprun_OBJECTS)
 @HAVE_NSS_TRUE@am__DEPENDENCIES_3 = $(am__DEPENDENCIES_1)
+@HAVE_HTTP_SUPPORT_TRUE@am__DEPENDENCIES_4 = $(am__DEPENDENCIES_1)
 staprun_DEPENDENCIES = libstrfloctime.a $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_3)
+	$(am__DEPENDENCIES_3) $(am__DEPENDENCIES_4)
 staprun_LINK = $(CXXLD) $(staprun_CXXFLAGS) $(CXXFLAGS) \
 	$(staprun_LDFLAGS) $(LDFLAGS) -o $@
 am_stapsh_OBJECTS = stapsh-stapsh.$(OBJEXT)
@@ -431,6 +433,8 @@ ncurses_LIBS = @ncurses_LIBS@
 nss_CFLAGS = @nss_CFLAGS@
 nss_LIBS = @nss_LIBS@
 oldincludedir = @oldincludedir@
+openssl_CFLAGS = @openssl_CFLAGS@
+openssl_LIBS = @openssl_LIBS@
 pdfdir = @pdfdir@
 pkgpyexecdir = @pkgpyexecdir@
 pkgpythondir = @pkgpythondir@
@@ -487,10 +491,11 @@ staprun_SOURCES = staprun.c staprun_funcs.c ctl.c common.c \
 staprun_CFLAGS = $(AM_CFLAGS) -DSINGLE_THREADED $(am__append_4)
 staprun_CXXFLAGS = $(AM_CXXFLAGS) -DSINGLE_THREADED $(am__append_5)
 staprun_CPPFLAGS = $(AM_CPPFLAGS) $(am__append_1)
-staprun_LDADD = libstrfloctime.a $(staprun_LIBS) $(am__append_6)
+staprun_LDADD = libstrfloctime.a $(staprun_LIBS) $(am__append_6) \
+	$(am__append_7)
 staprun_LDFLAGS = $(AM_LDFLAGS) $(am__append_2)
 stapio_SOURCES = stapio.c mainloop.c common.c ctl.c relay.c relay_old.c monitor.c
-stapio_LDADD = libstrfloctime.a -lpthread $(am__append_7)
+stapio_LDADD = libstrfloctime.a -lpthread $(am__append_8)
 man_MANS = staprun.8
 stap_merge_SOURCES = stap_merge.c
 stap_merge_CFLAGS = $(AM_CFLAGS)
