@@ -1,0 +1,8 @@
+function f() {
+    return @var("v", "$^PWD/a.out");
+}
+
+probe process.function("main") {
+    println(f());
+    exit();
+}

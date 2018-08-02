@@ -1,0 +1,76 @@
+set test "at_var_print"
+set testpath "$srcdir/$subdir"
+
+# Only run on make installcheck and uprobes present.
+if {! [installtest_p]} { untested "$test"; return }
+if {! [uretprobes_p]} { untested "$test"; return }
+
+# --- TEST 1 ---
+
+set subtest1 "TEST 1: atvar_op::print() output the module arg properly."
+
+set out_pat "\\yreturn \\@var\\(\"v\", \"\[^\\n\"]+/a\\.out\"\\);"
+
+set res [target_compile ${testpath}/${test}_1.c ./a.out executable \
+    "additional_flags=-O additional_flags=-g"]
+if {$res ne ""} {
+    verbose "target_compile failed: $res" 2
+    fail "${subtest1}: unable to compile ${test}_1.c"
+} else {
+    set cmd "stap -p1 -c ./a.out '$srcdir/$subdir/${test}_1.stp'"
+    send_log "executing: $cmd\n"
+    set pipe [open "| sh -c {$cmd}" r]
+    set out [read $pipe]
+    set is_err 0
+    if {[catch {close $pipe} stderr] != 0} { set is_err 1 }
+
+    if {[regexp -lineanchor -- $out_pat $out]} {
+        pass "${subtest1}: output matches \"$out_pat\""
+    } else {
+        fail "${subtest1}: output fails to match \"$out_pat\": Got \"$out\""
+    }
+
+    if {$is_err} {
+        fail "${subtest1}: exit code not zero"
+    } else {
+        pass "${subtest1}: exit code is zero"
+    }
+    if {$stderr ne ""} {
+        send_log "stderr:\n$stderr"
+    }
+}
+
+# --- TEST 2 ---
+
+set subtest2 "TEST 2: atvar_op::print() does not output the module arg if there is none"
+
+set out_pat "\\yprintln\\(\\@var\\(\"v\"\\)\\);"
+
+set res [target_compile ${testpath}/${test}_1.c ./a.out executable \
+    "additional_flags=-O additional_flags=-g"]
+if {$res ne ""} {
+    verbose "target_compile failed: $res" 2
+    fail "${subtest2}: unable to compile ${test}_1.c"
+} else {
+    set cmd "stap -p1 -c ./a.out '$srcdir/$subdir/${test}_2.stp'"
+    send_log "executing: $cmd\n"
+    set pipe [open "| sh -c {$cmd}" r]
+    set out [read $pipe]
+    set is_err 0
+    if {[catch {close $pipe} stderr] != 0} { set is_err 1 }
+
+    if {[regexp -lineanchor -- $out_pat $out]} {
+        pass "${subtest2}: output matches \"$out_pat\""
+    } else {
+        fail "${subtest2}: output fails to match \"$out_pat\": Got \"$out\""
+    }
+
+    if {$is_err} {
+        fail "${subtest2}: exit code not zero"
+    } else {
+        pass "${subtest2}: exit code is zero"
+    }
+    if {$stderr ne ""} {
+        send_log "stderr:\n$stderr"
+    }
+}

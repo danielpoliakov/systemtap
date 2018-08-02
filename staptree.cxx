@@ -520,7 +520,10 @@ void atvar_op::print (ostream& o) const
 {
   if (addressof)
     o << "&";
-  o << name << "(\"" << target_name << "\")";
+  o << name << "(\"" << target_name << "\"";
+  if (module.length() > 0)
+    o << ", " << lex_cast_qstring (module);
+  o << ')';
   for (unsigned i = 0; i < components.size(); ++i)
     o << components[i];
 }

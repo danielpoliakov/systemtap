@@ -1,0 +1,4 @@
+probe process.function("main") {
+    println(@var("v"));
+    exit();
+}
