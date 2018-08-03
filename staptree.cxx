@@ -1301,7 +1301,10 @@ void null_statement::print (ostream& o) const
 
 void expr_statement::print (ostream& o) const
 {
-  o << *value;
+  if (value)
+    o << *value;
+  else
+    o << ";"; /* mid-elision-pass null-statement */
 }
 
 
@@ -1333,8 +1336,8 @@ void continue_statement::print (ostream& o) const
 
 void if_statement::print (ostream& o) const
 {
-  o << "if (" << *condition << ") "
-    << *thenblock << endl;
+  o << "if (" << *condition << ") ";
+  if (thenblock) o << *thenblock; else o << ";"; o << endl;
   if (elseblock)
     o << "else " << *elseblock << endl;
 }
