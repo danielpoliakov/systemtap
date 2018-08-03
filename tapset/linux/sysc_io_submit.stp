@@ -13,6 +13,13 @@
 	argstr = sprintf("%u, %d, %p", ctx_id, nr, iocbpp_uaddr)
 %)
 
+@define _SYSCALL_IO_SUBMIT_REGARGS
+%(
+	ctx_id = ulong_arg(1)
+	nr = long_arg(2)
+	iocbpp_uaddr = pointer_arg(3)
+%)
+
 probe syscall.io_submit = dw_syscall.io_submit !, nd_syscall.io_submit ? {}
 probe syscall.io_submit.return = dw_syscall.io_submit.return !, nd_syscall.io_submit.return ? {}
 
@@ -44,27 +51,69 @@ probe __syscall.io_submit.return = kernel.function("sys_io_submit").return
 
 # nd_io_submit _____________________________________________________
 
-probe nd_syscall.io_submit = __nd_syscall.io_submit,
+probe nd_syscall.io_submit = nd1_syscall.io_submit!, nd2_syscall.io_submit!, tp_syscall.io_submit
+  { }
+
+probe nd1_syscall.io_submit = __nd1_syscall.io_submit,
 	kprobe.function("compat_sys_io_submit") ?
 {
 	@_SYSCALL_IO_SUBMIT_NAME
 	asmlinkage()
-	ctx_id = ulong_arg(1)
-	nr = long_arg(2)
-	iocbpp_uaddr = pointer_arg(3)
+	@_SYSCALL_IO_SUBMIT_REGARGS
 	@_SYSCALL_IO_SUBMIT_ARGSTR
 }
-probe __nd_syscall.io_submit = kprobe.function("sys_io_submit") ?
+probe __nd1_syscall.io_submit = kprobe.function("sys_io_submit") ?
 {
 	@__syscall_gate(@const("__NR_io_submit"))
 }
-probe nd_syscall.io_submit.return = __nd_syscall.io_submit.return,
+
+/* kernel 4.17+ */
+probe nd2_syscall.io_submit = kprobe.function(@arch_syscall_prefix "sys_io_submit") ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_io_submit") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_IO_SUBMIT_NAME
+	@_SYSCALL_IO_SUBMIT_REGARGS
+	@_SYSCALL_IO_SUBMIT_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.io_submit = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_io_submit"), @const("__NR_compat_io_submit"))
+	@_SYSCALL_IO_SUBMIT_NAME
+	@_SYSCALL_IO_SUBMIT_REGARGS
+	@_SYSCALL_IO_SUBMIT_ARGSTR
+}
+
+probe nd_syscall.io_submit.return = nd1_syscall.io_submit.return!, nd2_syscall.io_submit.return!, tp_syscall.io_submit.return
+  { }
+
+probe nd1_syscall.io_submit.return = __nd1_syscall.io_submit.return,
 	kprobe.function("compat_sys_io_submit").return ?
 {
 	@_SYSCALL_IO_SUBMIT_NAME
 	retstr = returnstr(1)
 }
-probe __nd_syscall.io_submit.return = kprobe.function("sys_io_submit").return ?
+probe __nd1_syscall.io_submit.return = kprobe.function("sys_io_submit").return ?
 {
 	@__syscall_gate(@const("__NR_io_submit"))
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.io_submit.return = kprobe.function(@arch_syscall_prefix "sys_io_submit").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_io_submit").return ?
+{
+	@_SYSCALL_IO_SUBMIT_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.io_submit.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_io_submit"), @const("__NR_compat_io_submit"))
+	@_SYSCALL_IO_SUBMIT_NAME
+	retstr = return_str(1,$ret)
 }

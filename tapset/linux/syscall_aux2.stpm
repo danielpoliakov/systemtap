@@ -1,1 +1,2 @@
 @define arch_syscall_prefix %( "__{ia32,x64}_" %)
+@define arch_syscall0_prefix %( "__x64_" %)

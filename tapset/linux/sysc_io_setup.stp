@@ -13,6 +13,12 @@
 	argstr = sprintf("%u, %p", maxevents, ctxp_uaddr)
 %)
 
+@define _SYSCALL_IO_SETUP_REGARGS
+%(
+	maxevents = uint_arg(1)
+	ctxp_uaddr = pointer_arg(2)
+%)
+
 probe syscall.io_setup = dw_syscall.io_setup !, nd_syscall.io_setup ? {}
 probe syscall.io_setup.return = dw_syscall.io_setup.return !, nd_syscall.io_setup.return ? {}
 
@@ -51,26 +57,69 @@ probe __syscall.io_setup.return = kernel.function("sys_io_setup").return
 
 # nd_io_setup _____________________________________________________
 
-probe nd_syscall.io_setup = __nd_syscall.io_setup,
+probe nd_syscall.io_setup = nd1_syscall.io_setup!, nd2_syscall.io_setup!, tp_syscall.io_setup
+  { }
+
+probe nd1_syscall.io_setup = __nd1_syscall.io_setup,
 	kprobe.function("compat_sys_io_setup") ?
 {
 	asmlinkage()
 	@_SYSCALL_IO_SETUP_NAME
-	maxevents = uint_arg(1)
-	ctxp_uaddr = pointer_arg(2)
+	@_SYSCALL_IO_SETUP_REGARGS
 	@_SYSCALL_IO_SETUP_ARGSTR
 }
-probe __nd_syscall.io_setup = kprobe.function("sys_io_setup") ?
+probe __nd1_syscall.io_setup = kprobe.function("sys_io_setup") ?
 {
 	@__syscall_gate(@const("__NR_io_setup"))
 }
-probe nd_syscall.io_setup.return = __nd_syscall.io_setup.return,
+
+/* kernel 4.17+ */
+probe nd2_syscall.io_setup = kprobe.function(@arch_syscall_prefix "sys_io_setup") ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_io_setup") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_IO_SETUP_NAME
+	@_SYSCALL_IO_SETUP_REGARGS
+	@_SYSCALL_IO_SETUP_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.io_setup = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_io_setup"), @const("__NR_compat_io_setup"))
+	@_SYSCALL_IO_SETUP_NAME
+	@_SYSCALL_IO_SETUP_REGARGS
+	@_SYSCALL_IO_SETUP_ARGSTR
+}
+
+probe nd_syscall.io_setup.return = nd1_syscall.io_setup.return!, nd2_syscall.io_setup.return!, tp_syscall.io_setup.return
+  { }
+  
+probe nd1_syscall.io_setup.return = __nd1_syscall.io_setup.return,
 	kprobe.function("compat_sys_io_setup").return ?
 {
 	@_SYSCALL_IO_SETUP_NAME
 	retstr = returnstr(1)
 }
-probe __nd_syscall.io_setup.return = kprobe.function("sys_io_setup").return ?
+probe __nd1_syscall.io_setup.return = kprobe.function("sys_io_setup").return ?
 {
 	@__syscall_gate(@const("__NR_io_setup"))
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.io_setup.return = kprobe.function(@arch_syscall_prefix "sys_io_setup").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_io_setup").return ?
+{
+	@_SYSCALL_IO_SETUP_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.io_setup.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_io_setup"), @const("__NR_compat_io_setup"))
+	@_SYSCALL_IO_SETUP_NAME
+	retstr = return_str(1,$ret)
 }

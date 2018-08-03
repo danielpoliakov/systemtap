@@ -67,6 +67,9 @@
 #ifndef __NR_listen
 #define __NR_listen (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_membarrier
+#define __NR_membarrier (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_mmap2
 #define __NR_mmap2 (__NR_syscall_max + 1)
 #endif
@@ -158,6 +161,18 @@
 #endif
 #ifndef __NR_ia32_add_key
 #define __NR_ia32_add_key 286
+#endif
+#ifndef __NR_ia32_adjtimex
+#define __NR_ia32_adjtimex 124
+#endif
+#ifndef __NR_ia32_alarm
+#define __NR_ia32_alarm 27
+#endif
+#ifndef __NR_ia32_arch_prctl
+#define __NR_ia32_arch_prctl 384
+#endif
+#ifndef __NR_ia32_brk
+#define __NR_ia32_brk 45
 #endif
 #ifndef __NR_ia32_bpf
 #define __NR_ia32_bpf 357
@@ -258,6 +273,21 @@
 #ifndef __NR_ia32_inotify_init1
 #define __NR_ia32_inotify_init1 332
 #endif
+#ifndef __NR_ia32_io_cancel
+#define __NR_ia32_io_cancel 249
+#endif
+#ifndef __NR_ia32_io_destroy
+#define __NR_ia32_io_destroy 246
+#endif
+#ifndef __NR_ia32_io_getevents
+#define __NR_ia32_io_getevents 247
+#endif
+#ifndef __NR_ia32_io_setup
+#define __NR_ia32_io_setup 245
+#endif
+#ifndef __NR_ia32_io_submit
+#define __NR_ia32_io_submit 248
+#endif
 #ifndef __NR_ia32_ioprio_get
 #define __NR_ia32_ioprio_get 290
 #endif
@@ -276,20 +306,44 @@
 #ifndef __NR_ia32_kill
 #define __NR_ia32_kill 37
 #endif
+#ifndef __NR_ia32_lchown32
+#define __NR_ia32_lchown32 198
+#endif
+#ifndef __NR_ia32_lgetxattr
+#define __NR_ia32_lgetxattr 230
+#endif
 #ifndef __NR_ia32_link
 #define __NR_ia32_link 9
 #endif
 #ifndef __NR_ia32_linkat
 #define __NR_ia32_linkat 303
 #endif
-#ifndef __NR_ia32_lchown32
-#define __NR_ia32_lchown32 198
+#ifndef __NR_ia32_llistxattr
+#define __NR_ia32_llistxattr 233
+#endif
+#ifndef __NR_ia32_lremovexattr
+#define __NR_ia32_lremovexattr 236
+#endif
+#ifndef __NR_ia32_lsetxattr
+#define __NR_ia32_lsetxattr 227
+#endif
+#ifndef __NR_ia32_madvise
+#define __NR_ia32_madvise 219
+#endif
+#ifndef __NR_ia32_membarrier
+#define __NR_ia32_membarrier 375
+#endif
+#ifndef __NR_ia32_mincore
+#define __NR_ia32_mincore 218
 #endif
 #ifndef __NR_ia32_mkdir
 #define __NR_ia32_mkdir 39
 #endif
 #ifndef __NR_ia32_mkdirat
 #define __NR_ia32_mkdirat 296
+#endif
+#ifndef __NR_ia32_mknod
+#define __NR_ia32_mknod 14
 #endif
 #ifndef __NR_ia32_mknodat
 #define __NR_ia32_mknodat 297
@@ -303,6 +357,9 @@
 #ifndef __NR_ia32_name_to_handle_at
 #define __NR_ia32_name_to_handle_at 341
 #endif
+#ifndef __NR_ia32_nanosleep
+#define __NR_ia32_nanosleep 162
+#endif
 #ifndef __NR_ia32_nfsservctl
 #define __NR_ia32_nfsservctl 169
 #endif
@@ -315,8 +372,14 @@
 #ifndef __NR_ia32_openat
 #define __NR_ia32_openat 295
 #endif
+#ifndef __NR_ia32_pause
+#define __NR_ia32_pause 29
+#endif
 #ifndef __NR_ia32_pipe2
 #define __NR_ia32_pipe2 331
+#endif
+#ifndef __NR_ia32_pselect6
+#define __NR_ia32_pselect6 308
 #endif
 #ifndef __NR_ia32_pselect7
 // Since a kernel that had a pselect7 syscall can't be found, just use
@@ -408,6 +471,9 @@
 #define __NR_compat_access		__NR_ia32_access
 #define __NR_compat_acct		__NR_ia32_acct
 #define __NR_compat_add_key		__NR_ia32_add_key
+#define __NR_compat_adjtimex		__NR_ia32_adjtimex
+#define __NR_compat_alarm		__NR_ia32_alarm
+#define __NR_compat_brk			__NR_ia32_brk
 #define __NR_compat_bpf			__NR_ia32_bpf
 #define __NR_compat_capget		__NR_ia32_capget
 #define __NR_compat_capset		__NR_ia32_capset
@@ -439,24 +505,40 @@
 #define __NR_compat_getrandom		__NR_ia32_getrandom
 #define __NR_compat_getsid		__NR_ia32_getsid
 #define __NR_compat_inotify_init1	__NR_ia32_inotify_init1
+#define __NR_compat_io_cancel		__NR_ia32_io_cancel
+#define __NR_compat_io_destroy		__NR_ia32_io_destroy
+#define __NR_compat_io_getevents	__NR_ia32_io_getevents
+#define __NR_compat_io_setup		__NR_ia32_io_setup
+#define __NR_compat_io_submit		__NR_ia32_io_submit
 #define __NR_compat_ioprio_get		__NR_ia32_ioprio_get
 #define __NR_compat_ioprio_set		__NR_ia32_ioprio_set
 #define __NR_compat_ipc			__NR_ia32_ipc
 #define __NR_compat_kcmp		__NR_ia32_kcmp
 #define __NR_compat_keyctl		__NR_ia32_keyctl
 #define __NR_compat_kill		__NR_ia32_kill
+#define __NR_compat_lgetxattr		__NR_ia32_lgetxattr
 #define __NR_compat_link		__NR_ia32_link
 #define __NR_compat_linkat		__NR_ia32_linkat
+#define __NR_compat_llistxattr		__NR_ia32_llistxattr
+#define __NR_compat_lremovexattr	__NR_ia32_lremovexattr
+#define __NR_compat_lsetxattr		__NR_ia32_lsetxattr
+#define __NR_compat_madvise		__NR_ia32_madvise
+#define __NR_compat_membarrier		__NR_ia32_membarrier
+#define __NR_compat_mincore		__NR_ia32_mincore
 #define __NR_compat_mkdir		__NR_ia32_mkdir
 #define __NR_compat_mkdirat		__NR_ia32_mkdirat
+#define __NR_compat_mknod		__NR_ia32_mknod
 #define __NR_compat_mknodat		__NR_ia32_mknodat
 #define __NR_compat_msgctl		__NR_ia32_msgctl
 #define __NR_compat_name_to_handle_at	__NR_ia32_name_to_handle_at
+#define __NR_compat_nanosleep		__NR_ia32_nanosleep
 #define __NR_compat_nfsservctl		__NR_ia32_nfsservctl
 #define __NR_compat_open		__NR_ia32_open
 #define __NR_compat_open_by_handle_at	__NR_ia32_open_by_handle_at
 #define __NR_compat_openat		__NR_ia32_openat
+#define __NR_compat_pause		__NR_ia32_pause
 #define __NR_compat_pipe2		__NR_ia32_pipe2
+#define __NR_compat_pselect6		__NR_ia32_pselect6
 #define __NR_compat_pselect7		__NR_ia32_pselect7
 #define __NR_compat_read		__NR_ia32_read
 #define __NR_compat_readlink		__NR_ia32_readlink
@@ -492,6 +574,9 @@
 #define __NR_compat_access		__NR_access
 #define __NR_compat_acct		__NR_acct
 #define __NR_compat_add_key		__NR_add_key
+#define __NR_compat_adjtimex		__NR_adjtimex
+#define __NR_compat_alarm		__NR_alarm
+#define __NR_compat_brk			__NR_brk
 #define __NR_compat_bpf			__NR_bpf
 #define __NR_compat_capget		__NR_capget
 #define __NR_compat_capset		__NR_capset
@@ -523,24 +608,40 @@
 #define __NR_compat_getrandom		__NR_getrandom
 #define __NR_compat_getsid		__NR_getsid
 #define __NR_compat_inotify_init1	__NR_inotify_init1
+#define __NR_compat_io_cancel		__NR_io_cancel
+#define __NR_compat_io_destroy		__NR_io_destroy
+#define __NR_compat_io_getevents	__NR_io_getevents
+#define __NR_compat_io_setup		__NR_io_setup
+#define __NR_compat_io_submit		__NR_io_submit
 #define __NR_compat_ioprio_get		__NR_ioprio_get
 #define __NR_compat_ioprio_set		__NR_ioprio_set
 #define __NR_compat_ipc			__NR_ipc
 #define __NR_compat_kcmp		__NR_kcmp
 #define __NR_compat_keyctl		__NT_keyctl
 #define __NR_compat_kill		__NR_kill
+#define __NR_compat_lgetxattr		__NR_lgetxattr
 #define __NR_compat_link		__NR_link
 #define __NR_compat_linkat		__NR_linkat
+#define __NR_compat_llistxattr		__NR_llistxattr
+#define __NR_compat_lremovexattr	__NR_lremovexattr
+#define __NR_compat_lsetxattr		__NR_lsetxattr
+#define __NR_compat_madvise		__NR_madvise
+#define __NR_compat_membarrier		__NR_membarrier
+#define __NR_compat_mincore		__NR_mincore
 #define __NR_compat_mkdir		__NR_mkdir
 #define __NR_compat_mkdirat		__NR_mkdirat
+#define __NR_compat_mknod		__NR_mknod
 #define __NR_compat_mknodat		__NR_mknodat
 #define __NR_compat_msgctl		__NR_msgctl
 #define __NR_compat_name_to_handle_at	__NR_name_to_handle_at
+#define __NR_compat_nanosleep		__NR_nanosleep
 #define __NR_compat_nfsservctl		__NR_nfsservctl
 #define __NR_compat_open		__NR_open
 #define __NR_compat_open_by_handle_at	__NR_open_by_handle_at
 #define __NR_compat_openat		__NR_openat
+#define __NR_compat_pause		__NR_pause
 #define __NR_compat_pipe2		__NR_pipe2
+#define __NR_compat_pselect6		__NR_pselect6
 #define __NR_compat_pselect7		__NR_pselect7
 #define __NR_compat_read		__NR_read
 #define __NR_compat_readlink		__NR_readlink

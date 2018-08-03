@@ -17,6 +17,15 @@
 	                 exceptfds_uaddr, timeout_str)
 %)
 
+@define _SYSCALL_SELECT_REGARGS
+%(
+	n = int_arg(1)
+	readfds_uaddr = pointer_arg(2)
+	writefds_uaddr = pointer_arg(3)
+	exceptfds_uaddr = pointer_arg(4)
+	timeout_uaddr = pointer_arg(5)
+%)
+
 probe syscall.select = dw_syscall.select !, nd_syscall.select ? {}
 probe syscall.select.return = dw_syscall.select.return !,
                               nd_syscall.select.return ? {}
@@ -42,22 +51,62 @@ probe dw_syscall.select.return = kernel.function("sys_select").return
 
 # nd_select _____________________________________________________
 
-probe nd_syscall.select = kprobe.function("sys_select") ?
+probe nd_syscall.select = nd1_syscall.select!, nd2_syscall.select!, tp_syscall.select
+  { }
+
+probe nd1_syscall.select = kprobe.function("sys_select") ?
 {
 	@_SYSCALL_SELECT_NAME
 	asmlinkage()
-	n = int_arg(1)
-	readfds_uaddr = pointer_arg(2)
-	writefds_uaddr = pointer_arg(3)
-	exceptfds_uaddr = pointer_arg(4)
-	timeout_uaddr = pointer_arg(5)
+	@_SYSCALL_SELECT_REGARGS
 	timeout_str = _struct_timeval_u(timeout_uaddr, 1)
 	@_SYSCALL_SELECT_ARGSTR
 }
-probe nd_syscall.select.return = kprobe.function("sys_select").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.select = kprobe.function(@arch_syscall_prefix "sys_select") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_SELECT_NAME
+	@_SYSCALL_SELECT_REGARGS
+	timeout_str = _struct_timeval_u(timeout_uaddr, 1)
+	@_SYSCALL_SELECT_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.select = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_select"))
+	@_SYSCALL_SELECT_NAME
+	@_SYSCALL_SELECT_REGARGS
+	timeout_str = _struct_timeval_u(timeout_uaddr, 1)
+	@_SYSCALL_SELECT_ARGSTR
+}
+
+probe nd_syscall.select.return = nd1_syscall.select.return!, nd2_syscall.select.return!, tp_syscall.select.return
+  { }
+
+probe nd1_syscall.select.return = kprobe.function("sys_select").return ?
 {
 	@_SYSCALL_SELECT_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.select.return = kprobe.function(@arch_syscall_prefix "sys_select").return ?
+{
+	@_SYSCALL_SELECT_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.select.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_select"))
+	@_SYSCALL_SELECT_NAME
+	retstr = return_str(1,$ret)
 }
 
 # long compat_sys_select(int n,
@@ -92,20 +141,60 @@ probe dw_syscall.compat_select.return = kernel.function("compat_sys_select").ret
 
 # nd_compat_select _____________________________________________________
 
-probe nd_syscall.compat_select = kprobe.function("compat_sys_select") ?
+probe nd_syscall.compat_select = nd1_syscall.compat_select!, nd2_syscall.compat_select!, tp_syscall.compat_select
+  { }
+
+probe nd1_syscall.compat_select = kprobe.function("compat_sys_select") ?
 {
 	@_SYSCALL_SELECT_NAME
 	asmlinkage()
-	n = int_arg(1)
-	readfds_uaddr = pointer_arg(2)
-	writefds_uaddr = pointer_arg(3)
-	exceptfds_uaddr = pointer_arg(4)
-	timeout_uaddr = pointer_arg(5)
+	@_SYSCALL_SELECT_REGARGS
 	timeout_str = _struct_compat_timeval_u(timeout_uaddr, 1)
 	@_SYSCALL_SELECT_ARGSTR
 }
-probe nd_syscall.compat_select.return = kprobe.function("compat_sys_select").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.compat_select = kprobe.function(@arch_syscall_prefix "compat_sys_select") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_SELECT_NAME
+	@_SYSCALL_SELECT_REGARGS
+	timeout_str = _struct_compat_timeval_u(timeout_uaddr, 1)
+	@_SYSCALL_SELECT_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.compat_select = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_compat__newselect"))
+	@_SYSCALL_SELECT_NAME
+	@_SYSCALL_SELECT_REGARGS
+	timeout_str = _struct_compat_timeval_u(timeout_uaddr, 1)
+	@_SYSCALL_SELECT_ARGSTR
+}
+
+probe nd_syscall.compat_select.return = nd1_syscall.compat_select.return!, nd2_syscall.compat_select.return!, tp_syscall.compat_select.return
+  { }
+  
+probe nd1_syscall.compat_select.return = kprobe.function("compat_sys_select").return ?
 {
 	@_SYSCALL_SELECT_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.compat_select.return = kprobe.function(@arch_syscall_prefix "compat_sys_select").return ?
+{
+	@_SYSCALL_SELECT_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.compat_select.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_compat__newselect"))
+	@_SYSCALL_SELECT_NAME
+	retstr = return_str(1,$ret)
 }
