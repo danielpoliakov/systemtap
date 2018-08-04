@@ -10051,8 +10051,8 @@ if test "x$enable_ssp" != xno; then :
 
    save_CFLAGS="$CFLAGS"
    save_CXXFLAGS="$CXXFLAGS"
-   CXXFLAGS="$CXXFLAGS -Werror -fstack-protector-all -D_FORTIFY_SOURCE=2"
-   CFLAGS="$CFLAGS -Werror -fstack-protector-all -D_FORTIFY_SOURCE=2"
+   CXXFLAGS="-Werror -fstack-protector-all -D_FORTIFY_SOURCE=2 $CXXFLAGS"
+   CFLAGS="-Werror -fstack-protector-all -D_FORTIFY_SOURCE=2 $CFLAGS"
    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 int something ();
@@ -10061,8 +10061,8 @@ if ac_fn_c_try_compile "$LINENO"; then :
 
        { $as_echo "$as_me:${as_lineno-$LINENO}: Compiling with gcc -fstack-protector-all et al." >&5
 $as_echo "$as_me: Compiling with gcc -fstack-protector-all et al." >&6;}
-	CFLAGS="$save_CFLAGS -fstack-protector-all -D_FORTIFY_SOURCE=2"
-	CXXFLAGS="$save_CXXFLAGS -fstack-protector-all -D_FORTIFY_SOURCE=2"
+	CFLAGS="-fstack-protector-all -D_FORTIFY_SOURCE=2 $save_CFLAGS"
+	CXXFLAGS="-fstack-protector-all -D_FORTIFY_SOURCE=2 $save_CXXFLAGS"
 else
 
        { $as_echo "$as_me:${as_lineno-$LINENO}: Compiler does not support -fstack-protector-all et al." >&5

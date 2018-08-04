@@ -198,12 +198,12 @@ AC_ARG_ENABLE([ssp],
 AS_IF([test "x$enable_ssp" != xno],[
    save_CFLAGS="$CFLAGS"
    save_CXXFLAGS="$CXXFLAGS"
-   CXXFLAGS="$CXXFLAGS -Werror -fstack-protector-all -D_FORTIFY_SOURCE=2"
-   CFLAGS="$CFLAGS -Werror -fstack-protector-all -D_FORTIFY_SOURCE=2"
+   CXXFLAGS="-Werror -fstack-protector-all -D_FORTIFY_SOURCE=2 $CXXFLAGS"
+   CFLAGS="-Werror -fstack-protector-all -D_FORTIFY_SOURCE=2 $CFLAGS"
    AC_COMPILE_IFELSE([AC_LANG_SOURCE([int something ();])], [
        AC_MSG_NOTICE([Compiling with gcc -fstack-protector-all et al.])
-	CFLAGS="$save_CFLAGS -fstack-protector-all -D_FORTIFY_SOURCE=2"
-	CXXFLAGS="$save_CXXFLAGS -fstack-protector-all -D_FORTIFY_SOURCE=2"],[
+	CFLAGS="-fstack-protector-all -D_FORTIFY_SOURCE=2 $save_CFLAGS"
+	CXXFLAGS="-fstack-protector-all -D_FORTIFY_SOURCE=2 $save_CXXFLAGS"],[
        AC_MSG_NOTICE([Compiler does not support -fstack-protector-all et al.])
        CFLAGS="$save_CFLAGS"
        CXXFLAGS="$save_CXXFLAGS"])])
