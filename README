@@ -98,12 +98,18 @@ Build steps:
   To run a simple test.
   # stap -v -e 'probe vfs.read {printf("read performed\n"); exit()}'
 
-  To run the full test suite from the build tree, install dejagnu, then:
+  To run the full test suite from the build tree, install dejagnu,
+  then run with root privileges:
   # make installcheck
 
   For the prototype dyninst pure-userspace backend, run "stap" as any user.
   % stap --runtime=dyninst -e 'probe process.function("*") { 
                                println(pn(), ":", $$parms) }' -c 'ls'
+
+  For the prototype bpf backend, run "stap" as "root"
+  # stap --runtime=bpf -e 'probe kernel.function("do_exit") {
+                                 printf("bye %d\n", pid()) }'
+
 
 
 Tips:
