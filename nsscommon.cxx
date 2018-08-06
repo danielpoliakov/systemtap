@@ -43,10 +43,12 @@ extern "C" {
 #include <keyhi.h>
 #include <secder.h>
 #include <cert.h>
+#ifdef HAVE_HTTP_SUPPORT
 #include <openssl/bio.h>
 #include <openssl/x509.h>
 #include <openssl/pem.h>
 #include <openssl/x509v3.h>
+#endif
 }
 
 #include "nsscommon.h"
