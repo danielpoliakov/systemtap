@@ -510,7 +510,7 @@ check-local:
 # but installcheck does not follow an implicit check-DEJAGNU, go figure
 installcheck: site.exp
 	-rm -rf artifacts
-	-test -z $(SYSTEMTAP_TESTSUITE_RESUME) && $(MAKE) clean
+	-test -z $(SYSTEMTAP_TESTSUITE_RESUME) && $(MAKE) clean && $(MAKE) site.exp
 	-mv systemtap.log systemtap.temp1.log 2>/dev/null
 	-mv systemtap.sum systemtap.temp1.sum 2>/dev/null
 	-rmmod uprobes 2>/dev/null
@@ -533,7 +533,7 @@ installcheck: site.exp
 # files for all the tests, plus separate logs per testcase are kept in the artifacts
 # directory. Serial tests (see below) log to artifacts/__serialtests.
 installcheck-parallel: site.exp
-	-test -z $(SYSTEMTAP_TESTSUITE_RESUME) && $(MAKE) clean
+	-test -z $(SYSTEMTAP_TESTSUITE_RESUME) && $(MAKE) clean && $(MAKE) site.exp
 	-rmmod uprobes 2>/dev/null
 	mkdir -p artifacts/__serialtests
 	MAKEFLAGS= $(RUNTEST2) systemtap.base/environment_sanity.exp
