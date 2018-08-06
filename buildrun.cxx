@@ -931,7 +931,8 @@ make_tracequeries(systemtap_session& s, const map<string,string>& contents)
   omf << "EXTRA_CFLAGS := -g -Wno-implicit-function-declaration " << WERROR << endl;
   // RHBZ 655231: later rhel6 kernels' module-signing kbuild logic breaks out-of-tree modules
   omf << "CONFIG_MODULE_SIG := n" << endl;
-
+  // PR23488: need to override this kconfig, else we get no useful struct decls
+  omf << "CONFIG_DEBUG_INFO_REDUCED := " << endl;
   // PR18389: disable GCC's Identical Code Folding, since the stubs may look identical
   omf << "EXTRA_CFLAGS += $(call cc-option,-fno-ipa-icf)" << endl;
 
@@ -1009,6 +1010,9 @@ make_typequery_kmod(systemtap_session& s, const vector<string>& headers, string&
   // RHBZ 655231: later rhel6 kernels' module-signing kbuild logic breaks out-of-tree modules
   omf << "CONFIG_MODULE_SIG := n" << endl;
 
+  // PR23488: need to override this kconfig, else we get no useful struct decls
+  omf << "CONFIG_DEBUG_INFO_REDUCED := " << endl;
+  
   // NB: We use -include instead of #include because that gives us more power.
   // Using #include searches relative to the source's path, which in this case
   // is /tmp/..., so that's not helpful.  Using -include will search relative
