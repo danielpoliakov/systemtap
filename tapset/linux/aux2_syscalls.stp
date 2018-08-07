@@ -6,7 +6,7 @@
    for the syscall parameters/context. */
 function __set_syscall_pt_regs(r)
 %{ /* guru */
-    CONTEXT->sregs = (void*)STAP_ARG_r;
+  CONTEXT->sregs = (void*)(uintptr_t) STAP_ARG_r;
 %}
 
 
