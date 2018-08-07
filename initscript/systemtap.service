@@ -1,0 +1,14 @@
+[Unit]
+Description=Run a configured list of systemtap scripts at system startup.
+Documentation=man:systemtap(8)
+DefaultDependencies=yes
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/systemtap-service start
+ExecReload=/usr/sbin/systemtap-service reload
+ExecStop=/usr/sbin/systemtap-service stop
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

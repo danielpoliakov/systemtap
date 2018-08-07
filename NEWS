@@ -18,6 +18,13 @@
   @kderef/@uderef (size,address) can be used to dereference integers and
   @kregister/@uregister (dwarf#) can be used to access register values.
 
+- A systemd service file has been added for systemtap.service (which
+  runs a configurable set of scripts automatically on system
+  startup). The existing /etc/init.d/systemtap init script has been
+  moved to a new utility command 'systemtap-service' which preserves
+  functionality such as configuring onboot systemtap scripts via
+  dracut. See systemtap(8) for details.
+
 * What's new in version 3.3, 2018-06-08
 
 - A new "stap --example FOO.stp" mode searches the example scripts

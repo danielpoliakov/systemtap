@@ -232,14 +232,15 @@ Requires: zip unzip
 Requires(pre): shadow-utils
 Requires(post): chkconfig
 Requires(preun): chkconfig
-Requires(preun): initscripts
-Requires(postun): initscripts
 BuildRequires: nss-devel avahi-devel
 %if %{with_openssl}
 Requires: openssl
 %endif
 %if %{with_systemd}
 Requires: systemd
+%else
+Requires(preun): initscripts
+Requires(postun): initscripts
 %endif
 
 %description server
@@ -321,8 +322,12 @@ URL: http://sourceware.org/systemtap/
 Requires: systemtap = %{version}-%{release}
 Requires(post): chkconfig
 Requires(preun): chkconfig
+%if %{with_systemd}
+Requires: systemd
+%else
 Requires(preun): initscripts
 Requires(postun): initscripts
+%endif
 
 %description initscript
 This package includes a SysVinit script to launch selected systemtap
@@ -682,12 +687,27 @@ mkdir -p $RPM_BUILD_ROOT%{_localstatedir}/cache/systemtap
 mkdir -p $RPM_BUILD_ROOT%{_localstatedir}/run/systemtap
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/logrotate.d
 install -m 644 initscript/logrotate.stap-server $RPM_BUILD_ROOT%{_sysconfdir}/logrotate.d/stap-server
+
+# If using systemd systemtap.service file, retain the old init script in %{_libexecdir} as a helper.
+%if %{with_systemd}
+mkdir -p $RPM_BUILD_ROOT%{_unitdir}
+touch $RPM_BUILD_ROOT%{_unitdir}/systemtap.service
+install -m 644 initscript/systemtap.service $RPM_BUILD_ROOT%{_unitdir}/systemtap.service
+mkdir -p $RPM_BUILD_ROOT%{_sbindir}
+install -m 755 initscript/systemtap $RPM_BUILD_ROOT%{_sbindir}/systemtap-service
+%else
 mkdir -p $RPM_BUILD_ROOT%{initdir}
 install -m 755 initscript/systemtap $RPM_BUILD_ROOT%{initdir}
+mkdir -p $RPM_BUILD_ROOT%{_sbindir}
+ln -sf %{initdir}/systemtap $RPM_BUILD_ROOT%{_sbindir}/systemtap-service
+# TODO CHECK CORRECTNESS: symlink %{_sbindir}/systemtap-service to %{initdir}/systemtap
+%endif
+
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/systemtap
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/systemtap/conf.d
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/systemtap/script.d
 install -m 644 initscript/config.systemtap $RPM_BUILD_ROOT%{_sysconfdir}/systemtap/config
+
 %if %{with_systemd}
 mkdir -p $RPM_BUILD_ROOT%{_unitdir}
 touch $RPM_BUILD_ROOT%{_unitdir}/stap-server.service
@@ -1123,7 +1143,13 @@ done
 
 %files initscript
 %defattr(-,root,root)
+%if %{with_systemd}
+%{_unitdir}/systemtap.service
+%{_sbindir}/systemtap-service
+%else
 %{initdir}/systemtap
+%{_sbindir}/systemtap-service
+%endif
 %dir %{_sysconfdir}/systemtap
 %dir %{_sysconfdir}/systemtap/conf.d
 %dir %{_sysconfdir}/systemtap/script.d

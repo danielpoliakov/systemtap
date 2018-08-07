@@ -1,7 +1,7 @@
 .\" -*- nroff -*-
 .TH SYSTEMTAP 8
 .SH NAME
-systemtap \- SystemTap initscript service
+systemtap \- SystemTap initscript and systemd service
 
 .\" macros
 .de SAMPLE
@@ -21,6 +21,9 @@ systemtap \- SystemTap initscript service
 ..
 
 .SH SYNOPSIS
+.B systemtap-service
+.IR COMMAND " [" OPTIONS "] [" SCRIPT ...]
+
 .B service systemtap
 .IR COMMAND " [" OPTIONS "] [" SCRIPT ...]
 
@@ -29,6 +32,13 @@ The SystemTap initscript aims to provide a way to run scripts as a service and
 easily control them individually. Scripts can be configured to start upon manual
 request, or during system startup. On dracut-based systems, it is also possible
 to integrate scripts in the initramfs and have them start during early-boot.
+
+The SystemTap initscript can be invoked manually using the
+.B systemtap-service
+command. On systemd-based systems, the initscript is controlled by
+.B systemctl
+with the service file
+\fBsystemtap.service\fR.
 
 There are various parameters and options available to modify global behaviour,
 as well as script behaviour. Dependencies between scripts can be established so
@@ -306,13 +316,13 @@ try to run script2.
 .B TESTING
 After installing scripts, we can test that they work by simply doing:
 .SAMPLE
-\fB#\fR service systemtap start
-\fB#\fR service systemtap stop
+\fB#\fR systemtap-service start
+\fB#\fR systemtap-service stop
 .ESAMPLE
 We could be more specific as well, for example:
 .SAMPLE
-\fB#\fR service systemtap start script1
-\fB#\fR service systemtap stop script1
+\fB#\fR systemtap-service start script1
+\fB#\fR systemtap-service stop script1
 .ESAMPLE
 If there were no errors, we are ready to use it.
 
@@ -334,11 +344,11 @@ removing any configuration lines specific to them:
 .ESAMPLE
 If the script is still running, we also need to stop it:
 .SAMPLE
-\fB#\fR service systemtap stop script2
+\fB#\fR systemtap-service stop script2
 .ESAMPLE
 We can then also remove the cache associated with the script:
 .SAMPLE
-\fB#\fR service systemtap cleanup script2
+\fB#\fR systemtap-service cleanup script2
 .ESAMPLE
 
 .TP
@@ -348,7 +358,7 @@ will see that the kernel version is different and will compile the scripts. The
 compilation can be done beforehand as well to avoid having to compile during
 boot by using the \fB-r\fR option:
 .SAMPLE
-\fB#\fR service systemtap compile myscript -r <NEW_KERNEL_VERSION>
+\fB#\fR systemtap-service compile myscript -r <NEW_KERNEL_VERSION>
 .ESAMPLE
 
 .TP
@@ -357,7 +367,7 @@ For environments which lack compilation infrastructure (e.g. no compilers or
 debuginfo), such as a production system, the scripts can be compiled on another
 (development) machine and then transferred over to the production system:
 .SAMPLE
-\fB#\fR service systemtap compile myscript -r \\
+\fB#\fR systemtap-service compile myscript -r \\
 .br
 >   <KERNEL_VERSION_OF_TARGET_MACHINE>
 \fB#\fR tar czf stap-scripts-<kernel-version>.tar.gz \\
@@ -383,7 +393,7 @@ setting whatever options we'd like:
 .ESAMPLE
 To add the script to the initramfs, we use the \fBonboot\fR command:
 .SAMPLE
-\fB#\fR service systemtap onboot myscript
+\fB#\fR systemtap-service onboot myscript
 .ESAMPLE
 If the script is not already compiled and cached, it will be done at this point.
 A new initramfs will then be created at the default location. We can use the
@@ -396,7 +406,7 @@ If we would prefer to only start the script for one boot and not others, it
 might be easier to instead use the \fB-o\fR option to specify a different
 initramfs output file:
 .SAMPLE
-\fB#\fR service systemtap onboot myscript \\
+\fB#\fR systemtap-service onboot myscript \\
 >   -o /boot/special_initramfs.img
 .ESAMPLE
 Once the initramfs is created, it's simply a matter of changing the command-line
@@ -408,7 +418,7 @@ Just like the compile command, we can use the \fB-r\fR option to specify the
 kernel for which we want to create the initramfs. This is useful when we are
 about to upgrade and would like to prepare in advance. For example:
 .SAMPLE
-\fB#\fR service systemtap onboot myscript \\
+\fB#\fR systemtap-service onboot myscript \\
 >   -r 3.12.6-200.fc19.x86_64
 .ESAMPLE
 
@@ -417,7 +427,7 @@ about to upgrade and would like to prepare in advance. For example:
 Finally, to remove all script from the initramfs, we simple run the \fBonboot\fR
 command without specifying any scripts:
 .SAMPLE
-\fB#\fR service systemtap onboot
+\fB#\fR systemtap-service onboot
 .ESAMPLE
 This will simply create a standard initramfs without any SystemTap modules
 inserted.
