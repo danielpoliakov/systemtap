@@ -102,7 +102,7 @@ echo_usage () {
   echo $"	-y 		: answer yes for all questions"
   echo $"	script(s)	: specify systemtap scripts"
   echo $""
-  echo $"See systemtap(8) for full documentation"
+  echo $"See systemtap-service(8) for full documentation"
 }
 
 #-----------------------------------------------------------------

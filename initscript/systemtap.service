@@ -1,6 +1,6 @@
 [Unit]
 Description=Run a configured list of systemtap scripts at system startup.
-Documentation=man:systemtap(8)
+Documentation=man:systemtap-service(8)
 DefaultDependencies=yes
 
 [Service]

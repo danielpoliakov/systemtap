@@ -23,7 +23,7 @@
   startup). The existing /etc/init.d/systemtap init script has been
   moved to a new utility command 'systemtap-service' which preserves
   functionality such as configuring onboot systemtap scripts via
-  dracut. See systemtap(8) for details.
+  dracut. See systemtap-service(8) for details.
 
 * What's new in version 3.3, 2018-06-08
 

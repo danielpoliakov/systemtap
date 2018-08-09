@@ -108,7 +108,7 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 DIST_COMMON = $(srcdir)/Makefile.am
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
-CONFIG_CLEAN_FILES = stap.1 stappaths.7 systemtap.8
+CONFIG_CLEAN_FILES = stap.1 stappaths.7 systemtap-service.8
 CONFIG_CLEAN_VPATH_FILES =
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
@@ -404,7 +404,7 @@ SUBDIRS = cs
 AUTOMAKE_OPTIONS = no-dist foreign subdir-objects
 man_MANS = stapprobes.3stap stapfuncs.3stap stapvars.3stap \
 	stapex.3stap dtrace.1 stap-merge.1 stappaths.7 stapsh.8 \
-	systemtap.8 stapref.1 $(am__append_1) $(am__append_2) \
+	systemtap-service.8 stapref.1 $(am__append_1) $(am__append_2) \
 	$(am__append_3)
 all: all-recursive
 
@@ -442,7 +442,7 @@ stap.1: $(top_builddir)/config.status $(srcdir)/stap.1.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 stappaths.7: $(top_builddir)/config.status $(srcdir)/stappaths.7.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
-systemtap.8: $(top_builddir)/config.status $(srcdir)/systemtap.8.in
+systemtap-service.8: $(top_builddir)/config.status $(srcdir)/systemtap-service.8.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 install-man1: $(man_MANS)
 	@$(NORMAL_INSTALL)

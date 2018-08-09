@@ -1156,7 +1156,7 @@ done
 %config(noreplace) %{_sysconfdir}/systemtap/config
 %dir %{_localstatedir}/cache/systemtap
 %ghost %{_localstatedir}/run/systemtap
-%{_mandir}/man8/systemtap.8*
+%{_mandir}/man8/systemtap-service.8*
 %if %{with_dracut}
    %dir %{dracutstap}
    %{dracutstap}/*

@@ -1,7 +1,7 @@
 .\" -*- nroff -*-
 .TH SYSTEMTAP 8
 .SH NAME
-systemtap \- SystemTap initscript and systemd service
+systemtap-service \- SystemTap initscript and systemd service
 
 .\" macros
 .de SAMPLE
