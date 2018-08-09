@@ -2225,6 +2225,23 @@ keywords: syscall process
   # stap wait4time.stp -T 1
 
 
+profiling/syscallsbypid.stp - Provide a per-process syscall tally on the system
+keywords: prometheus process syscall tracepoint
+
+  The syscallsbypid.stp script tallies each syscall for each running
+  process.  This information can be useful to determine the activity of
+  various processes on the system.  The script makes the information
+  available via procfs in Prometheus readable format.  When a process
+  exits its data will be eliminated from the prometheus output.  To
+  avoid exceeding the storage limitations of SystemTap older entries
+  maybe overwritten by newer entries.  This can lead to some active
+  process syscall counts disappearing and/or later reappearing with a
+  lower value.	Also note that the script does not properly name
+  syscalls for 32-bit applications running on 64-bit machines.
+
+  # stap syscallsbypid.stp -T 1
+
+
 = PROFILING =
 
 io/iodevstats.stp - List Executables Reading and Writing the Most Data by Device
@@ -2515,6 +2532,23 @@ keywords: prometheus limit
   via procfs in Prometheus readable format.
 
   # stap cpu_throttle.stp -T 1
+
+
+profiling/syscallsbypid.stp - Provide a per-process syscall tally on the system
+keywords: prometheus process syscall tracepoint
+
+  The syscallsbypid.stp script tallies each syscall for each running
+  process.  This information can be useful to determine the activity of
+  various processes on the system.  The script makes the information
+  available via procfs in Prometheus readable format.  When a process
+  exits its data will be eliminated from the prometheus output.  To
+  avoid exceeding the storage limitations of SystemTap older entries
+  maybe overwritten by newer entries.  This can lead to some active
+  process syscall counts disappearing and/or later reappearing with a
+  lower value.	Also note that the script does not properly name
+  syscalls for 32-bit applications running on 64-bit machines.
+
+  # stap syscallsbypid.stp -T 1
 
 
 = QEMU =
@@ -3353,6 +3387,23 @@ keywords: profiling container syscall
   # stap container_check.stp -c "ping -c 1 sourceware.org || true"
 
 
+profiling/syscallsbypid.stp - Provide a per-process syscall tally on the system
+keywords: prometheus process syscall tracepoint
+
+  The syscallsbypid.stp script tallies each syscall for each running
+  process.  This information can be useful to determine the activity of
+  various processes on the system.  The script makes the information
+  available via procfs in Prometheus readable format.  When a process
+  exits its data will be eliminated from the prometheus output.  To
+  avoid exceeding the storage limitations of SystemTap older entries
+  maybe overwritten by newer entries.  This can lead to some active
+  process syscall counts disappearing and/or later reappearing with a
+  lower value.	Also note that the script does not properly name
+  syscalls for 32-bit applications running on 64-bit machines.
+
+  # stap syscallsbypid.stp -T 1
+
+
 = TCP =
 
 network/sk_stream_wait_memory.stp - Track Start and Stop of Processes Due to Network Buffer Space
@@ -3617,6 +3668,23 @@ keywords: process scheduler time tracepoint
   specific PID and its children.
 
   # stap schedtimes.stp -T 1
+
+
+profiling/syscallsbypid.stp - Provide a per-process syscall tally on the system
+keywords: prometheus process syscall tracepoint
+
+  The syscallsbypid.stp script tallies each syscall for each running
+  process.  This information can be useful to determine the activity of
+  various processes on the system.  The script makes the information
+  available via procfs in Prometheus readable format.  When a process
+  exits its data will be eliminated from the prometheus output.  To
+  avoid exceeding the storage limitations of SystemTap older entries
+  maybe overwritten by newer entries.  This can lead to some active
+  process syscall counts disappearing and/or later reappearing with a
+  lower value.	Also note that the script does not properly name
+  syscalls for 32-bit applications running on 64-bit machines.
+
+  # stap syscallsbypid.stp -T 1
 
 
 = TRAFFIC =

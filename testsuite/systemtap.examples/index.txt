@@ -1704,6 +1704,23 @@ keywords: profiling function
   # stap  sched_switch.stp -T 1
 
 
+profiling/syscallsbypid.stp - Provide a per-process syscall tally on the system
+keywords: prometheus process syscall tracepoint
+
+  The syscallsbypid.stp script tallies each syscall for each running
+  process.  This information can be useful to determine the activity of
+  various processes on the system.  The script makes the information
+  available via procfs in Prometheus readable format.  When a process
+  exits its data will be eliminated from the prometheus output.  To
+  avoid exceeding the storage limitations of SystemTap older entries
+  maybe overwritten by newer entries.  This can lead to some active
+  process syscall counts disappearing and/or later reappearing with a
+  lower value.	Also note that the script does not properly name
+  syscalls for 32-bit applications running on 64-bit machines.
+
+  # stap syscallsbypid.stp -T 1
+
+
 profiling/thread-times.stp - Profile Kernel Functions
 keywords: _best profiling
 

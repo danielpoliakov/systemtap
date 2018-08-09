@@ -59,7 +59,7 @@
 <li><a href="#virtualization/kvm_service_time.stp">virtualization/kvm_service_time.stp - Time Statistics on KVM Exit Reasons</a></li>
 </ul>
 
-<h2>All 172 Examples</h2>
+<h2>All 173 Examples</h2>
 <ul>
 <li><a name="general/alias_suffixes.stp"></a><a href="#general/alias_suffixes.stp">&para;</a> <a href="general/alias_suffixes.stp">general/alias_suffixes.stp</a> - Count I/O Syscalls using Alias Suffixes<br>
 keywords: <a href="keyword-index.html#IO">IO</a> <a href="keyword-index.html#STATISTICS">STATISTICS</a> <br>
@@ -519,6 +519,9 @@ keywords: <a href="keyword-index.html#_BEST">_BEST</a> <a href="keyword-index.ht
 </li><li><a name="profiling/sched_switch.stp"></a><a href="#profiling/sched_switch.stp">&para;</a> <a href="profiling/sched_switch.stp">profiling/sched_switch.stp</a> - Display the Task Switches Happening in the Scheduler<br>
 keywords: <a href="keyword-index.html#PROFILING">PROFILING</a> <a href="keyword-index.html#FUNCTION">FUNCTION</a> <br>
 <p>The sched_switch.stp script takes two arguments, first argument can be &quot;pid&quot; or &quot;name&quot; to indicate what is being passed as second argument. The script will trace the process based on pid/name and print the scheduler switches happening with the process. If no arguments are passed, it displays all the scheduler switches. This can be used to understand which tasks schedule out the current process being traced, and when it gets scheduled in again.</p><p><font size="-2"><pre># stap  sched_switch.stp -T 1</pre></font></p>
+</li><li><a name="profiling/syscallsbypid.stp"></a><a href="#profiling/syscallsbypid.stp">&para;</a> <a href="profiling/syscallsbypid.stp">profiling/syscallsbypid.stp</a> - Provide a per-process syscall tally on the system<br>
+keywords: <a href="keyword-index.html#PROMETHEUS">PROMETHEUS</a> <a href="keyword-index.html#PROCESS">PROCESS</a> <a href="keyword-index.html#SYSCALL">SYSCALL</a> <a href="keyword-index.html#TRACEPOINT">TRACEPOINT</a> <br>
+<p>The syscallsbypid.stp script tallies each syscall for each running process.  This information can be useful to determine the activity of various processes on the system.  The script makes the information available via procfs in Prometheus readable format.  When a process exits its data will be eliminated from the prometheus output.  To avoid exceeding the storage limitations of SystemTap older entries maybe overwritten by newer entries.  This can lead to some active process syscall counts disappearing and/or later reappearing with a lower value.  Also note that the script does not properly name syscalls for 32-bit applications running on 64-bit machines.</p><p><font size="-2"><pre># stap syscallsbypid.stp -T 1</pre></font></p>
 </li><li><a name="profiling/thread-times.stp"></a><a href="#profiling/thread-times.stp">&para;</a> <a href="profiling/thread-times.stp">profiling/thread-times.stp</a> - Profile Kernel Functions<br>
 keywords: <a href="keyword-index.html#_BEST">_BEST</a> <a href="keyword-index.html#PROFILING">PROFILING</a> <br>
 <p>The thread-times.stp script sets up time-based sampling.  Every five seconds it prints out a sorted list with the top twenty threads occupying the CPUs, broken down as a percentage of user and kernel time.</p><p><i><a href="profiling/thread-times.txt">sample usage in profiling/thread-times.txt</i></font></p>
