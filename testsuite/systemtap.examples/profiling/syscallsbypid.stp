@@ -1,0 +1,19 @@
+#! /usr/bin/env stap
+#
+# Copyright (C) 2018 Red Hat, Inc.
+# By William Cohen, Red Hat Inc.
+# wcohen@redhat.com
+#
+# USAGE: stap syscallbypid.stp --suppress-handler-errors
+#
+# The "--suppress-handler-errors" option allows the script to continue
+# run when probes are skipped.  The probe skips make the data less accurate,
+# but are otherwise harmless.
+
+global arr%[20000]
+
+probe kernel.trace("sys_enter") { arr[pid(), syscall_name($id)]++ }
+
+probe scheduler.process_exit { delete arr[pid(),*] }
+
+probe prometheus { @prometheus_dump_array2(arr, "count", "pid", "syscall") }
