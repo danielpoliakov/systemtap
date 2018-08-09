@@ -12,8 +12,11 @@
 
 global arr%[20000]
 
-probe kernel.trace("sys_enter") { arr[pid(), syscall_name($id)]++ }
+probe kernel.trace("sys_enter") { arr[pid(), $id]++ }
 
 probe scheduler.process_exit { delete arr[pid(),*] }
 
-probe prometheus { @prometheus_dump_array2(arr, "count", "pid", "syscall") }
+probe prometheus {
+    @prometheus_dump_array2_map(arr, "count", "pid", "syscall",
+        sprint, sprint, syscall_name )
+}
