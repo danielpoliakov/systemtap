@@ -8,6 +8,6 @@ status: experimental
 exit: user-controlled
 output: proc
 scope: system-wide
-description: The syscallsbypid.stp script tallies each syscall for each running process.  This information can be useful to determine the activity of various processes on the system.  The script makes the information available via procfs in Prometheus readable format.  When a process exits its data will be eliminated from the prometheus output.  To avoid exceeding the storage limitations of SystemTap older entries maybe overwritten by newer entries.  This can lead to some active process syscall counts disappearing and/or later reappearing with a lower value.
+description: The syscallsbypid.stp script tallies each syscall for each running process.  This information can be useful to determine the activity of various processes on the system.  The script makes the information available via procfs in Prometheus readable format.  When a process exits its data will be eliminated from the prometheus output.  To avoid exceeding the storage limitations of SystemTap older entries maybe overwritten by newer entries.  This can lead to some active process syscall counts disappearing and/or later reappearing with a lower value.  Also note that the script does not properly name syscalls for 32-bit applications running on 64-bit machines.
 test_check: stap -p4 syscallsbypid.stp
 test_installcheck: stap syscallsbypid.stp -T 1
