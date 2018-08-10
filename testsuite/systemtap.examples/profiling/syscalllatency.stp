@@ -1,0 +1,37 @@
+#! /usr/bin/env stap
+#
+# Copyright (C) 2018 Red Hat, Inc.
+# By William Cohen, Red Hat Inc.
+# wcohen@redhat.com
+#
+# USAGE: stap syscalllatencybypid.stp --suppress-handler-errors
+#
+# The "--suppress-handler-errors" option allows the script to continue
+# run when probes are skipped.  The probe skips make the data less accurate,
+# but are otherwise harmless.
+
+global arr%[20000], sys%[20000], entry_time%[20000]
+
+probe kernel.trace("sys_enter") {
+    entry_time[tid()] = gettimeofday_ns();
+    sys[tid()] = $id
+}
+probe kernel.trace("sys_exit") {
+    et = entry_time[tid()]
+    id = sys[tid()]
+    delete entry_time[tid()]
+    delete sys[tid()]
+    if (et)
+       arr[pid(), id] += (gettimeofday_ns() - et)
+}
+
+probe scheduler.process_exit { delete arr[pid(),*] }
+
+function ns2sec:string(v:long) {
+    return sprintf("%d.%d", v/1000000000, v%1000000000)
+}
+
+probe prometheus {
+    @prometheus_dump_array2_map(arr, "time", "pid", "syscall",
+                                ns2sec, sprint, syscall_name)
+}

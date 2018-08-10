@@ -1,0 +1,13 @@
+title: Provide a per-process accumulation of syscall latency on the system
+name: syscalllatency.stp
+version: 1.0
+author: William Cohen
+keywords: prometheus process syscall tracepoint
+subsystem: process
+status: experimental
+exit: user-controlled
+output: proc
+scope: system-wide
+description: The syscalllatency.stp script accumulates syscall latency for each running process.  This information can be useful to whether excessive time is being spent in particular syscalls on the system.  The script makes the information available via procfs in Prometheus readable format.  When a process exits its data will be eliminated from the prometheus output.  To avoid exceeding the storage limitations of SystemTap older entries maybe overwritten by newer entries.  This can lead to some active process syscall error counts disappearing and/or later reappearing with a lower value.  Also note that the script does not properly name syscalls for 32-bit applications running on 64-bit machines.
+test_check: stap -p4 syscalllatency.stp
+test_installcheck: stap syscalllatency.stp -T 1
