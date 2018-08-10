@@ -1,0 +1,9 @@
+[Unit]
+Description=stap-exporter
+
+[Service]
+ExecStart=/usr/bin/stap-exporter
+
+[Install]
+WantedBy=multi-user.target
+Alias=stap-exporter.service

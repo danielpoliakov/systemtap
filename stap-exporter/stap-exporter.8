@@ -1,0 +1,122 @@
+.\" -*- nroff -*-
+.TH STAPBPF 8 
+.SH NAME
+stap-exporter \- systemtap-prometheus interoperation mechanism
+
+.\" macros
+.de SAMPLE
+
+.nr oldin \\n(.i
+.br
+.RS
+.nf
+.nh
+..
+.de ESAMPLE
+.hy
+.fi
+.RE
+.in \\n[oldin]u
+
+..
+
+
+.SH SYNOPSIS
+
+.br
+.B stap-exporter
+[
+.I OPTIONS
+]
+
+.SH DESCRIPTION
+
+.I stap-exporter
+is a small program that manages systemtap session and relays prometheus metrics
+from the sessions to remote requesters on demand. stap-exporter runs as a systemd
+service and listens to a configurable TCP port for requests. stap-exporter is
+capable of running multiple
+.I stap
+scripts at a time. Metrics for a given script are available at the URL
+[HOSTNAME]:[PORT]/[SCRIPTNAME]. PORT defaults to 9900 but is configurable,
+see OPTIONS below. After installation, the stap-exporter systemd service
+should be manually enabled. 
+
+.PP
+If stap-exporter receives a request for metrics from a script that is already running,
+the script's prometheus probes will trigger. The metrics sent back to the requester
+are specified using the prometheus_dump_arrayN family of macros (see EXAMPLE below).
+If stap-exporter receives a request for a script that is not currently running, stap-exporter
+will search systemtap.examples for scripts with script name given in the URL.
+If found, stap-exporter will begin running this script. At launch, stap-exporter will
+automatically run all scripts found in systemtap.examples/stap-exporter-scripts.
+
+
+.SH OPTIONS
+The
+.I stap-exporter
+program supports the following options. Any other option prints a list of
+supported options.
+.TP
+.B \-p \-\-port
+Listen to the specified TCP port for requests. Port 9900 is used by default. 
+.TP
+.B \-t \-\-timeout
+Scripts that run longer than TIMEOUT seconds will be automatically shutdown.
+Each time stap-exporter recieves a request for a particular script, it resets
+that script's remaining time until shutdown. By default, scripts will run until
+stap-exporter is terminated. 
+.TP
+.B \-h \-\-help
+Print help message.
+
+.SH EXAMPLES
+Suppose that example.stp contains the following stap script:
+
+.SAMPLE
+global arr
+
+probe syscall.read {
+    arr[tid(), cpu()]++
+}
+
+probe prometheus {
+    @prometheus_dump_array2(arr, "count", "tid", "cpu")
+}
+.ESAMPLE
+
+The prometheus_dump_arrayN macros are used to produce metrics from an array.
+Systemtap provides a prometheus_dump_arrayN macro for all N from 1 to 8.
+The first argument of the macros represents an array with N-element keys.
+The second argument represents the name of the metric. The remaining N arguments
+represent the names of the metric's labels.
+
+.SAMPLE
+$ stap-exporter -p 9999 -t 60
+
+$ curl localhost:9999/example.stp
+Refresh page to access metrics.
+
+$ curl localhost:9999/example.stp
+count{tid="12614",cpu="0"} 9
+count{tid="12170",cpu="3"} 107
+count{tid="1802",cpu="0"} 33687
+count{tid="12617",cpu="1"} 99
+[...]
+.ESAMPLE
+
+.SH SAFETY AND SECURITY
+See the 
+.IR stap (1)
+manual page for additional information on safety and security.
+
+.SH SEE ALSO
+.IR stap (1),
+.IR stapprobes (3stap),
+.IR stappaths (7)
+
+.SH BUGS
+Use the Bugzilla link of the project web page or our mailing list.
+.nh
+.BR http://sourceware.org/systemtap/ ", " <systemtap@sourceware.org> .
+.hy
