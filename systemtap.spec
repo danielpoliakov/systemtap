@@ -462,6 +462,20 @@ This package includes support files needed to run systemtap scripts
 that probe python 3 processes.
 %endif
 
+%if %{with_python3}
+%package stap-exporter
+Summary: Systemtap-prometheus interoperation mechanism
+Group: Development/System
+License: GPLv2+
+URL: http://sourceware.org/systemtap/
+Requires: systemtap-runtime = %{version}-%{release}
+
+%description stap-exporter
+This package includes files for a systemd service that manages
+systemtap sessions and relays prometheus metrics from the sessions
+to remote requesters on demand.
+%endif
+
 %if %{with_virthost}
 %package runtime-virthost
 Summary: Systemtap Cross-VM Instrumentation - host
@@ -760,6 +774,13 @@ done
    touch $RPM_BUILD_ROOT%{dracutstap}/params.conf
 %endif
 
+%if %{with_python3}
+   mkdir -p $RPM_BUILD_ROOT/stap-exporter
+   install -p -m 755 stap-exporter/stap-exporter $RPM_BUILD_ROOT%{_bindir}
+   install -m 644 stap-exporter/stap-exporter.service $RPM_BUILD_ROOT%{_unitdir}
+   install -m 644 stap-exporter/stap-exporter.8* $RPM_BUILD_ROOT%{_mandir}/man8
+%endif
+
 %pre runtime
 getent group stapusr >/dev/null || groupadd -g 156 -r stapusr 2>/dev/null || groupadd -r stapusr
 getent group stapsys >/dev/null || groupadd -g 157 -r stapsys 2>/dev/null || groupadd -r stapsys
@@ -934,6 +955,13 @@ if [ "$1" -ge "1" ]; then
    %endif
 fi
 exit 0
+
+%if %{with_python3}
+%preun stap-exporter
+/bin/systemctl stop stap-exporter.service >/dev/null 2>&1 || :
+/bin/systemctl disable stap-exporter.service >/dev/null 2>&1 || :
+%endif
+
 
 %post
 # Remove any previously-built uprobes.ko materials
@@ -1218,6 +1246,13 @@ done
    %{initdir}/stapshd
    %{_sysconfdir}/sysconfig/modules/virtio_console.modules
 %endif
+%endif
+
+%if %{with_python3}
+%files stap-exporter
+%{_unitdir}/stap-exporter.service
+%{_mandir}/man8/stap-exporter.8*
+%{_bindir}/stap-exporter
 %endif
 
 # ------------------------------------------------------------------------
