@@ -6,7 +6,7 @@
 %)
 
 @define prometheus_dump_array1(a,name,c1) %(
-    @prometheus_dump_array1(@a,@name,@c1,sprint,sprint)
+    @prometheus_dump_array1_map(@a,@name,@c1,sprint,sprint)
 %)
 
 @define prometheus_dump_array2_map(a,name,c1,c2,m0,m1,m2) %(
