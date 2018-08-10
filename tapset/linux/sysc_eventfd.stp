@@ -44,10 +44,13 @@ probe __syscall.eventfd.return = kernel.function("sys_eventfd").return
 
 # nd_eventfd _____________________________________________________
 
-probe nd_syscall.eventfd = __nd_syscall.eventfd2 ?, __nd_syscall.eventfd ?
+probe nd_syscall.eventfd = nd1_syscall.eventfd!, nd2_syscall.eventfd!, tp_syscall.eventfd
+  { }
+
+probe nd1_syscall.eventfd = __nd1_syscall.eventfd2 ?, __nd1_syscall.eventfd ?
 {
 }
-probe __nd_syscall.eventfd2 = kprobe.function("sys_eventfd2")
+probe __nd1_syscall.eventfd2 = kprobe.function("sys_eventfd2")
 {
 	@__syscall_compat_gate(@const("__NR_eventfd2"), @const("__NR_compat_eventfd2"))
 	name = "eventfd2"
@@ -57,7 +60,7 @@ probe __nd_syscall.eventfd2 = kprobe.function("sys_eventfd2")
 	flags_str = _eventfd2_flag_str(flags)
 	argstr = sprintf("%u, %s", count, flags_str)
 }
-probe __nd_syscall.eventfd = kprobe.function("sys_eventfd")
+probe __nd1_syscall.eventfd = kprobe.function("sys_eventfd")
 {
 	name = "eventfd"
 	asmlinkage()
@@ -66,17 +69,102 @@ probe __nd_syscall.eventfd = kprobe.function("sys_eventfd")
 	flags_str = "0x0"
 	argstr = sprint(count)
 }
-probe nd_syscall.eventfd.return = __nd_syscall.eventfd2.return ?,
-                                  __nd_syscall.eventfd.return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.eventfd = __nd2_syscall.eventfd2 ?, __nd2_syscall.eventfd ?
+{
+}
+probe __nd2_syscall.eventfd2 = kprobe.function(@arch_syscall_prefix "sys_eventfd2") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	name = "eventfd2"
+	count = uint_arg(1)
+	flags = int_arg(2)
+	flags_str = _eventfd2_flag_str(flags)
+	argstr = sprintf("%u, %s", count, flags_str)
+}
+probe __nd2_syscall.eventfd = kprobe.function(@arch_syscall_prefix "sys_eventfd")
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	name = "eventfd"
+	count = uint_arg(1)
+	flags = 0
+	flags_str = "0x0"
+	argstr = sprint(count)
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.eventfd = __tp_syscall.eventfd2 ?, __tp_syscall.eventfd ?
+{
+}
+probe __tp_syscall.eventfd2 = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_eventfd2"), @const("__NR_compat_eventfd2"))
+	name = "eventfd2"
+	count = uint_arg(1)
+	flags = int_arg(2)
+	flags_str = _eventfd2_flag_str(flags)
+	argstr = sprintf("%u, %s", count, flags_str)
+}
+probe __tp_syscall.eventfd = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_eventfd"), @const("__NR_compat_eventfd"))
+	name = "eventfd"
+	count = uint_arg(1)
+	flags = 0
+	flags_str = "0x0"
+	argstr = sprint(count)
+}
+ 
+probe nd_syscall.eventfd.return = nd1_syscall.eventfd.return!, nd2_syscall.eventfd.return!, tp_syscall.eventfd.return
+  { }
+  
+probe nd1_syscall.eventfd.return = __nd1_syscall.eventfd2.return ?,
+                                  __nd1_syscall.eventfd.return ?
 {
 	retstr = returnstr(1)
 }
-probe __nd_syscall.eventfd2.return = kprobe.function("sys_eventfd2").return
+probe __nd1_syscall.eventfd2.return = kprobe.function("sys_eventfd2").return
 {
 	@__syscall_compat_gate(@const("__NR_eventfd2"), @const("__NR_compat_eventfd2"))
 	name = "eventfd2"
 }
-probe __nd_syscall.eventfd.return = kprobe.function("sys_eventfd").return
+probe __nd1_syscall.eventfd.return = kprobe.function("sys_eventfd").return
 {
+	name = "eventfd"
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.eventfd.return = __nd2_syscall.eventfd2.return ?,
+                                  __nd2_syscall.eventfd.return ?
+{
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+probe __nd2_syscall.eventfd2.return = kprobe.function(@arch_syscall_prefix "sys_eventfd2").return
+{
+	name = "eventfd2"
+}
+probe __nd2_syscall.eventfd.return = kprobe.function(@arch_syscall_prefix "sys_eventfd").return
+{
+	name = "eventfd"
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.eventfd.return = __tp_syscall.eventfd2.return ?,
+                                  __tp_syscall.eventfd.return ?
+{
+	__set_syscall_pt_regs($regs)
+	retstr = return_str(1,$ret)
+}
+probe __tp_syscall.eventfd2.return = kernel.trace("sys_exit")
+{
+	@__syscall_compat_gate(@const("__NR_eventfd2"), @const("__NR_compat_eventfd2"))
+	name = "eventfd2"
+}
+probe __tp_syscall.eventfd.return = kernel.trace("sys_exit")
+{
+	@__syscall_compat_gate(@const("__NR_eventfd"), @const("__NR_compat_eventfd"))
 	name = "eventfd"
 }

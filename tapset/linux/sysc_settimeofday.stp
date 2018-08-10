@@ -14,6 +14,13 @@
 	argstr = sprintf("%s, %s", tv_str, tz_str)
 %)
 
+@define _SYSCALL_SETTIMEOFDAY_REGARGS
+%(
+	tv_uaddr = pointer_arg(1)
+	tz_uaddr = pointer_arg(2)
+	tz_str = _struct_timezone_u(tz_uaddr)
+%)
+
 probe syscall.settimeofday = dw_syscall.settimeofday !,
                              nd_syscall.settimeofday ? {}
 probe syscall.settimeofday.return = dw_syscall.settimeofday.return !,
@@ -38,20 +45,62 @@ probe dw_syscall.settimeofday.return = kernel.function("sys_settimeofday").retur
 
 # nd_settimeofday _____________________________________________________
 
-probe nd_syscall.settimeofday = kprobe.function("sys_settimeofday") ?
+probe nd_syscall.settimeofday = nd1_syscall.settimeofday!, nd2_syscall.settimeofday!, tp_syscall.settimeofday
+  { }
+
+probe nd1_syscall.settimeofday = kprobe.function("sys_settimeofday") ?
 {
 	@_SYSCALL_SETTIMEOFDAY_NAME
 	asmlinkage()
-	tv_uaddr = pointer_arg(1)
+	@_SYSCALL_SETTIMEOFDAY_REGARGS
 	tv_str = _struct_timeval_u(tv_uaddr, 1)
-	tz_uaddr = pointer_arg(2)
-	tz_str = _struct_timezone_u(tz_uaddr)
 	@_SYSCALL_SETTIMEOFDAY_ARGSTR
 }
-probe nd_syscall.settimeofday.return = kprobe.function("sys_settimeofday").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.settimeofday = kprobe.function(@arch_syscall_prefix "sys_settimeofday") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_SETTIMEOFDAY_NAME
+	@_SYSCALL_SETTIMEOFDAY_REGARGS
+	tv_str = _struct_timeval_u(tv_uaddr, 1)
+	@_SYSCALL_SETTIMEOFDAY_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.settimeofday = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_settimeofday"))
+	@_SYSCALL_SETTIMEOFDAY_NAME
+	@_SYSCALL_SETTIMEOFDAY_REGARGS
+	tv_str = _struct_timeval_u(tv_uaddr, 1)
+	@_SYSCALL_SETTIMEOFDAY_ARGSTR
+}
+
+probe nd_syscall.settimeofday.return = nd1_syscall.settimeofday.return!, nd2_syscall.settimeofday.return!, tp_syscall.settimeofday.return
+  { }
+  
+probe nd1_syscall.settimeofday.return = kprobe.function("sys_settimeofday").return ?
 {
 	@_SYSCALL_SETTIMEOFDAY_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.settimeofday.return = kprobe.function(@arch_syscall_prefix "sys_settimeofday").return ?
+{
+	@_SYSCALL_SETTIMEOFDAY_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.settimeofday.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_settimeofday"))
+	@_SYSCALL_SETTIMEOFDAY_NAME
+	retstr = return_str(1,$ret)
 }
 
 #
@@ -85,20 +134,62 @@ probe dw_syscall.settimeofday32.return = kernel.function("sys32_settimeofday").r
 
 # nd_settimeofday32 _____________________________________________________
 
-probe nd_syscall.settimeofday32 = kprobe.function("sys32_settimeofday") ?,
-                                  kprobe.function("compat_sys_settimeofday") ?
+probe nd_syscall.settimeofday32 = nd1_syscall.settimeofday32!, nd2_syscall.settimeofday32!, tp_syscall.settimeofday32
+  { }
+
+probe nd1_syscall.settimeofday32 = kprobe.function("sys32_settimeofday") ?,
+                                   kprobe.function("compat_sys_settimeofday") ?
 {
 	@_SYSCALL_SETTIMEOFDAY_NAME
 	asmlinkage()
-	tv_uaddr = pointer_arg(1)
+	@_SYSCALL_SETTIMEOFDAY_REGARGS
 	tv_str = _struct_compat_timeval_u(tv_uaddr, 1)
-	tz_uaddr = pointer_arg(2)
-	tz_str = _struct_timezone_u(tz_uaddr)
 	@_SYSCALL_SETTIMEOFDAY_ARGSTR
 }
-probe nd_syscall.settimeofday32.return = kprobe.function("sys32_settimeofday").return ?,
-                                         kprobe.function("compat_sys_settimeofday").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.settimeofday32 = kprobe.function(@arch_syscall_prefix "compat_sys_settimeofday") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_SETTIMEOFDAY_NAME
+	@_SYSCALL_SETTIMEOFDAY_REGARGS
+	tv_str = _struct_compat_timeval_u(tv_uaddr, 1)
+	@_SYSCALL_SETTIMEOFDAY_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.settimeofday32 = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_compat_settimeofday"))
+	@_SYSCALL_SETTIMEOFDAY_NAME
+	@_SYSCALL_SETTIMEOFDAY_REGARGS
+	tv_str = _struct_compat_timeval_u(tv_uaddr, 1)
+	@_SYSCALL_SETTIMEOFDAY_ARGSTR
+}
+
+probe nd_syscall.settimeofday32.return = nd1_syscall.settimeofday32.return!, nd2_syscall.settimeofday32.return!, tp_syscall.settimeofday32.return
+  { }
+  
+probe nd1_syscall.settimeofday32.return = kprobe.function("sys32_settimeofday").return ?,
+                                          kprobe.function("compat_sys_settimeofday").return ?
 {
 	@_SYSCALL_SETTIMEOFDAY_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.settimeofday32.return = kprobe.function(@arch_syscall_prefix "compat_sys_settimeofday").return ?
+{
+	@_SYSCALL_SETTIMEOFDAY_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.settimeofday32.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_compat_settimeofday"))
+	@_SYSCALL_SETTIMEOFDAY_NAME
+	retstr = return_str(1,$ret)
 }

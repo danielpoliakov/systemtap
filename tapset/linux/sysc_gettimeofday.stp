@@ -16,6 +16,12 @@
 	argstr = sprintf("%p, %p", tv_uaddr, tz_uaddr)
 %)
 
+@define _SYSCALL_GETTIMEOFDAY_REGARGS
+%(
+	tv_uaddr = pointer_arg(1)
+	tz_uaddr = pointer_arg(2)
+%)
+
 probe syscall.gettimeofday = dw_syscall.gettimeofday !, nd_syscall.gettimeofday ? {}
 probe syscall.gettimeofday.return = dw_syscall.gettimeofday.return !, nd_syscall.gettimeofday.return ? {}
 
@@ -41,21 +47,63 @@ probe dw_syscall.gettimeofday.return = kernel.function("compat_sys_gettimeofday"
 
 # nd_gettimeofday _____________________________________________________
 
-probe nd_syscall.gettimeofday = kprobe.function("compat_sys_gettimeofday") ?,
-                                kprobe.function("sys32_gettimeofday") ?,
-                                kprobe.function("sys_gettimeofday") ?
+probe nd_syscall.gettimeofday = nd1_syscall.gettimeofday!, nd2_syscall.gettimeofday!, tp_syscall.gettimeofday
+  { }
+
+probe nd1_syscall.gettimeofday = kprobe.function("compat_sys_gettimeofday") ?,
+                                 kprobe.function("sys32_gettimeofday") ?,
+                                 kprobe.function("sys_gettimeofday") ?
 {
 	@_SYSCALL_GETTIMEOFDAY_NAME
 	asmlinkage()
-	tv_uaddr = pointer_arg(1)
-	tz_uaddr = pointer_arg(2)
+	@_SYSCALL_GETTIMEOFDAY_REGARGS
 	@_SYSCALL_GETTIMEOFDAY_ARGSTR
 }
 
-probe nd_syscall.gettimeofday.return = kprobe.function("compat_sys_gettimeofday").return ?,
-                                       kprobe.function("sys32_gettimeofday").return ?,
-                                       kprobe.function("sys_gettimeofday").return ?
+/* kernel 4.17+ */
+probe nd2_syscall.gettimeofday = kprobe.function(@arch_syscall_prefix "compat_sys_gettimeofday") ?,
+                                 kprobe.function(@arch_syscall_prefix "sys_gettimeofday") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_GETTIMEOFDAY_NAME
+	@_SYSCALL_GETTIMEOFDAY_REGARGS
+	@_SYSCALL_GETTIMEOFDAY_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.gettimeofday = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_gettimeofday"), @const("__NR_compat_gettimeofday"))
+	@_SYSCALL_GETTIMEOFDAY_NAME
+	@_SYSCALL_GETTIMEOFDAY_REGARGS
+	@_SYSCALL_GETTIMEOFDAY_ARGSTR
+}
+
+probe nd_syscall.gettimeofday.return = nd1_syscall.gettimeofday.return!, nd2_syscall.gettimeofday.return!, tp_syscall.gettimeofday.return
+  { }
+  
+probe nd1_syscall.gettimeofday.return = kprobe.function("compat_sys_gettimeofday").return ?,
+                                        kprobe.function("sys32_gettimeofday").return ?,
+                                        kprobe.function("sys_gettimeofday").return ?
 {
 	@_SYSCALL_GETTIMEOFDAY_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.gettimeofday.return = kprobe.function(@arch_syscall_prefix "compat_sys_gettimeofday").return ?,
+                                        kprobe.function(@arch_syscall_prefix "sys_gettimeofday").return ?
+{
+	@_SYSCALL_GETTIMEOFDAY_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.gettimeofday.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_gettimeofday"), @const("__NR_compat_gettimeofday"))
+	@_SYSCALL_GETTIMEOFDAY_NAME
+	retstr = return_str(1,$ret)
 }
