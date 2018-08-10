@@ -14,10 +14,10 @@ global arr%[20000], sys%[20000]
 
 probe kernel.trace("sys_enter") { sys[tid()] = $id }
 probe kernel.trace("sys_exit") {
-    id = sys[tid()]
-    delete sys[tid()]
-    if (id && $ret < 0 )
-       arr[pid(), id, $ret]++
+    if (tid() in sys && $ret < 0 ) {
+       arr[pid(), sys[tid()], $ret]++
+       delete sys[tid()]
+    }
 }
 
 probe scheduler.process_exit { delete arr[pid(),*,*] }
