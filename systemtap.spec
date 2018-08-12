@@ -774,13 +774,6 @@ done
    touch $RPM_BUILD_ROOT%{dracutstap}/params.conf
 %endif
 
-%if %{with_python3}
-   mkdir -p $RPM_BUILD_ROOT/stap-exporter
-   install -p -m 755 stap-exporter/stap-exporter $RPM_BUILD_ROOT%{_bindir}
-   install -m 644 stap-exporter/stap-exporter.service $RPM_BUILD_ROOT%{_unitdir}
-   install -m 644 stap-exporter/stap-exporter.8* $RPM_BUILD_ROOT%{_mandir}/man8
-%endif
-
 %pre runtime
 getent group stapusr >/dev/null || groupadd -g 156 -r stapusr 2>/dev/null || groupadd -r stapusr
 getent group stapsys >/dev/null || groupadd -g 157 -r stapsys 2>/dev/null || groupadd -r stapsys
@@ -1252,7 +1245,7 @@ done
 %files stap-exporter
 %{_unitdir}/stap-exporter.service
 %{_mandir}/man8/stap-exporter.8*
-%{_bindir}/stap-exporter
+%{_sbindir}/stap-exporter
 %endif
 
 # ------------------------------------------------------------------------

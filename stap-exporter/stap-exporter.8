@@ -49,8 +49,8 @@ are specified using the prometheus_dump_arrayN family of macros (see EXAMPLE bel
 If stap-exporter receives a request for a script that is not currently running, stap-exporter
 will search systemtap.examples for scripts with script name given in the URL.
 If found, stap-exporter will begin running this script. At launch, stap-exporter will
-automatically run all scripts found in systemtap.examples/stap-exporter-scripts.
-
+automatically run all scripts found in /etc/systemtap/stap-exporter directory.
+.\" parametrize                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .SH OPTIONS
 The

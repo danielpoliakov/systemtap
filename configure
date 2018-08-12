@@ -13096,6 +13096,8 @@ ac_config_files="$ac_config_files staprun/guest/stapsh-daemon"
 
 ac_config_files="$ac_config_files staprun/guest/stapsh@.service"
 
+ac_config_files="$ac_config_files stap-exporter/Makefile"
+
 
 
 # Setup "shadow" directory doc/beginners that has the basic directories  setup for
@@ -14003,6 +14005,7 @@ do
     "staprun/guest/stapshd") CONFIG_FILES="$CONFIG_FILES staprun/guest/stapshd" ;;
     "staprun/guest/stapsh-daemon") CONFIG_FILES="$CONFIG_FILES staprun/guest/stapsh-daemon" ;;
     "staprun/guest/stapsh@.service") CONFIG_FILES="$CONFIG_FILES staprun/guest/stapsh@.service" ;;
+    "stap-exporter/Makefile") CONFIG_FILES="$CONFIG_FILES stap-exporter/Makefile" ;;
     "doc/beginners") CONFIG_COMMANDS="$CONFIG_COMMANDS doc/beginners" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;

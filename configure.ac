@@ -1021,6 +1021,7 @@ AC_CONFIG_FILES([staprun/run-staprun], [chmod +x staprun/run-staprun])
 AC_CONFIG_FILES([staprun/guest/stapshd], [chmod +x staprun/guest/stapshd])
 AC_CONFIG_FILES([staprun/guest/stapsh-daemon], [chmod +x staprun/guest/stapsh-daemon])
 AC_CONFIG_FILES([staprun/guest/stapsh@.service])
+AC_CONFIG_FILES(stap-exporter/Makefile)
 
 dnl AC_CONFIG_FILES([macros.systemtap])
 dnl ^^^ not that one, because we want to expand $vars etc. to fqdn's,
