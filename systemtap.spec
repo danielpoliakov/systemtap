@@ -1243,9 +1243,11 @@ done
 
 %if %{with_python3}
 %files stap-exporter
+%{_sysconfdir}/systemtap/stap-exporter
 %{_unitdir}/stap-exporter.service
 %{_mandir}/man8/stap-exporter.8*
 %{_sbindir}/stap-exporter
+%{_etcdir}/stap-exporter
 %endif
 
 # ------------------------------------------------------------------------

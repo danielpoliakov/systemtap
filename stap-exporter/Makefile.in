@@ -608,6 +608,7 @@ uninstall-man: uninstall-man8
 
 @HAVE_PYTHON3_PROBES_TRUE@install-data-local:
 @HAVE_PYTHON3_PROBES_TRUE@	$(MKDIR_P) "$(DESTDIR)$(sysconfdir)/systemtap/stap-exporter"
+@HAVE_PYTHON3_PROBES_TRUE@	$(MKDIR_P) "$(DESTDIR)$(sysconfdir)/systemtap/stap-exporter/autostart"
 @HAVE_PYTHON3_PROBES_TRUE@	$(MKDIR_P) "$(DESTDIR)$(prefix)/lib/systemd/system"
 @HAVE_PYTHON3_PROBES_TRUE@	$(INSTALL_DATA) $(srcdir)/stap-exporter.service "$(DESTDIR)$(prefix)/lib/systemd/system"
 

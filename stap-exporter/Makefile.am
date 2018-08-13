@@ -10,6 +10,7 @@ man8_MANS = stap-exporter.8
 
 install-data-local:
 	$(MKDIR_P) "$(DESTDIR)$(sysconfdir)/systemtap/stap-exporter"
+	$(MKDIR_P) "$(DESTDIR)$(sysconfdir)/systemtap/stap-exporter/autostart"
 	$(MKDIR_P) "$(DESTDIR)$(prefix)/lib/systemd/system"
 	$(INSTALL_DATA) $(srcdir)/stap-exporter.service "$(DESTDIR)$(prefix)/lib/systemd/system"
 

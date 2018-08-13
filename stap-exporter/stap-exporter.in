@@ -9,7 +9,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse
 from time import time
 
-script_dir = "%sysconfdir%/systemtap/stap-exporter"
+script_dir = "%sysconfdir%/systemtap/stap-exporter/"
 proc_path = "/proc/systemtap/__systemtap_exporter"
 
 
@@ -24,7 +24,7 @@ class Session:
 
     def begin(self):
         self.process = subprocess.Popen(shlex.split(self.cmd))
-
+    
     def get_proc_path(self):
         return proc_path + str(self.id) + "/" + self.name
 
@@ -52,6 +52,7 @@ class SessionMgr:
         self.sessions[script_name] = s
         s.begin()
         s.set_start_time()
+        print("Started %s via %s" % (s.name, s.cmd))
 
     def parse_cmdline(self):
          p = argparse.ArgumentParser(description='Systemtap-prometheus interoperation mechanism')
@@ -104,6 +105,7 @@ class HTTPHandler(BaseHTTPRequestHandler):
             with open(metrics_path) as metrics:
                 self.set_headers(200, 'text/plain')
                 self.wfile.write(bytes(metrics.read(), 'utf-8'))
+                # XXX: log metrics.size
         except:
             self.set_headers(501, 'text/plain')
             self.wfile.write(bytes('Metrics currently unavailable', 'utf-8'))
@@ -131,6 +133,7 @@ if __name__ == "__main__":
     httpd = HTTPServer(server_address, HTTPHandler)
     httpd.timeout = 5
     print("Exporter initialization complete")
+    print("Listening on port %d" % sessmgr.port)
 
     while 1:
         httpd.handle_request()
