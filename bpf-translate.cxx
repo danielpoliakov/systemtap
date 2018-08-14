@@ -235,6 +235,13 @@ struct bpf_unparser : public throwing_visitor
   value *emit_context_var(bpf_context_vardecl *v);
   value *parse_reg(const std::string &str, embeddedcode *s);
 
+  // Used for copying string data:
+  value *emit_copied_str(value *dest, int ofs, value *src, bool zero_pad = false);
+
+  // Used for passing long and string arguments on the stack where an address is expected:
+  void emit_long_arg(value *arg, int ofs, value *val);
+  void emit_str_arg(value *arg, int ofs, value *str);
+
   void add_prologue();
   locals_map *new_locals(const std::vector<vardecl *> &);
 
@@ -425,7 +432,7 @@ bpf_unparser::emit_bool (expression *e)
 void
 bpf_unparser::emit_store(expression *e, value *val)
 {
-  if (symbol *s = dynamic_cast<symbol *>(e))
+  if (symbol *s = dynamic_cast<symbol *>(e)) // scalar lvalue
     {
       vardecl *var = s->referent;
       assert (var->arity == 0);
@@ -436,17 +443,30 @@ bpf_unparser::emit_store(expression *e, value *val)
 	  value *frame = this_prog.lookup_reg(BPF_REG_10);
 	  int key_ofs, val_ofs;
 
+          // BPF_FUNC_map_update_elem will dereference the address
+          // passed in BPF_REG_3:
 	  switch (var->type)
 	    {
 	    case pe_long:
+	      // Store the long on the stack and pass its address:
 	      val_ofs = -8;
-	      this_prog.mk_st(this_ins, BPF_DW, frame, val_ofs, val);
-	      this_prog.mk_binary(this_ins, BPF_ADD,
-				  this_prog.lookup_reg(BPF_REG_3),
-				  frame, this_prog.new_imm(val_ofs));
+	      emit_long_arg(this_prog.lookup_reg(BPF_REG_3), val_ofs, val);
 	      break;
-	    // ??? pe_string
-	    // ??? pe_stats
+            case pe_string:
+#if 0
+              // ??? This seems correct, but causes a BPF verifier error.
+              // ??? Temporarily disabled at the cost of using more stack space.
+              // Pass the existing string's address:
+              val_ofs = 0; // <- no new space used
+              emit_mov(this_prog.lookup_reg(BPF_REG_3), val);
+#else
+              // Zero-pad and copy the string to the stack and pass its address:
+              val_ofs = -BPF_MAXSTRINGLEN;
+              emit_str_arg(this_prog.lookup_reg(BPF_REG_3), val_ofs, val);
+              this_prog.use_tmp_space(BPF_MAXSTRINGLEN);
+#endif
+              break;
+	    // ??? pe_stats -> TODO (3) unknown (but stats could be implemented as BPF_MAP_TYPE_PERCPU_ARRAY)
 	    default:
 	      goto err;
 	    }
@@ -473,7 +493,7 @@ bpf_unparser::emit_store(expression *e, value *val)
 	  return;
 	}
     }
-  else if (arrayindex *a = dynamic_cast<arrayindex *>(e))
+  else if (arrayindex *a = dynamic_cast<arrayindex *>(e)) // array lvalue
     {
       if (symbol *a_sym = dynamic_cast<symbol *>(a->base))
 	{
@@ -488,30 +508,42 @@ bpf_unparser::emit_store(expression *e, value *val)
 	    throw SEMANTIC_ERROR(_("unknown array variable"), v->tok);
 
 	  value *idx = emit_expr(a->indexes[0]);
-	  value *frame = this_prog.lookup_reg(BPF_REG_10);
 	  switch (v->index_types[0])
 	    {
 	    case pe_long:
+              // Store the long on the stack and pass its address:
 	      key_ofs = -8;
-	      this_prog.mk_st(this_ins, BPF_DW, frame, key_ofs, idx);
-	      this_prog.mk_binary(this_ins, BPF_ADD,
-				  this_prog.lookup_reg(BPF_REG_2),
-				  frame, this_prog.new_imm(key_ofs));
+              emit_long_arg(this_prog.lookup_reg(BPF_REG_2), key_ofs, idx);
 	      break;
-	    // ??? pe_string
+            case pe_string:
+              // Zero-pad and copy the string to the stack and pass its address:
+              key_ofs = -BPF_MAXSTRINGLEN;
+              emit_str_arg(this_prog.lookup_reg(BPF_REG_2), key_ofs, idx);
+              break;
 	    default:
 	      throw SEMANTIC_ERROR(_("unhandled index type"), e->tok);
 	    }
 	  switch (v->type)
 	    {
 	    case pe_long:
+	      // Store the long on the stack and pass its address:
 	      val_ofs = key_ofs - 8;
-	      this_prog.mk_st(this_ins, BPF_DW, frame, val_ofs, val);
-	      this_prog.mk_binary(this_ins, BPF_ADD,
-				  this_prog.lookup_reg(BPF_REG_3),
-				  frame, this_prog.new_imm(val_ofs));
+	      emit_long_arg(this_prog.lookup_reg(BPF_REG_3), val_ofs, val);
 	      break;
-	    // ??? pe_string
+            case pe_string:
+#if 0
+              // ??? This seems correct, but causes a BPF verifier error.
+              // ??? Temporarily disabled at the cost of using more stack space.
+              // Pass the existing string's address:
+              val_ofs = key_ofs; // <- no new space used
+              emit_mov(this_prog.lookup_reg(BPF_REG_3), val);
+#else
+              // Zero-pad and copy the string to the stack and pass its address:
+              val_ofs = key_ofs - BPF_MAXSTRINGLEN;
+              emit_str_arg(this_prog.lookup_reg(BPF_REG_3), val_ofs, val);
+              this_prog.use_tmp_space(BPF_MAXSTRINGLEN);
+#endif
+              break;
 	    default:
 	      throw SEMANTIC_ERROR(_("unhandled array type"), v->tok);
 	    }
@@ -929,7 +961,7 @@ bpf_unparser::visit_delete_statement (delete_statement *s)
 				  this_prog.lookup_reg(BPF_REG_3),
 				  frame, this_prog.new_imm(val_ofs));
 	      break;
-	    // ??? pe_string
+	    // ??? pe_string -> (2) TODO delete ref (but leave the storage for later cleanup of the entire containing struct?)
 	    default:
 	      goto err;
 	    }
@@ -971,17 +1003,18 @@ bpf_unparser::visit_delete_statement (delete_statement *s)
 	    throw SEMANTIC_ERROR(_("unknown array variable"), v->tok);
 
 	  value *idx = emit_expr(a->indexes[0]);
-	  value *frame = this_prog.lookup_reg(BPF_REG_10);
 	  switch (v->index_types[0])
 	    {
 	    case pe_long:
+	      // Store the long on the stack and pass its address:
 	      key_ofs = -8;
-	      this_prog.mk_st(this_ins, BPF_DW, frame, key_ofs, idx);
-	      this_prog.mk_binary(this_ins, BPF_ADD,
-				  this_prog.lookup_reg(BPF_REG_2),
-				  frame, this_prog.new_imm(key_ofs));
+	      emit_long_arg(this_prog.lookup_reg(BPF_REG_2), key_ofs, idx);
 	      break;
-	    // ??? pe_string
+            case pe_string:
+              // Zero-pad and copy the string to the stack and pass its address:
+              key_ofs = -BPF_MAXSTRINGLEN;
+              emit_str_arg(this_prog.lookup_reg(BPF_REG_2), key_ofs, idx);
+              break;
 	    default:
 	      throw SEMANTIC_ERROR(_("unhandled index type"), e->tok);
 	    }
@@ -997,7 +1030,6 @@ bpf_unparser::visit_delete_statement (delete_statement *s)
   throw SEMANTIC_ERROR (_("unknown lvalue"), e->tok);
 }
 
-// TODO: Move to a logical location.
 // Translate string escape characters.
 std::string
 translate_escapes (interned_string &str)
@@ -1366,7 +1398,10 @@ bpf_unparser::visit_symbol (symbol *s)
 	case pe_long:
 	  this_prog.mk_ld(this_ins, BPF_DW, result, r0, 0);
 	  break;
-	// ??? pe_string
+        case pe_string:
+          // Just return the address of the string within the map:
+          emit_mov(result, r0);
+          break;
 	default:
 	  throw SEMANTIC_ERROR (_("unhandled global variable type"), s->tok);
 	}
@@ -1402,16 +1437,15 @@ bpf_unparser::visit_arrayindex(arrayindex *e)
       switch (v->index_types[0])
 	{
 	case pe_long:
-	  {
-	    value *frame = this_prog.lookup_reg(BPF_REG_10);
-	    this_prog.mk_st(this_ins, BPF_DW, frame, -8, idx);
-	    this_prog.use_tmp_space(8);
-	    this_prog.mk_binary(this_ins, BPF_ADD,
-				this_prog.lookup_reg(BPF_REG_2),
-				frame, this_prog.new_imm(-8));
-	  }
+	  // Store the long on the stack and pass its address:
+	  emit_long_arg(this_prog.lookup_reg(BPF_REG_2), -8, idx);
+	  this_prog.use_tmp_space(8);
 	  break;
-	// ??? pe_string
+        case pe_string:
+          // Zero-pad and copy the string to the stack and pass its address:
+          emit_str_arg(this_prog.lookup_reg(BPF_REG_2), -BPF_MAXSTRINGLEN, idx);
+          this_prog.use_tmp_space(BPF_MAXSTRINGLEN);
+          break;
 	default:
 	  throw SEMANTIC_ERROR(_("unhandled index type"), e->tok);
 	}
@@ -1470,17 +1504,15 @@ bpf_unparser::visit_array_in(array_in* e)
       switch(v->index_types[0])
         {
         case pe_long:
-          {
-            value *frame = this_prog.lookup_reg(BPF_REG_10);
-
-            this_prog.mk_st(this_ins, BPF_DW, frame, -8, idx);
-            this_prog.use_tmp_space(8);
-            this_prog.mk_binary(this_ins, BPF_ADD,
-                                this_prog.lookup_reg(BPF_REG_2),
-                                frame, this_prog.new_imm(-8));
-          }
+          // Store the long on the stack and pass its address:
+          emit_long_arg(this_prog.lookup_reg(BPF_REG_2), -8, idx);
+          this_prog.use_tmp_space(8);
           break;
-        // ??? pe_string
+        case pe_string:
+          // Zero-pad and copy the string to the stack and pass its address:
+          emit_str_arg(this_prog.lookup_reg(BPF_REG_2), -BPF_MAXSTRINGLEN, idx);
+          this_prog.use_tmp_space(BPF_MAXSTRINGLEN);
+          break;
         default:
           throw SEMANTIC_ERROR(_("unhandled index type"), e->tok);
         }
@@ -1759,6 +1791,211 @@ bpf_unparser::visit_target_register (target_register* e)
   result = d;
 }
 
+// Emit unrolled-loop code to write string literal from src to
+// dest[+ofs] in 4-byte chunks, with optional zero-padding up to
+// BPF_MAXSTRINGLEN.
+//
+// ??? Could use 8-byte chunks if we're starved for instruction count.
+// ??? Endianness of the target comes into play here.
+value *
+emit_literal_str(program &this_prog, insn_inserter &this_ins,
+                 value *dest, int ofs, std::string &src, bool zero_pad)
+{
+  size_t str_bytes = src.size() + 1;
+  size_t str_words = (str_bytes + 3) / 4;
+
+  for (unsigned i = 0; i < str_words; ++i)
+    {
+      uint32_t word = 0;
+      for (unsigned j = 0; j < 4; ++j)
+        if (i * 4 + j < str_bytes - 1)
+          {
+            // ??? assuming little-endian target
+            word |= (uint32_t)src[i * 4 + j] << (j * 8);
+          }
+      this_prog.mk_st(this_ins, BPF_W,
+                      dest, (int32_t)i * 4 + ofs,
+                      this_prog.new_imm(word));
+    }
+
+  // XXX: bpf_map_update_elem and bpf_map_lookup_elem will always copy
+  // exactly BPF_MAXSTRINGLEN bytes, which can cause problems with
+  // garbage data beyond the end of the string, particularly for map
+  // keys. The silliest way to solve this is by padding every string
+  // constant to BPF_MAXSTRINGLEN bytes, but the stack isn't really
+  // big enough for this to work with practical programs.
+  //
+  // So instead we have this optional code to pad the string, and
+  // enable the option only when copying a string to a map key.
+  if (zero_pad)
+    {
+      for (unsigned i = str_words; i < BPF_MAXSTRINGLEN / 4; i++)
+        {
+          this_prog.mk_st(this_ins, BPF_W,
+                          dest, (int32_t)i * 4 + ofs,
+                          this_prog.new_imm(0));
+        }
+    }
+
+  value *out = this_prog.new_reg();
+  this_prog.mk_binary(this_ins, BPF_ADD, out,
+                      dest, this_prog.new_imm(ofs));
+  return out;
+}
+
+// Emit unrolled-loop code to write string value from src to
+// dest[+ofs] in 4-byte chunks, with optional zero-padding up to
+// BPF_MAXSTRINGLEN.
+//
+// ??? Could use 8-byte chunks if we're starved for instruction count.
+// ??? Endianness of the target may come into play here.
+value *
+bpf_unparser::emit_copied_str(value *dest, int ofs, value *src, bool zero_pad)
+{
+  if (src->is_str())
+    {
+      /* If src is a string literal, its exact length is known and
+         we can emit simpler, unconditional string copying code. */
+      std::string str = src->str();
+      return emit_literal_str(this_prog, this_ins,
+                              dest, ofs, str, zero_pad);
+    }
+
+  size_t str_bytes = BPF_MAXSTRINGLEN;
+  size_t str_words = (str_bytes + 3) / 4;
+
+  block *join_block = this_prog.new_block();
+
+  /* block_A[i] copies src[4*i] to dest[4*i+ofs];
+     block_B[i] copies 0 to dest[4*i+ofs].
+     Since block_B[0] is never branched to, we set it to NULL. */
+  std::vector<block *> block_A, block_B;
+  block_A.push_back(this_ins.get_block());
+  if (zero_pad) block_B.push_back(NULL);
+
+  for (unsigned i = 0; i < str_words; ++i)
+    {
+      block *next_block;
+      if (i < str_words - 1)
+        {
+          /* Create block_A[i+1], block_B[i+1]: */
+          block_A.push_back(this_prog.new_block());
+          if (zero_pad) block_B.push_back(this_prog.new_block());
+          next_block = block_A[i+1];
+        }
+      else
+        {
+          next_block = join_block;
+        }
+
+      set_block(block_A[i]);
+
+      value *word = this_prog.new_reg();
+      this_prog.mk_ld(this_ins, BPF_W, word,
+                      src, (int32_t)i * 4);
+      this_prog.mk_st(this_ins, BPF_W,
+                      dest, (int32_t)i * 4 + ofs,
+                      word);
+
+      /* Finish unconditionally after copying BPF_MAXSTRINGLEN bytes: */
+      if (i == str_words - 1)
+        {
+          emit_jmp(next_block);
+          continue;
+        }
+
+      // Determining whether a word contains a NUL byte is a neat bit-fiddling puzzle.
+      // Kudos go to Valgrind and Memcheck for showing the way, along the lines of:
+      //
+      //   b1 := word & 0xff; nz1 := (-b1)|b1; all_nz = nz1
+      //   b2 := (word >> 8) & 0xff; nz2 := (-b2)|b2; all_nz = all_nz & nz2
+      //   b3 := (word >> 16) & 0xff; nz3 := (-b3)|b3; all_nz = all_nz & nz3
+      //   b4 := (word >> 24) & 0xff; nz4 := (-b4)|b4; all_nz = all_nz & nz4
+      //   all_nz := nz1 & nz2 & nz3 & nz4
+      //
+      // Here, nzX is 0 iff bX is NUL, all_nz is 0 iff word contains a NUL byte.
+      value *all_nz = this_prog.new_reg();
+      value *bN = this_prog.new_reg();
+      value *nZ = this_prog.new_reg();
+      for (unsigned j = 0; j < 4; j++)
+        {
+          unsigned shift = 8*j;
+          if (shift != 0)
+            {
+              this_prog.mk_binary(this_ins, BPF_RSH, bN, word, this_prog.new_imm(shift));
+            }
+          else
+            {
+              emit_mov(bN, word);
+            }
+          this_prog.mk_binary(this_ins, BPF_AND, bN, bN, this_prog.new_imm(0xff));
+          this_prog.mk_unary(this_ins, BPF_NEG, nZ, bN);
+          this_prog.mk_binary(this_ins, BPF_OR, nZ, nZ, bN);
+          if (j == 0)
+            {
+              emit_mov(all_nz, nZ);
+            }
+          else
+            {
+              this_prog.mk_binary(this_ins, BPF_AND, all_nz, all_nz, nZ);
+            }
+        }
+
+      this_prog.mk_jcond(this_ins, EQ, all_nz, this_prog.new_imm(0),
+                         next_block, zero_pad ? block_B[i+1] : join_block);
+    }
+
+  // XXX: Zero-padding is only used under specific circumstances;
+  // see the corresponding comment in emit_literal_str().
+  if (zero_pad)
+    {
+      for (unsigned i = 0; i < str_words; ++i)
+        {
+          /* Since block_B[0] is never branched to, it was set to NULL. */
+          if (block_B[i] == NULL) continue;
+
+          set_block(block_B[i]);
+          this_prog.mk_st(this_ins, BPF_W,
+                          dest, (int32_t)i * 4 + ofs,
+                          this_prog.new_imm(0));
+
+          emit_jmp(i < str_words - 1 ? block_B[i+1] : join_block);
+        }
+    }
+
+  set_block(join_block);
+
+  value *out = this_prog.new_reg();
+  this_prog.mk_binary(this_ins, BPF_ADD, out,
+                      dest, this_prog.new_imm(ofs));
+  return out;
+}
+
+// Used for passing long arguments on the stack where an address is
+// expected. Store val in a stack slot at offset ofs and store the
+// stack address of val in arg.
+void
+bpf_unparser::emit_long_arg(value *arg, int ofs, value *val)
+{
+  value *frame = this_prog.lookup_reg(BPF_REG_10);
+  this_prog.mk_st(this_ins, BPF_DW, frame, ofs, val);
+  this_prog.mk_binary(this_ins, BPF_ADD, arg,
+                      frame, this_prog.new_imm(ofs));
+}
+
+// Used for passing string arguments on the stack where an address is
+// expected.  Zero-pad and copy str to the stack at offset ofs and
+// store the stack address of str in arg.  Zero-padding is required
+// since functions such as map_update_elem will expect a fixed-length
+// value of BPF_MAXSTRINGLEN for string map keys.
+void
+bpf_unparser::emit_str_arg(value *arg, int ofs, value *str)
+{
+  value *frame = this_prog.lookup_reg(BPF_REG_10);
+  value *out = emit_copied_str(frame, ofs, str, true /* zero pad */);
+  emit_mov(arg, out);
+}
+
 void
 bpf_unparser::visit_functioncall (functioncall *e)
 {
@@ -1942,32 +2179,8 @@ bpf_unparser::visit_print_format (print_format *e)
   size_t format_bytes = format.size() + 1;
   if (format_bytes > BPF_MAXFORMATLEN)
     throw SEMANTIC_ERROR(_("Format string for print too long"), e->tok);
-#if 1
   this_prog.mk_mov(this_ins, this_prog.lookup_reg(BPF_REG_1),
                    this_prog.new_str(format));
-#endif
-#if 0
-  // TODO: MOVED TO bpf-opt.cxx => emit_literal_str
-  size_t format_words = (format_bytes + 3) / 4;
-  value *frame = this_prog.lookup_reg(BPF_REG_10);
-  for (i = 0; i < format_words; ++i)
-    {
-      uint32_t word = 0;
-      for (unsigned j = 0; j < 4; ++j)
-	if (i * 4 + j < format_bytes - 1)
-	  {
-	    // ??? little-endian target
-	    word |= (uint32_t)format[i * 4 + j] << (j * 8);
-	  }
-      this_prog.mk_st(this_ins, BPF_W, frame,
-		      (int32_t)(-format_words + i) * 4,
-		      this_prog.new_imm(word));
-    }
-  this_prog.use_tmp_space(format_words * 4);
-
-  this_prog.mk_binary(this_ins, BPF_ADD, this_prog.lookup_reg(BPF_REG_1),
-		      frame, this_prog.new_imm(-(int32_t)format_words * 4));
-#endif
   emit_mov(this_prog.lookup_reg(BPF_REG_2), this_prog.new_imm(format_bytes));
   for (i = 0; i < nargs; ++i)
     emit_mov(this_prog.lookup_reg(BPF_REG_3 + i), actual[i]);
@@ -2003,7 +2216,8 @@ build_internal_globals(globals& glob)
 static void
 translate_globals (globals &glob, systemtap_session& s)
 {
-  int long_map = -1;
+  int long_map = -1; // -- for scalar long variables
+  int str_map = -1;  // -- for scalar string variables
   build_internal_globals(glob);
 
   for (auto i = s.globals.begin(); i != s.globals.end(); ++i)
@@ -2029,8 +2243,20 @@ translate_globals (globals &glob, systemtap_session& s)
 	      this_idx = glob.maps[long_map].max_entries++;
 	      break;
 
-	    // ??? pe_string
-	    // ??? pe_stats
+            case pe_string:
+              if (str_map < 0)
+                {
+                  globals::bpf_map_def m = {
+                    BPF_MAP_TYPE_ARRAY, 4, BPF_MAXSTRINGLEN, 0, 0
+                  };
+                  str_map = glob.maps.size();
+                  glob.maps.push_back(m);
+                }
+              this_map = str_map;
+              this_idx = glob.maps[str_map].max_entries++;
+              break;
+
+            // ??? pe_stats -> TODO (3) exists as a BPF_MAP_TYPE_PERCPU_ARRAY
 	    default:
 	      throw SEMANTIC_ERROR (_("unhandled scalar type"), v->tok);
 	    }
@@ -2045,7 +2271,9 @@ translate_globals (globals &glob, systemtap_session& s)
 	      case pe_long:
 		m.key_size = 8;
 		break;
-	      // ??? pe_string:
+              case pe_string:
+                m.key_size = BPF_MAXSTRINGLEN;
+                break;
 	      default:
 		throw SEMANTIC_ERROR (_("unhandled index type"), v->tok);
 	      }
@@ -2054,13 +2282,15 @@ translate_globals (globals &glob, systemtap_session& s)
 	      case pe_long:
 		m.value_size = 8;
 		break;
-	      // ??? pe_string
-	      // ??? pe_stats
+              case pe_string:
+                m.value_size = BPF_MAXSTRINGLEN;
+                break;
+	      // ??? pe_stats -> TODO (3) map is BPF_MAP_TYPE_PERCPU_{HASH,ARRAY}, value_size is unknown
 	      default:
 		throw SEMANTIC_ERROR (_("unhandled array element type"), v->tok);
 	      }
 
-	    m.max_entries = v->maxsize;
+	    m.max_entries = v->maxsize > 0 ? v->maxsize : BPF_MAXMAPENTRIES;
 	    this_map = glob.maps.size();
 	    glob.maps.push_back(m);
 	    this_idx = 0;

@@ -17,48 +17,31 @@
 
 namespace bpf {
 
-// Write a string literal out to the stack in 4-byte chunks.
-//
-// ??? Could use 8-byte chunks if we're starved for instruction counts.
-// ??? Endianness of the target comes into play here.
+// Allocate space on the stack and store a string literal in that space:
 static value *
-emit_literal_string(program &p, insn_inserter &ins, value *val)
+alloc_literal_str(program &p, insn_inserter &ins, std::string &str)
 {
   // Append the string to existing temporary data.
   //
-  // TODO: This could produce significant size limitations.
+  // TODO: This could produce significant space limitations.
   // A better solution would be to integrate with the
   // register allocator and reclaim the space after
   // the string literal is no longer live.
-  size_t str_off = p.max_tmp_space;
-  str_off += 4 - str_off % 4; // verifier requires rounding to nearest multiple of 4
-  p.use_tmp_space(str_off);
+  size_t tmp_space = p.max_tmp_space;
+  tmp_space += 4 - tmp_space % 4; // write aligned words to avoid verifier error
+  p.use_tmp_space(tmp_space);
 
-  std::string str = val->str();
   size_t str_bytes = str.size() + 1;
-  size_t str_words = (str_bytes + 3) / 4;
-  if (str_off + str_bytes > MAX_BPF_STACK)
+  str_bytes += 4 - str_bytes % 4; // write aligned words to avoid garbage data
+  if (tmp_space + str_bytes > MAX_BPF_STACK)
     throw std::runtime_error("string allocation failed due to lack of room on stack");
 
-  value *frame = p.lookup_reg(BPF_REG_10);
-  for (unsigned i = 0; i < str_words; ++i)
-    {
-      uint32_t word = 0;
-      for (unsigned j = 0; j < 4; ++j)
-        if (i * 4 + j < str_bytes - 1)
-          {
-            // ??? little-endian target
-            word |= (uint32_t)str[i * 4 + j] << (j * 8);
-          }
-      p.mk_st(ins, BPF_W, frame,
-              (int32_t)(-str_words + i) * 4 + (-str_off),
-              p.new_imm(word));
-    }
-  p.max_tmp_space += str_bytes; // add to existing space!
+  tmp_space += str_bytes; // TODO: round up for safety?
+  p.use_tmp_space(tmp_space);
+  int ofs = -tmp_space;
 
-  value *out = p.new_reg();
-  p.mk_binary(ins, BPF_ADD, out,
-              frame, p.new_imm(-(int32_t)str_words * 4 - (int32_t)str_off));
+  value *frame = p.lookup_reg(BPF_REG_10);
+  value *out = emit_literal_str(p, ins, frame, ofs, str, false /* don't zero pad */);
   return out;
 }
 
@@ -77,7 +60,8 @@ lower_str_values(program &p)
           if (s0 && s0->is_str())
             {
               insn_before_inserter ins(b, j);
-              value *new_s0 = emit_literal_string(p, ins, s0);
+              std::string str0 = s0->str();
+              value *new_s0 = alloc_literal_str(p, ins, str0);
               j->src0 = new_s0;
             }
 
@@ -85,7 +69,8 @@ lower_str_values(program &p)
           if (s1 && s1->is_str())
             {
               insn_before_inserter ins(b, j);
-              value *new_s1 = emit_literal_string(p, ins, s1);
+              std::string str1 = s1->str();
+              value *new_s1 = alloc_literal_str(p, ins, str1);
               j->src1 = new_s1;
             }
         }

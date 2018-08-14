@@ -30,8 +30,12 @@ namespace bpf {
 #define MAX_BPF_STACK 512
 #define BPF_MAXSTRINGLEN 64
 #define BPF_MAXFORMATLEN 256
+#define BPF_MAXMAPENTRIES 16
+//#define BPF_MAXMAPENTRIES 2048 // TODO requires setrlimit
+// TODO: add BPF_MAXSPRINTFLEN
 #define BPF_REG_SIZE 8
-// TODO: BPF_MAX{STRING,FORMAT}LEN should be user-configurable.
+// TODO: BPF_MAX{STRING,FORMAT}LEN,BPF_MAXMAPSIZE should be user-configurable.
+// TODO: BPF_MAXMAPSIZE may depend on kernel version and rlimit. May need to setrlimit to create a bigger map (would like to default to 2048).
 
 typedef unsigned short regno;
 static const regno max_regno = BPF_MAXINSNS;
@@ -257,6 +261,10 @@ struct program
   void generate();
   void print(std::ostream &) const;
 };
+
+// ??? Properly belongs to bpf_unparser but must be accessible from bpf-opt.cxx:
+value *emit_literal_str(program &this_prog, insn_inserter &this_ins,
+                        value *dest, int ofs, std::string &src, bool zero_pad = false);
 
 inline std::ostream&
 operator<< (std::ostream &o, const program &c)

@@ -148,12 +148,13 @@ uint64_t
 bpf_sprintf(std::vector<std::string> &strings, char *fstr,
             uint64_t arg1, uint64_t arg2, uint64_t arg3)
 {
-  char s[256];
+  char s[256]; // TODO: configure maximum length setting e.g. BPF_MAXSPRINTFLEN
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
-  sprintf(s, fstr, arg1, arg2, arg3);
+  snprintf(s, 256, fstr, arg1, arg2, arg3);
 #pragma GCC diagnostic pop
-  strings.push_back(std::string(s));
+  std::string str(s, 256);
+  strings.push_back(str);
 
   // Elements of "strings" should not be mutated to avoid
   // invalidating c_str() pointers.
@@ -168,7 +169,7 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
   uint64_t regs[MAX_BPF_REG];
   uint64_t lookup_tmp = 0xdeadbeef;
   const struct bpf_insn *i = insns;
-  std::vector<std::string> strings;
+  static std::vector<std::string> strings;
   map_keys keys[map_fds.size()];
 
   regs[BPF_REG_10] = (uintptr_t)stack + sizeof(stack);
