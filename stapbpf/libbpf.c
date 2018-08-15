@@ -105,11 +105,15 @@ int bpf_prog_load(enum bpf_prog_type prog_type,
 	attr.insn_cnt = prog_len / sizeof(struct bpf_insn);
 	attr.license = ptr_to_u64((void *) license);
 
-        if (log_level)
+        /* If the syscall fails, retry with higher verbosity to get
+           the eBPF verifier output */
+        int retry = 0;
+ do_retry:
+        if (log_level || retry)
           {
             attr.log_buf = ptr_to_u64(bpf_log_buf);
             attr.log_size = LOG_BUF_SIZE;
-            attr.log_level = log_level;
+            attr.log_level = retry ? log_level + 1 : log_level;
             /* they hang together, or they hang separately with -EINVAL */
           }
 
@@ -123,7 +127,12 @@ int bpf_prog_load(enum bpf_prog_type prog_type,
         if (log_level > 1)
           fprintf(stderr, "Loading probe type %d, size %d\n", prog_type, prog_len);
 
-	return syscall(__NR_bpf, BPF_PROG_LOAD, &attr, sizeof(attr));
+        int rc = syscall(__NR_bpf, BPF_PROG_LOAD, &attr, sizeof(attr));
+        if (rc < 0 && log_level == 0 && !retry)
+          {
+            retry = 1; goto do_retry;
+          }
+        return rc;
 }
 
 int bpf_obj_pin(int fd, const char *pathname)
