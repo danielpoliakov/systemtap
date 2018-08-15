@@ -305,6 +305,10 @@ probe begin {
 # @check(0,"(.*)*\1","xx")
 # @check(0,"(....).*\1","beriberi")
 
+# and last but not least:
+  @check(0, "du+de", "duuuuuuuuude")
+  @check(0, "d([ou]|hu|hou)+de(tte)?s?", "duuuuuuuuude")
+
   exit()
 }
 
