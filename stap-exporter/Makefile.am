@@ -9,13 +9,17 @@ if HAVE_PYTHON3_PROBES
 man8_MANS = stap-exporter.8
 
 install-data-local:
-	$(MKDIR_P) "$(DESTDIR)$(sysconfdir)/systemtap/stap-exporter"
-	$(MKDIR_P) "$(DESTDIR)$(sysconfdir)/systemtap/stap-exporter/autostart"
+	$(MKDIR_P) "$(DESTDIR)$(sysconfdir)/stap-exporter"
+	cd $(srcdir)/default; find . | cpio -pdmv "$(DESTDIR)$(sysconfdir)/stap-exporter/"
 	$(MKDIR_P) "$(DESTDIR)$(prefix)/lib/systemd/system"
+	$(MKDIR_P) "$(DESTDIR)$(sysconfdir)/sysconfig"
 	$(INSTALL_DATA) $(srcdir)/stap-exporter.service "$(DESTDIR)$(prefix)/lib/systemd/system"
+	$(INSTALL_DATA) $(srcdir)/stap-exporter.options "$(DESTDIR)$(sysconfdir)/sysconfig/stap-exporter"
 
 uninstall-local:
 	rm -f "$(DESTDIR)$(prefix)/lib/systemd/system/stap-exporter.service"
+	rm -f "$(DESTDIR)$(sysconfdir)/sysconfig/stap-exporter"
+	rm -rf "$(DESTDIR)$(sysconfdir)/stap-exporter"
 
 sbin_SCRIPTS = stap-exporter
 

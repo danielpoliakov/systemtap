@@ -631,20 +631,6 @@ procfs_builder::build(systemtap_session & sess,
 	throw SEMANTIC_ERROR (_("maxsize must be greater than 0"));
     }
 
-  if (path == "__prometheus")
-    {
-      // Intended for use by stap-exporter. Replace path with the script name.
-      string p = sess.script_file;
-
-      if (p.empty())
-        throw SEMANTIC_ERROR (_("Script name must be specified"));
-
-      if (p.find_last_of('/') == p.length() - 1)
-        p = p.substr(0, p.length() - 1);
-
-      path = p.substr(p.find_last_of('/') + 1);
-    }
-
   // If no procfs path, default to "command".  The runtime will do
   // this for us, but if we don't do it here, we'll think the
   // following 2 probes are attached to different paths:

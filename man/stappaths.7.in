@@ -45,6 +45,9 @@ environment variable.
 The auxiliary program supervising module loading, interaction, and
 unloading.
 .TP
+@sysconfdir@/stap\-exporter
+The default directory to search for \fB*.stp\fR files, for exporting to HTTP.
+.TP
 @libexecdir@/systemtap/stapio
 The auxiliary program for module input and output handling.
 .TP
@@ -97,43 +100,36 @@ The location of kernel module building infrastructure.
 @prefix@/share/doc/systemtap*/examples
 Examples with greater detail can be found here. Each example comes with a .txt
 or .meta file explaining what the example, sample or demo does and how it is
-ordinarily run.  See also
+ordinarily run.  See also online at:
 .nh
 .IR http://sourceware.org/systemtap/examples/
 .hy
 .TP
 $SYSTEMTAP_DIR/ssl/server
-User's server\-side SSL certificate database. If SYSTEMTAP_DIR is not
+User's server-side SSL certificate database. If SYSTEMTAP_DIR is not
 set, the default is $HOME/.systemtap.
 .TP
 $SYSTEMTAP_DIR/ssl/client
-User's private client\-side SSL certificate database. If SYSTEMTAP_DIR is not
+User's private client-side SSL certificate database. If SYSTEMTAP_DIR is not
 set, the default is $HOME/.systemtap.
 .TP
 @sysconfdir@/systemtap/ssl/client
-Global client\-side SSL certificate database.
+Global client-side SSL certificate database.
 .TP
 @sysconfdir@/systemtap/staprun/
 \fIstaprun\fR\[aq]s trusted signer certificate database.
 .TP
-@sysconfdir@/sysconfig/stap\-server/
+@sysconfdir@/sysconfig/stap\-server
 stap\-server service global configuration file.
 .TP
-@sysconfdir@/stap\-server/conf.d/*.conf
-stap\-server service configuration files for default servers.
+@sysconfdir@/sysconfig/stap\-exporter
+stap\-exporter service global configuration file.
 .TP
-/var/run/stap\-server/
+@localstatedir@/run/stap\-server/
 stap\-server service default location of status files for running servers.
 .TP
-/var/log/stap\-server/log
+@localstatedir@/log/stap\-server/log
 stap\-server service default log file.
-
-
-.PP
-.SH FILES
-.nh
-.IR @prefix@/share/systemtap/tapset
-.hy
 
 .SH SEE ALSO
 .nh

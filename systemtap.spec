@@ -123,6 +123,7 @@ Source: ftp://sourceware.org/pub/systemtap/releases/systemtap-%{version}.tar.gz
 
 # Build*
 BuildRequires: gcc-c++
+BuildRequires: cpio
 BuildRequires: gettext-devel
 BuildRequires: pkgconfig(nss)
 BuildRequires: pkgconfig(avahi-client)
@@ -463,14 +464,14 @@ that probe python 3 processes.
 %endif
 
 %if %{with_python3}
-%package stap-exporter
+%package exporter
 Summary: Systemtap-prometheus interoperation mechanism
 Group: Development/System
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
 Requires: systemtap-runtime = %{version}-%{release}
 
-%description stap-exporter
+%description exporter
 This package includes files for a systemd service that manages
 systemtap sessions and relays prometheus metrics from the sessions
 to remote requesters on demand.
@@ -950,11 +951,22 @@ fi
 exit 0
 
 %if %{with_python3}
-%preun stap-exporter
-/bin/systemctl stop stap-exporter.service >/dev/null 2>&1 || :
-/bin/systemctl disable stap-exporter.service >/dev/null 2>&1 || :
-%endif
+%if %{with_systemd}
+%preun exporter
+if [ $1 = 0 ] ; then
+  /bin/systemctl stop stap-exporter.service >/dev/null 2>&1 || :
+  /bin/systemctl disable stap-exporter.service >/dev/null 2>&1 || :
+fi
+exit 0
 
+%postun exporter
+# Restart service if this is an upgrade rather than an uninstall
+if [ "$1" -ge "1" ]; then
+   /bin/systemctl condrestart stap-exporter >/dev/null 2>&1 || :
+fi
+exit 0
+%endif
+%endif
 
 %post
 # Remove any previously-built uprobes.ko materials
@@ -1242,12 +1254,12 @@ done
 %endif
 
 %if %{with_python3}
-%files stap-exporter
-%{_sysconfdir}/systemtap/stap-exporter
+%files exporter
+%{_sysconfdir}/stap-exporter
+%{_sysconfdir}/sysconfig/stap-exporter
 %{_unitdir}/stap-exporter.service
 %{_mandir}/man8/stap-exporter.8*
 %{_sbindir}/stap-exporter
-%{_etcdir}/stap-exporter
 %endif
 
 # ------------------------------------------------------------------------

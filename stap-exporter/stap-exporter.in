@@ -1,5 +1,22 @@
 #!/usr/bin/python3
 
+"""
+Copyright (C) 2018 Red Hat, Inc.
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
 import os
 import sys
 import argparse
@@ -9,132 +26,149 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse
 from time import time
 
-script_dir = "%sysconfdir%/systemtap/stap-exporter/"
-proc_path = "/proc/systemtap/__systemtap_exporter"
+# globals
+
+script_dir = "%sysconfdir%/stap-exporter"
+proc_basename = "__stap_exporter_" + str(os.getpid()) # permit concurrent exporters
+proc_path = "/proc/systemtap"
+sessmgr = None
 
 
 class Session:
-
-    def __init__(self, name, sess_id):
-        self.name = name
-        self.id = sess_id
-        self.cmd = self.get_cmd(name)
-        self.process = None
-        self.start_time = None
-
-    def begin(self):
-        self.process = subprocess.Popen(shlex.split(self.cmd))
+    """Represent a single systemtap script found $script_dir, whether or not
+    associated with a running systemtap process."""
     
-    def get_proc_path(self):
-        return proc_path + str(self.id) + "/" + self.name
+    def __init__(self, dirname, name, sess_id, ka):
+        self.dirname = dirname # config directory
+        self.name = name
+        self.id = sess_id   # permanent id# for procfs naming
+        self.keepalive = ka # how many seconds to keep process alive after a use or None
+        self.process = None # live process
+        self.killafter = None  # time for euthenasia
+        self.proc_subdirname = "%s_%d" % (proc_basename, self.id)
+        print("session %s found" % (self.name,))
 
-    def set_start_time(self):
-        self.start_time = time()
+    def get_cmd(self):
+        return "%s/%s -m %s" % (self.dirname, self.name, self.proc_subdirname)
+    
+    def poll(self, killthem):
+        if self.process and killthem:
+            self.process.terminate()
+            print("session %s shut down" % (self.name,))
+            return
+            
+        # bring out your dead
+        if self.process and self.process.poll() is not None: # died?
+            # self.process.wait(0) # clean up zombie?
+            self.process = None
+            print("session %s stopped" % (self.name,))
+                
+        # (re)start autostarted sessions
+        if not self.process and "autostart" in self.name:
+            cmd = self.get_cmd()
+            self.process = subprocess.Popen(shlex.split(cmd))
+            print("session %s autostart %s" % (self.name, cmd))
 
-    def get_cmd(self, script):
-        return "stap -m __systemtap_exporter%d --example %s" % (self.id,
-                                                                script)
+        # kill any non-autostart scripts that have been unused too long
+        if self.process and "autostart" not in self.name:
+            if self.killafter is not None and self.killafter < time():
+                self.process.terminate()
+                print("session %s autokill" % (self.name,))
 
+                
+    def collect_output(self):
+        # start it if not already running
+        if not self.process:
+            cmd = self.get_cmd()
+            self.process = subprocess.Popen(shlex.split(cmd))
+            print("session %s start %s" % (self.name, cmd))
+
+        # reset the killafter time
+        if self.keepalive is not None:
+            self.killafter = time() + self.keepalive
+
+        path = proc_path + "/" + self.proc_subdirname + "/__prometheus"
+        with open(path) as metrics:
+            return bytes(metrics.read(), 'utf-8')
 
 class SessionMgr:
+    """Represent the set of possible systemtap scripts that can be exported.  Searches the $script_dir
+    once at startup."""
 
-    def __init__(self):
+    def __init__(self, scdir, ka):
         self.counter = 0
-        self.port = None
-        self.timeout = None
         self.sessions = {}
-        self.parse_cmdline()
-        self.run_autostart_scripts()
-
-    def start_sess(self, script_name):
-        """ Begin execution of script and record start time """
-        s = Session(script_name, self.get_new_id())
-        self.sessions[script_name] = s
-        s.begin()
-        s.set_start_time()
-        print("Started %s via %s" % (s.name, s.cmd))
-
-    def parse_cmdline(self):
-         p = argparse.ArgumentParser(description='Systemtap-prometheus interoperation mechanism')
-         p.add_argument('-p', '--port', nargs=1, default=[9900], type=int)
-         p.add_argument('-t', '--timeout', nargs=1, default=[None], type=int)
-          
-         opts = p.parse_args()
-         self.port = opts.port[0]
-         self.timeout = opts.timeout[0]
-
-    def run_autostart_scripts(self):
-        scripts = os.listdir(script_dir + "autostart/")
-        for name in scripts:
-            self.start_sess(name)
-
-    def sess_started(self, name):
-         return name in self.sessions 
-
-    def get_new_id(self):
-        ret = self.counter
-        self.counter += 1
-        return ret
-
-    def check_timeouts(self):
-        term = []
+        for n in os.listdir(scdir):
+            if n.endswith(".stp"):
+                self.counter += 1
+                self.sessions[n] = Session(scdir, n, self.counter, ka)
+        
+    def poll(self, killthem):
         for (name, sess) in self.sessions.items():
-            if ((sess.start_time is not None
-                    and self.timeout is not None
-                    and time() - sess.start_time >= self.timeout)
-                    or sess.process.poll() is not None):
-                print("Terminating " + name)
-                sess.process.terminate()
-                term.append(name)
-        for name in term:
-                self.sessions[name].process.wait(1)
-                self.sessions.pop(name, None)
+            try:
+                sess.poll(killthem)
+            except Exception as e:
+                print("session %s poll failure %s" % (name, str(e)))
+
+    def session(self,name):
+        # NB: will throw if session with given name doesn't exist
+        return self.sessions[name]
+
+    # XXX: add facility for synthetic sessionmgr metrics
 
 
 class HTTPHandler(BaseHTTPRequestHandler):
-    sessmgr = SessionMgr()
-
-    def set_headers(self, code, content_type):
-        self.send_response(code)
-        self.send_header('Content-type', content_type)
-        self.end_headers()
-
-    def send_metrics(self, sess):
-        metrics_path = sess.get_proc_path()
-        try:
-            with open(metrics_path) as metrics:
-                self.set_headers(200, 'text/plain')
-                self.wfile.write(bytes(metrics.read(), 'utf-8'))
-                # XXX: log metrics.size
-        except:
-            self.set_headers(501, 'text/plain')
-            self.wfile.write(bytes('Metrics currently unavailable', 'utf-8'))
-        sess.set_start_time()
 
     def send_msg(self, code, msg):
-        self.set_headers(code, 'text/plain')
-        self.wfile.write(bytes(msg, 'utf-8'))
+        self.send_response(code)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(msg)
 
     def do_GET(self):
         # remove the preceeding '/' from url
         name = urlparse(self.path).path[1:]
-        mgr = self.sessmgr
-        if mgr.sess_started(name):
-            # session is already running, send metrics
-            self.send_metrics(mgr.sessions[name])
-        else:
-            # launch session
-            mgr.start_sess(name)
-            self.send_msg(301, "Refresh page to access metrics.")
+        try:
+            s = sessmgr.session(name)
+        except:
+            self.send_msg(404,
+                          bytes("script not found",
+                                'utf-8'))
+            return
+        try:
+            promdata = s.collect_output()
+            self.send_msg(200, promdata)
+        except Exception as e:
+            self.send_msg(301,
+                          bytes("cannot read script output, try again later, %s" % (str(e),),
+                                'utf-8'))
+            print("session %s collect-output failure %s" % (name, str(e)))
+            
 
 if __name__ == "__main__":
-    sessmgr = HTTPHandler.sessmgr
-    server_address = ('', sessmgr.port)
-    httpd = HTTPServer(server_address, HTTPHandler)
-    httpd.timeout = 5
-    print("Exporter initialization complete")
-    print("Listening on port %d" % sessmgr.port)
+    p = argparse.ArgumentParser(description='systemtap prometheus-exporter')
+    p.add_argument('-p', '--port', nargs=1, default=[9900], type=int)
+    p.add_argument('-s', '--scripts', nargs=1, default=[script_dir], type=str)
+    p.add_argument('-k', '--keepalive', nargs=1, default=[None], type=int)
+    
+    opts = p.parse_args()
+    scripts = opts.scripts[0]
+    port = opts.port[0]
+    keepalive = opts.keepalive[0]
 
-    while 1:
-        httpd.handle_request()
-        sessmgr.check_timeouts()
+    # NB: global
+    sessmgr = SessionMgr(scripts,keepalive)
+    
+    server_address = ('', port)
+    httpd = HTTPServer(server_address, HTTPHandler)
+    httpd.timeout = 5 # parametrize?
+    
+    print("Exporter initialization complete")
+    print("Listening on port %d" % port)
+
+    try:
+        while True:
+            sessmgr.poll(False)
+            httpd.handle_request()
+    except:
+        sessmgr.poll(True)

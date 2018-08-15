@@ -1,0 +1,4 @@
+#! /bin/sh
+
+# link to this generic shell script to invoke a non-guru stap example
+exec stap -v --suppress-handler-errors --example $@ `basename $0 | sed -e s,autostart-,,`

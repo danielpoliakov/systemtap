@@ -517,9 +517,9 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-@HAVE_PYTHON3_PROBES_FALSE@install-data-local:
-@HAVE_PYTHON3_PROBES_FALSE@clean-local:
 @HAVE_PYTHON3_PROBES_FALSE@uninstall-local:
+@HAVE_PYTHON3_PROBES_FALSE@clean-local:
+@HAVE_PYTHON3_PROBES_FALSE@install-data-local:
 clean: clean-am
 
 clean-am: clean-generic clean-local mostlyclean-am
@@ -607,13 +607,17 @@ uninstall-man: uninstall-man8
 
 
 @HAVE_PYTHON3_PROBES_TRUE@install-data-local:
-@HAVE_PYTHON3_PROBES_TRUE@	$(MKDIR_P) "$(DESTDIR)$(sysconfdir)/systemtap/stap-exporter"
-@HAVE_PYTHON3_PROBES_TRUE@	$(MKDIR_P) "$(DESTDIR)$(sysconfdir)/systemtap/stap-exporter/autostart"
+@HAVE_PYTHON3_PROBES_TRUE@	$(MKDIR_P) "$(DESTDIR)$(sysconfdir)/stap-exporter"
+@HAVE_PYTHON3_PROBES_TRUE@	cd $(srcdir)/default; find . | cpio -pdmv "$(DESTDIR)$(sysconfdir)/stap-exporter/"
 @HAVE_PYTHON3_PROBES_TRUE@	$(MKDIR_P) "$(DESTDIR)$(prefix)/lib/systemd/system"
+@HAVE_PYTHON3_PROBES_TRUE@	$(MKDIR_P) "$(DESTDIR)$(sysconfdir)/sysconfig"
 @HAVE_PYTHON3_PROBES_TRUE@	$(INSTALL_DATA) $(srcdir)/stap-exporter.service "$(DESTDIR)$(prefix)/lib/systemd/system"
+@HAVE_PYTHON3_PROBES_TRUE@	$(INSTALL_DATA) $(srcdir)/stap-exporter.options "$(DESTDIR)$(sysconfdir)/sysconfig/stap-exporter"
 
 @HAVE_PYTHON3_PROBES_TRUE@uninstall-local:
 @HAVE_PYTHON3_PROBES_TRUE@	rm -f "$(DESTDIR)$(prefix)/lib/systemd/system/stap-exporter.service"
+@HAVE_PYTHON3_PROBES_TRUE@	rm -f "$(DESTDIR)$(sysconfdir)/sysconfig/stap-exporter"
+@HAVE_PYTHON3_PROBES_TRUE@	rm -rf "$(DESTDIR)$(sysconfdir)/stap-exporter"
 
 @HAVE_PYTHON3_PROBES_TRUE@stap-exporter: $(srcdir)/stap-exporter.in
 @HAVE_PYTHON3_PROBES_TRUE@	sed -e "s#%sysconfdir%#$(sysconfdir)#g" < $< > $@

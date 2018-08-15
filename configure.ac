@@ -996,6 +996,10 @@ AC_DEFINE_UNQUOTED(STAP_PREFIX, "$stap_prefix", [configure prefix location])
 AC_SUBST(STAP_PREFIX, "$stap_prefix")
 
 AC_CONFIG_HEADERS([config.h:config.in])
+
+dnl XXX: we'd like fully expanded path names for the @macros@ in there,
+dnl not like exec_prefix=${prefix}
+
 AC_CONFIG_FILES([Makefile doc/Makefile man/Makefile man/cs/Makefile \
 doc/beginners/Makefile doc/SystemTap_Tapset_Reference/Makefile \
 man/stap.1 man/stappaths.7 man/systemtap-service.8 \

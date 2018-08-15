@@ -1,0 +1,12 @@
+# OPTIONS
+
+#PORT=
+PORT="-p 9900"
+
+# KEEPALIVE=
+KEEPALIVE="-k 300"
+
+SCRIPTS=
+#SCRIPTS="-s /path/to/your/stap/scripts"
+
+OPTIONS=
