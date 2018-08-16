@@ -1442,7 +1442,11 @@ have_san_match (string & hostname, string & pem_cert)
         {
           const int scheme_len = 8; // https://
           string dns_name =
-              string ((char *) ASN1_STRING_get0_data (current_name->d.dNSName));
+#if OPENSSL_VERSION_NUMBER<0x10100000L
+              string ((char *) ASN1_STRING_data (current_name->d.dNSName));
+#else
+	      string ((char *) ASN1_STRING_get0_data (current_name->d.dNSName));
+#endif
 
           if ((size_t) ASN1_STRING_length (current_name->d.dNSName) ==
               dns_name.length ())
