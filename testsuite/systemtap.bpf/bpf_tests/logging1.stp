@@ -1,0 +1,20 @@
+// stapbpf string manipulation -- logging tapset functions
+
+probe begin {
+  printf("BEGIN\n")
+  log("(1) a message")
+  warn("(1) a warning")
+  warn("(1) a warning with newline\n")
+}
+
+probe kernel.function("vfs_read") {
+  log("(2) a message")
+  warn("(2) a warning")
+  warn("(2) a warning with newline\n")
+  assert(0, "failed assertion")
+  exit()
+}
+
+probe end {
+  printf("END PASS\n")
+}

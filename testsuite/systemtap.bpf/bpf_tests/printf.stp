@@ -4,8 +4,6 @@ global x
 %(
   printf("abcd%d2", x)
   printf("%d4%d%d", x + 2, y + 4, z + 3)
-  // printf("MESSAGE: %s\n", "hello, world")
-  // log("hello, again")
 %)
 
 probe begin {

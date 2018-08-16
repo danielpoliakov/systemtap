@@ -6,31 +6,31 @@ global tab2
 
 @define test_print
 %(
-  printf("[%s]\n", "str0")
-  printf("{%s}\n", var)
-  printf("<%s>\n", tab1[15])
-  printf("(%s)\n", tab2["key"])
+  printf("[%s", "str0")
+  printf("%s", var)
+  printf("%s", tab1[15])
+  printf("%s]", tab2["key"])
 %)
 
-global tab3
 probe begin {
-  printf("BEGIN\n")
+  printf("BEGIN")
 
   var = "str1"
   tab1[15] = "str2"
   tab2["key"] = "str3"
-  tab3["key"] = 3
-  assert(tab3["key"] == 3)
 
+  printf("begin")
   @test_print
 }
 
 probe kernel.function("vfs_read") {
+  printf("probe")
   @test_print
   exit()
 }
 
 probe end {
+  printf("end")
   @test_print
-  printf("END PASS\n") // TODO check output string in bpf.exp
+  printf("END\n")
 }

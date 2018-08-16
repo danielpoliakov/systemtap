@@ -1,20 +1,44 @@
-// stapbpf string manipulation -- logging tapset functions
+// stapbpf string manipulation -- store string in global from kernel space
+// XXX: the 'locking' scheme here is kind of dumb but it seems to work
+
+global counter = 0
+global var
+global tab1
+global tab2
+
+@define test_print
+%(
+  printf("[%s", "str0")
+  printf("%s", var)
+  printf("%s", tab1[17])
+  printf("%s]", tab2["key"])
+%)
 
 probe begin {
-  printf("BEGIN\n")
-  log("(1) a message")
-  warn("(1) a warning")
-  warn("(1) a warning with newline\n")
+  printf("BEGIN")
 }
 
 probe kernel.function("vfs_read") {
-  log("(2) a message")
-  warn("(2) a warning")
-  warn("(2) a warning with newline\n")
-  assert(0, "failed assertion")
-  exit()
+  if (counter == 0) {
+    var = "str1"
+    tab1[17] = "str2"
+    tab2["key"] = "str3"
+    printf("probe0")
+    @test_print
+    counter = 1
+  }
+}
+
+probe kernel.function("vfs_read") {
+  if (counter == 1) {
+    printf("probe1")
+    @test_print
+    exit()
+  }
 }
 
 probe end {
-  printf("END PASS\n")
+  printf("end")
+  @test_print
+  printf("END\n")
 }
