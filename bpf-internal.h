@@ -28,14 +28,13 @@ struct vardecl;
 namespace bpf {
 
 #define MAX_BPF_STACK 512
+#define BPF_REG_SIZE 8
 #define BPF_MAXSTRINGLEN 64
 #define BPF_MAXFORMATLEN 256
-#define BPF_MAXMAPENTRIES 16
-//#define BPF_MAXMAPENTRIES 2048 // TODO requires setrlimit
+#define BPF_MAXMAPENTRIES 2048
 // TODO: add BPF_MAXSPRINTFLEN
-#define BPF_REG_SIZE 8
-// TODO: BPF_MAX{STRING,FORMAT}LEN,BPF_MAXMAPSIZE should be user-configurable.
-// TODO: BPF_MAXMAPSIZE may depend on kernel version and rlimit. May need to setrlimit to create a bigger map (would like to default to 2048).
+// TODO: BPF_MAX{STRING,FORMAT}LEN,BPF_MAXMAPENTRIES,BPF_MAXSPRINTFLEN should be user-configurable.
+// XXX: BPF_MAXMAPENTRIES may depend on kernel version. May need to experiment with rlimit in instantiate_maps().
 
 typedef unsigned short regno;
 static const regno max_regno = BPF_MAXINSNS;

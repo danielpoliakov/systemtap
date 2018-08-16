@@ -37,6 +37,7 @@
 #include <sys/ioctl.h>
 #include <sys/syscall.h>
 #include <sys/utsname.h>
+#include <sys/resource.h>
 #include "bpfinterp.h"
 
 extern "C" {
@@ -225,8 +226,55 @@ instantiate_maps (Elf64_Shdr *shdr, Elf_Data *data)
   map_attrs = attrs;
   map_fds.assign(n, -1);
 
+  /* First, make room for the maps in this process' RLIMIT_MEMLOCK: */
+  size_t rlimit_increase = 0;
   for (i = 0; i < n; ++i)
     {
+      // TODO: The 58 bytes of overhead space per entry has been
+      // decided by trial and error, and may require further tweaking:
+      rlimit_increase += (58 + attrs[i].key_size + attrs[i].value_size) * attrs[i].max_entries;
+    }
+
+  struct rlimit curr_rlimit;
+  int rc;
+
+  rc = getrlimit(RLIMIT_MEMLOCK, &curr_rlimit);
+  if (rc < 0)
+    fatal("could not get map resource limit: %s\n",
+          strerror(errno));
+
+  size_t rlim_orig = curr_rlimit.rlim_cur;
+  size_t rlim_max_orig = curr_rlimit.rlim_max;
+  curr_rlimit.rlim_cur += rlimit_increase;
+  curr_rlimit.rlim_max += rlimit_increase;
+  if (curr_rlimit.rlim_cur < rlim_orig) // handle overflow
+    curr_rlimit.rlim_cur = rlim_orig;
+  if (curr_rlimit.rlim_max < rlim_max_orig) // handle overflow
+    curr_rlimit.rlim_max = rlim_max_orig;
+
+  rc = setrlimit(RLIMIT_MEMLOCK, &curr_rlimit);
+  if (rc < 0)
+    fatal("could not increase map resource limit -- "
+          "cur from %lu to %lu, max from %lu to %lu: %s\n",
+          rlim_orig, curr_rlimit.rlim_cur,
+          rlim_max_orig, curr_rlimit.rlim_max,
+          strerror(errno));
+  if (log_level > 1)
+    {
+      fprintf(stderr, "increasing map cur resource limit from %lu to %lu\n",
+              rlim_orig, curr_rlimit.rlim_cur);
+      fprintf(stderr, "increasing map max resource limit from %lu to %lu\n",
+              rlim_max_orig, curr_rlimit.rlim_max);
+    }
+
+  /* Now create the maps: */
+  for (i = 0; i < n; ++i)
+    {
+      if (log_level > 2)
+        fprintf(stderr, "creating map entry %zu: key_size %u, value_size %u, "
+                "max_entries %u, map_flags %u\n", i,
+                attrs[i].key_size, attrs[i].value_size,
+                attrs[i].max_entries, attrs[i].map_flags);
       int fd = bpf_create_map(static_cast<bpf_map_type>(attrs[i].type),
 			      attrs[i].key_size, attrs[i].value_size,
 			      attrs[i].max_entries, attrs[i].map_flags);
