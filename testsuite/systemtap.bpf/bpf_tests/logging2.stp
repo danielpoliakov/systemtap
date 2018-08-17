@@ -1,0 +1,10 @@
+probe begin {
+  println("BEGIN")
+  print("this is a thing")
+  print(" and a newline\n")
+  exit()
+}
+
+probe end {
+  println("END PASS")
+}

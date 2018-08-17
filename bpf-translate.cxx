@@ -2156,6 +2156,17 @@ bpf_unparser::visit_print_format (print_format *e)
 	}
       if (e->print_with_newline)
 	format += '\n';
+
+      // surround the string with <MODNAME>...</MODNAME> to facilitate
+      // stapbpf recovering it from debugfs.
+      if (e->print_to_stream)
+        {
+          std::string start_tag = module_name;
+          start_tag = "<" + start_tag.erase(4,1) + ">";
+          std::string end_tag = start_tag + "\n";
+          end_tag.insert(1, "/");
+          format = start_tag + format + end_tag;
+        }
     }
 
   // The bpf verifier requires that the format string be stored on the
