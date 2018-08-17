@@ -1,0 +1,32 @@
+// stress test for big eBPF maps
+
+probe begin {
+  println("BEGIN")
+}
+
+global bigmap_int
+//global bigmap_str
+global counter = 0
+
+probe kernel.function("vfs_read") {
+  if (counter >= 256) exit()
+  //if (counter >= 2048) exit()
+  //if (counter >= 4096) exit() // XXX: will silently fail to add entries
+  // TODO: would like an unrolled loop adding entries in chunks
+  key1 = counter
+  //key2 = sprintf("%d", counter) // TODO: sprintf() in kernel-space not supported
+  bigmap_int[key1] = 1
+  //bigmap_str[key2] = 1
+  counter++
+  //if (counter % 256 == 0) printf("reached %d\n", counter)
+}
+
+probe end {
+  total1 = 0
+  //total2 = 0
+  foreach (key1 in bigmap_int) total1 += bigmap_int[key1]
+  //foreach (key2 in bigmap_str) total2 += bigmap_str[key2]
+  //printf("%d %d\n", total1, total2)
+  printf("added %d entries\n", total1)
+  println("END PASS")
+}
