@@ -453,18 +453,10 @@ bpf_unparser::emit_store(expression *e, value *val)
 	      emit_long_arg(this_prog.lookup_reg(BPF_REG_3), val_ofs, val);
 	      break;
             case pe_string:
-#if 0
-              // ??? This seems correct, but causes a BPF verifier error.
-              // ??? Temporarily disabled at the cost of using more stack space.
-              // Pass the existing string's address:
-              val_ofs = 0; // <- no new space used
-              emit_mov(this_prog.lookup_reg(BPF_REG_3), val);
-#else
               // Zero-pad and copy the string to the stack and pass its address:
               val_ofs = -BPF_MAXSTRINGLEN;
               emit_str_arg(this_prog.lookup_reg(BPF_REG_3), val_ofs, val);
               this_prog.use_tmp_space(BPF_MAXSTRINGLEN);
-#endif
               break;
 	    // ??? pe_stats -> TODO (3) unknown (but stats could be implemented as BPF_MAP_TYPE_PERCPU_ARRAY)
 	    default:
@@ -531,18 +523,10 @@ bpf_unparser::emit_store(expression *e, value *val)
 	      emit_long_arg(this_prog.lookup_reg(BPF_REG_3), val_ofs, val);
 	      break;
             case pe_string:
-#if 0
-              // ??? This seems correct, but causes a BPF verifier error.
-              // ??? Temporarily disabled at the cost of using more stack space.
-              // Pass the existing string's address:
-              val_ofs = key_ofs; // <- no new space used
-              emit_mov(this_prog.lookup_reg(BPF_REG_3), val);
-#else
               // Zero-pad and copy the string to the stack and pass its address:
               val_ofs = key_ofs - BPF_MAXSTRINGLEN;
               emit_str_arg(this_prog.lookup_reg(BPF_REG_3), val_ofs, val);
               this_prog.use_tmp_space(BPF_MAXSTRINGLEN);
-#endif
               break;
 	    default:
 	      throw SEMANTIC_ERROR(_("unhandled array type"), v->tok);

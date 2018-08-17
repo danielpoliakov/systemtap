@@ -243,8 +243,8 @@ instantiate_maps (Elf64_Shdr *shdr, Elf_Data *data)
     fatal("could not get map resource limit: %s\n",
           strerror(errno));
 
-  size_t rlim_orig = curr_rlimit.rlim_cur;
-  size_t rlim_max_orig = curr_rlimit.rlim_max;
+  rlim_t rlim_orig = curr_rlimit.rlim_cur;
+  rlim_t rlim_max_orig = curr_rlimit.rlim_max;
   curr_rlimit.rlim_cur += rlimit_increase;
   curr_rlimit.rlim_max += rlimit_increase;
   if (curr_rlimit.rlim_cur < rlim_orig) // handle overflow
@@ -256,15 +256,15 @@ instantiate_maps (Elf64_Shdr *shdr, Elf_Data *data)
   if (rc < 0)
     fatal("could not increase map resource limit -- "
           "cur from %lu to %lu, max from %lu to %lu: %s\n",
-          (unsigned long)rlim_orig, (unsigned long)curr_rlimit.rlim_cur,
-          (unsigned long)rlim_max_orig, (unsigned long)curr_rlimit.rlim_max,
+          rlim_orig, curr_rlimit.rlim_cur,
+          rlim_max_orig, curr_rlimit.rlim_max,
           strerror(errno));
   if (log_level > 1)
     {
       fprintf(stderr, "increasing map cur resource limit from %lu to %lu\n",
-              (unsigned long)rlim_orig, (unsigned long)curr_rlimit.rlim_cur);
+              rlim_orig, curr_rlimit.rlim_cur);
       fprintf(stderr, "increasing map max resource limit from %lu to %lu\n",
-              (unsigned long)rlim_max_orig, (unsigned long)curr_rlimit.rlim_max);
+              rlim_max_orig, curr_rlimit.rlim_max);
     }
 
   /* Now create the maps: */
