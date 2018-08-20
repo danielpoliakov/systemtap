@@ -23,7 +23,7 @@ probe kprocess.exec {
 probe process("/usr/lib*/ld-*.so").function("_dl_map_object_from_fd")?
 {
     # get 5th argument (char* realname) from the function
-    arr[user_string(pointer_arg(5))]++
+    arr[user_string_quoted(pointer_arg(5))]++
 }
 
 probe prometheus {
