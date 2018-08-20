@@ -29,13 +29,51 @@ probe dw_syscall.getpid.return = kernel.function("sys_getpid").return
 
 # nd_getpid _____________________________________________________
 
-probe nd_syscall.getpid = kprobe.function("sys_getpid")
+probe nd_syscall.getpid = nd1_syscall.getpid!, nd2_syscall.getpid!, tp_syscall.getpid
+  { }
+
+probe nd1_syscall.getpid = kprobe.function("sys_getpid")
 {
 	@_SYSCALL_GETPID_NAME
 	@_SYSCALL_GETPID_ARGSTR
 }
-probe nd_syscall.getpid.return = kprobe.function("sys_getpid").return
+
+/* kernel 4.17+ */
+probe nd2_syscall.getpid = kprobe.function(@arch_syscall0_prefix "sys_getpid") ?
+{
+	@_SYSCALL_GETPID_NAME
+	@_SYSCALL_GETPID_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.getpid = kernel.trace("sys_enter")
+{
+	@__syscall_compat_gate(@const("__NR_getpid"), @const("__NR_compat_getpid"))
+	@_SYSCALL_GETPID_NAME
+	@_SYSCALL_GETPID_ARGSTR
+}
+
+probe nd_syscall.getpid.return = nd1_syscall.getpid.return!, nd2_syscall.getpid.return!, tp_syscall.getpid.return
+  { }
+  
+probe nd1_syscall.getpid.return = kprobe.function("sys_getpid").return
 {
 	@_SYSCALL_GETPID_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.getpid.return = kprobe.function(@arch_syscall0_prefix "sys_getpid").return ?
+{
+	@_SYSCALL_GETPID_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.getpid.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_getpid"), @const("__NR_compat_getpid"))
+	@_SYSCALL_GETPID_NAME
+	retstr = return_str(1,$ret)
 }

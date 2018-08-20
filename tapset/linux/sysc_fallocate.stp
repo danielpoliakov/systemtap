@@ -37,7 +37,10 @@ probe dw_syscall.fallocate.return = kernel.function("sys_fallocate").return ?
 
 # nd_fallocate _____________________________________________________
 
-probe nd_syscall.fallocate = kprobe.function("sys_fallocate") ?
+probe nd_syscall.fallocate = nd1_syscall.fallocate!, nd2_syscall.fallocate!, tp_syscall.fallocate
+  { }
+
+probe nd1_syscall.fallocate = kprobe.function("sys_fallocate") ?
 {
 	asmlinkage()
 	@__syscall_gate_compat_simple
@@ -57,10 +60,65 @@ probe nd_syscall.fallocate = kprobe.function("sys_fallocate") ?
 %)
 	@_SYSCALL_FALLOCATE_ARGSTR
 }
-probe nd_syscall.fallocate.return = kprobe.function("sys_fallocate").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.fallocate = kprobe.function(@arch_syscall_prefix "sys_fallocate") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_FALLOCATE_NAME
+	fd = int_arg(1)
+	mode = uint_arg(2)
+	mode_str = _stp_fallocate_mode_str(mode)
+	offset = longlong_arg(3)
+	len = longlong_arg(4)
+	@_SYSCALL_FALLOCATE_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.fallocate = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_fallocate"))
+	@_SYSCALL_FALLOCATE_NAME
+	fd = int_arg(1)
+	mode = uint_arg(2)
+	mode_str = _stp_fallocate_mode_str(mode)
+%( CONFIG_64BIT == "y" %?
+	offset = longlong_arg(3)
+	len = longlong_arg(4)
+%:
+	# On a 32-bit kernel, 'long long' arguments take the space of
+	# 2 arguments, so we have to adjust the following argument
+	# numbers.
+	offset = longlong_arg(3)
+	len = longlong_arg(5)
+%)
+	@_SYSCALL_FALLOCATE_ARGSTR
+}
+
+probe nd_syscall.fallocate.return = nd1_syscall.fallocate.return!, nd2_syscall.fallocate.return!, tp_syscall.fallocate.return
+  { }
+  
+probe nd1_syscall.fallocate.return = kprobe.function("sys_fallocate").return ?
 {
 	asmlinkage()
 	@__syscall_gate_compat_simple
 	@_SYSCALL_FALLOCATE_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.fallocate.return = kprobe.function(@arch_syscall_prefix "sys_fallocate").return ?
+{
+	@_SYSCALL_FALLOCATE_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.fallocate.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_fallocate"))
+	@_SYSCALL_FALLOCATE_NAME
+	retstr = return_str(1,$ret)
 }

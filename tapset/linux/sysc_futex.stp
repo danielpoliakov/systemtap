@@ -15,6 +15,16 @@
 	name = "futex"
 %)
 
+@define _SYSCALL_FUTEX_REGARGS
+%(
+	futex_uaddr = pointer_arg(1)
+	op = int_arg(2)
+	val = int_arg(3)
+	utime_uaddr = pointer_arg(4)
+	uaddr2_uaddr = pointer_arg(5)
+	val3 = int_arg(6)
+%)
+
 probe syscall.futex = dw_syscall.futex !, nd_syscall.futex ? {}
 probe syscall.futex.return = dw_syscall.futex.return !,
                              nd_syscall.futex.return ? {}
@@ -62,38 +72,114 @@ probe dw_syscall.compat_futex.return =
 
 # nd_futex _____________________________________________________
 
-probe nd_syscall.futex = kprobe.function("sys_futex") ?
+probe nd_syscall.futex = nd1_syscall.futex!, nd2_syscall.futex!, tp_syscall.futex
+  { }
+
+probe nd1_syscall.futex = kprobe.function("sys_futex") ?
 {
 	@_SYSCALL_FUTEX_NAME
 	asmlinkage()
-	futex_uaddr = pointer_arg(1)
-	op = int_arg(2)
-	val = int_arg(3)
-	utime_uaddr = pointer_arg(4)
-	uaddr2_uaddr = pointer_arg(5)
-	val3 = int_arg(6)
+	@_SYSCALL_FUTEX_REGARGS
 	@__futex_argstr(futex_uaddr, op, val, utime_uaddr, uaddr2_uaddr, val3)
 }
-probe nd_syscall.futex.return = kprobe.function("sys_futex").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.futex = kprobe.function(@arch_syscall_prefix "sys_futex") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_FUTEX_NAME
+	@_SYSCALL_FUTEX_REGARGS
+	@__futex_argstr(futex_uaddr, op, val, utime_uaddr, uaddr2_uaddr, val3)
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.futex = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_futex"))
+	@_SYSCALL_FUTEX_NAME
+	@_SYSCALL_FUTEX_REGARGS
+	@__futex_argstr(futex_uaddr, op, val, utime_uaddr, uaddr2_uaddr, val3)
+}
+
+probe nd_syscall.futex.return = nd1_syscall.futex.return!, nd2_syscall.futex.return!, tp_syscall.futex.return
+  { }
+  
+probe nd1_syscall.futex.return = kprobe.function("sys_futex").return ?
 {
 	@_SYSCALL_FUTEX_NAME
 	retstr = returnstr(1)
 }
-probe nd_syscall.compat_futex = kprobe.function("compat_sys_futex") ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.futex.return = kprobe.function(@arch_syscall_prefix "sys_futex").return ?
+{
+	@_SYSCALL_FUTEX_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.futex.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_futex"))
+	@_SYSCALL_FUTEX_NAME
+	retstr = return_str(1,$ret)
+}
+
+probe nd_syscall.compat_futex = nd1_syscall.compat_futex!, nd2_syscall.compat_futex!, tp_syscall.compat_futex
+  { }
+
+probe nd1_syscall.compat_futex = kprobe.function("compat_sys_futex") ?
 {
 	@_SYSCALL_FUTEX_NAME
 	asmlinkage()
-	futex_uaddr = pointer_arg(1)
-	op = int_arg(2)
-	val = int_arg(3)
-	utime_uaddr = pointer_arg(4)
-	uaddr2_uaddr = pointer_arg(5)
-	val3 = int_arg(6)
+	@_SYSCALL_FUTEX_REGARGS
 	@__futex_argstr(futex_uaddr, op, val, utime_uaddr, uaddr2_uaddr, val3)
 }
-probe nd_syscall.compat_futex.return =
+
+/* kernel 4.17+ */
+probe nd2_syscall.compat_futex = kprobe.function(@arch_syscall_prefix "compat_sys_futex") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_FUTEX_NAME
+	@_SYSCALL_FUTEX_REGARGS
+	@__futex_argstr(futex_uaddr, op, val, utime_uaddr, uaddr2_uaddr, val3)
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.compat_futex = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_compat_futex"))
+	@_SYSCALL_FUTEX_NAME
+	@_SYSCALL_FUTEX_REGARGS
+	@__futex_argstr(futex_uaddr, op, val, utime_uaddr, uaddr2_uaddr, val3)
+}
+
+probe nd_syscall.compat_futex.return = nd1_syscall.compat_futex.return!, nd2_syscall.compat_futex.return!, tp_syscall.compat_futex.return
+  { }
+  
+probe nd1_syscall.compat_futex.return =
 	kprobe.function("compat_sys_futex").return ?
 {
 	@_SYSCALL_FUTEX_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.compat_futex.return =
+	kprobe.function(@arch_syscall_prefix "compat_sys_futex").return ?
+{
+	@_SYSCALL_FUTEX_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.compat_futex.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_compat_futex"))
+	@_SYSCALL_FUTEX_NAME
+	retstr = return_str(1,$ret)
 }

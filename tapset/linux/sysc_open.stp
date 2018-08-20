@@ -76,7 +76,6 @@ probe nd1_syscall.open = kprobe.function("compat_sys_open") ?,
 }
 
 probe nd2_syscall.open = kprobe.function(@arch_syscall_prefix "compat_sys_open") ?,
-                         kprobe.function(@arch_syscall_prefix "sys32_open") ?,
                          kprobe.function(@arch_syscall_prefix "sys_open") ?
 {
 	__set_syscall_pt_regs(pointer_arg(1))
@@ -109,7 +108,6 @@ probe nd1_syscall.open.return = kprobe.function("compat_sys_open").return ?,
 
 /* kernel 4.17+ */
 probe nd2_syscall.open.return = kprobe.function(@arch_syscall_prefix "compat_sys_open").return ?,
-                                kprobe.function(@arch_syscall_prefix "sys32_open").return ?,
                                 kprobe.function(@arch_syscall_prefix "sys_open").return ?
 {
 	@_SYSCALL_OPEN_NAME

@@ -52,8 +52,7 @@ probe nd1_syscall.alarm = kprobe.function("sys32_alarm") ?,
 }
 
 /* kernel 4.17+ */
-probe nd2_syscall.alarm = kprobe.function(@arch_syscall_prefix "sys32_alarm") ?,
-                          kprobe.function(@arch_syscall_prefix "sys_alarm") ?
+probe nd2_syscall.alarm = kprobe.function(@arch_syscall_prefix "sys_alarm") ?
 {
 	__set_syscall_pt_regs(pointer_arg(1))
 	@_SYSCALL_ALARM_NAME
@@ -82,8 +81,7 @@ probe nd1_syscall.alarm.return = kprobe.function("sys32_alarm").return ?,
 }
 
 /* kernel 4.17+ */
-probe nd2_syscall.alarm.return = kprobe.function(@arch_syscall_prefix "sys32_alarm").return ?,
-                                 kprobe.function(@arch_syscall_prefix "sys_alarm").return ?
+probe nd2_syscall.alarm.return = kprobe.function(@arch_syscall_prefix "sys_alarm").return ?
 {
 	@_SYSCALL_ALARM_NAME
 	retstr = returnstr(1) /* NB: not in the $regs */

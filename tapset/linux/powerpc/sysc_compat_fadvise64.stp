@@ -13,6 +13,25 @@
 	argstr = sprintf("%d, %d, %d, %s", fd, offset, len, advice_str)
 %)
 
+@define _SYSCALL_COMPAT_FADVISE64_REGARGS
+%(
+	fd = int_arg(1)
+	# The 2nd parameter is ignored.
+	offset = ((uint_arg(3) << 32) | uint_arg(4))
+	len = int_arg(5)
+	advice = int_arg(6)
+	advice_str = _fadvice_advice_str(advice)
+%)
+
+@define _SYSCALL_COMPAT_FADVISE64_64_REGARGS
+%(
+	fd = int_arg(1)
+	advice = int_arg(2)
+	advice_str = _fadvice_advice_str(advice)
+	offset = ((uint_arg(3) << 32) | uint_arg(4))
+	len = ((uint_arg(5) << 32) | uint_arg(6))
+%)
+
 probe syscall.compat_fadvise64 = dw_syscall.compat_fadvise64 !,
                                  nd_syscall.compat_fadvise64 ? {}
 probe syscall.compat_fadvise64.return = dw_syscall.compat_fadvise64.return !,
@@ -39,23 +58,44 @@ probe dw_syscall.compat_fadvise64.return =
 
 # nd_compat_fadvise64 _____________________________________________________
 
-probe nd_syscall.compat_fadvise64 = kprobe.function("ppc32_fadvise64") ?
+probe nd_syscall.compat_fadvise64 = nd1_syscall.compat_fadvise64!, tp_syscall.compat_fadvise64
+  { }
+
+probe nd1_syscall.compat_fadvise64 = kprobe.function("ppc32_fadvise64") ?
 {
 	asmlinkage()
 	@_SYSCALL_COMPAT_FADVISE64_NAME
-	fd = int_arg(1)
-	# The 2nd parameter is ignored.
-	offset = ((uint_arg(3) << 32) | uint_arg(4))
-	len = int_arg(5)
-	advice = int_arg(6)
-	advice_str = _fadvice_advice_str(advice)
+	@_SYSCALL_COMPAT_FADVISE64_REGARGS
 	@_SYSCALL_COMPAT_FADVISE64_ARGSTR
 }
-probe nd_syscall.compat_fadvise64.return =
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.compat_fadvise64 = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_fadvise64"))
+	@_SYSCALL_COMPAT_FADVISE64_NAME
+	@_SYSCALL_COMPAT_FADVISE64_REGARGS
+	@_SYSCALL_COMPAT_FADVISE64_ARGSTR
+}
+
+probe nd_syscall.compat_fadvise64.return = nd1_syscall.compat_fadvise64.return!, tp_syscall.compat_fadvise64.return
+  { }
+ 
+probe nd1_syscall.compat_fadvise64.return =
 	kprobe.function("ppc32_fadvise64").return ?
 {
 	@_SYSCALL_COMPAT_FADVISE64_NAME
 	retstr = returnstr(1)
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.compat_fadvise64.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_fadvise64"))
+	@_SYSCALL_COMPAT_FADVISE64_NAME
+	retstr = return_str(1,$ret)
 }
 
 # fadvise64 _______________________________________________________
@@ -89,20 +129,42 @@ probe dw_syscall.compat_fadvise64_64.return =
 
 # nd_compat_fadvise64_64 _____________________________________________________
 
-probe nd_syscall.compat_fadvise64_64 = kprobe.function("ppc_fadvise64_64") ?
+probe nd_syscall.compat_fadvise64_64 = nd1_syscall.compat_fadvise64_64!, tp_syscall.compat_fadvise64_64
+  { }
+
+probe nd1_syscall.compat_fadvise64_64 = kprobe.function("ppc_fadvise64_64") ?
 {
 	asmlinkage()
 	@_SYSCALL_COMPAT_FADVISE64_NAME
-	fd = int_arg(1)
-	advice = int_arg(2)
-	advice_str = _fadvice_advice_str(advice)
-	offset = ((uint_arg(3) << 32) | uint_arg(4))
-	len = ((uint_arg(5) << 32) | uint_arg(6))
+	@_SYSCALL_COPMAT_FADVISE64_64_REGARGS
 	@_SYSCALL_COMPAT_FADVISE64_ARGSTR
 }
-probe nd_syscall.compat_fadvise64_64.return =
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.compat_fadvise64_64 = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_fadvise64_64"))
+	@_SYSCALL_COMPAT_FADVISE64_NAME
+	@_SYSCALL_COMPAT_FADVISE64_64_REGARGS
+	@_SYSCALL_COMPAT_FADVISE64_ARGSTR
+}
+
+probe nd_syscall.compat_fadvise64_64.return = nd1_syscall.compat_fadvise64_64.return!, tp_syscall.compat_fadvise64_64.return
+  { }
+
+probe nd1_syscall.compat_fadvise64_64.return =
 	kprobe.function("ppc_fadvise64_64").return ?
 {
 	@_SYSCALL_COMPAT_FADVISE64_NAME
 	retstr = returnstr(1)
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.compat_fadvise64_64.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_fadvise64_64"))
+	@_SYSCALL_COMPAT_FADVISE64_NAME
+	retstr = return_str(1,$ret)
 }

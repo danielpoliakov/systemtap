@@ -13,6 +13,15 @@
 	argstr = sprintf("%d, %s, %#x, %u", fd, mode_str, offset, len)
 %)
 
+@define _SYSCALL_COMPAT_FALLOCATE_REGARGS
+%(
+	fd = int_arg(1)
+	mode = int_arg(2)
+	mode_str = _stp_fallocate_mode_str(mode)
+	offset = ((uint_arg(3) << 32) | uint_arg(4))
+	len = ((uint_arg(5) << 32) | uint_arg(6))
+%)
+
 probe syscall.compat_fallocate = dw_syscall.compat_fallocate !,
                                  nd_syscall.compat_fallocate ? {}
 probe syscall.compat_fallocate.return = dw_syscall.compat_fallocate.return !,
@@ -39,20 +48,42 @@ probe dw_syscall.compat_fallocate.return =
 
 # nd_compat_fallocate _____________________________________________________
 
-probe nd_syscall.compat_fallocate = kprobe.function("compat_sys_fallocate") ?
+probe nd_syscall.compat_fallocate = nd1_syscall.compat_fallocate!, tp_syscall.compat_fallocate
+  { }
+
+probe nd1_syscall.compat_fallocate = kprobe.function("compat_sys_fallocate") ?
 {
 	asmlinkage()
 	@_SYSCALL_COMPAT_FALLOCATE_NAME
-	fd = int_arg(1)
-	mode = int_arg(2)
-	mode_str = _stp_fallocate_mode_str(mode)
-	offset = ((uint_arg(3) << 32) | uint_arg(4))
-	len = ((uint_arg(5) << 32) | uint_arg(6))
+	@_SSYCALL_COMPAT_FALLOCATE_REGARGS
 	@_SYSCALL_COMPAT_FALLOCATE_ARGSTR
 }
-probe nd_syscall.compat_fallocate.return =
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.compat_fallocate = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_fallocate"))
+	@_SYSCALL_COMPAT_FALLOCATE_NAME
+	@_SYSCALL_COMPAT_FALLOCATE_REGARGS
+	@_SYSCALL_COMPAT_FALLOCATE_ARGSTR
+}
+
+probe nd_syscall.compat_fallocate.return = nd1_syscall.compat_fallocate.return!, tp_syscall.compat_fallocate.return
+  { }
+  
+probe nd1_syscall.compat_fallocate.return =
 	kprobe.function("compat_sys_fallocate").return ?
 {
 	@_SYSCALL_COMPAT_FALLOCATE_NAME
 	retstr = returnstr(1)
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.compat_fallocate.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_fallocate"))
+	@_SYSCALL_COMPAT_FALLOCATE_NAME
+	retstr = return_str(1,$ret)
 }

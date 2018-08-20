@@ -75,7 +75,10 @@ probe dw_syscall.clone.return = kernel.function("_do_fork").return !,
 
 # nd_clone _____________________________________________________
 
-probe nd_syscall.clone = kprobe.function("_do_fork").call !,
+probe nd_syscall.clone = nd1_syscall.clone!, tp_syscall.clone
+  { }
+
+probe nd1_syscall.clone = kprobe.function("_do_fork").call !,
 	kprobe.function("do_fork").call
 {
 %( arch != "ia64" %?
@@ -121,7 +124,46 @@ probe nd_syscall.clone = kprobe.function("_do_fork").call !,
 				 stack_size, parent_tid_uaddr, child_tid_uaddr)
 %)
 }
-probe nd_syscall.clone.return = kprobe.function("_do_fork").return !,
+
+probe tp_syscall.clone = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+%( arch != "ia64" %?
+	@__syscall_compat_gate(@const("__NR_clone"), @const("__NR_compat_clone"))
+	name = "clone"
+%:
+	@__syscall_gate2(@const("__NR_clone"), @const("__NR_clone2"))
+	// This is a bit gross. We're depending on @__syscall_gate2()
+	// to set '__nr' for us. If its implementation changes, this will
+	// need to change.
+	if (__nr == @const("__NR_clone"))
+		name = "clone"
+	else {
+		name = "clone2"
+		stack_size = ulong_arg(3)
+	}
+%)
+
+	clone_flags = long_arg(@SYSC_CLONE_CLONE_FLAGS_ARGNO)
+	stack_start = pointer_arg(@SYSC_CLONE_STACK_START_ARGNO)
+	parent_tid_uaddr = pointer_arg(@SYSC_CLONE_PARENT_TID_UADDR_ARGNO)
+	child_tid_uaddr = pointer_arg(@SYSC_CLONE_CHILD_TID_UADDR_ARGNO)
+
+%( arch != "ia64" %?
+	argstr = sprintf("%s, %p, %p, %p", __fork_flags(clone_flags),
+	                 stack_start, parent_tid_uaddr, child_tid_uaddr)
+%:
+	if (__nr == @const("__NR_clone"))
+		argstr = sprintf("%s, %p, %p, %p", __fork_flags(clone_flags),
+		                 stack_start, parent_tid_uaddr, child_tid_uaddr)
+	else
+		argstr = sprintf("%s, %p, %p, %p, %p",
+		                 __fork_flags(clone_flags), stack_start,
+				 stack_size, parent_tid_uaddr, child_tid_uaddr)
+%)
+}
+
+probe nd1_syscall.clone.return = kprobe.function("_do_fork").return !,
 	kprobe.function("do_fork").return
 {
 %( arch != "ia64" %?
@@ -138,4 +180,23 @@ probe nd_syscall.clone.return = kprobe.function("_do_fork").return !,
 		name = "clone2"
 %)
 	retstr = returnstr(1)
+}
+
+probe tp_syscall.clone.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+%( arch != "ia64" %?
+	@__syscall_compat_gate(@const("__NR_clone"), @const("__NR_compat_clone"))
+	name = "clone"
+%:
+	@__syscall_gate2(@const("__NR_clone"), @const("__NR_clone2"))
+	// This is a bit gross. We're depending on @__syscall_gate2()
+	// to set '__nr' for us. If its implementation changes, this will
+	// need to change.
+	if (__nr == @const("__NR_clone"))
+		name = "clone"
+	else
+		name = "clone2"
+%)
+	retstr = return_str(1,$ret)
 }

@@ -178,9 +178,9 @@ int main()
   close(-1);
   //staptest// close (-1) = -NNNN (EBADF)
 
-// Note glibc's wrapper function for open() calls openat() so we need to run some extra
-// tests using our own wrapper to make sure open() works.
-#if GLIBC_SUPPORT
+  // Since glibc 2.26, the wrapper function for open() calls openat() so we need
+  // to run some extra tests using our own wrapper to make sure open() works.
+#if __GLIBC_PREREQ(2, 26)
   fd1 = __open("foobar2", O_WRONLY|O_CREAT, S_IRWXU);
   //staptest// open ("foobar2", O_WRONLY|O_CREAT[[[[.O_LARGEFILE]]]]?, 0700) = NNNN
   close(fd1);

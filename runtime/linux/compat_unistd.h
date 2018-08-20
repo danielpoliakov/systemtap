@@ -37,6 +37,9 @@
 #ifndef __NR_connect
 #define __NR_connect (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_copy_file_range
+#define __NR_copy_file_range (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_epoll_wait
 #define __NR_epoll_wait (__NR_syscall_max + 1)
 #endif
@@ -54,6 +57,9 @@
 #endif
 #ifndef __NR_getcpu
 #define __NR_getcpu (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_getgroups32
+#define __NR_getgroups32 (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_getpeername
 #define __NR_getpeername (__NR_syscall_max + 1)
@@ -219,6 +225,9 @@
 #ifndef __NR_ia32_close
 #define __NR_ia32_close 6
 #endif
+#ifndef __NR_ia32_copy_file_range
+#define __NR_ia32_copy_file_range 377
+#endif 
 #ifndef __NR_ia32_creat
 #define __NR_ia32_creat 8
 #endif
@@ -255,6 +264,15 @@
 #ifndef __NR_ia32_faccessat
 #define __NR_ia32_faccessat 307
 #endif
+#ifndef __NR_ia32_fadvise64
+#define __NR_ia32_fadvise64 250
+#endif
+#ifndef __NR_ia32_fadvise64_64
+#define __NR_ia32_fadvise64_64 272
+#endif
+#ifndef __NR_ia32_fallocate
+#define __NR_ia32_fallocate 324
+#endif
 #ifndef __NR_ia32_fanotify_init
 #define __NR_ia32_fanotify_init 338
 #endif
@@ -282,6 +300,9 @@
 #ifndef __NR_ia32_flock
 #define __NR_ia32_flock 143
 #endif
+#ifndef __NR_ia32_fork
+#define __NR_ia32_fork 2
+#endif
 #ifndef __NR_ia32_fremovexattr
 #define __NR_ia32_fremovexattr 237
 #endif
@@ -294,17 +315,50 @@
 #ifndef __NR_ia32_futimesat
 #define __NR_ia32_futimesat 299
 #endif
+#ifndef __NR_ia32_futex
+#define __NR_ia32_futex 240
+#endif
 #ifndef __NR_ia32_getcpu
 #define __NR_ia32_getcpu 318
+#endif
+#ifndef __NR_ia32_getdents
+#define __NR_ia32_getdents 141
+#endif
+#ifndef __NR_ia32_getdents64
+#define __NR_ia32_getdents64 220
+#endif  
+#ifndef __NR_ia32_getgroups
+#define __NR_ia32_getgroups 80
+#endif
+#ifndef __NR_ia32_getgroups32
+#define __NR_ia32_getgroups32 205
+#endif
+#ifndef __NR_ia32_getitimer
+#define __NR_ia32_getitimer 105
 #endif
 #ifndef __NR_ia32_getpgid
 #define __NR_ia32_getpgid 132
 #endif
+#ifndef __NR_ia32_getpid
+#define __NR_ia32_getpid 20 
+#endif
+#ifndef __NR_ia32_getppid
+#define __NR_ia32_getppid 64
+#endif
+#ifndef __NR_ia32_getpriority
+#define __NR_ia32_getpriority 96
+#endif
 #ifndef __NR_ia32_getrandom
 #define __NR_ia32_getrandom 355
 #endif 
+#ifndef __NR_ia32_getrusage
+#define __NR_ia32_getrusage 77
+#endif 
 #ifndef __NR_ia32_getsid
 #define __NR_ia32_getsid 147
+#endif
+#ifndef __NR_ia32_gettid
+#define __NR_ia32_gettid 224
 #endif
 #ifndef __NR_ia32_gettimeofday
 #define __NR_ia32_gettimeofday 78
@@ -359,6 +413,9 @@
 #endif
 #ifndef __NR_ia32_llistxattr
 #define __NR_ia32_llistxattr 233
+#endif
+#ifndef __NR_ia32_lookup_dcookie
+#define __NR_ia32_lookup_dcookie 253
 #endif
 #ifndef __NR_ia32_lremovexattr
 #define __NR_ia32_lremovexattr 236
@@ -416,6 +473,9 @@
 #endif
 #ifndef __NR_ia32_pipe2
 #define __NR_ia32_pipe2 331
+#endif
+#ifndef __NR_ia32_prlimit64
+#define __NR_ia32_prlimit64 340
 #endif
 #ifndef __NR_ia32_pselect6
 #define __NR_ia32_pselect6 308
@@ -479,6 +539,9 @@
 #ifndef __NR_ia32_setreuid32
 #define __NR_ia32_setreuid32 203
 #endif
+#ifndef __NR_ia32_setrlimit
+#define __NR_ia32_setrlimit 75
+#endif
 #ifndef __NR_ia32_settimeofday
 #define __NR_ia32_settimeofday 79
 #endif
@@ -508,9 +571,21 @@
 #ifndef __NR_ia32_truncate
 #define __NR_ia32_truncate 92
 #endif
+#ifndef __NR_ia32_ugetrlimit
+#define __NR_ia32_ugetrlimit 191
+#endif 
 #ifndef __NR_ia32_umount2
 #define __NR_ia32_umount2 52
 #endif
+#ifndef __NR_ia32_utime
+#define __NR_ia32_utime 30 
+#endif
+#ifndef __NR_ia32_utimensat
+#define __NR_ia32_utimensat 320
+#endif 
+#ifndef __NR_ia32_utimes
+#define __NR_ia32_utimes 271
+#endif 
 #ifndef __NR_ia32_wait4
 #define __NR_ia32_wait4 114
 #endif
@@ -537,6 +612,7 @@
 #define __NR_compat_clock_settime	__NR_ia32_clock_settime
 #define __NR_compat_clone		__NR_ia32_clone
 #define __NR_compat_close		__NR_ia32_close
+#define __NR_compat_copy_file_range	__NR_ia32_copy_file_range
 #define __NR_compat_creat		__NR_ia32_creat
 #define __NR_compat_dup			__NR_ia32_dup
 #define __NR_compat_dup2		__NR_ia32_dup2
@@ -557,14 +633,26 @@
 #define __NR_compat_fgetxattr		__NR_ia32_fgetxattr
 #define __NR_compat_flistxattr		__NR_ia32_flistxattr
 #define __NR_compat_flock		__NR_ia32_flock
+#define __NR_compat_fork		__NR_ia32_fork
 #define __NR_compat_fremovexattr	__NR_ia32_fremovexattr
 #define __NR_compat_fsetxattr		__NR_ia32_fsetxattr
 #define __NR_compat_ftruncate		__NR_ia32_ftruncate
 #define __NR_compat_futimesat		__NR_ia32_futimesat
+#define __NR_compat_futex		__NR_ia32_futex
 #define __NR_compat_getcpu		__NR_ia32_getcpu
+#define __NR_compat_getdents		__NR_ia32_getdents
+#define __NR_compat_getdents64		__NR_ia32_getdents64
+#define __NR_compat_getgroups		__NR_ia32_getgroups
+#define __NR_compat_getgroups32		__NR_ia32_getgroups32
+#define __NR_compat_getitimer		__NR_ia32_getitimer
 #define __NR_compat_getpgid		__NR_ia32_getpgid
+#define __NR_compat_getpid		__NR_ia32_getpid
+#define __NR_compat_getppid		__NR_ia32_getppid
+#define __NR_compat_getpriority		__NR_ia32_getpriority
 #define __NR_compat_getrandom		__NR_ia32_getrandom
+#define __NR_compat_getrusage		__NR_ia32_getrusage
 #define __NR_compat_getsid		__NR_ia32_getsid
+#define __NR_compat_gettid		__NR_ia32_gettid
 #define __NR_compat_gettimeofday	__NR_ia32_gettimeofday
 #define __NR_compat_inotify_init1	__NR_ia32_inotify_init1
 #define __NR_compat_io_cancel		__NR_ia32_io_cancel
@@ -600,6 +688,7 @@
 #define __NR_compat_openat		__NR_ia32_openat
 #define __NR_compat_pause		__NR_ia32_pause
 #define __NR_compat_pipe2		__NR_ia32_pipe2
+#define __NR_compat_prlimit64		__NR_ia32_prlimit64
 #define __NR_compat_pselect6		__NR_ia32_pselect6
 #define __NR_compat_pselect7		__NR_ia32_pselect7
 #define __NR_compat_read		__NR_ia32_read
@@ -613,6 +702,7 @@
 #define __NR_compat_rt_sigprocmask	__NR_ia32_rt_sigprocmask
 #define __NR_compat_sendmmsg		__NR_ia32_sendmmsg
 #define __NR_compat_setdomainname	__NR_ia32_setdomainname
+#define __NR_compat_setrlimit		__NR_ia32_setrlimit
 #define __NR_compat_settimeofday	__NR_ia32_settimeofday
 #define __NR_compat_shmctl		__NR_ia32_shmctl
 #define __NR_compat_socketcall		__NR_ia32_socketcall
@@ -621,7 +711,11 @@
 #define __NR_compat_symlinkat		__NR_ia32_symlinkat
 #define __NR_compat_time		__NR_ia32_time
 #define __NR_compat_truncate		__NR_ia32_truncate
+#define __NR_compat_ugetrlimit		__NR_ia32_ugetrlimit
 #define __NR_compat_umount2		__NR_ia32_umount2
+#define __NR_compat_utime		__NR_ia32_utime
+#define __NR_compat_utimensat		__NR_ia32_utimensat
+#define __NR_compat_utimes		__NR_ia32_utimes
 #define __NR_compat_wait4		__NR_ia32_wait4
 #define __NR_compat_write		__NR_ia32_write
 
@@ -655,6 +749,7 @@
 #define __NR_compat_clock_settime	__NR_clock_settime
 #define __NR_compat_clone		__NR_clone
 #define __NR_compat_close		__NR_close
+#define __NR_compat_copy_file_range	__NR_copy_file_range
 #define __NR_compat_creat		__NR_creat
 #define __NR_compat_dup			__NR_dup
 #define __NR_compat_dup2		__NR_dup2
@@ -675,14 +770,26 @@
 #define __NR_compat_fgetxattr		__NR_fgetxattr
 #define __NR_compat_flistxattr		__NR_flistxattr
 #define __NR_compat_flock		__NR_flock
+#define __NR_compat_fork		__NR_fork
 #define __NR_compat_fremovexattr	__NR_fremovexattr
 #define __NR_compat_fsetxattr		__NR_fsetxattr
 #define __NR_compat_ftruncate		__NR_ftruncate
 #define __NR_compat_futimesat		__NR_futimesat
+#define __NR_compat_futex		__NR_futex
 #define __NR_compat_getcpu		__NR_getcpu
+#define __NR_compat_getdents		__NR_getdents
+#define __NR_compat_getdents64		__NR_getdents64
+#define __NR_compat_getgroups		__NR_getgroups
+#define __NR_compat_getgroups32		__NR_getgroups32
+#define __NR_compat_getitimer		__NR_getitimer
 #define __NR_compat_getpgid		__NR_getpgid
+#define __NR_compat_getpid		__NR_getpid
+#define __NR_compat_getppid		__NR_getppid
+#define __NR_compat_getpriority		__NR_getpriority
 #define __NR_compat_getrandom		__NR_getrandom
+#define __NR_comapt_getrusage		__NR_getrusage
 #define __NR_compat_getsid		__NR_getsid
+#define __NR_compat_gettid		__NR_gettid
 #define __NR_compat_gettimeofday	__NR_gettimeofday
 #define __NR_compat_inotify_init1	__NR_inotify_init1
 #define __NR_compat_io_cancel		__NR_io_cancel
@@ -718,6 +825,7 @@
 #define __NR_compat_openat		__NR_openat
 #define __NR_compat_pause		__NR_pause
 #define __NR_compat_pipe2		__NR_pipe2
+#define __NR_compat_prlimit64		__NR_prlimit64
 #define __NR_compat_pselect6		__NR_pselect6
 #define __NR_compat_pselect7		__NR_pselect7
 #define __NR_compat_read		__NR_read
@@ -731,6 +839,7 @@
 #define __NR_compat_rt_sigprocmask	__NR_rt_sigprocmask
 #define __NR_compat_sendmmsg		__NR_sendmmsg
 #define __NR_compat_setdomainname	__NR_setdomainname
+#define __NR_compat_setrlimit		__NR_setrlimit
 #define __NR_compat_settimeofday	__NR_settimeofday
 #define __NR_compat_shmctl		__NR_shmctl
 #define __NR_compat_socketcall		__NR_socketcall
@@ -739,7 +848,11 @@
 #define __NR_compat_symlinkat		__NR_symlinkat
 #define __NR_compat_time		__NR_time
 #define __NR_compat_truncate		__NR_truncate
+#define __NR_compat_ugetrlimit		__NR_ugetrlimit
 #define __NR_compat_umount2		__NR_umount2
+#define __NR_compat_utime		__NR_utime
+#define __NR_compat_utimensat		__NR_utimensat
+#define __NR_compat_utimes		__NR_utimes
 #define __NR_compat_wait4		__NR_wait4
 #define __NR_compat_write		__NR_write
 

@@ -13,6 +13,21 @@
 	argstr = sprintf("%s, %s", filename, tvp_uaddr_str) 
 %)
 
+@define _SYSCALL_UTIMES_REGARGS
+%(
+	filename_uaddr = pointer_arg(1)
+	filename = user_string_quoted(filename_uaddr)
+	tvp_uaddr = pointer_arg(2)
+	tvp_uaddr_str = _struct_timeval_u(tvp_uaddr, 2)
+%)
+
+@define _SYSCALL_COMPAT_SYS_UTIMES_REGARGS
+%(
+	filename = user_string_quoted(pointer_arg(1))
+	timeval = pointer_arg(2)
+	tvp_uaddr_str = _struct_compat_timeval_u(timeval, 2)
+%)
+
 probe syscall.utimes = dw_syscall.utimes !, nd_syscall.utimes ? {}
 probe syscall.utimes.return = dw_syscall.utimes.return !,
                               nd_syscall.utimes.return ? {}
@@ -36,20 +51,59 @@ probe dw_syscall.utimes.return = kernel.function("sys_utimes").return
 
 # nd_utimes _____________________________________________________
 
-probe nd_syscall.utimes = kprobe.function("sys_utimes") ?
+probe nd_syscall.utimes = nd1_syscall.utimes!, nd2_syscall.utimes!, tp_syscall.utimes
+  { }
+
+probe nd1_syscall.utimes = kprobe.function("sys_utimes") ?
 {
 	@_SYSCALL_UTIMES_NAME
 	asmlinkage()
-	filename_uaddr = pointer_arg(1)
-	filename = user_string_quoted(filename_uaddr)
-	tvp_uaddr = pointer_arg(2)
-	tvp_uaddr_str = _struct_timeval_u(tvp_uaddr, 2)
+	@_SYSCALL_UTIMES_REGARGS
 	@_SYSCALL_UTIMES_ARGSTR
 }
-probe nd_syscall.utimes.return = kprobe.function("sys_utimes").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.utimes = kprobe.function(@arch_syscall_prefix "sys_utimes") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_UTIMES_NAME
+	@_SYSCALL_UTIMES_REGARGS
+	@_SYSCALL_UTIMES_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.utimes = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_utimes"))
+	@_SYSCALL_UTIMES_NAME
+	@_SYSCALL_UTIMES_REGARGS
+	@_SYSCALL_UTIMES_ARGSTR
+}
+
+probe nd_syscall.utimes.return = nd1_syscall.utimes.return!, nd2_syscall.utimes.return!, tp_syscall.utimes.return
+  { }
+  
+probe nd1_syscall.utimes.return = kprobe.function("sys_utimes").return ?
 {
 	@_SYSCALL_UTIMES_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.utimes.return = kprobe.function(@arch_syscall_prefix "sys_utimes").return ?
+{
+	@_SYSCALL_UTIMES_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.utimes.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_utimes"))
+	@_SYSCALL_UTIMES_NAME
+	retstr = return_str(1,$ret)
 }
 
 # compat_sys_utimes ________________________________________
@@ -80,17 +134,57 @@ probe dw_syscall.compat_sys_utimes.return = kernel.function("compat_sys_utimes")
 
 # nd_compat_sys_utimes _____________________________________________________
 
-probe nd_syscall.compat_sys_utimes = kprobe.function("compat_sys_utimes") ?
+probe nd_syscall.compat_sys_utimes = nd1_syscall.compat_sys_utimes!, nd2_syscall.compat_sys_utimes!, tp_syscall.compat_sys_utimes
+  { }
+
+probe nd1_syscall.compat_sys_utimes = kprobe.function("compat_sys_utimes") ?
 {
 	@_SYSCALL_UTIMES_NAME
 	asmlinkage()
-	filename = user_string_quoted(pointer_arg(1))
-	timeval = pointer_arg(2)
-	tvp_uaddr_str = _struct_compat_timeval_u(timeval, 2)
+	@_SYSCALL_COMPAT_SYS_UTIMES_REGARGS
 	@_SYSCALL_UTIMES_ARGSTR
 }
-probe nd_syscall.compat_sys_utimes.return = kprobe.function("compat_sys_utimes").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.compat_sys_utimes = kprobe.function(@arch_syscall_prefix "compat_sys_utimes") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_UTIMES_NAME
+	@_SYSCALL_COMPAT_SYS_UTIMES_REGARGS
+	@_SYSCALL_UTIMES_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.compat_sys_utimes = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_compat_utimes"))
+	@_SYSCALL_UTIMES_NAME
+	@_SYSCALL_COMPAT_SYS_UTIMES_REGARGS
+	@_SYSCALL_UTIMES_ARGSTR
+}
+
+probe nd_syscall.compat_sys_utimes.return = nd1_syscall.compat_sys_utimes.return!, nd2_syscall.compat_sys_utimes.return!, tp_syscall.compat_sys_utimes.return
+  { }
+  
+probe nd1_syscall.compat_sys_utimes.return = kprobe.function("compat_sys_utimes").return ?
 {
 	@_SYSCALL_UTIMES_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.compat_sys_utimes.return = kprobe.function(@arch_syscall_prefix "compat_sys_utimes").return ?
+{
+	@_SYSCALL_UTIMES_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.compat_sys_utimes.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_compat_utimes"))
+	@_SYSCALL_UTIMES_NAME
+	retstr = return_str(1,$ret)
 }

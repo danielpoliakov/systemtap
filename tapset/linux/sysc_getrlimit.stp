@@ -13,6 +13,12 @@
 	argstr = sprintf("%s, %p", _rlimit_resource_str(resource), rlim_uaddr)
 %)
 
+@define _SYSCALL_GETRLIMIT_REGARGS
+%(
+	resource = int_arg(1)
+	rlim_uaddr = pointer_arg(2)
+%)
+
 probe syscall.getrlimit = dw_syscall.getrlimit !, nd_syscall.getrlimit ? {}
 probe syscall.getrlimit.return = dw_syscall.getrlimit.return !,
                                  nd_syscall.getrlimit.return ? {}
@@ -47,29 +53,73 @@ probe __syscall.getrlimit.return = kernel.function("sys_getrlimit").return
 
 # nd_getrlimit _____________________________________________________
 
-probe nd_syscall.getrlimit = __nd_syscall.getrlimit ?,
+probe nd_syscall.getrlimit = nd1_syscall.getrlimit!, nd2_syscall.getrlimit!, tp_syscall.getrlimit
+  { }
+
+probe nd1_syscall.getrlimit = __nd1_syscall.getrlimit ?,
 	kprobe.function("compat_sys_getrlimit") ?,
 	kprobe.function("sys_old_getrlimit") ?
 {
 	@_SYSCALL_GETRLIMIT_NAME
 	asmlinkage()
-	resource = int_arg(1)
-	rlim_uaddr = pointer_arg(2)
+	@_SYSCALL_GETRLIMIT_REGARGS
 	@_SYSCALL_GETRLIMIT_ARGSTR
 }
-probe __nd_syscall.getrlimit = kprobe.function("sys_getrlimit")
+probe __nd1_syscall.getrlimit = kprobe.function("sys_getrlimit")
 {
 	@__syscall_gate_compat_simple
 }
-probe nd_syscall.getrlimit.return = __nd_syscall.getrlimit.return ?,
+
+/* kernel 4.17+ */
+probe nd2_syscall.getrlimit =
+	kprobe.function(@arch_syscall_prefix "sys_getrlimit") ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_getrlimit") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_GETRLIMIT_NAME
+	@_SYSCALL_GETRLIMIT_REGARGS
+	@_SYSCALL_GETRLIMIT_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.getrlimit = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_getrlimit"), @const("__NR_compat_ugetrlimit"))
+	@_SYSCALL_GETRLIMIT_NAME
+	@_SYSCALL_GETRLIMIT_REGARGS
+	@_SYSCALL_GETRLIMIT_ARGSTR
+}
+
+probe nd_syscall.getrlimit.return = nd1_syscall.getrlimit.return!, nd2_syscall.getrlimit.return!, tp_syscall.getrlimit.return
+  { }
+  
+probe nd1_syscall.getrlimit.return = __nd1_syscall.getrlimit.return ?,
 	kprobe.function("sys_old_getrlimit").return ?,
-	kprobe.function("compat_sys_getrlimit").return ?,
-	__nd_syscall.old_getrlimit.return ?
+	kprobe.function("compat_sys_getrlimit").return ?
 {
 	@_SYSCALL_GETRLIMIT_NAME
 	retstr = returnstr(1)
 }
-probe __nd_syscall.getrlimit.return = kprobe.function("sys_getrlimit").return
+probe __nd1_syscall.getrlimit.return = kprobe.function("sys_getrlimit").return
 {
 	@__syscall_gate_compat_simple
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.getrlimit.return =
+	kprobe.function(@arch_syscall_prefix "sys_getrlimit").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_getrlimit").return ?
+{
+	@_SYSCALL_GETRLIMIT_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.getrlimit.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_getrlimit"), @const("__NR_compat_ugetrlimit"))
+	@_SYSCALL_GETRLIMIT_NAME
+	retstr = return_str(1,$ret)
 }

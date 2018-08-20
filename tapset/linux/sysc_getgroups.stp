@@ -14,6 +14,12 @@
 	argstr = sprintf("%d, %p", size, list_uaddr)
 %)
 
+@define _SYSCALL_GETGROUPS_REGARGS
+%(
+	size = int_arg(1)
+	list_uaddr = pointer_arg(2)
+%)
+
 probe syscall.getgroups = dw_syscall.getgroups !, nd_syscall.getgroups ? {}
 probe syscall.getgroups.return = dw_syscall.getgroups.return !, nd_syscall.getgroups.return ? {}
 
@@ -45,7 +51,10 @@ probe dw_syscall.getgroups.return =
 
 # nd_getgroups _____________________________________________________
 
-probe nd_syscall.getgroups = kprobe.function("sys_getgroups16") ?,
+probe nd_syscall.getgroups = nd1_syscall.getgroups!, nd2_syscall.getgroups!, tp_syscall.getgroups
+  { }
+
+probe nd1_syscall.getgroups = kprobe.function("sys_getgroups16") ?,
 	kprobe.function("sys32_getgroups16") ?,
 %( arch == "s390" %?
 	kprobe.function("compat_sys_s390_getgroups16") ?,
@@ -54,11 +63,41 @@ probe nd_syscall.getgroups = kprobe.function("sys_getgroups16") ?,
 {
 	@_SYSCALL_GETGROUPS_NAME
 	asmlinkage()
-	size = int_arg(1)
-	list_uaddr = pointer_arg(2)
+	@_SYSCALL_GETGROUPS_REGARGS
 	@_SYSCALL_GETGROUPS_ARGSTR
 }
-probe nd_syscall.getgroups.return =
+
+/* kernel 4.17+ */
+probe nd2_syscall.getgroups = kprobe.function(@arch_syscall_prefix "sys_getgroups16") ?,
+	kprobe.function(@arch_syscall_prefix "sys_getgroups") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_GETGROUPS_NAME
+	@_SYSCALL_GETGROUPS_REGARGS
+	@_SYSCALL_GETGROUPS_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.getgroups = __tp_syscall.getgroups, __tp_syscall.getgroups32
+{
+	__set_syscall_pt_regs($regs)
+	@_SYSCALL_GETGROUPS_NAME
+	@_SYSCALL_GETGROUPS_REGARGS
+	@_SYSCALL_GETGROUPS_ARGSTR
+}
+probe __tp_syscall.getgroups = kernel.trace("sys_enter")
+{
+	@__syscall_compat_gate(@const("__NR_getgroups"), @const("__NR_compat_getgroups"))
+}
+probe __tp_syscall.getgroups32 = kernel.trace("sys_enter")
+{
+	@__syscall_compat_gate(@const("__NR_getgroups32"), @const("__NR_compat_getgroups32"))
+}
+
+probe nd_syscall.getgroups.return = nd1_syscall.getgroups.return!, nd2_syscall.getgroups.return!, tp_syscall.getgroups.return
+  { }
+  
+probe nd1_syscall.getgroups.return =
 	kprobe.function("sys_getgroups16").return ?,
 	kprobe.function("sys32_getgroups16").return ?,
 %( arch == "s390" %?
@@ -68,4 +107,28 @@ probe nd_syscall.getgroups.return =
 {
 	@_SYSCALL_GETGROUPS_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.getgroups.return = kprobe.function(@arch_syscall_prefix "sys_getgroups16").return ?,
+	kprobe.function(@arch_syscall_prefix "sys_getgroups").return ?
+{
+	@_SYSCALL_GETGROUPS_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.getgroups.return = __tp_syscall.getgroups.return, __tp_syscall.getgroups32.return 
+{
+	__set_syscall_pt_regs($regs)
+	@_SYSCALL_GETGROUPS_NAME
+	retstr = return_str(1,$ret)
+}
+probe __tp_syscall.getgroups.return = kernel.trace("sys_exit")
+{
+	@__syscall_compat_gate(@const("__NR_getgroups"), @const("__NR_compat_getgroups"))
+}
+probe __tp_syscall.getgroups32.return = kernel.trace("sys_exit")
+{
+	@__syscall_compat_gate(@const("__NR_getgroups32"), @const("__NR_compat_getgroups32"))
 }

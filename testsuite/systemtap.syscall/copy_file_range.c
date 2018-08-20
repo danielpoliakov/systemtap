@@ -11,7 +11,9 @@
 #include <sys/types.h>
 #include <limits.h>
 
-#ifdef SYS_copy_file_range
+// We'd like to use the gilbc wrapper here, but it only exists in
+// glibc 2.27+. When it does exist, we use our own wrapper.
+#if defined(SYS_copy_file_range) && !__GLIBC_PREREQ(2, 27)
 static loff_t
 copy_file_range(int fd_in, loff_t *off_in, int fd_out,
 		loff_t *off_out, size_t len, unsigned int flags)

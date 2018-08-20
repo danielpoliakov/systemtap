@@ -30,13 +30,51 @@ probe dw_syscall.getppid.return = kernel.function("sys_getppid").return
 
 # nd_getppid _____________________________________________________
 
-probe nd_syscall.getppid = kprobe.function("sys_getppid")
+probe nd_syscall.getppid = nd1_syscall.getppid!, nd2_syscall.getppid!, tp_syscall.getppid
+  { }
+
+probe nd1_syscall.getppid = kprobe.function("sys_getppid")
 {
 	@_SYSCALL_GETPPID_NAME
 	@_SYSCALL_GETPPID_ARGSTR
 }
-probe nd_syscall.getppid.return = kprobe.function("sys_getppid").return
+
+/* kernel 4.17+ */
+probe nd2_syscall.getppid = kprobe.function(@arch_syscall0_prefix "sys_getppid") ?
+{
+	@_SYSCALL_GETPPID_NAME
+	@_SYSCALL_GETPPID_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.getppid = kernel.trace("sys_enter")
+{
+	@__syscall_compat_gate(@const("__NR_getppid"), @const("__NR_compat_getppid"))
+	@_SYSCALL_GETPPID_NAME
+	@_SYSCALL_GETPPID_ARGSTR
+}
+
+probe nd_syscall.getppid.return = nd1_syscall.getppid.return!, nd2_syscall.getppid.return!, tp_syscall.getppid.return
+  { }
+  
+probe nd1_syscall.getppid.return = kprobe.function("sys_getppid").return
 {
 	@_SYSCALL_GETPPID_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.getppid.return = kprobe.function(@arch_syscall0_prefix "sys_getppid").return ?
+{
+	@_SYSCALL_GETPPID_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.getppid.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_getppid"), @const("__NR_compat_getppid"))
+	@_SYSCALL_GETPPID_NAME
+	retstr = return_str(1,$ret)
 }
