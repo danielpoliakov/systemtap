@@ -69,6 +69,8 @@ extern "C" {
 int log_level = 0;
 };
 static int warnings = 1;
+static int exit_phase = 0;
+static int interrupt_message = 0;
 static FILE *output_f = stdout;
 static FILE *kmsg;
 
@@ -1366,6 +1368,15 @@ sigint(int s)
   // suppress any subsequent SIGINTs that may come from stap parent process
   signal(s, SIG_IGN);
 
+  // during the exit phase, ^C should exit immediately
+  if (exit_phase)
+    {
+      if (!interrupt_message) // avoid duplicate message
+        fprintf(stderr, "received interrupt during exit probe\n");
+      interrupt_message = 1;
+      abort();
+    }
+
   // set exit flag
   int key = bpf::globals::EXIT;
   long val = 1;
@@ -1460,6 +1471,11 @@ main(int argc, char **argv)
   // Disable the kprobes before deregistering and running exit probes.
   ioctl(group_fd, PERF_EVENT_IOC_DISABLE, 0);
   close(group_fd);
+
+  // We are now running exit probes, so ^C should exit immediately:
+  exit_phase = 1;
+  signal(SIGINT, (sighandler_t)sigint); // restore previously ignored signal
+  signal(SIGTERM, (sighandler_t)sigint);
 
   // Unregister all probes.
   unregister_kprobes(kprobes.size());
