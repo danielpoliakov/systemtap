@@ -25,6 +25,10 @@
   functionality such as configuring onboot systemtap scripts via
   dracut. See systemtap-service(8) for details.
 
+- The eBPF backend's string support has been improved. Strings
+  can now be stored in variables, passed as function arguments,
+  and stored as array keys and values.
+
 * What's new in version 3.3, 2018-06-08
 
 - A new "stap --example FOO.stp" mode searches the example scripts
