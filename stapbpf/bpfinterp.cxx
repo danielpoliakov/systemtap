@@ -61,11 +61,11 @@ as_str(uintptr_t ptr)
 const std::string
 remove_tag(const char *fstr)
 {
-  // XXX: Giving an untagged string here can trigger a segfault.
-  while (*(++fstr) != '>');
+  while (*(++fstr) != '>' && *fstr != '\0');
+  if (*fstr == '\0') return ""; // avoid segfault
   ++fstr;
   const char *end = fstr + strlen(fstr);
-  while (*(--end) != '<');
+  while (*(--end) != '<' && end >= fstr);
   assert(end >= fstr);
   return std::string(fstr, end - fstr);
 }
