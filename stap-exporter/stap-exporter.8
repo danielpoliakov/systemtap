@@ -66,14 +66,14 @@ Upon startup,
 searches the directory specified by the \fB\-s\fR directory for files
 named \fB*.stp\fR.  The name of each file becomes available as a URL
 component for subsequent GET HTTP requests.  For example, when an HTTP
-client asks for "/foo.stp", and the "foo.stp" script (executable /
+client asks for \fB/foo.stp\fR, and the \fBfoo.stp\fR script (executable /
 shell-script) was known, then it is spawned with additional \fIstap\fR
 options to set a module name.  This predictable module name makes it
 possible for stap-exporter to transcribe a procfs file from that
 running script to HTTP clients.
 
 After a configurable period of disuse (\fB\-k\fR or
-\-fB\-\-keepalive\fR option), a systemtap script is terminated.  It
+\fB\-\-keepalive\fR option), a systemtap script is terminated.  It
 will be restarted again if a client requests.
 
 All files whose name includes the substring \fBautostart\fR are
@@ -84,7 +84,7 @@ are candidates for this treatment.
 
 .SH EXAMPLE
 
-Suppose that example.stp contains the following script.  It counts
+Suppose that \fBexample.stp\fR contains the following script.  It counts
 read syscalls on a per-thread & per-cpu basis.
 
 .SAMPLE
