@@ -1472,17 +1472,17 @@ main(int argc, char **argv)
   ioctl(group_fd, PERF_EVENT_IOC_DISABLE, 0);
   close(group_fd);
 
-  // We are now running exit probes, so ^C should exit immediately:
-  exit_phase = 1;
-  signal(SIGINT, (sighandler_t)sigint); // restore previously ignored signal
-  signal(SIGTERM, (sighandler_t)sigint);
-
   // Unregister all probes.
   unregister_kprobes(kprobes.size());
   unregister_uprobes(uprobes.size());
   unregister_timers(timers.size());
   unregister_perf(perf_probes.size());
   unregister_tracepoints(tracepoint_probes.size());
+
+  // We are now running exit probes, so ^C should exit immediately:
+  exit_phase = 1;
+  signal(SIGINT, (sighandler_t)sigint); // restore previously ignored signal
+  signal(SIGTERM, (sighandler_t)sigint);
 
   // Run the end+error probes.
   if (prog_end)
