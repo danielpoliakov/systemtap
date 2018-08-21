@@ -470,7 +470,7 @@ rpm: dist-gzip
 	mkdir -p `rpm --eval %_rpmdir`
 	mkdir -p `rpm --eval %_builddir`
 	mkdir -p `rpm --eval %_buildroot`
-	rpmbuild --define "_sourcedir $(PWD)/" -ta systemtap-$(VERSION).tar.gz $(RPMBUILDFLAGS)
+	rpmbuild --define "_sourcedir $(PWD)/" --define "release_override .`date +%Y%m%d%H%M`" -ta systemtap-$(VERSION).tar.gz $(RPMBUILDFLAGS)
 
 srpm: dist-gzip
 	mkdir -p `rpm --eval %_srcrpmdir`

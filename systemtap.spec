@@ -84,7 +84,7 @@
 
 Name: systemtap
 Version: 4.0
-Release: 1%{?dist}
+Release: 1%{?release_override}%{?dist}
 # for version, see also configure.ac
 
 
