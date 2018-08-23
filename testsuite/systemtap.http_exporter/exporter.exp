@@ -1,0 +1,80 @@
+set test "exporter"
+
+if {! [python3_p]} then { untested $test; return }
+if {! [installtest_p]} { untested $test; return }
+
+set old_timeout $timeout
+set timeout 10
+
+# start the stap-exporter process in the background
+set port [find_random_unused_tcp_port]
+
+# run against the default install-tree
+set s_e_pid [exec stap-exporter -p $port -k 30 >> systemtap.log 2>> systemtap.log  &]
+set url "http://localhost:$port"
+
+if {$s_e_pid > 0} then { pass "$test startup" } else { fail "$test startup" }
+
+# sleep a little bit, to give the server a chance to start up its http listener
+verbose -log "waiting a few seconds"
+sleep 20
+verbose -log "done waiting"
+
+spawn wget --server-response -q --retry-on-http-error=503 $url/no_such_script.stp
+set ok 0
+expect {
+    -re {HTTP/1.0 404 Not Found.*} { incr ok }
+}
+if { $ok > 0 } then { pass "$test badurl" } else  { fail "$test badurl $ok" }
+wait
+
+sleep 10
+spawn wget --server-response -q --retry-on-http-error=503 $url/autostart-also_ran.stp -O -
+set ok 0
+expect {
+    -re {HTTP/1.0 200 OK\r\n} { incr ok; exp_continue }
+    -re {count[^\r\n]*\r\n} { incr ok; exp_continue }
+    default { }
+}
+wait
+if { $ok > 1 } then { pass "$test autostart-also_ran" } else { fail "$test autostart-also_ran $ok" }
+
+# now we access the default non-autostart script; it should return a 503
+spawn wget --server-response -q $url/syscallsbypid.stp
+set ok 0
+expect {
+    -re {HTTP/1.0 503 Service Unavailable\r\n} { incr ok; exp_continue }
+}
+wait
+if { $ok > 0 } then { pass "$test syscallsbypid startup" } else { fail "$test syscallsbypid startup $ok" }
+
+# now we access it repeatedly until we get some real data
+sleep 10
+spawn wget --server-response -q --retry-on-http-error=503 $url/syscallsbypid.stp -O -
+sleep 10
+# and just once more, to guarantee -some- syscalls
+spawn wget --server-response -q --retry-on-http-error=503 $url/syscallsbypid.stp -O -
+set ok 0
+expect {
+    -re {HTTP/1.0 200 OK\r\n} { incr ok; exp_continue }
+    -re {count[^\r\n]*\r\n} { incr ok; exp_continue }
+    default { }
+}
+wait
+if { $ok > 2 } then { pass "$test syscallsbypid" } else { fail "$test syscallsbypid $ok" }
+
+verbose -log "waiting for exporter to shut syscallsbypid down again"
+sleep 40
+verbose -log "done waiting"
+
+spawn wget --server-response -q $url/syscallsbypid.stp
+set ok 0
+expect {
+    -re {HTTP/1.0 503 Service Unavailable\r\n} { incr ok; exp_continue }
+    default { }
+}
+wait
+if { $ok > 0 } then { pass "$test syscallsbypid autokill" } else { fail "$test syscallsbypid autokill $ok" }
+
+kill -INT $s_e_pid
+set timeout $old_timeout

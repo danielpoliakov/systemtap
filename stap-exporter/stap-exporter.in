@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import os
+import glob
 import sys
 import argparse
 import subprocess
@@ -50,13 +51,16 @@ class Session:
 
     def get_cmd(self):
         return "%s/%s -m %s" % (self.dirname, self.name, self.proc_subdirname)
-    
-    def poll(self, killthem):
-        if self.process and killthem:
+
+    def killem(self):
+        if self.process:
             self.process.terminate()
+            # XXX: "stap -m FOOBAR" leaves around a .ko/.bo/.so file
+            for i in glob.glob(self.proc_subdirname + ".*"):
+                os.unlink(i)
             print("session %s shut down" % (self.name,))
-            return
             
+    def poll(self):
         # bring out your dead
         if self.process and self.process.poll() is not None: # died?
             # self.process.wait(0) # clean up zombie?
@@ -102,11 +106,18 @@ class SessionMgr:
             if n.endswith(".stp"):
                 self.counter += 1
                 self.sessions[n] = Session(scdir, n, self.counter, ka)
-        
-    def poll(self, killthem):
+
+    def killem(self):
         for (name, sess) in self.sessions.items():
             try:
-                sess.poll(killthem)
+                sess.killem()
+            except Exception as e:
+                print("session %s poll failure %s" % (name, str(e)))
+
+    def poll(self):
+        for (name, sess) in self.sessions.items():
+            try:
+                sess.poll()
             except Exception as e:
                 print("session %s poll failure %s" % (name, str(e)))
 
@@ -119,9 +130,11 @@ class SessionMgr:
 
 class HTTPHandler(BaseHTTPRequestHandler):
 
-    def send_msg(self, code, msg):
+    def send_msg(self, code, msg, headers={}):
         self.send_response(code)
         self.send_header('Content-type', 'text/plain')
+        for (k,v) in headers.items():
+            self.send_header(k,v)
         self.end_headers()
         self.wfile.write(msg)
 
@@ -139,9 +152,10 @@ class HTTPHandler(BaseHTTPRequestHandler):
             promdata = s.collect_output()
             self.send_msg(200, promdata)
         except Exception as e:
-            self.send_msg(301,
+            self.send_msg(503,
                           bytes("cannot read script output, try again later, %s" % (str(e),),
-                                'utf-8'))
+                                'utf-8'),
+                          {'Retry-After': '10'}) # 10s hope enough to get stap started
             print("session %s collect-output failure %s" % (name, str(e)))
             
 
@@ -157,18 +171,17 @@ if __name__ == "__main__":
     keepalive = opts.keepalive[0]
 
     # NB: global
+    print("searching script directory %s, keepalive %d" % (scripts, 0 if keepalive is None else keepalive))
     sessmgr = SessionMgr(scripts,keepalive)
     
     server_address = ('', port)
     httpd = HTTPServer(server_address, HTTPHandler)
     httpd.timeout = 5 # parametrize?
     
-    print("Exporter initialization complete")
-    print("Listening on port %d" % port)
-
+    print("listening on port %d" % port)
     try:
         while True:
-            sessmgr.poll(False)
+            sessmgr.poll()
             httpd.handle_request()
     except:
-        sessmgr.poll(True)
+        sessmgr.killem()
