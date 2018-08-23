@@ -222,7 +222,7 @@ compile_dyninst (systemtap_session& s)
       "gcc", "--std=gnu99", s.translated_source, "-o", module,
       "-fvisibility=hidden", "-O2", "-I" + s.runtime_path, "-D__DYNINST__",
       "-Wall", WERROR, "-Wno-unused", "-Wno-strict-aliasing",
-      "-pthread", "-lrt", "-fPIC", "-shared",
+      "-Wno-tautological-compare", "-pthread", "-lrt", "-fPIC", "-shared",
     };
 
   // BZ855981/948279.  Since dyninst/runtime.h includes __sync_* calls,
@@ -507,7 +507,8 @@ compile_pass (systemtap_session& s)
   o << "EXTRA_CFLAGS += $(call cc-option,-fno-ipa-icf)" << endl;
 
   // Assumes linux 2.6 kbuild
-  o << "EXTRA_CFLAGS += -Wno-unused " << WERROR << endl;
+  o << "EXTRA_CFLAGS += -Wno-unused -Wno-tautological-compare " << WERROR
+    << endl;
   #if CHECK_POINTER_ARITH_PR5947
   o << "EXTRA_CFLAGS += -Wpointer-arith" << endl;
   #endif

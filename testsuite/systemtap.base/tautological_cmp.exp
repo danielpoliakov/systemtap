@@ -1,0 +1,78 @@
+set test "tautological_cmp"
+set testpath "$srcdir/$subdir"
+
+if {! [installtest_p]} { untested "$test"; return }
+
+# --- TEST 1 ---
+
+set subtest1 "TEST 1: q == q"
+foreach runtime [get_runtime_list] {
+    if {$runtime eq ""} { set runtime "kernel" }
+    set test_name "$test: $subtest1 ($runtime)"
+
+    set cmd "stap -e 'probe begin \{ a = 32; println (a == a); exit() \}' --runtime=$runtime"
+    send_log "executing: $cmd\n"
+    set pipe [open "| sh -c {$cmd}" r]
+    set out [read $pipe]
+    set failed 0
+    if {[catch {close $pipe} stderr] != 0} { set failed 1 }
+
+    set exp_out "1\n"
+    regsub -all -- {\n} $exp_out {\n} escaped_exp_out
+    if {$out eq $exp_out} {
+        pass "${test_name}: stdout matches \"$escaped_exp_out\""
+    } else {
+        fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
+    }
+
+    if {$failed} {
+        fail "${test_name}: exit code not zero"
+    } else {
+        pass "${test_name}: exit code is zero"
+    }
+
+    set no_stderr_pat "-W(?:error=)?tautological-compare\\y"
+    regsub -all -- {\n} $no_stderr_pat {\n} escaped_no_stderr_pat
+    if {[regexp -linestop -- $no_stderr_pat $stderr]} {
+        fail "${test_name}: stderr should NOT match \"$escaped_no_stderr_pat\" but got \"$stderr\""
+    } else {
+        pass "${test_name}: stderr should NOT matches \"$escaped_no_stderr_pat\""
+    }
+}
+
+# --- TEST 2 ---
+
+set subtest2 "TEST 2: q != q"
+foreach runtime [get_runtime_list] {
+    if {$runtime eq ""} { set runtime "kernel" }
+    set test_name "$test: $subtest2 ($runtime)"
+
+    set cmd "stap -e 'probe begin \{ a = 32; println (a != a); exit() \}' --runtime=$runtime"
+    send_log "executing: $cmd\n"
+    set pipe [open "| sh -c {$cmd}" r]
+    set out [read $pipe]
+    set failed 0
+    if {[catch {close $pipe} stderr] != 0} { set failed 1 }
+
+    set exp_out "0\n"
+    regsub -all -- {\n} $exp_out {\n} escaped_exp_out
+    if {$out eq $exp_out} {
+        pass "${test_name}: stdout matches \"$escaped_exp_out\""
+    } else {
+        fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
+    }
+
+    if {$failed} {
+        fail "${test_name}: exit code not zero"
+    } else {
+        pass "${test_name}: exit code is zero"
+    }
+
+    set no_stderr_pat "-W(?:error=)?tautological-compare\\y"
+    regsub -all -- {\n} $no_stderr_pat {\n} escaped_no_stderr_pat
+    if {[regexp -linestop -- $no_stderr_pat $stderr]} {
+        fail "${test_name}: stderr should NOT match \"$escaped_no_stderr_pat\" but got \"$stderr\""
+    } else {
+        pass "${test_name}: stderr should NOT matches \"$escaped_no_stderr_pat\""
+    }
+}
