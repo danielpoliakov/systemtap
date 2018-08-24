@@ -1,0 +1,4 @@
+probe timer.profile {
+    abort();
+    error("fire after abort!\n")
+}

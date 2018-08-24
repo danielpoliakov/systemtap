@@ -1,0 +1,11 @@
+function f() {
+    println("enter f");
+    abort();
+    println("leave f");
+}
+
+probe oneshot {
+    f();
+    printf("abort\n");
+    abort();
+}

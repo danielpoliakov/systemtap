@@ -5732,7 +5732,7 @@ c_unparser::visit_functioncall (functioncall* e)
 
       // call function
       o->newline() << c_funcname (r->name) << " (c);";
-      o->newline() << "if (unlikely(c->last_error)) goto out;";
+      o->newline() << "if (unlikely(c->last_error || c->aborted)) goto out;";
 
       if (!already_checked_action_count && !session->suppress_time_limits
           && !session->unoptimized)
@@ -6069,7 +6069,7 @@ c_unparser::visit_print_format (print_format* e)
 	}
       o->line() << ");";
       o->newline(-1) << "#endif // STP_LEGACY_PRINT";
-      o->newline() << "if (unlikely(c->last_error)) goto out;";
+      o->newline() << "if (unlikely(c->last_error || c->aborted)) goto out;";
       o->newline() << res.value() << ";";
     }
 }

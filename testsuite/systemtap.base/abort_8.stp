@@ -1,0 +1,14 @@
+function f() {
+    println("enter f");
+    try {
+        abort();
+    } catch {
+        println("caught abort!")
+    }
+    println("leave f");
+}
+
+probe oneshot {
+    f();
+    printf("abort\n");
+}

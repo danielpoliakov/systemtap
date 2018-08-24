@@ -1,0 +1,9 @@
+global rest = 3
+
+probe timer.profile {
+    id = rest--;
+    if (id <= 0) {
+        abort();
+    }
+    printf("fire %d!\n", id);
+}

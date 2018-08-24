@@ -1,0 +1,5 @@
+probe begin {
+    println("enter probe");
+    exit();
+    println("leave probe");
+}

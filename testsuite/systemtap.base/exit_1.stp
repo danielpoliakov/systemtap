@@ -1,0 +1,11 @@
+function f() {
+    println("enter f");
+    exit();
+    println("leave f");
+}
+
+probe begin {
+    f();
+    printf("exit\n");
+    exit();
+}

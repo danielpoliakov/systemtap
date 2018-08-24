@@ -181,6 +181,7 @@ common_probe_entryfn_prologue (systemtap_session& s,
   s.op->newline(-1) << "}";
 
   s.op->newline();
+  s.op->newline() << "c->aborted = 0;";
   s.op->newline() << "c->last_stmt = 0;";
   s.op->newline() << "c->last_error = 0;";
   s.op->newline() << "c->nesting = -1;"; // NB: PR10516 packs locals[] tighter

@@ -70,6 +70,11 @@ int nesting;
  * if no more alternatives are to be executed. */
 int next;
 
+/* A flag to signal aborting the currently running probe handler.
+   While it's 0, execution continues
+   When it's 1, probe code unwnds. */
+int aborted;
+
 /* A place to format error messages into if some error occurs, last_error
    will then be pointed here.  */
 string_t error_buffer;

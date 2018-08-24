@@ -69,6 +69,15 @@
   (The syscall tapsets are broken on kernel 4.17-rc, and will be fixed
   in a next release coming soon; PR23160.)
 
+- Add new built-in tapset function abort() which is similar to exit(),
+  but it aborts the current probe handler (and any function calls in
+  it) immediately instead of waiting for its completion. Probe handlers
+  already running on *other* CPU cores, however, will still continue
+  to their completion. Unlike error(), abort() cannot be caught by
+  try {...} catch {...}. Similar to exit(), abort() yeilds the zero
+  process exit code. It works with both the kernel and dyninst runtimes.
+  This function can be disabled by the '--compatible 3.3' option.
+
 * What's new in version 3.2, 2017-10-18
 
 - SystemTap now includes an extended Berkeley Packet Filter (eBPF)

@@ -74,6 +74,34 @@ function exit ()
 %)
 
 
+%(systemtap_v >= "4.0" %?
+/**
+ * sfunction abort - Immediately shutting down probing script.
+ *
+ * Description: This is similar to exit() but immediately aborts
+ * the current probe handler instead of waiting for its
+ * completion. Probe handlers already running on *other* CPU cores,
+ * however, will still continue to their completion. Unlike error(),
+ * this function call cannot be caught by 'try ... catch'.
+ */
+function abort ()
+%( runtime != "bpf" %?
+  %{ /* unprivileged */
+     atomic_set (session_state(), STAP_SESSION_STOPPING);
+     _stp_exit ();
+     CONTEXT->aborted = 1;
+     CONTEXT->last_stmt = NULL;
+  %}
+%:
+  { /* unprivileged */ /* bpf */
+    _set_exit_status()
+    printf("ERROR: abort() not supported yet\n")
+    exit()  /* TODO: need to abort the execution flow immediately */
+  }
+%)
+%)
+
+
 /**
  * sfunction error - Send an error message
  *
