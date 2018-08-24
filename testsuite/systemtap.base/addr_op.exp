@@ -1,0 +1,145 @@
+set test "addr_op"
+set testpath "$srcdir/$subdir"
+
+if {! [installtest_p]} { untested "$test"; return }
+if {! [uretprobes_p]} { untested "$test"; return }
+
+# --- TEST 1 ---
+
+set subtest1 "TEST 1: 2 excessive parens after unary '&' - with components"
+
+set res [target_compile ${testpath}/${test}_1.c ./a.out executable \
+    "additional_flags=-O additional_flags=-g"]
+if {$res ne ""} {
+    verbose "target_compile failed: $res" 2
+    fail "$test: $subtest1: unable to compile ${test}_1.c"
+} else {
+    foreach runtime [get_runtime_list] {
+        if {$runtime eq ""} {
+            set runtime "kernel"
+        }
+        set test_name "$test: $subtest1 ($runtime)"
+        set exit_code [run_cmd_2way "stap --runtime=$runtime -c ./a.out '$srcdir/$subdir/${test}_1.stp'" \
+                                    out stderr]
+        set exp_out "1\n"
+        is "${test_name}: stdout" $out $exp_out
+        is "${test_name}: exit code" $exit_code 0
+        if {$stderr ne ""} {
+            send_log "stderr:\n$stderr"
+        }
+    }
+}
+
+# --- TEST 2 ---
+
+set subtest2 "TEST 2: one excessive paren after unary '&' - with components"
+
+set res [target_compile ${testpath}/${test}_1.c ./a.out executable \
+    "additional_flags=-O additional_flags=-g"]
+if {$res ne ""} {
+    verbose "target_compile failed: $res" 2
+    fail "$test: $subtest2: unable to compile ${test}_1.c"
+} else {
+    foreach runtime [get_runtime_list] {
+        if {$runtime eq ""} {
+            set runtime "kernel"
+        }
+        set test_name "$test: $subtest2 ($runtime)"
+        set exit_code [run_cmd_2way "stap --runtime=$runtime -c ./a.out '$srcdir/$subdir/${test}_2.stp'" \
+                                    out stderr]
+        set exp_out "1
+1
+0
+"
+        is "${test_name}: stdout" $out $exp_out
+        is "${test_name}: exit code" $exit_code 0
+        if {$stderr ne ""} {
+            send_log "stderr:\n$stderr"
+        }
+    }
+}
+
+# --- TEST 3 ---
+
+set subtest3 "TEST 3: 2 excessive parens after unary '&' - without components"
+
+set res [target_compile ${testpath}/${test}_1.c ./a.out executable \
+    "additional_flags=-O additional_flags=-g"]
+if {$res ne ""} {
+    verbose "target_compile failed: $res" 2
+    fail "$test: $subtest3: unable to compile ${test}_1.c"
+} else {
+    foreach runtime [get_runtime_list] {
+        if {$runtime eq ""} {
+            set runtime "kernel"
+        }
+        set test_name "$test: $subtest3 ($runtime)"
+        set exit_code [run_cmd_2way "stap --runtime=$runtime -c ./a.out '$srcdir/$subdir/${test}_3.stp'" \
+                                    out stderr]
+        set exp_out "1\n"
+        is "${test_name}: stdout" $out $exp_out
+        is "${test_name}: exit code" $exit_code 0
+        if {$stderr ne ""} {
+            send_log "stderr:\n$stderr"
+        }
+    }
+}
+
+# --- TEST 4 ---
+
+set subtest4 "TEST 4: taking address of int globals"
+
+set res [target_compile ${testpath}/${test}_4.c ./a.out executable \
+    "additional_flags=-O additional_flags=-g"]
+if {$res ne ""} {
+    verbose "target_compile failed: $res" 2
+    fail "$test: $subtest4: unable to compile ${test}_4.c"
+} else {
+    foreach runtime [get_runtime_list] {
+        if {$runtime eq ""} {
+            set runtime "kernel"
+        }
+        set test_name "$test: $subtest4 ($runtime)"
+        set exit_code [run_cmd_2way "stap --runtime=$runtime -c ./a.out '$srcdir/$subdir/${test}_4.stp'" \
+                                    out stderr]
+        set exp_out "1
+-32
+"
+        is "${test_name}: stdout" $out $exp_out
+        is "${test_name}: exit code" $exit_code 0
+        if {$stderr ne ""} {
+            send_log "stderr:\n$stderr"
+        }
+    }
+}
+
+# --- TEST 5 ---
+
+set subtest5 "TEST 5: duplicate unary '&'"
+
+set res [target_compile ${testpath}/${test}_4.c ./a.out executable \
+    "additional_flags=-O additional_flags=-g"]
+if {$res ne ""} {
+    verbose "target_compile failed: $res" 2
+    fail "$test: $subtest5: unable to compile ${test}_4.c"
+} else {
+    foreach runtime [get_runtime_list] {
+        if {$runtime eq ""} {
+            set runtime "kernel"
+        }
+        set test_name "$test: $subtest5 ($runtime)"
+        set exit_code [run_cmd_2way "stap --runtime=$runtime -c ./a.out '$srcdir/$subdir/${test}_5.stp'" \
+                                    out stderr]
+        set exp_out ""
+        is "${test_name}: stdout" $out $exp_out
+        isnt "${test_name}: exit code" $exit_code 0
+        set stderr_pat "\\Aparse error: cannot take address more than once
+         at: operator '&' at .*?\\.stp:2:9
+     source:     q = &\\(\\(&\\@var\\(\"a\"\\)\\)\\);
+                     \\^
+
+1 parse error\\.
+"
+        like "${test_name}: stderr" $stderr $stderr_pat "-linestop"
+    }
+}

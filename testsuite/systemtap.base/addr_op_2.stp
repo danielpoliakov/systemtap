@@ -1,0 +1,8 @@
+probe process.function("main") {
+    p = &@var("v")->b[0];
+    q = &(@var("v")->b[0]);
+    printf("%d\n", p == q);
+    printf("%d\n", q == @var("v")->b);
+    printf("%d\n", q == &((@var("v")->b[1])));
+    exit();
+}

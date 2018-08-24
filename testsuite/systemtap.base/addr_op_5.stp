@@ -1,0 +1,6 @@
+probe process.function("main") {
+    q = &((&@var("a")));
+    printf("%d\n", p == q);
+    printf("%d\n", user_int(q));
+    exit();
+}

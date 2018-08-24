@@ -3702,8 +3702,17 @@ parser::parse_dwarf_value ()
     // '&' on old version only allowed specific target_symbol types
     throw PARSE_ERROR (_("expected @cast, @var or $var"));
   else
-    // Otherwise just get a plain value of any sort.
-    expr = parse_value ();
+    {
+      // Otherwise just get a plain value of any sort.
+      expr = parse_value ();
+      if (addressof)
+        {
+          tsym = dynamic_cast<target_symbol*> (expr);
+          if (tsym && tsym->addressof)
+            throw PARSE_ERROR (_("cannot take address more than once"),
+                               addrtok);
+        }
+    }
 
   // If we had '&' or see any target suffixes, that forces a target_symbol.
   // For compatibility, we only do this starting with 2.6.
