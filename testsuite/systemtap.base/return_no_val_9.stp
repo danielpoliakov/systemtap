@@ -1,0 +1,10 @@
+global a
+function f() {
+    a[1] = 3
+    foreach (k in a)
+        return
+}
+
+probe oneshot {
+    f();
+}

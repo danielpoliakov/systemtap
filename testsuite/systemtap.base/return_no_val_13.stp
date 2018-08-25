@@ -1,0 +1,15 @@
+global a
+function f() {
+    println("enter f");
+    a[1] = 3
+    return
+    foreach (k in a) {
+        println("k: ", k);
+        return
+    }
+}
+
+probe oneshot {
+    f();
+    printf("a[1] = %d\n", a[1]);
+}

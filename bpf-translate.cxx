@@ -915,7 +915,8 @@ bpf_unparser::visit_return_statement (return_statement* s)
   if (func_return.empty ())
     throw SEMANTIC_ERROR (_("cannot 'return' outside function"), s->tok);
   assert (!func_return_val.empty ());
-  emit_mov (func_return_val.back (), emit_expr (s->value));
+  if (s->value)
+    emit_mov (func_return_val.back (), emit_expr (s->value));
   emit_jmp (func_return.back ());
 }
 

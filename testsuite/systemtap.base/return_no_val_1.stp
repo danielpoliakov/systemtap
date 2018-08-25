@@ -1,0 +1,10 @@
+function f() {
+    println("enter f");
+    return;
+    println("leave f");
+}
+
+probe oneshot {
+    f();
+    printf("exit\n");
+}

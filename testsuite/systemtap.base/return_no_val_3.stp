@@ -1,0 +1,10 @@
+function f(a) {
+    if (a > 0) {
+        return;
+    }
+    return 1;
+}
+
+probe oneshot {
+    println(f(3))
+}

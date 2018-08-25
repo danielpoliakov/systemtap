@@ -1,0 +1,8 @@
+function f() {
+    if (1)
+        return
+}
+
+probe oneshot {
+    f();
+}

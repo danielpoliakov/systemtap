@@ -1,0 +1,12 @@
+function f() {
+    while (1) {
+        println("enter f");
+        return
+        break
+    }
+}
+
+probe oneshot {
+    f();
+    printf("exit\n");
+}

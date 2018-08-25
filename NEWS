@@ -34,6 +34,13 @@
   '+=', just like the C language. The original operator precedence can
   be restored by the '--compatible 3.3' option.
 
+- The script language now supports the use of bare 'return' statements
+  (without any return values) inside functions which do not return any
+  values. A trailing semincolon is recommended for such return
+  statements to avoid any potential ambiguity. The parser treats a
+  following semicolon (';') or a closing curly bracket ('}') as a
+  terminator for such bare return statements.
+
 * What's new in version 3.3, 2018-06-08
 
 - A new "stap --example FOO.stp" mode searches the example scripts

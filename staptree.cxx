@@ -1313,7 +1313,10 @@ void expr_statement::print (ostream& o) const
 
 void return_statement::print (ostream& o) const
 {
-  o << "return " << *value;
+  if (value)
+    o << "return " << *value;
+  else
+    o << "return";
 }
 
 
@@ -1964,7 +1967,8 @@ traversing_visitor::visit_foreach_loop (foreach_loop* s)
 void
 traversing_visitor::visit_return_statement (return_statement* s)
 {
-  s->value->visit (this);
+  if (s->value)
+    s->value->visit (this);
 }
 
 void

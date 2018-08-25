@@ -4405,11 +4405,18 @@ c_unparser::visit_return_statement (return_statement* s)
   if (current_function == 0)
     throw SEMANTIC_ERROR (_("cannot 'return' from probe"), s->tok);
 
-  if (s->value->type != current_function->type)
+  if (s->value)
+    {
+      if (s->value->type != current_function->type)
+        throw SEMANTIC_ERROR (_("return type mismatch"), current_function->tok,
+                              s->tok);
+
+      c_assign ("l->__retvalue", s->value, "return value");
+    }
+  else if (current_function->type != pe_unknown)
     throw SEMANTIC_ERROR (_("return type mismatch"), current_function->tok,
                           s->tok);
 
-  c_assign ("l->__retvalue", s->value, "return value");
   record_actions(1, s->tok, true);
   o->newline() << "goto out;";
 }

@@ -6892,6 +6892,14 @@ typeresolution_info::visit_return_statement (return_statement* e)
 
   exp_type& e_type = current_function->type;
   t = current_function->type;
+
+  if (!e->value)
+    {
+      if (e_type != pe_unknown)
+        mismatch (e->tok, pe_unknown, current_function);
+      return;
+    }
+
   e->value->visit (this);
 
   if (e_type != pe_unknown && e->value->type != pe_unknown

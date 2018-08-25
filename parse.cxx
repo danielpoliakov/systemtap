@@ -2868,7 +2868,12 @@ parser::parse_return_statement ()
     throw PARSE_ERROR (_("found 'return' not in function context"));
   return_statement* s = new return_statement;
   s->tok = t;
-  s->value = parse_expression ();
+
+  t = peek ();
+  if (t->type == tok_operator && (t->content == ";" || t->content == "}"))
+    s->value = NULL;  // no return value
+  else
+    s->value = parse_expression ();
   return s;
 }
 

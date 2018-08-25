@@ -1,0 +1,9 @@
+function f(a) {
+    if (a > 0) {
+        return;
+    }
+}
+
+probe oneshot {
+    println(1 + f(3))
+}
