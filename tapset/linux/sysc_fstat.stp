@@ -88,7 +88,8 @@ probe nd2_syscall.fstat = kprobe.function(@arch_syscall_prefix "sys_newfstat") ?
 	@_SYSCALL_FSTAT_NAME
 	@_SYSCALL_FSTAT_REGARGS
 	@_SYSCALL_FSTAT_ARGSTR
-t
+}
+
 /* kernel 3.5+, but undesirable because it affects all syscalls */
 probe tp_syscall.fstat = __tp_syscall.fstat, __tp_syscall.fstat64
 {
