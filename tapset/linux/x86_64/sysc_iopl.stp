@@ -14,6 +14,11 @@
 	argstr = sprint(level)
 %)
 
+@define _SYSCALL_IOPL_REGARGS
+%(
+	level = uint_arg(1)
+%)
+
 probe syscall.iopl = dw_syscall.iopl !, nd_syscall.iopl {}
 probe syscall.iopl.return = dw_syscall.iopl.return !, nd_syscall.iopl.return {}
 
@@ -33,15 +38,57 @@ probe dw_syscall.iopl.return = kernel.function("sys_iopl").return
 
 # nd_iopl _____________________________________________________
 
-probe nd_syscall.iopl = kprobe.function("sys_iopl")
+probe nd_syscall.iopl = nd1_syscall.iopl!, nd2_syscall.iopl!, tp_syscall.iopl
+  { }
+
+probe nd1_syscall.iopl = kprobe.function("sys_iopl")
 {
 	@_SYSCALL_IOPL_NAME
 	asmlinkage()
-	level = uint_arg(1)
+	@_SYSCALL_IOPL_REGARGS
 	@_SYSCALL_IOPL_ARGSTR
 }
-probe nd_syscall.iopl.return = kprobe.function("sys_iopl").return
+
+/* kernel 4.17+ */
+probe nd2_syscall.iopl = kprobe.function(@arch_syscall_prefix "sys_iopl") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_IOPL_NAME
+	@_SYSCALL_IOPL_REGARGS
+	@_SYSCALL_IOPL_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.iopl = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_iopl"), @const("__NR_ia32_iopl"))
+	@_SYSCALL_IOPL_NAME
+	@_SYSCALL_IOPL_REGARGS
+	@_SYSCALL_IOPL_ARGSTR
+}
+
+probe nd_syscall.iopl.return = nd1_syscall.iopl.return!, nd2_syscall.iopl.return!, tp_syscall.iopl.return
+  { }
+  
+probe nd1_syscall.iopl.return = kprobe.function("sys_iopl").return
 {
 	@_SYSCALL_IOPL_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.iopl.return = kprobe.function(@arch_syscall_prefix "sys_iopl").return ?
+{
+	@_SYSCALL_IOPL_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.iopl.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_iopl"), @const("__NR_ia32_iopl"))
+	@_SYSCALL_IOPL_NAME
+	retstr = return_str(1,$ret)
 }

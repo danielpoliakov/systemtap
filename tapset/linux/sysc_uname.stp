@@ -17,6 +17,11 @@
 	argstr = sprintf("%p", name_uaddr)
 %)
 
+@define _SYSCALL_UNAME_REGARGS
+%(
+	name_uaddr = pointer_arg(1)
+%)
+
 probe syscall.uname = dw_syscall.uname !, nd_syscall.uname ? {}
 probe syscall.uname.return = dw_syscall.uname.return !, nd_syscall.uname.return ? {}
 
@@ -45,11 +50,14 @@ probe dw_syscall.uname.return = kernel.function("sys_uname").return ?,
 
 # nd_uname _____________________________________________________
 
-probe nd_syscall.uname = kprobe.function("sys_uname") ?,
-                         kprobe.function("sys_olduname") ?,
-                         kprobe.function("sys32_olduname") ?,
-                         kprobe.function("sys32_uname") ?,
-                         kprobe.function("sys_newuname") ?
+probe nd_syscall.uname = nd1_syscall.uname!, nd2_syscall.uname!, tp_syscall.uname
+  { }
+
+probe nd1_syscall.uname = kprobe.function("sys_uname") ?,
+                          kprobe.function("sys_olduname") ?,
+                          kprobe.function("sys32_olduname") ?,
+                          kprobe.function("sys32_uname") ?,
+                          kprobe.function("sys_newuname") ?
 {
 	@_SYSCALL_UNAME_NAME
 	_func_name = ppfunc()
@@ -59,16 +67,54 @@ probe nd_syscall.uname = kprobe.function("sys_uname") ?,
 		} else
 			asmlinkage()
 	}
-	name_uaddr = pointer_arg(1)
+	@_SYSCALL_UNAME_REGARGS
 	@_SYSCALL_UNAME_ARGSTR
 }
 
-probe nd_syscall.uname.return = kprobe.function("sys_uname").return ?,
-                                kprobe.function("sys_olduname").return ?,
-                                kprobe.function("sys32_olduname").return ?,
-                                kprobe.function("sys32_uname").return ?,
-                                kprobe.function("sys_newuname").return ?
+/* kernel 4.17+ */
+probe nd2_syscall.uname = kprobe.function(@arch_syscall_prefix "sys_newuname") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_UNAME_NAME
+	@_SYSCALL_UNAME_REGARGS
+	@_SYSCALL_UNAME_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.uname = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_uname"), @const("__NR_compat_uname"))
+	@_SYSCALL_UNAME_NAME
+	@_SYSCALL_UNAME_REGARGS
+	@_SYSCALL_UNAME_ARGSTR
+}
+
+probe nd_syscall.uname.return = nd1_syscall.uname.return!, nd2_syscall.uname.return!, tp_syscall.uname.return
+  { }
+
+probe nd1_syscall.uname.return = kprobe.function("sys_uname").return ?,
+                                 kprobe.function("sys_olduname").return ?,
+                                 kprobe.function("sys32_olduname").return ?,
+                                 kprobe.function("sys32_uname").return ?,
+                                 kprobe.function("sys_newuname").return ?
 {
 	@_SYSCALL_UNAME_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.uname.return = kprobe.function(@arch_syscall_prefix "sys_newuname").return ?
+{
+	@_SYSCALL_UNAME_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.uname.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_uname"), @const("__NR_compat_uname"))
+	@_SYSCALL_UNAME_NAME
+	retstr = return_str(1,$ret)
 }

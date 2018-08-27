@@ -13,6 +13,13 @@
 	argstr = sprintf("%d, %d, %p", fd, request, argp)
 %)
 
+@define _SYSCALL_IOCTL_REGARGS
+%(
+	fd = int_arg(1)
+	request = int_arg(2)
+	argp = ulong_arg(3)
+%)
+
 probe syscall.ioctl = dw_syscall.ioctl !, nd_syscall.ioctl ? {}
 probe syscall.ioctl.return = dw_syscall.ioctl.return !, nd_syscall.ioctl.return ? {}
 
@@ -45,28 +52,70 @@ probe __syscall.ioctl.return = kernel.function("sys_ioctl").return
 
 # nd_ioctl _____________________________________________________
 
-probe nd_syscall.ioctl = __nd_syscall.ioctl,
+probe nd_syscall.ioctl = nd1_syscall.ioctl!, nd2_syscall.ioctl!, tp_syscall.ioctl
+  { }
+
+probe nd1_syscall.ioctl = __nd1_syscall.ioctl,
 	kprobe.function("compat_sys_ioctl") ?
 {
 	asmlinkage()
 	@_SYSCALL_IOCTL_NAME
-	fd = int_arg(1)
-	request = int_arg(2)
-	argp = ulong_arg(3)
+	@_SYSCALL_IOCTL_REGARGS
 	@_SYSCALL_IOCTL_ARGSTR
 }
-probe __nd_syscall.ioctl = kprobe.function("sys_ioctl")
+probe __nd1_syscall.ioctl = kprobe.function("sys_ioctl")
 {
 	@__syscall_gate(@const("__NR_ioctl"))
 }
-probe nd_syscall.ioctl.return =
-	__nd_syscall.ioctl.return,
+
+/* kernel 4.17+ */
+probe nd2_syscall.ioctl = kprobe.function(@arch_syscall_prefix "sys_ioctl") ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_ioctl") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_IOCTL_NAME
+	@_SYSCALL_IOCTL_REGARGS
+	@_SYSCALL_IOCTL_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.ioctl = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_ioctl"), @const("__NR_compat_ioctl"))
+	@_SYSCALL_IOCTL_NAME
+	@_SYSCALL_IOCTL_REGARGS
+	@_SYSCALL_IOCTL_ARGSTR
+}
+
+probe nd_syscall.ioctl.return = nd1_syscall.ioctl.return!, nd2_syscall.ioctl.return!, tp_syscall.ioctl.return
+  { }
+  
+probe nd1_syscall.ioctl.return =
+	__nd1_syscall.ioctl.return,
 	kprobe.function("compat_sys_ioctl").return ?
 {
 	@_SYSCALL_IOCTL_NAME
 	retstr = returnstr(1)
 }
-probe __nd_syscall.ioctl.return = kprobe.function("sys_ioctl").return
+probe __nd1_syscall.ioctl.return = kprobe.function("sys_ioctl").return
 {
 	@__syscall_gate(@const("__NR_ioctl"))
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.ioctl.return = kprobe.function(@arch_syscall_prefix "sys_ioctl").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_ioctl").return ?
+{
+	@_SYSCALL_IOCTL_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.ioctl.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_ioctl"), @const("__NR_compat_ioctl"))
+	@_SYSCALL_IOCTL_NAME
+	retstr = return_str(1,$ret)
 }

@@ -17,6 +17,16 @@
 	                 flags_str, new_address)
 %)
 
+@define _SYSCALL_MREMAP_REGARGS
+%(
+	old_address = ulong_arg(1)
+	old_size = ulong_arg(2)
+	new_size = ulong_arg(3)
+	flags = ulong_arg(4)
+	flags_str = _mremap_flags(flags)
+	new_address = ulong_arg(5)
+%)
+
 probe syscall.mremap = dw_syscall.mremap !, nd_syscall.mremap ? {}
 probe syscall.mremap.return = dw_syscall.mremap.return !, nd_syscall.mremap.return ? {}
 
@@ -43,22 +53,59 @@ probe dw_syscall.mremap.return = kernel.function("ia64_mremap").return ?,
 
 # nd_mremap _____________________________________________________
 
-probe nd_syscall.mremap = kprobe.function("ia64_mremap") ?,
+probe nd_syscall.mremap = nd1_syscall.mremap!, nd2_syscall.mremap!, tp_syscall.mremap
+  { }
+
+probe nd1_syscall.mremap = kprobe.function("ia64_mremap") ?,
                           kprobe.function("sys_mremap") ?
 {
 	@_SYSCALL_MREMAP_NAME
 	asmlinkage()
-	old_address = ulong_arg(1)
-	old_size = ulong_arg(2)
-	new_size = ulong_arg(3)
-	flags = ulong_arg(4)
-	flags_str = _mremap_flags(flags)
-	new_address = ulong_arg(5)
+	@_SYSCALL_MREMAP_REGARGS
 	@_SYSCALL_MREMAP_ARGSTR
 }
-probe nd_syscall.mremap.return = kprobe.function("ia64_mremap").return ?,
+
+/* kernel 4.17+ */
+probe nd2_syscall.mremap = kprobe.function(@arch_syscall_prefix "sys_mremap") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_MREMAP_NAME
+	@_SYSCALL_MREMAP_REGARGS
+	@_SYSCALL_MREMAP_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.mremap = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_mremap"), @const("__NR_compat_mremap"))
+	@_SYSCALL_MREMAP_NAME
+	@_SYSCALL_MREMAP_REGARGS
+	@_SYSCALL_MREMAP_ARGSTR
+}
+
+probe nd_syscall.mremap.return = nd1_syscall.mremap.return!, nd2_syscall.mremap.return!, tp_syscall.mremap.return
+  { }
+  
+probe nd1_syscall.mremap.return = kprobe.function("ia64_mremap").return ?,
                                  kprobe.function("sys_mremap").return ?
 {
 	@_SYSCALL_MREMAP_NAME
 	retstr = returnstr(2)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.mremap.return = kprobe.function(@arch_syscall_prefix "sys_mremap").return ?
+{
+	@_SYSCALL_MREMAP_NAME
+	retstr = returnstr(2) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.mremap.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_mremap"), @const("__NR_compat_mremap"))
+	@_SYSCALL_MREMAP_NAME
+	retstr = return_str(2,$ret)
 }

@@ -13,6 +13,12 @@
 	argstr = sprintf("%d, %d", fd, wd)
 %)
 
+@define _SYSCALL_INOTIFY_RM_WATCH_REGARGS
+%(
+	fd = int_arg(1)
+	wd = int_arg(2)
+%)
+
 probe syscall.inotify_rm_watch = dw_syscall.inotify_rm_watch !,
                                  nd_syscall.inotify_rm_watch ? {}
 probe syscall.inotify_rm_watch.return = dw_syscall.inotify_rm_watch.return !,
@@ -35,16 +41,57 @@ probe dw_syscall.inotify_rm_watch.return = kernel.function("sys_inotify_rm_watch
 
 # nd_inotify_rm_watch _____________________________________________________
 
-probe nd_syscall.inotify_rm_watch = kprobe.function("sys_inotify_rm_watch") ?
+probe nd_syscall.inotify_rm_watch = nd1_syscall.inotify_rm_watch!, nd2_syscall.inotify_rm_watch!, tp_syscall.inotify_rm_watch
+  { }
+
+probe nd1_syscall.inotify_rm_watch = kprobe.function("sys_inotify_rm_watch") ?
 {
 	@_SYSCALL_INOTIFY_RM_WATCH_NAME
 	asmlinkage()
-	fd = int_arg(1)
-	wd = int_arg(2)
+	@_SYSCALL_INOTIFY_RM_WATCH_REGARGS
 	@_SYSCALL_INOTIFY_RM_WATCH_ARGSTR
 }
-probe nd_syscall.inotify_rm_watch.return = kprobe.function("sys_inotify_rm_watch").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.inotify_rm_watch = kprobe.function(@arch_syscall_prefix "sys_inotify_rm_watch") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_INOTIFY_RM_WATCH_NAME
+	@_SYSCALL_INOTIFY_RM_WATCH_REGARGS
+	@_SYSCALL_INOTIFY_RM_WATCH_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.inotify_rm_watch = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_inotify_rm_watch"), @const("__NR_compat_inotify_rm_watch"))
+	@_SYSCALL_INOTIFY_RM_WATCH_NAME
+	@_SYSCALL_INOTIFY_RM_WATCH_REGARGS
+	@_SYSCALL_INOTIFY_RM_WATCH_ARGSTR
+}
+
+probe nd_syscall.inotify_rm_watch.return = nd1_syscall.inotify_rm_watch.return!, nd2_syscall.inotify_rm_watch.return!, tp_syscall.inotify_rm_watch.return
+  { }
+  
+probe nd1_syscall.inotify_rm_watch.return = kprobe.function("sys_inotify_rm_watch").return ?
 {
 	@_SYSCALL_INOTIFY_RM_WATCH_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.inotify_rm_watch.return = kprobe.function(@arch_syscall_prefix "sys_inotify_rm_watch").return ?
+{
+	@_SYSCALL_INOTIFY_RM_WATCH_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.inotify_rm_watch.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_inotify_rm_watch"), @const("__NR_compat_inotify_rm_watch"))
+	@_SYSCALL_INOTIFY_RM_WATCH_NAME
+	retstr = return_str(1,$ret)
 }

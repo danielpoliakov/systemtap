@@ -19,6 +19,15 @@
 	argstr = sprintf("%p, %u, %p, %s", entry, nr_segments, segments_uaddr, flags_str)
 %)
 
+@define _SYSCALL_KEXEC_LOAD_REGARGS
+%(
+	entry = ulong_arg(1)
+	nr_segments = ulong_arg(2)
+	segments_uaddr = pointer_arg(3)
+	flags = ulong_arg(4)
+	flags_str = _kexec_flags_str(flags)
+%)
+
 probe syscall.kexec_load = dw_syscall.kexec_load !, nd_syscall.kexec_load ? {}
 probe syscall.kexec_load.return = dw_syscall.kexec_load.return !,
                                   nd_syscall.kexec_load.return ? {}
@@ -53,29 +62,69 @@ probe __syscall.syscall.kexec_load.return = kernel.function("sys_kexec_load").re
 
 # nd_kexec_load _____________________________________________________
 
-probe nd_syscall.kexec_load = __nd_syscall.kexec_load ?,
+probe nd_syscall.kexec_load = nd1_syscall.kexec_load!, nd2_syscall.kexec_load!, tp_syscall.kexec_load
+  { }
+
+probe nd1_syscall.kexec_load = __nd1_syscall.kexec_load ?,
                               kprobe.function("compat_sys_kexec_load") ?
 {
 	@_SYSCALL_KEXEC_LOAD_NAME
 	asmlinkage()
-	entry = ulong_arg(1)
-	nr_segments = ulong_arg(2)
-	segments_uaddr = pointer_arg(3)
-	flags = ulong_arg(4)
-	flags_str = _kexec_flags_str(flags)
+	@_SYSCALL_KEXEC_LOAD_REGARGS
 	@_SYSCALL_KEXEC_LOAD_ARGSTR
 }
-probe __nd_syscall.kexec_load = kprobe.function("sys_kexec_load")
+probe __nd1_syscall.kexec_load = kprobe.function("sys_kexec_load")
 {
 	@__syscall_gate_compat_simple
 }
-probe nd_syscall.kexec_load.return = __nd_syscall.kexec_load.return ?,
+
+/* kernel 4.17+ */
+probe nd2_syscall.kexec_load = kprobe.function(@arch_syscall_prefix "sys_kexec_load") ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_kexec_load") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_KEXEC_LOAD_NAME
+	@_SYSCALL_KEXEC_LOAD_REGARGS
+	@_SYSCALL_KEXEC_LOAD_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.kexec_load = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_kexec_load"), @const("__NR_compat_kexec_load"))
+	@_SYSCALL_KEXEC_LOAD_NAME
+	@_SYSCALL_KEXEC_LOAD_REGARGS
+	@_SYSCALL_KEXEC_LOAD_ARGSTR
+}
+
+probe nd_syscall.kexec_load.return = nd1_syscall.kexec_load.return!, nd2_syscall.kexec_load.return!, tp_syscall.kexec_load.return
+  { }
+  
+probe nd1_syscall.kexec_load.return = __nd1_syscall.kexec_load.return ?,
                                      kprobe.function("compat_sys_kexec_load").return ?
 {
 	@_SYSCALL_KEXEC_LOAD_NAME
 	retstr = returnstr(1)
 }
-probe __nd_syscall.kexec_load.return = kprobe.function("sys_kexec_load").return
+probe __nd1_syscall.kexec_load.return = kprobe.function("sys_kexec_load").return
 {
 	@__syscall_gate_compat_simple
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.kexec_load.return = kprobe.function(@arch_syscall_prefix "sys_kexec_load").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_kexec_load").return ?
+{
+	@_SYSCALL_KEXEC_LOAD_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.kexec_load.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_kexec_load"), @const("__NR_compat_kexec_load"))
+	@_SYSCALL_KEXEC_LOAD_NAME
+	retstr = return_str(1,$ret)
 }

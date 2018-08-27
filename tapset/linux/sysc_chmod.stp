@@ -11,6 +11,12 @@
 	argstr = sprintf("%s, %#o", path, mode)
 %)
 
+@define _SYSCALL_CHMOD_REGARGS
+%(
+	path = user_string_quoted(pointer_arg(1))
+	mode = uint_arg(2)
+%)
+
 probe syscall.chmod = dw_syscall.chmod !, nd_syscall.chmod ? {}
 probe syscall.chmod.return = dw_syscall.chmod.return !, nd_syscall.chmod.return ? {}
 
@@ -38,16 +44,57 @@ probe dw_syscall.chmod.return = kernel.function("sys_chmod").return
 
 # nd_chmod _____________________________________________________
 
-probe nd_syscall.chmod = kprobe.function("sys_chmod") ?
+probe nd_syscall.chmod = nd1_syscall.chmod!, nd2_syscall.chmod!, tp_syscall.chmod
+  { }
+
+probe nd1_syscall.chmod = kprobe.function("sys_chmod") ?
 {
 	@_SYSCALL_CHMOD_NAME
 	asmlinkage()
-	path = user_string_quoted(pointer_arg(1))
-	mode = uint_arg(2)
+	@_SYSCALL_CHMOD_REGARGS
 	@_SYSCALL_CHMOD_ARGSTR
 }
-probe nd_syscall.chmod.return = kprobe.function("sys_chmod").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.chmod = kprobe.function(@arch_syscall_prefix "sys_chmod") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_CHMOD_NAME
+	@_SYSCALL_CHMOD_REGARGS
+	@_SYSCALL_CHMOD_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.chmod = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_chmod"), @const("__NR_compat_chmod"))
+	@_SYSCALL_CHMOD_NAME
+	@_SYSCALL_CHMOD_REGARGS
+	@_SYSCALL_CHMOD_ARGSTR
+}
+
+probe nd_syscall.chmod.return = nd1_syscall.chmod.return!, nd2_syscall.chmod.return!, tp_syscall.chmod.return
+  { }
+  
+probe nd1_syscall.chmod.return = kprobe.function("sys_chmod").return ?
 {
 	@_SYSCALL_CHMOD_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.chmod.return = kprobe.function(@arch_syscall_prefix "sys_chmod").return ?
+{
+	@_SYSCALL_CHMOD_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.chmod.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_chmod"), @const("__NR_compat_chmod"))
+	@_SYSCALL_CHMOD_NAME
+	retstr = return_str(1,$ret)
 }

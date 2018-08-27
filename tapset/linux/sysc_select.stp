@@ -77,7 +77,7 @@ probe nd2_syscall.select = kprobe.function(@arch_syscall_prefix "sys_select") ?
 probe tp_syscall.select = kernel.trace("sys_enter")
 {
 	__set_syscall_pt_regs($regs)
-	@__syscall_gate(@const("__NR_select"))
+	@__syscall_gate2(@const("__NR_select"), @const("__NR__newselect"))
 	@_SYSCALL_SELECT_NAME
 	@_SYSCALL_SELECT_REGARGS
 	timeout_str = _struct_timeval_u(timeout_uaddr, 1)
@@ -104,7 +104,7 @@ probe nd2_syscall.select.return = kprobe.function(@arch_syscall_prefix "sys_sele
 probe tp_syscall.select.return = kernel.trace("sys_exit")
 {
 	__set_syscall_pt_regs($regs)
-	@__syscall_gate(@const("__NR_select"))
+	@__syscall_gate2(@const("__NR_select"), @const("__NR__newselect"))
 	@_SYSCALL_SELECT_NAME
 	retstr = return_str(1,$ret)
 }

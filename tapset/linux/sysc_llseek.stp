@@ -16,6 +16,16 @@
 	                 offset_low, result_uaddr, whence_str)
 %)
 
+@define _SYSCALL_LLSEEK_REGARGS
+%(
+	fd = int_arg(1)
+	offset_high = ulong_arg(2)
+	offset_low = ulong_arg(3)
+	result_uaddr = pointer_arg(4)
+	whence = uint_arg(5)
+	whence_str = _seek_whence_str(whence)
+%)
+
 probe syscall.llseek = dw_syscall.llseek !, nd_syscall.llseek ? {}
 probe syscall.llseek.return = dw_syscall.llseek.return !, nd_syscall.llseek.return ? {}
 
@@ -40,20 +50,57 @@ probe dw_syscall.llseek.return = kernel.function("sys_llseek").return ?
 
 # nd_llseek _____________________________________________________
 
-probe nd_syscall.llseek = kprobe.function("sys_llseek") ?
+probe nd_syscall.llseek = nd1_syscall.llseek!, nd2_syscall.llseek!, tp_syscall.llseek
+  { }
+
+probe nd1_syscall.llseek = kprobe.function("sys_llseek") ?
 {
 	@_SYSCALL_LLSEEK_NAME
 	asmlinkage()
-	fd = int_arg(1)
-	offset_high = ulong_arg(2)
-	offset_low = ulong_arg(3)
-	result_uaddr = pointer_arg(4)
-	whence = uint_arg(5)
-	whence_str = _seek_whence_str(whence)
+	@_SYSCALL_LLSEEK_REGARGS
 	@_SYSCALL_LLSEEK_ARGSTR
 }
-probe nd_syscall.llseek.return = kprobe.function("sys_llseek").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.llseek = kprobe.function(@arch_syscall_prefix "sys_llseek") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_LLSEEK_NAME
+	@_SYSCALL_LLSEEK_REGARGS
+	@_SYSCALL_LLSEEK_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.llseek = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR__llseek"), @const("__NR_compat__llseek"))
+	@_SYSCALL_LLSEEK_NAME
+	@_SYSCALL_LLSEEK_REGARGS
+	@_SYSCALL_LLSEEK_ARGSTR
+}
+
+probe nd_syscall.llseek.return = nd1_syscall.llseek.return!, nd2_syscall.llseek.return!, tp_syscall.llseek.return
+  { }
+  
+probe nd1_syscall.llseek.return = kprobe.function("sys_llseek").return ?
 {
 	@_SYSCALL_LLSEEK_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.llseek.return = kprobe.function(@arch_syscall_prefix "sys_llseek").return ?
+{
+	@_SYSCALL_LLSEEK_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.llseek.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR__llseek"), @const("__NR_compat__llseek"))
+	@_SYSCALL_LLSEEK_NAME
+	retstr = return_str(1,$ret)
 }

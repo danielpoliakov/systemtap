@@ -12,6 +12,12 @@
 	argstr = sprintf("%p, %u", addr, len)
 %)
 
+@define _SYSCALL_MLOCK_REGARGS
+%(
+	addr = ulong_arg(1)
+	len = ulong_arg(2)
+%)
+
 probe syscall.mlock = dw_syscall.mlock !, nd_syscall.mlock ? {}
 probe syscall.mlock.return = dw_syscall.mlock.return !, nd_syscall.mlock.return ? {}
 
@@ -32,16 +38,57 @@ probe dw_syscall.mlock.return = kernel.function("sys_mlock").return ?
 
 # nd_mlock _____________________________________________________
 
-probe nd_syscall.mlock = kprobe.function("sys_mlock") ?
+probe nd_syscall.mlock = nd1_syscall.mlock!, nd2_syscall.mlock!, tp_syscall.mlock
+  { }
+
+probe nd1_syscall.mlock = kprobe.function("sys_mlock") ?
 {
 	@_SYSCALL_MLOCK_NAME
 	asmlinkage()
-	addr = ulong_arg(1)
-	len = ulong_arg(2)
+	@_SYSCALL_MLOCK_REGARGS
 	@_SYSCALL_MLOCK_ARGSTR
 }
-probe nd_syscall.mlock.return = kprobe.function("sys_mlock").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.mlock = kprobe.function(@arch_syscall_prefix "sys_mlock") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_MLOCK_NAME
+	@_SYSCALL_MLOCK_REGARGS
+	@_SYSCALL_MLOCK_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.mlock = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_mlock"), @const("__NR_compat_mlock"))
+	@_SYSCALL_MLOCK_NAME
+	@_SYSCALL_MLOCK_REGARGS
+	@_SYSCALL_MLOCK_ARGSTR
+}
+
+probe nd_syscall.mlock.return = nd1_syscall.mlock.return!, nd2_syscall.mlock.return!, tp_syscall.mlock.return
+  { }
+  
+probe nd1_syscall.mlock.return = kprobe.function("sys_mlock").return ?
 {
 	@_SYSCALL_MLOCK_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.mlock.return = kprobe.function(@arch_syscall_prefix "sys_mlock").return ?
+{
+	@_SYSCALL_MLOCK_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.mlock.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_mlock"), @const("__NR_compat_mlock"))
+	@_SYSCALL_MLOCK_NAME
+	retstr = return_str(1,$ret)
 }

@@ -13,6 +13,15 @@
 	argstr = sprintf("%d, %s, %s", fd, path, mask_str)
 %)
 
+@define _SYSCALL_INOTIFY_ADD_WATCH_REGARGS
+%(
+	fd = int_arg(1)
+	mask = uint_arg(3)
+	mask_str = _inotify_watch_mask_str(mask)
+	path_uaddr = pointer_arg(2)
+	path = user_string_quoted(path_uaddr)
+%)
+
 probe syscall.inotify_add_watch = dw_syscall.inotify_add_watch !,
                                   nd_syscall.inotify_add_watch ? {}
 probe syscall.inotify_add_watch.return = dw_syscall.inotify_add_watch.return !,
@@ -39,19 +48,57 @@ probe dw_syscall.inotify_add_watch.return = kernel.function("sys_inotify_add_wat
 
 # nd_inotify_add_watch _____________________________________________________
 
-probe nd_syscall.inotify_add_watch = kprobe.function("sys_inotify_add_watch") ?
+probe nd_syscall.inotify_add_watch = nd1_syscall.inotify_add_watch!, nd2_syscall.inotify_add_watch!, tp_syscall.inotify_add_watch
+  { }
+
+probe nd1_syscall.inotify_add_watch = kprobe.function("sys_inotify_add_watch") ?
 {
 	@_SYSCALL_INOTIFY_ADD_WATCH_NAME
 	asmlinkage()
-	fd = int_arg(1)
-	mask = uint_arg(3)
-	mask_str = _inotify_watch_mask_str(mask)
-	path_uaddr = pointer_arg(2)
-	path = user_string_quoted(path_uaddr)
+	@_SYSCALL_INOTIFY_ADD_WATCH_REGARGS
 	@_SYSCALL_INOTIFY_ADD_WATCH_ARGSTR
 }
-probe nd_syscall.inotify_add_watch.return = kprobe.function("sys_inotify_add_watch").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.inotify_add_watch = kprobe.function(@arch_syscall_prefix "sys_inotify_add_watch") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_INOTIFY_ADD_WATCH_NAME
+	@_SYSCALL_INOTIFY_ADD_WATCH_REGARGS
+	@_SYSCALL_INOTIFY_ADD_WATCH_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.inotify_add_watch = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_inotify_add_watch"), @const("__NR_compat_inotify_add_watch"))
+	@_SYSCALL_INOTIFY_ADD_WATCH_NAME
+	@_SYSCALL_INOTIFY_ADD_WATCH_REGARGS
+	@_SYSCALL_INOTIFY_ADD_WATCH_ARGSTR
+}
+
+probe nd_syscall.inotify_add_watch.return = nd1_syscall.inotify_add_watch.return!, nd2_syscall.inotify_add_watch.return!, tp_syscall.inotify_add_watch.return
+  { }
+  
+probe nd1_syscall.inotify_add_watch.return = kprobe.function("sys_inotify_add_watch").return ?
 {
 	@_SYSCALL_INOTIFY_ADD_WATCH_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.inotify_add_watch.return = kprobe.function(@arch_syscall_prefix "sys_inotify_add_watch").return ?
+{
+	@_SYSCALL_INOTIFY_ADD_WATCH_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.inotify_add_watch.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_inotify_add_watch"), @const("__NR_compat_inotify_add_watch"))
+	@_SYSCALL_INOTIFY_ADD_WATCH_NAME
+	retstr = return_str(1,$ret)
 }

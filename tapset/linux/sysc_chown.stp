@@ -11,6 +11,13 @@
 	argstr = sprintf("%s, %d, %d", path, owner, group)
 %)
 
+@define _SYSCALL_CHOWN_REGARGS
+%(
+	path = user_string_quoted(pointer_arg(1))
+	owner = __int32(uint_arg(2))
+	group = __int32(uint_arg(3))
+%)
+
 probe syscall.chown = dw_syscall.chown !, nd_syscall.chown ? {}
 probe syscall.chown.return = dw_syscall.chown.return !, nd_syscall.chown.return ? {}
 
@@ -45,7 +52,10 @@ probe dw_syscall.chown.return = kernel.function("sys_chown").return
 
 # nd_chown _____________________________________________________
 
-probe nd_syscall.chown = kprobe.function("sys_chown") ?
+probe nd_syscall.chown = nd1_syscall.chown!, nd2_syscall.chown!, tp_syscall.chown
+  { }
+
+probe nd1_syscall.chown = kprobe.function("sys_chown") ?
 {
 	// Avoid chown16() calling chown().
 %( arch == "x86_64" %?
@@ -56,12 +66,37 @@ probe nd_syscall.chown = kprobe.function("sys_chown") ?
 %)
 	@_SYSCALL_CHOWN_NAME
 	asmlinkage()
-	path = user_string_quoted(pointer_arg(1))
-	owner = __int32(uint_arg(2))
-	group = __int32(uint_arg(3))
+	@_SYSCALL_CHOWN_REGARGS
 	@_SYSCALL_CHOWN_ARGSTR
 }
-probe nd_syscall.chown.return = kprobe.function("sys_chown").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.chown = kprobe.function(@arch_syscall_prefix "sys_chown") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_CHOWN_NAME
+	@_SYSCALL_CHOWN_REGARGS
+	@_SYSCALL_CHOWN_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.chown = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+%( CONFIG_64BIT == "y" %?
+	@__syscall_compat_gate(@const("__NR_chown"), @const("__NR_compat_chown32"))
+%:
+	@__syscall_gate(@const("__NR_chown32"))
+%)
+	@_SYSCALL_CHOWN_NAME
+	@_SYSCALL_CHOWN_REGARGS
+	@_SYSCALL_CHOWN_ARGSTR
+}
+
+probe nd_syscall.chown.return = nd1_syscall.chown.return!, nd2_syscall.chown.return!, tp_syscall.chown.return
+  { }
+  
+probe nd1_syscall.chown.return = kprobe.function("sys_chown").return ?
 {
 %( arch == "x86_64" %?
 	@__syscall_compat_gate(@const("__NR_chown"), @const("__NR_ia32_chown32"))
@@ -71,4 +106,24 @@ probe nd_syscall.chown.return = kprobe.function("sys_chown").return ?
 %)
 	@_SYSCALL_CHOWN_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.chown.return = kprobe.function(@arch_syscall_prefix "sys_chown").return ?
+{
+	@_SYSCALL_CHOWN_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.chown.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+%( CONFIG_64BIT == "y" %?
+	@__syscall_compat_gate(@const("__NR_chown"), @const("__NR_compat_chown32"))
+%:
+	@__syscall_gate(@const("__NR_chown32"))
+%)
+	@_SYSCALL_CHOWN_NAME
+	retstr = return_str(1,$ret)
 }

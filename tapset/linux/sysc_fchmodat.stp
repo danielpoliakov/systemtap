@@ -13,6 +13,14 @@
 	argstr = sprintf("%s, %s, %#o", dirfd_str, pathname, mode)
 %)
 
+@define _SYSCALL_FCHMODAT_REGARGS
+%(
+	dirfd = int_arg(1)
+	dirfd_str = _dfd_str(dirfd)
+	pathname = user_string_quoted(pointer_arg(2))
+	mode = uint_arg(3)
+%)
+
 probe syscall.fchmodat = dw_syscall.fchmodat !, nd_syscall.fchmodat ? {}
 probe syscall.fchmodat.return = dw_syscall.fchmodat.return !, nd_syscall.fchmodat.return ? {}
 
@@ -46,22 +54,61 @@ probe dw_syscall.fchmodat.return = kernel.function("sys_fchmodat").return ?
 
 # nd_fchmodat _____________________________________________________
 
-probe nd_syscall.fchmodat = kprobe.function("sys_fchmodat") ?
+probe nd_syscall.fchmodat = nd1_syscall.fchmodat!, nd2_syscall.fchmodat!, tp_syscall.fchmodat
+  { }
+
+probe nd1_syscall.fchmodat = kprobe.function("sys_fchmodat") ?
 {
 	@__syscall_compat_gate(@const("__NR_fchmodat"),
 			       @const("__NR_compat_fchmodat"))
 	@_SYSCALL_FCHMODAT_NAME
 	asmlinkage()
-	dirfd = int_arg(1)
-	dirfd_str = _dfd_str(dirfd)
-	pathname = user_string_quoted(pointer_arg(2))
-	mode = uint_arg(3)
+	@_SYSCALL_FCHMODAT_REGARGS
 	@_SYSCALL_FCHMODAT_ARGSTR
 }
-probe nd_syscall.fchmodat.return = kprobe.function("sys_fchmodat").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.fchmodat = kprobe.function(@arch_syscall_prefix "sys_fchmodat") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_FCHMODAT_NAME
+	@_SYSCALL_FCHMODAT_REGARGS
+	@_SYSCALL_FCHMODAT_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.fchmodat = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_fchmodat"), @const("__NR_compat_fchmodat"))
+	@_SYSCALL_FCHMODAT_NAME
+	@_SYSCALL_FCHMODAT_REGARGS
+	@_SYSCALL_FCHMODAT_ARGSTR
+}
+
+probe nd_syscall.fchmodat.return = nd1_syscall.fchmodat.return!, nd2_syscall.fchmodat.return!, tp_syscall.fchmodat.return
+  { }
+  
+probe nd1_syscall.fchmodat.return = kprobe.function("sys_fchmodat").return ?
 {
 	@__syscall_compat_gate(@const("__NR_fchmodat"),
 			       @const("__NR_compat_fchmodat"))
 	@_SYSCALL_FCHMODAT_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.fchmodat.return = kprobe.function(@arch_syscall_prefix "sys_fchmodat").return ?
+{
+	@_SYSCALL_FCHMODAT_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.fchmodat.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_fchmodat"), @const("__NR_compat_fchmodat"))
+	@_SYSCALL_FCHMODAT_NAME
+	retstr = return_str(1,$ret)
 }

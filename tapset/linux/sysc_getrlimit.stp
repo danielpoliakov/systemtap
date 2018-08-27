@@ -82,13 +82,20 @@ probe nd2_syscall.getrlimit =
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
-probe tp_syscall.getrlimit = kernel.trace("sys_enter")
+probe tp_syscall.getrlimit = __tp_syscall.getrlimit, __tp_syscall.ugetrlimit
 {
 	__set_syscall_pt_regs($regs)
-	@__syscall_compat_gate(@const("__NR_getrlimit"), @const("__NR_compat_ugetrlimit"))
 	@_SYSCALL_GETRLIMIT_NAME
 	@_SYSCALL_GETRLIMIT_REGARGS
 	@_SYSCALL_GETRLIMIT_ARGSTR
+}
+probe __tp_syscall.getrlimit = kernel.trace("sys_enter")
+{
+	@__syscall_compat_gate(@const("__NR_getrlimit"), @const("__NR_compat_getrlimit"))
+}
+probe __tp_syscall.ugetrlimit = kernel.trace("sys_enter")
+{
+	@__syscall_compat_gate(@const("__NR_ugetrlimit"), @const("__NR_compat_ugetrlimit"))
 }
 
 probe nd_syscall.getrlimit.return = nd1_syscall.getrlimit.return!, nd2_syscall.getrlimit.return!, tp_syscall.getrlimit.return
@@ -116,10 +123,17 @@ probe nd2_syscall.getrlimit.return =
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
-probe tp_syscall.getrlimit.return = kernel.trace("sys_exit")
+probe tp_syscall.getrlimit.return = __tp_syscall.getrlimit.return, __tp_syscall.ugetrlimit.return
 {
 	__set_syscall_pt_regs($regs)
-	@__syscall_compat_gate(@const("__NR_getrlimit"), @const("__NR_compat_ugetrlimit"))
 	@_SYSCALL_GETRLIMIT_NAME
 	retstr = return_str(1,$ret)
+}
+probe __tp_syscall.getrlimit.return = kernel.trace("sys_exit")
+{
+	@__syscall_compat_gate(@const("__NR_getrlimit"), @const("__NR_compat_getrlimit"))
+}
+probe __tp_syscall.ugetrlimit.return = kernel.trace("sys_exit")
+{
+	@__syscall_compat_gate(@const("__NR_ugetrlimit"), @const("__NR_compat_ugetrlimit"))
 }

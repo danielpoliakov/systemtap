@@ -11,6 +11,13 @@
 	argstr = sprintf("%d, %d, %d", fd, owner, group)
 %)
 
+@define _SYSCALL_FCHOWN16_REGARGS
+%(
+	fd = int_arg(1)
+	owner = __short(uint_arg(2))
+	group = __short(uint_arg(3))
+%)
+
 probe syscall.fchown16 = dw_syscall.fchown16 !, nd_syscall.fchown16 ? {}
 probe syscall.fchown16.return = dw_syscall.fchown16.return !, nd_syscall.fchown16.return ? {}
 
@@ -32,17 +39,65 @@ probe dw_syscall.fchown16.return = kernel.function("sys_fchown16").return ?
 
 # nd_fchown16 _____________________________________________________
 
-probe nd_syscall.fchown16 = kprobe.function("sys_fchown16") ?
+probe nd_syscall.fchown16 = nd1_syscall.fchown16!, nd2_syscall.fchown16!, tp_syscall.fchown16
+  { }
+
+probe nd1_syscall.fchown16 = kprobe.function("sys_fchown16") ?
 {
 	@_SYSCALL_FCHOWN16_NAME
 	asmlinkage()
-	fd = int_arg(1)
-	owner = __short(uint_arg(2))
-	group = __short(uint_arg(3))
+	@_SYSCALL_FCHOWN16_REGARGS
 	@_SYSCALL_FCHOWN16_ARGSTR
 }
-probe nd_syscall.fchown16.return = kprobe.function("sys_fchown16").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.fchown16 = kprobe.function(@arch_syscall_prefix "sys_fchown16") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_FCHOWN16_NAME
+	@_SYSCALL_FCHOWN16_REGARGS
+	@_SYSCALL_FCHOWN16_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.fchown16 = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+%( CONFIG_64BIT == "y" %?
+	@__compat_syscall_gate(@const("__NR_compat_fchown"))
+%:
+	@__syscall_gate(@const("__NR_fchown"))
+%)
+	@_SYSCALL_FCHOWN16_NAME
+	@_SYSCALL_FCHOWN16_REGARGS
+	@_SYSCALL_FCHOWN16_ARGSTR
+}
+
+probe nd_syscall.fchown16.return = nd1_syscall.fchown16.return!, nd2_syscall.fchown16.return!, tp_syscall.fchown16.return
+  { }
+  
+probe nd1_syscall.fchown16.return = kprobe.function("sys_fchown16").return ?
 {
 	@_SYSCALL_FCHOWN16_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.fchown16.return = kprobe.function(@arch_syscall_prefix "sys_fchown16").return ?
+{
+	@_SYSCALL_FCHOWN16_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.fchown16.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+%( CONFIG_64BIT == "y" %?
+	@__compat_syscall_gate(@const("__NR_compat_fchown"))
+%:
+	@__syscall_gate(@const("__NR_fchown"))
+%)
+	@_SYSCALL_FCHOWN16_NAME
+	retstr = return_str(1,$ret)
 }
