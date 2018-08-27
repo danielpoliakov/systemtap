@@ -29,6 +29,11 @@
   can now be stored in variables, passed as function arguments,
   and stored as array keys and values.
 
+- The 3rd operand of the ternary operator '?:' in the script language
+  now binds tighter than the binary assignment operators like '=' and
+  '+=', just like the C language. The original operator precedence can
+  be restored by the '--compatible 3.3' option.
+
 * What's new in version 3.3, 2018-06-08
 
 - A new "stap --example FOO.stp" mode searches the example scripts

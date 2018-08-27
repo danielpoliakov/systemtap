@@ -3286,7 +3286,10 @@ parser::parse_ternary ()
         throw PARSE_ERROR (_("expected ':'"));
       swallow ();
 
-      e->falsevalue = parse_expression (); // XXX
+      if (input.has_version("4.0"))
+        e->falsevalue = parse_ternary ();
+      else
+        e->falsevalue = parse_expression ();
       return e;
     }
   else

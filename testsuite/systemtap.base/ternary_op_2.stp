@@ -1,0 +1,5 @@
+probe oneshot {
+    a = 3;
+    c = 0;
+    printf("a = %d, b = %d, c = %d\n", a > 0 ? b = 4 : c = 5, b, c);
+}
