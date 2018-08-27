@@ -637,10 +637,15 @@ mutator::run ()
   if (target_mutatee && target_mutatee->is_terminated())
     p_target_error = !target_mutatee->check_exit();
 
+  // Apply a timeout to the following; dyninst or other bugs can
+  // sometimes hang during this stage (PR23572).
+  alarm(30);
   // Detach from everything
   target_mutatee.reset();
   mutatees.clear();
-
+  // Stand down.
+  alarm(0);
+  
   // Shutdown the stap module.
   return run_module_exit();
 }
