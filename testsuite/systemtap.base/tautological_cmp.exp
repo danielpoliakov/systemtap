@@ -7,7 +7,9 @@ if {! [installtest_p]} { untested "$test"; return }
 
 set subtest1 "TEST 1: q == q"
 foreach runtime [get_runtime_list] {
-    if {$runtime eq ""} { set runtime "kernel" }
+    if {$runtime eq ""} {
+        set runtime "kernel"
+    }
     set test_name "$test: $subtest1 ($runtime)"
 
     set cmd "stap -e 'probe begin \{ a = 32; println (a == a); exit() \}' --runtime=$runtime"
@@ -15,7 +17,15 @@ foreach runtime [get_runtime_list] {
     set pipe [open "| sh -c {$cmd}" r]
     set out [read $pipe]
     set failed 0
-    if {[catch {close $pipe} stderr] != 0} { set failed 1 }
+    if {[catch {close $pipe} stderr] != 0} {
+        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
+            append stderr "\n"
+        }
+        global errorCode
+        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
+            set failed [lindex $errorCode 2]
+        }
+    }
 
     set exp_out "1\n"
     regsub -all -- {\n} $exp_out {\n} escaped_exp_out
@@ -26,7 +36,7 @@ foreach runtime [get_runtime_list] {
     }
 
     if {$failed} {
-        fail "${test_name}: exit code not zero"
+        fail "${test_name}: exit code should be zero but is $failed"
     } else {
         pass "${test_name}: exit code is zero"
     }
@@ -44,7 +54,9 @@ foreach runtime [get_runtime_list] {
 
 set subtest2 "TEST 2: q != q"
 foreach runtime [get_runtime_list] {
-    if {$runtime eq ""} { set runtime "kernel" }
+    if {$runtime eq ""} {
+        set runtime "kernel"
+    }
     set test_name "$test: $subtest2 ($runtime)"
 
     set cmd "stap -e 'probe begin \{ a = 32; println (a != a); exit() \}' --runtime=$runtime"
@@ -52,7 +64,15 @@ foreach runtime [get_runtime_list] {
     set pipe [open "| sh -c {$cmd}" r]
     set out [read $pipe]
     set failed 0
-    if {[catch {close $pipe} stderr] != 0} { set failed 1 }
+    if {[catch {close $pipe} stderr] != 0} {
+        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
+            append stderr "\n"
+        }
+        global errorCode
+        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
+            set failed [lindex $errorCode 2]
+        }
+    }
 
     set exp_out "0\n"
     regsub -all -- {\n} $exp_out {\n} escaped_exp_out
@@ -63,7 +83,7 @@ foreach runtime [get_runtime_list] {
     }
 
     if {$failed} {
-        fail "${test_name}: exit code not zero"
+        fail "${test_name}: exit code should be zero but is $failed"
     } else {
         pass "${test_name}: exit code is zero"
     }
