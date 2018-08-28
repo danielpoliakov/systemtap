@@ -3975,9 +3975,9 @@ function _swapon_flags_str:string(flags:long)
 #elif defined(__mips__)
 	unsigned long cp0 = kread(&regs->cp0_status);
 #if defined(CONFIG_CPU_R3000) || defined(CONFIG_CPU_TX39XX)
-	THIS->__retvalue = ((cp0 & 0x08) == 8);
+	STAP_RETVALUE = ((cp0 & 0x08) == 8);
 #else
-	THIS->__retvalue = ((cp0 & 0x18) == 0x10);
+	STAP_RETVALUE = ((cp0 & 0x18) == 0x10);
 #endif
 #elif defined(__s390__) || defined(__s390x__)
 	unsigned long mask = kread(&regs->psw.mask);
