@@ -56,7 +56,7 @@ probe syscall.execve.return
   if (!(exe_name_ctr[tid()]))
     delete exe_name_ctr[tid()]
   
-  if ($return == 0 && pid() in depth) {
+  if (returnval() == 0 && pid() in depth) {
     d = ++depth[pid()]
     printf("PID%d_%d -> PID%d_%d [ style=\"dashed\" ];\n",
            pid(), d-1, pid(), d)
