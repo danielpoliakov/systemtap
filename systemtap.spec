@@ -80,7 +80,7 @@
 %endif
 
 # To avoid testsuite/*/*.stp has shebang which doesn't start with '/'
-%undefine __brp_mangle_shebangs  
+%define __brp_mangle_shebangs_exclude_from .stp$
 
 Name: systemtap
 Version: 4.0
