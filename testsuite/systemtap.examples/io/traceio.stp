@@ -13,16 +13,16 @@
 global reads, writes, total_io
 
 probe vfs.read.return {
-  if ($return > 0) {
-    reads[pid(),execname()] += $return
-    total_io[pid(),execname()] += $return
+  if (returnval() > 0) {
+    reads[pid(),execname()] += returnval()
+    total_io[pid(),execname()] += returnval()
   }
 }
 
 probe vfs.write.return {
-  if ($return > 0) {
-    writes[pid(),execname()] += $return
-    total_io[pid(),execname()] += $return
+  if (returnval() > 0) {
+    writes[pid(),execname()] += returnval()
+    total_io[pid(),execname()] += returnval()
   }
 }
 

@@ -12,7 +12,7 @@
 global execname, errors
 
 probe syscall.*.return {
-  errno = $return
+  errno = returnval()
   if ( errno < 0 ) {
     p = pid()
     execname[p]=execname();

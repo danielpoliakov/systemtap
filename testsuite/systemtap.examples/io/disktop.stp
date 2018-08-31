@@ -16,21 +16,21 @@ global io_stat,device
 global read_bytes,write_bytes
 
 probe vfs.read.return {
-  if ($return>0) {
+  if (returnval()>0) {
     if (devname!="N/A") {/*skip read from cache*/
-      io_stat[pid(),execname(),uid(),ppid(),"R"] += $return
+      io_stat[pid(),execname(),uid(),ppid(),"R"] += returnval()
       device[pid(),execname(),uid(),ppid(),"R"] = devname
-      read_bytes += $return
+      read_bytes += returnval()
     }
   }
 }
 
 probe vfs.write.return {
-  if ($return>0) {
+  if (returnval()>0) {
     if (devname!="N/A") { /*skip update cache*/
-      io_stat[pid(),execname(),uid(),ppid(),"W"] += $return
+      io_stat[pid(),execname(),uid(),ppid(),"W"] += returnval()
       device[pid(),execname(),uid(),ppid(),"W"] = devname
-      write_bytes += $return
+      write_bytes += returnval()
     }
   }
 }

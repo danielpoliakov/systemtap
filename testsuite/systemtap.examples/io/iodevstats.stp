@@ -4,7 +4,7 @@ global reads, writes, totals
 probe begin { printf("starting probe\n") }
 
 probe vfs.read.return {
-  count = $return
+  count = returnval()
   if ( count >= 0 ) {
     reads[execname(),dev] <<< count # statistics array
     totals[execname(),dev] += count
@@ -12,7 +12,7 @@ probe vfs.read.return {
 }
 
 probe vfs.write.return {
-  count = $return
+  count = returnval()
   if (count >= 0 ) {
     writes[execname(),dev] <<< count # statistics array
     totals[execname(),dev] += count

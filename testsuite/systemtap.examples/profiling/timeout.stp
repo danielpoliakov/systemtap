@@ -12,7 +12,7 @@ probe syscall.{poll,epoll_wait} {
 }
 
 probe syscall.poll.return {
-  if ($return == 0 && to[pid()] > 0 ) {
+  if (returnval() == 0 && to[pid()] > 0 ) {
     poll_timeout[pid()]++
     timeout_count[pid()]++
     process[pid()] = execname()
@@ -21,7 +21,7 @@ probe syscall.poll.return {
 }
 
 probe syscall.epoll_wait.return {
-  if ($return == 0 && to[pid()] > 0 ) {
+  if (returnval() == 0 && to[pid()] > 0 ) {
     epoll_timeout[pid()]++
     timeout_count[pid()]++
     process[pid()] = execname()
@@ -30,7 +30,7 @@ probe syscall.epoll_wait.return {
 }
 
 probe syscall.select.return {
-  if ($return == 0) {
+  if (returnval() == 0) {
     select_timeout[pid()]++
     timeout_count[pid()]++
     process[pid()] = execname()
@@ -38,7 +38,7 @@ probe syscall.select.return {
 }
 
 probe syscall.futex.return {
-  if (errno_str($return) == "ETIMEDOUT") {
+  if (errno_str(returnval()) == "ETIMEDOUT") {
     futex_timeout[pid()]++
     timeout_count[pid()]++
     process[pid()] = execname()
@@ -46,7 +46,7 @@ probe syscall.futex.return {
 }
 
 probe syscall.nanosleep.return {
-  if ($return == 0) {
+  if (returnval() == 0) {
     nanosleep_timeout[pid()]++
     timeout_count[pid()]++
     process[pid()] = execname()
@@ -60,7 +60,7 @@ probe kernel.function("it_real_fn") {
 }
 
 probe syscall.rt_sigtimedwait.return {
-  if (errno_str($return) == "EAGAIN") {
+  if (errno_str(returnval()) == "EAGAIN") {
     signal_timeout[pid()]++
     timeout_count[pid()]++
     process[pid()] = execname()
