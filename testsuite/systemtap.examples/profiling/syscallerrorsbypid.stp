@@ -11,18 +11,29 @@
 # but are otherwise harmless.
 
 global arr%[20000], sys%[20000]
-
-probe kernel.trace("sys_enter") { sys[tid()] = $id }
+global procname%
+      
+probe kernel.trace("sys_enter") {
+  sys[tid()] = $id
+}
 probe kernel.trace("sys_exit") {
     if (tid() in sys && $ret < 0 ) {
        arr[pid(), sys[tid()], $ret]++
-       delete sys[tid()]
+       procname[pid()] = execname()
     }
+    delete sys[tid()]
 }
 
-probe scheduler.process_exit { delete arr[pid(),*,*] }
+probe scheduler.process_exit {
+  delete arr[pid(),*,*]
+  delete procname[pid()]
+}
+
+function process_name(pid) {
+  return sprintf("%s[%d]", procname[pid], pid)
+}
 
 probe prometheus {
     @prometheus_dump_array3_map(arr, "count", "pid", "syscall", "error",
-				sprint, sprint, syscall_name, errno_str)
+				sprint, process_name, syscall_name, errno_str)
 }
