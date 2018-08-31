@@ -2,7 +2,6 @@
 %{
 // Be sure we have the __NR_* defines.
 #include <asm/unistd.h>
-#include "linux/compat_unistd.h"
 
 // Be sure we have the SYS_* defines.
 #include <linux/net.h>
