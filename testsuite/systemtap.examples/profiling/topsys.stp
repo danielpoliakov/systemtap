@@ -22,3 +22,13 @@ probe timer.s(5) {
   print_systop ()
   printf("--------------------------------------------------------------\n")
 }
+
+global prom_arr
+
+probe prometheus {
+  foreach (syscall in syscalls_count- limit 20)
+    prom_arr[syscall] = @count(syscalls_count[syscall])
+
+  @prometheus_dump_array1(prom_arr, "count", "syscall")
+  delete prom_arr
+}

@@ -92,3 +92,20 @@ probe timer.s(1) {
               signal_timeout[p], process[p])
   }
 }
+
+global prom_arr
+
+probe prometheus {
+  foreach (p in timeout_count- limit 20) {
+    prom_arr[poll_timeout[p], select_timeout[p],
+             epoll_timeout[p], itimer_timeout[p],
+	     futex_timeout[p], nanosleep_timeout[p],
+	     signal_timeout[p]] = process[p]
+  }
+
+  @prometheus_dump_array7(prom_arr, "process", "poll_timeout", "select_timeout",
+		          "epoll_timeout", "itimer_timeout",
+			  "futex_timeout", "nanosleep_timeout",
+			  "signal_timeout")
+  delete prom_arr
+}

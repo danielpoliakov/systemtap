@@ -35,3 +35,13 @@ probe end {
   }
 }
 
+global prom_arr
+
+probe prometheus {
+  foreach ([p, errno, name] in errors- limit 20) {
+    prom_arr[p, errno, name] = @count(errors[p, errno, name])
+  }
+
+  @prometheus_dump_array3(prom_arr, "count", "pid", "errno", "name")
+  delete prom_arr
+}
