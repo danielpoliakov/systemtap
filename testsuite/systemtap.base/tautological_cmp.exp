@@ -27,7 +27,8 @@ foreach runtime [get_runtime_list] {
         }
     }
 
-    set exp_out "1\n"
+    set exp_out "1
+"
     regsub -all -- {\n} $exp_out {\n} escaped_exp_out
     if {$out eq $exp_out} {
         pass "${test_name}: stdout matches \"$escaped_exp_out\""
@@ -74,7 +75,8 @@ foreach runtime [get_runtime_list] {
         }
     }
 
-    set exp_out "0\n"
+    set exp_out "0
+"
     regsub -all -- {\n} $exp_out {\n} escaped_exp_out
     if {$out eq $exp_out} {
         pass "${test_name}: stdout matches \"$escaped_exp_out\""

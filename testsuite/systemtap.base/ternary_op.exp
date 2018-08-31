@@ -27,7 +27,8 @@ foreach runtime [get_runtime_list] {
         }
     }
 
-    set exp_out "positive 3\n"
+    set exp_out "positive 3
+"
     regsub -all -- {\n} $exp_out {\n} escaped_exp_out
     if {$out eq $exp_out} {
         pass "${test_name}: stdout matches \"$escaped_exp_out\""
@@ -79,7 +80,10 @@ if {$failed} {
     fail "${test_name}: exit code should be non-zero but is zero"
 }
 
-set stderr_pat "^semantic error: Expecting lvalue for assignment: operator '=' at \[^\\n\]*?\\.stp:4:58\\n        source:     printf\\(\"a = %d, b = %d, c = %d\\\\n\", a > 0 \\? b = 4 : c = 5, b, c\\);\\n                                                                         \\^\\n"
+set stderr_pat "^semantic error: Expecting lvalue for assignment: operator '=' at \[^\\n\]*?\\.stp:4:58
+        source:     printf\\(\"a = %d, b = %d, c = %d\\\\n\", a > 0 \\? b = 4 : c = 5, b, c\\);
+                                                                         \\^
+"
 regsub -all -- {\n} $stderr_pat {\n} escaped_stderr_pat
 if {[regexp -linestop -lineanchor -- $stderr_pat $stderr]} {
     pass "${test_name}: stderr matches \"$escaped_stderr_pat\""
@@ -121,7 +125,10 @@ if {$failed} {
     fail "${test_name}: exit code should be non-zero but is zero"
 }
 
-set stderr_pat "^semantic error: Expecting lvalue for assignment: operator '=' at \[^\\n\]*?\\.stp:4:58\\n        source:     printf\\(\"a = %d, b = %d, c = %d\\\\n\", a > 0 \\? b = 4 : c = 5, b, c\\);\\n                                                                         \\^\\n"
+set stderr_pat "^semantic error: Expecting lvalue for assignment: operator '=' at \[^\\n\]*?\\.stp:4:58
+        source:     printf\\(\"a = %d, b = %d, c = %d\\\\n\", a > 0 \\? b = 4 : c = 5, b, c\\);
+                                                                         \\^
+"
 regsub -all -- {\n} $stderr_pat {\n} escaped_stderr_pat
 if {[regexp -linestop -lineanchor -- $stderr_pat $stderr]} {
     pass "${test_name}: stderr matches \"$escaped_stderr_pat\""
@@ -153,7 +160,8 @@ foreach runtime [get_runtime_list] {
         }
     }
 
-    set exp_out "a = 4, b = 4, c = 0\n"
+    set exp_out "a = 4, b = 4, c = 0
+"
     regsub -all -- {\n} $exp_out {\n} escaped_exp_out
     if {$out eq $exp_out} {
         pass "${test_name}: stdout matches \"$escaped_exp_out\""
@@ -195,7 +203,8 @@ foreach runtime [get_runtime_list] {
         }
     }
 
-    set exp_out "a = 4, b = 4, c = 0\n"
+    set exp_out "a = 4, b = 4, c = 0
+"
     regsub -all -- {\n} $exp_out {\n} escaped_exp_out
     if {$out eq $exp_out} {
         pass "${test_name}: stdout matches \"$escaped_exp_out\""
@@ -237,7 +246,8 @@ foreach runtime [get_runtime_list] {
         }
     }
 
-    set exp_out "3\n"
+    set exp_out "3
+"
     regsub -all -- {\n} $exp_out {\n} escaped_exp_out
     if {$out eq $exp_out} {
         pass "${test_name}: stdout matches \"$escaped_exp_out\""
@@ -245,7 +255,10 @@ foreach runtime [get_runtime_list] {
         fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
     }
 
-    set stderr_pat "^WARNING: Eliding assignment to 'b': operator '=' at \[^\\n\]*?\\.stp:3:30\n.*?\nWARNING: Eliding assignment to 'c': operator '=' at :3:39\n"
+    set stderr_pat "^WARNING: Eliding assignment to 'b': operator '=' at \[^\\n\]*?\\.stp:3:30
+.*?
+WARNING: Eliding assignment to 'c': operator '=' at :3:39
+"
     regsub -all -- {\n} $stderr_pat {\n} escaped_stderr_pat
     if {[regexp -lineanchor -- $stderr_pat $stderr]} {
         pass "${test_name}: stderr matches \"$escaped_stderr_pat\""
@@ -284,7 +297,11 @@ foreach runtime [get_runtime_list] {
         }
     }
 
-    set exp_out "3\n4\n6\n5\n"
+    set exp_out "3
+4
+6
+5
+"
     regsub -all -- {\n} $exp_out {\n} escaped_exp_out
     if {$out eq $exp_out} {
         pass "${test_name}: stdout matches \"$escaped_exp_out\""
