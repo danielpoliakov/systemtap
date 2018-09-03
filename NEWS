@@ -2,6 +2,13 @@
 
 - Runtime/tapsets were ported to include up to kernel version PRERELEASE.
 
+- A new network service, stap-exporter, is included.  It glues
+  systemtap and the web.  It allows a prometheus (or compatible
+  systems such as pcp) to consume metrics exported by systemtap
+  scripts.  Some tapset macros/functions are available to make it
+  easier to write such scripts.  See the stap-exporter(8) man page and
+  the systemd service.
+
 - When a systemtap module is loaded, the name of the original stap script
   is now printed to dmesg by the kernel runtime.
 
