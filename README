@@ -73,9 +73,13 @@ Build steps:
 
   % make all
   # make install
-
   To uninstall systemtap:
   # make uninstall
+
+  Alternately, on a Fedora-like system:
+  % make rpm
+  # rpm -i /path/to/rpmbuild/.../systemtap*rpm
+
 
 - Run systemtap:
 
