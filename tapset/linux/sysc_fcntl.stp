@@ -15,6 +15,14 @@
 	argstr = sprintf("%d, %s, %p", fd, cmd_str, arg)
 %)
 
+@define _SYSCALL_FCNTL_REGARGS
+%(
+	fd = int_arg(1)
+	cmd = int_arg(2)
+	cmd_str = _fcntl_cmd_str(cmd)
+	arg = long_arg(3)
+%)
+
 probe syscall.fcntl = dw_syscall.fcntl !, nd_syscall.fcntl ? {}
 probe syscall.fcntl.return = dw_syscall.fcntl.return !, nd_syscall.fcntl.return ? {}
 
@@ -53,33 +61,87 @@ probe __dw_syscall.fcntl.return = kernel.function("sys_fcntl64").return ?,
 
 # nd_fcntl _____________________________________________________
 
-probe nd_syscall.fcntl = __nd_syscall.fcntl,
+probe nd_syscall.fcntl = nd1_syscall.fcntl!, nd2_syscall.fcntl!, tp_syscall.fcntl
+  { }
+
+probe nd1_syscall.fcntl = __nd1_syscall.fcntl,
                          kprobe.function("compat_sys_fcntl") ?,
                          kprobe.function("compat_sys_fcntl64") ?
 {
 	@_SYSCALL_FCNTL_NAME
 	asmlinkage()
-	fd = int_arg(1)
-	cmd = int_arg(2)
-	cmd_str = _fcntl_cmd_str(cmd)
-	arg = long_arg(3)
+	@_SYSCALL_FCNTL_REGARGS
 	@_SYSCALL_FCNTL_ARGSTR
 }
-probe __nd_syscall.fcntl = kprobe.function("sys_fcntl64") ?,
+probe __nd1_syscall.fcntl = kprobe.function("sys_fcntl64") ?,
                            kprobe.function("sys_fcntl") ?
 {
 	@__syscall_gate_compat_simple
 }
 
-probe nd_syscall.fcntl.return = __nd_syscall.fcntl.return,
+/* kernel 4.17+ */
+probe nd2_syscall.fcntl = kprobe.function(@arch_syscall_prefix "sys_fcntl") ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_fcntl64") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_FCNTL_NAME
+	@_SYSCALL_FCNTL_REGARGS
+	@_SYSCALL_FCNTL_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.fcntl = __tp_syscall.fcntl, __tp_syscall.fcntl64
+{
+	__set_syscall_pt_regs($regs)
+	@_SYSCALL_FCNTL_NAME
+	@_SYSCALL_FCNTL_REGARGS
+	@_SYSCALL_FCNTL_ARGSTR
+}
+probe __tp_syscall.fcntl = kernel.trace("sys_enter")
+{
+	@__syscall_compat_gate(@const("__NR_fcntl"), @const("__NR_compat_fcntl"))
+}
+probe __tp_syscall.fcntl64 = kernel.trace("sys_enter")
+{
+	@__syscall_compat_gate(@const("__NR_fcntl64"), @const("__NR_compat_fcntl64"))
+}
+
+probe nd_syscall.fcntl.return = nd1_syscall.fcntl.return!, nd2_syscall.fcntl.return!, tp_syscall.fcntl.return
+  { }
+
+probe nd1_syscall.fcntl.return = __nd1_syscall.fcntl.return,
                                 kprobe.function("compat_sys_fcntl").return ?,
                                 kprobe.function("compat_sys_fcntl64").return ?
 {
 	@_SYSCALL_FCNTL_NAME
 	retstr = returnstr(1)
 }
-probe __nd_syscall.fcntl.return = kprobe.function("sys_fcntl64").return ?,
+probe __nd1_syscall.fcntl.return = kprobe.function("sys_fcntl64").return ?,
                                   kprobe.function("sys_fcntl").return ?
 {
 	@__syscall_gate_compat_simple
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.fcntl.return = kprobe.function(@arch_syscall_prefix "sys_fcntl").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_fcntl64").return ?
+{
+	@_SYSCALL_FCNTL_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.fcntl.return = __tp_syscall.fcntl.return, __tp_syscall.fcntl64.return
+{
+	__set_syscall_pt_regs($regs)
+	@_SYSCALL_FCNTL_NAME
+	retstr = return_str(1,$ret)
+}
+probe __tp_syscall.fcntl.return = kernel.trace("sys_exit")
+{
+	@__syscall_compat_gate(@const("__NR_fcntl"), @const("__NR_compat_fcntl"))
+}
+probe __tp_syscall.fcntl64.return = kernel.trace("sys_exit")
+{
+	@__syscall_compat_gate(@const("__NR_fcntl64"), @const("__NR_compat_fcntl64"))
 }

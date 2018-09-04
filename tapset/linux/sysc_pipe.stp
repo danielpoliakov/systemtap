@@ -133,11 +133,14 @@ probe __syscall.pipe.return = kernel.function("sys_pipe").return
 
 # nd_pipe _____________________________________________________
 
-probe nd_syscall.pipe = __nd_syscall.pipe2 ?, __nd_syscall.ia64_pipe ?,
-	__nd_syscall.pipe
+probe nd_syscall.pipe = nd1_syscall.pipe!, nd2_syscall.pipe!, tp_syscall.pipe
+  { }
+
+probe nd1_syscall.pipe = __nd1_syscall.pipe2 ?, __nd1_syscall.ia64_pipe ?,
+	__nd1_syscall.pipe
 {
 }
-probe __nd_syscall.pipe2 = kprobe.function("sys_pipe2") ?
+probe __nd1_syscall.pipe2 = kprobe.function("sys_pipe2") ?
 {
 	@__syscall_compat_gate(@const("__NR_pipe2"), @const("__NR_compat_pipe2"))
 	%( arch != "powerpc" %? asmlinkage() %)
@@ -155,7 +158,7 @@ probe __nd_syscall.pipe2 = kprobe.function("sys_pipe2") ?
 		argstr = sprintf("[%d, %d], %s", pipe0, pipe1, flag_str);
 	}
 }
-probe __nd_syscall.ia64_pipe = kprobe.function("sys_ia64_pipe").call ?
+probe __nd1_syscall.ia64_pipe = kprobe.function("sys_ia64_pipe").call ?
 {
 	name = "pipe"
 	flags = 0
@@ -165,7 +168,7 @@ probe __nd_syscall.ia64_pipe = kprobe.function("sys_ia64_pipe").call ?
 	pipe1 = 0;
 	argstr = "[0, 0]";
 }
-probe __nd_syscall.pipe = kprobe.function("sys_pipe")
+probe __nd1_syscall.pipe = kprobe.function("sys_pipe")
 {
 	name = "pipe"
 	flags = 0
@@ -182,12 +185,96 @@ probe __nd_syscall.pipe = kprobe.function("sys_pipe")
 		argstr = sprintf("[%d, %d]", pipe0, pipe1);
 	}
 }
-probe nd_syscall.pipe.return = __nd_syscall.pipe2.return ?,
-			       __nd_syscall.ia64_pipe.return ?,
-                               __nd_syscall.pipe.return
+
+/* kernel 4.17+ */
+probe nd2_syscall.pipe = __nd2_syscall.pipe2 ?, __nd2_syscall.pipe
 {
 }
-probe __nd_syscall.pipe2.return = kprobe.function("sys_pipe2").return ?
+probe __nd2_syscall.pipe2 = kprobe.function(@arch_syscall_prefix "sys_pipe2") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	name = "pipe2";
+	flags = int_arg(2)
+	flag_str = _sys_pipe2_flag_str(flags);
+	fildes_uaddr = pointer_arg(1)
+	if (fildes_uaddr == 0) {
+		pipe0 = 0;
+		pipe1 = 0;
+		argstr = "NULL"
+	} else {
+		pipe0 = _fildes_index_u(fildes_uaddr, 0)
+		pipe1 = _fildes_index_u(fildes_uaddr, 1)
+		argstr = sprintf("[%d, %d], %s", pipe0, pipe1, flag_str);
+	}
+}
+probe __nd2_syscall.pipe = kprobe.function(@arch_syscall_prefix "sys_pipe")
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	name = "pipe"
+	flags = 0
+	flag_str = ""
+	fildes_uaddr = pointer_arg(1)
+	if (fildes_uaddr == 0) {
+		pipe0 = 0;
+		pipe1 = 0;
+		argstr = "NULL"
+	} else {
+		pipe0 = _fildes_index_u(fildes_uaddr, 0)
+		pipe1 = _fildes_index_u(fildes_uaddr, 1)
+		argstr = sprintf("[%d, %d]", pipe0, pipe1);
+	}
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.pipe = __tp_syscall.pipe2 ?, __tp_syscall.pipe
+{
+}
+probe __tp_syscall.pipe2 = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_pipe2"), @const("__NR_compat_pipe2"))
+	name = "pipe2";
+	flags = int_arg(2)
+	flag_str = _sys_pipe2_flag_str(flags);
+	fildes_uaddr = pointer_arg(1)
+	if (fildes_uaddr == 0) {
+		pipe0 = 0;
+		pipe1 = 0;
+		argstr = "NULL"
+	} else {
+		pipe0 = _fildes_index_u(fildes_uaddr, 0)
+		pipe1 = _fildes_index_u(fildes_uaddr, 1)
+		argstr = sprintf("[%d, %d], %s", pipe0, pipe1, flag_str);
+	}
+}
+probe __tp_syscall.pipe = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_pipe"), @const("__NR_compat_pipe"))
+	name = "pipe"
+	flags = 0
+	flag_str = ""
+	fildes_uaddr = pointer_arg(1)
+	if (fildes_uaddr == 0) {
+		pipe0 = 0;
+		pipe1 = 0;
+		argstr = "NULL"
+	} else {
+		pipe0 = _fildes_index_u(fildes_uaddr, 0)
+		pipe1 = _fildes_index_u(fildes_uaddr, 1)
+		argstr = sprintf("[%d, %d]", pipe0, pipe1);
+	}
+}
+
+probe nd_syscall.pipe.return = nd1_syscall.pipe.return!, nd2_syscall.pipe.return!, tp_syscall.pipe.return
+  { }
+  
+probe nd1_syscall.pipe.return = __nd1_syscall.pipe2.return ?,
+			        __nd1_syscall.ia64_pipe.return ?,
+                                __nd1_syscall.pipe.return
+{
+}
+probe __nd1_syscall.pipe2.return = kprobe.function("sys_pipe2").return ?
 {
 	@__syscall_compat_gate(@const("__NR_pipe2"), @const("__NR_compat_pipe2"))
 	name = "pipe2";
@@ -201,7 +288,7 @@ probe __nd_syscall.pipe2.return = kprobe.function("sys_pipe2").return ?
 	}
 	retstr = returnstr(1)
 }
-probe __nd_syscall.ia64_pipe.return = kprobe.function("sys_ia64_pipe").return ?
+probe __nd1_syscall.ia64_pipe.return = kprobe.function("sys_ia64_pipe").return ?
 {
 	name = "pipe"
 	fildes_uaddr = 0;
@@ -209,7 +296,7 @@ probe __nd_syscall.ia64_pipe.return = kprobe.function("sys_ia64_pipe").return ?
 	pipe1 = _ia64_pipe1();
 	retstr = (pipe0 < 0) ? returnstr(1) : "0";
 }
-probe __nd_syscall.pipe.return = kprobe.function("sys_pipe").return
+probe __nd1_syscall.pipe.return = kprobe.function("sys_pipe").return
 {
 	name = "pipe"
 	fildes_uaddr = @entry(%( arch != "powerpc" %? __asmlinkage_int_arg(1)
@@ -222,4 +309,74 @@ probe __nd_syscall.pipe.return = kprobe.function("sys_pipe").return
 		pipe1 = _fildes_index_u(fildes_uaddr, 1)
 	}
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.pipe.return = __nd2_syscall.pipe2.return ?,
+                                __nd2_syscall.pipe.return
+{
+}
+probe __nd2_syscall.pipe2.return = kprobe.function(@arch_syscall_prefix "sys_pipe2").return ?
+{
+	name = "pipe2";
+	__set_syscall_pt_regs(@entry(pointer_arg(1)))
+	fildes_uaddr = pointer_arg(1)
+	if (fildes_uaddr == 0) {
+		pipe0 = 0;
+		pipe1 = 0;
+	} else {
+		pipe0 = _fildes_index_u(fildes_uaddr, 0)
+		pipe1 = _fildes_index_u(fildes_uaddr, 1)
+	}
+	retstr = returnstr(1)
+}
+probe __nd2_syscall.pipe.return = kprobe.function(@arch_syscall_prefix "sys_pipe").return
+{
+	name = "pipe"
+	__set_syscall_pt_regs(@entry(pointer_arg(1)))
+	fildes_uaddr = int_arg(1)
+	if (fildes_uaddr == 0) {
+		pipe0 = 0;
+		pipe1 = 0;
+	} else {
+		pipe0 = _fildes_index_u(fildes_uaddr, 0)
+		pipe1 = _fildes_index_u(fildes_uaddr, 1)
+	}
+	retstr = returnstr(1)
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.pipe.return = __tp_syscall.pipe2.return ?,
+                               __tp_syscall.pipe.return
+{
+}
+probe __tp_syscall.pipe2.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_pipe2"), @const("__NR_compat_pipe2"))
+	name = "pipe2";
+	fildes_uaddr = pointer_arg(1)
+	if (fildes_uaddr == 0) {
+		pipe0 = 0;
+		pipe1 = 0;
+	} else {
+		pipe0 = _fildes_index_u(fildes_uaddr, 0)
+		pipe1 = _fildes_index_u(fildes_uaddr, 1)
+	}
+	retstr = return_str(1,$ret)
+}
+probe __tp_syscall.pipe.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_pipe"), @const("__NR_compat_pipe"))
+	name = "pipe"
+	fildes_uaddr = int_arg(1)
+	if (fildes_uaddr == 0) {
+		pipe0 = 0;
+		pipe1 = 0;
+	} else {
+		pipe0 = _fildes_index_u(fildes_uaddr, 0)
+		pipe1 = _fildes_index_u(fildes_uaddr, 1)
+	}
+	retstr = return_str(1,$ret)
 }

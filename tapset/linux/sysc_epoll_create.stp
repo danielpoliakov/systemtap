@@ -30,11 +30,14 @@ probe dw_syscall.epoll_create.return = kernel.function("sys_epoll_create1").retu
 
 # nd_epoll_create _____________________________________________________
 
-probe nd_syscall.epoll_create = __nd_syscall.epoll_create1 !,
-                                __nd_syscall.epoll_create ?
+probe nd_syscall.epoll_create = nd1_syscall.epoll_create!, nd2_syscall.epoll_create!, tp_syscall.epoll_create
+  { }
+
+probe nd1_syscall.epoll_create = __nd1_syscall.epoll_create1 !,
+                                 __nd1_syscall.epoll_create ?
 {
 }
-probe __nd_syscall.epoll_create1 = kprobe.function("sys_epoll_create1")
+probe __nd1_syscall.epoll_create1 = kprobe.function("sys_epoll_create1")
 {
  	asmlinkage()
 	size = 0;
@@ -47,7 +50,7 @@ probe __nd_syscall.epoll_create1 = kprobe.function("sys_epoll_create1")
 		argstr = _epoll_create1_flag_str(flags);
 	}
 }
-probe __nd_syscall.epoll_create = kprobe.function("sys_epoll_create")
+probe __nd1_syscall.epoll_create = kprobe.function("sys_epoll_create")
 {
 	name = "epoll_create"
 	asmlinkage()
@@ -55,19 +58,120 @@ probe __nd_syscall.epoll_create = kprobe.function("sys_epoll_create")
 	flags = 0
 	argstr = sprint(size)
 }
-probe nd_syscall.epoll_create.return = __nd_syscall.epoll_create1.return !,
-                                       __nd_syscall.epoll_create.return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.epoll_create = __nd2_syscall.epoll_create1 !,
+                                 __nd2_syscall.epoll_create ?
 {
 }
-probe __nd_syscall.epoll_create1.return = kprobe.function("sys_epoll_create1").return
+probe __nd2_syscall.epoll_create1 = kprobe.function(@arch_syscall_prefix "sys_epoll_create1") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	size = 0;
+	flags = int_arg(1)
+	if (flags == 0) {
+		name = "epoll_create";
+		argstr = sprint(size);
+	} else {
+		name = "epoll_create1";
+		argstr = _epoll_create1_flag_str(flags);
+	}
+}
+probe __nd2_syscall.epoll_create = kprobe.function(@arch_syscall_prefix "sys_epoll_create") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	name = "epoll_create"
+	size = int_arg(1)
+	flags = 0
+	argstr = sprint(size)
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.epoll_create = __tp_syscall.epoll_create1 !,
+                                __tp_syscall.epoll_create ?
+{
+}
+probe __tp_syscall.epoll_create1 = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_epoll_create1"), @const("__NR_compat_epoll_create1"))
+	size = 0;
+	flags = int_arg(1)
+	if (flags == 0) {
+		name = "epoll_create";
+		argstr = sprint(size);
+	} else {
+		name = "epoll_create1";
+		argstr = _epoll_create1_flag_str(flags);
+	}
+}
+probe __tp_syscall.epoll_create = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_epoll_create"), @const("__NR_compat_epoll_create"))
+	name = "epoll_create"
+	size = int_arg(1)
+	flags = 0
+	argstr = sprint(size)
+}
+
+probe nd_syscall.epoll_create.return = nd1_syscall.epoll_create.return!, nd2_syscall.epoll_create.return!, tp_syscall.epoll_create.return
+  { }
+  
+probe nd1_syscall.epoll_create.return = __nd1_syscall.epoll_create1.return !,
+                                        __nd1_syscall.epoll_create.return ?
+{
+}
+probe __nd1_syscall.epoll_create1.return = kprobe.function("sys_epoll_create1").return
 {
 	flags = @entry(__asmlinkage_int_arg(1))
 	name = (flags == 0) ? "epoll_create" : "epoll_create1";
 	retstr = returnstr(1)
 }
-probe __nd_syscall.epoll_create.return = kprobe.function("sys_epoll_create").return
+probe __nd1_syscall.epoll_create.return = kprobe.function("sys_epoll_create").return
 {
 	flags = 0
 	name = "epoll_create"
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.epoll_create.return = __nd2_syscall.epoll_create1.return !,
+                                        __nd2_syscall.epoll_create.return ?
+{
+}
+probe __nd2_syscall.epoll_create1.return = kprobe.function(@arch_syscall_prefix "sys_epoll_create1").return
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	flags = int_arg(1)
+	name = (flags == 0) ? "epoll_create" : "epoll_create1";
+	retstr = returnstr(1)
+}
+probe __nd2_syscall.epoll_create.return = kprobe.function(@arch_syscall_prefix "sys_epoll_create").return
+{
+	flags = 0
+	name = "epoll_create"
+	retstr = returnstr(1)
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.epoll_create.return = __tp_syscall.epoll_create1.return !,
+                                       __tp_syscall.epoll_create.return ?
+{
+}
+probe __tp_syscall.epoll_create1.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_epoll_create1"), @const("__NR_compat_epoll_create1"))
+	flags = int_arg(1)
+	name = (flags == 0) ? "epoll_create" : "epoll_create1";
+	retstr = return_str(1,$ret)
+}
+probe __tp_syscall.epoll_create.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_epoll_create"), @const("__NR_compat_epoll_create"))
+	flags = 0
+	name = "epoll_create"
+	retstr = return_str(1,$ret)
 }

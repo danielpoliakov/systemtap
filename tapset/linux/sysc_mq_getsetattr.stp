@@ -17,6 +17,13 @@
 	argstr = sprintf("%d, %p, %p", mqdes, u_mqstat_uaddr, u_omqstat_uaddr)
 %)
 
+@define _SYSCALL_MQ_GETSETATTR_REGARGS
+%(
+	mqdes = int_arg(1)
+	u_mqstat_uaddr = pointer_arg(2)
+	u_omqstat_uaddr = pointer_arg(3)
+%)
+
 probe syscall.mq_getsetattr = dw_syscall.mq_getsetattr !, nd_syscall.mq_getsetattr ? {}
 probe syscall.mq_getsetattr.return = dw_syscall.mq_getsetattr.return !, nd_syscall.mq_getsetattr.return ? {}
 
@@ -50,29 +57,73 @@ probe __syscall.mq_getsetattr.return = kernel.function("sys_mq_getsetattr").retu
 
 # nd_mq_getsetattr _____________________________________________________
 
-probe nd_syscall.mq_getsetattr =
-        __nd_syscall.mq_getsetattr ?,
+probe nd_syscall.mq_getsetattr = nd1_syscall.mq_getsetattr!, nd2_syscall.mq_getsetattr!, tp_syscall.mq_getsetattr
+  { }
+
+probe nd1_syscall.mq_getsetattr =
+        __nd1_syscall.mq_getsetattr ?,
         kprobe.function("compat_sys_mq_getsetattr") ?
 {
 	@_SYSCALL_MQ_GETSETATTR_NAME
 	asmlinkage()
-	mqdes = int_arg(1)
-	u_mqstat_uaddr = pointer_arg(2)
-	u_omqstat_uaddr = pointer_arg(3)
+	@_SYSCALL_MQ_GETSETATTR_REGARGS
 	@_SYSCALL_MQ_GETSETATTR_ARGSTR
 }
-probe __nd_syscall.mq_getsetattr = kprobe.function("sys_mq_getsetattr")
+probe __nd1_syscall.mq_getsetattr = kprobe.function("sys_mq_getsetattr")
 {
         @__syscall_gate(@const("__NR_mq_getsetattr"))
 }
-probe nd_syscall.mq_getsetattr.return =
-        __nd_syscall.mq_getsetattr.return ?,
+
+/* kernel 4.17+ */
+probe nd2_syscall.mq_getsetattr =
+	kprobe.function(@arch_syscall_prefix "sys_mq_getsetattr") ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_mq_getsetattr") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_MQ_GETSETATTR_NAME
+	@_SYSCALL_MQ_GETSETATTR_REGARGS
+	@_SYSCALL_MQ_GETSETATTR_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.mq_getsetattr = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_mq_getsetattr"), @const("__NR_compat_mq_getsetattr"))
+	@_SYSCALL_MQ_GETSETATTR_NAME
+	@_SYSCALL_MQ_GETSETATTR_REGARGS
+	@_SYSCALL_MQ_GETSETATTR_ARGSTR
+}
+
+probe nd_syscall.mq_getsetattr.return = nd1_syscall.mq_getsetattr.return!, nd2_syscall.mq_getsetattr.return!, tp_syscall.mq_getsetattr.return
+  { }
+  
+probe nd1_syscall.mq_getsetattr.return =
+        __nd1_syscall.mq_getsetattr.return ?,
         kprobe.function("compat_sys_mq_getsetattr").return ?
 {
 	@_SYSCALL_MQ_GETSETATTR_NAME
 	retstr = returnstr(1)
 }
-probe __nd_syscall.mq_getsetattr.return = kprobe.function("sys_mq_getsetattr").return
+probe __nd1_syscall.mq_getsetattr.return = kprobe.function("sys_mq_getsetattr").return
 {
         @__syscall_gate(@const("__NR_mq_getsetattr"))
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.mq_getsetattr.return =
+	kprobe.function(@arch_syscall_prefix "sys_mq_getsetattr").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_mq_getsetattr").return ?
+{
+	@_SYSCALL_MQ_GETSETATTR_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.mq_getsetattr.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_mq_getsetattr"), @const("__NR_compat_mq_getsetattr"))
+	@_SYSCALL_MQ_GETSETATTR_NAME
+	retstr = return_str(1,$ret)
 }

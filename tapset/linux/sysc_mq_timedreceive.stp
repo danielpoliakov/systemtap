@@ -21,6 +21,14 @@
 	                 msg_prio_uaddr, abs_timeout_uaddr)
 %)
 
+@define _SYSCALL_MQ_TIMEDRECEIVE_REGARGS
+%(
+	mqdes = int_arg(1)
+	msg_ptr_uaddr = pointer_arg(2)
+	msg_prio_uaddr = pointer_arg(4)
+	abs_timeout_uaddr = pointer_arg(5)
+%)
+
 probe syscall.mq_timedreceive = dw_syscall.mq_timedreceive !, nd_syscall.mq_timedreceive ? {}
 probe syscall.mq_timedreceive.return = dw_syscall.mq_timedreceive.return !,
                                        nd_syscall.mq_timedreceive.return ? {}
@@ -61,24 +69,24 @@ probe __syscall.mq_timedreceive.return = kernel.function("sys_mq_timedreceive").
 
 # nd_mq_timedreceive _____________________________________________________
 
-probe nd_syscall.mq_timedreceive =
-        __nd_syscall.mq_timedreceive ?,
-	__nd_syscall.compat_mq_timedreceive ?
+probe nd_syscall.mq_timedreceive = nd1_syscall.mq_timedreceive!, nd2_syscall.mq_timedreceive!, tp_syscall.mq_timedreceive
+  { }
+
+probe nd1_syscall.mq_timedreceive =
+        __nd1_syscall.mq_timedreceive ?,
+	__nd1_syscall.compat_mq_timedreceive ?
 {
 	@_SYSCALL_MQ_TIMEDRECEIVE_NAME
 	asmlinkage()
-	mqdes = int_arg(1)
-	msg_ptr_uaddr = pointer_arg(2)
-	msg_prio_uaddr = pointer_arg(4)
-	abs_timeout_uaddr = pointer_arg(5)
+	@_SYSCALL_MQ_TIMEDRECEIVE_REGARGS
 	@_SYSCALL_MQ_TIMEDRECEIVE_ARGSTR
 }
-probe __nd_syscall.compat_mq_timedreceive = kprobe.function("compat_sys_mq_timedreceive")
+probe __nd1_syscall.compat_mq_timedreceive = kprobe.function("compat_sys_mq_timedreceive")
 {
 	asmlinkage()
 	msg_len = uint_arg(3)
 }
-probe __nd_syscall.mq_timedreceive = kprobe.function("sys_mq_timedreceive")
+probe __nd1_syscall.mq_timedreceive = kprobe.function("sys_mq_timedreceive")
 {
 	asmlinkage()
         @__syscall_gate(@const("__NR_mq_timedreceive"))
@@ -88,14 +96,78 @@ probe __nd_syscall.mq_timedreceive = kprobe.function("sys_mq_timedreceive")
 	msg_len = uint_arg(3)
 %)
 }
-probe nd_syscall.mq_timedreceive.return =
-        __nd_syscall.mq_timedreceive.return ?,
+
+/* kernel 4.17+ */
+probe nd2_syscall.mq_timedreceive =
+	__nd2_syscall.mq_timedreceive ?,
+	__nd2_syscall.compat_mq_timedreceive ?
+{
+	@_SYSCALL_MQ_TIMEDRECEIVE_NAME
+	@_SYSCALL_MQ_TIMEDRECEIVE_REGARGS
+	@_SYSCALL_MQ_TIMEDRECEIVE_ARGSTR
+}
+probe __nd2_syscall.compat_mq_timedreceive = kprobe.function(@arch_syscall_prefix "compat_sys_mq_timedreceive") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	msg_len = uint_arg(3)
+}
+probe __nd2_syscall.mq_timedreceive = kprobe.function(@arch_syscall_prefix "sys_mq_timedreceive") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	msg_len = ulong_arg(3)
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.mq_timedreceive =
+	__tp_syscall.mq_timedreceive ?,
+	__tp_syscall.compat_mq_timedreceive ?
+{
+	@_SYSCALL_MQ_TIMEDRECEIVE_NAME
+	@_SYSCALL_MQ_TIMEDRECEIVE_REGARGS
+	@_SYSCALL_MQ_TIMEDRECEIVE_ARGSTR
+}
+probe __tp_syscall.compat_mq_timedreceive = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_compat_mq_timedreceive"))
+	msg_len = uint_arg(3)
+}
+probe __tp_syscall.mq_timedreceive = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_mq_timedreceive"))
+	msg_len = ulong_arg(3)
+}
+
+probe nd_syscall.mq_timedreceive.return = nd1_syscall.mq_timedreceive.return!, nd2_syscall.mq_timedreceive.return!, tp_syscall.mq_timedreceive.return
+  { }
+  
+probe nd1_syscall.mq_timedreceive.return =
+        __nd1_syscall.mq_timedreceive.return ?,
         kprobe.function("compat_sys_mq_timedreceive").return ?
 {
 	@_SYSCALL_MQ_TIMEDRECEIVE_NAME
 	retstr = returnstr(1)
 }
-probe __nd_syscall.mq_timedreceive.return = kprobe.function("sys_mq_timedreceive").return
+probe __nd1_syscall.mq_timedreceive.return = kprobe.function("sys_mq_timedreceive").return
 {
         @__syscall_gate(@const("__NR_mq_timedreceive"))
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.mq_timedreceive.return =
+	kprobe.function(@arch_syscall_prefix "sys_mq_timedreceive").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_mq_timedreceive").return ?
+{
+	@_SYSCALL_MQ_TIMEDRECEIVE_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.mq_timedreceive.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_mq_timedreceive"), @const("__NR_compat_mq_timedreceive"))
+	@_SYSCALL_MQ_TIMEDRECEIVE_NAME
+	retstr = return_str(1,$ret)
 }

@@ -12,6 +12,12 @@
 	argstr = u_name
 %)
 
+@define _SYSCALL_MQ_UNLINK_REGARGS
+%(
+	u_name_uaddr = pointer_arg(1)
+	u_name = user_string_quoted(u_name_uaddr)
+%)
+
 probe syscall.mq_unlink = dw_syscall.mq_unlink !, nd_syscall.mq_unlink ? {}
 probe syscall.mq_unlink.return = dw_syscall.mq_unlink.return !,
                                  nd_syscall.mq_unlink.return ? {}
@@ -33,16 +39,57 @@ probe dw_syscall.mq_unlink.return = kernel.function("sys_mq_unlink").return ?
 
 # nd_mq_unlink _____________________________________________________
 
-probe nd_syscall.mq_unlink = kprobe.function("sys_mq_unlink") ?
+probe nd_syscall.mq_unlink = nd1_syscall.mq_unlink!, nd2_syscall.mq_unlink!, tp_syscall.mq_unlink
+  { }
+
+probe nd1_syscall.mq_unlink = kprobe.function("sys_mq_unlink") ?
 {
 	@_SYSCALL_MQ_UNLINK_NAME
 	asmlinkage()
-	u_name_uaddr = pointer_arg(1)
-	u_name = user_string_quoted(u_name_uaddr)
+	@_SYSCALL_MQ_UNLINK_REGARGS
 	@_SYSCALL_MQ_UNLINK_ARGSTR
 }
-probe nd_syscall.mq_unlink.return = kprobe.function("sys_mq_unlink").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.mq_unlink = kprobe.function(@arch_syscall_prefix "sys_mq_unlink") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_MQ_UNLINK_NAME
+	@_SYSCALL_MQ_UNLINK_REGARGS
+	@_SYSCALL_MQ_UNLINK_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.mq_unlink = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_mq_unlink"), @const("__NR_compat_mq_unlink"))
+	@_SYSCALL_MQ_UNLINK_NAME
+	@_SYSCALL_MQ_UNLINK_REGARGS
+	@_SYSCALL_MQ_UNLINK_ARGSTR
+}
+
+probe nd_syscall.mq_unlink.return = nd1_syscall.mq_unlink.return!, nd2_syscall.mq_unlink.return!, tp_syscall.mq_unlink.return
+  { }
+  
+probe nd1_syscall.mq_unlink.return = kprobe.function("sys_mq_unlink").return ?
 {
 	@_SYSCALL_MQ_UNLINK_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.mq_unlink.return = kprobe.function(@arch_syscall_prefix "sys_mq_unlink").return ?
+{
+	@_SYSCALL_MQ_UNLINK_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.mq_unlink.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_mq_unlink"), @const("__NR_compat_mq_unlink"))
+	@_SYSCALL_MQ_UNLINK_NAME
+	retstr = return_str(1,$ret)
 }

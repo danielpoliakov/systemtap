@@ -13,6 +13,13 @@
 	argstr = sprintf("%p, %u, %d", ufds_uaddr, nfds, timeout)
 %)
 
+@define _SYSCALL_POLL_REGARGS
+%(
+	ufds_uaddr = pointer_arg(1)
+	nfds = uint_arg(2)
+	timeout = int_arg(3)
+%)
+
 probe syscall.poll = dw_syscall.poll !, nd_syscall.poll ? {}
 probe syscall.poll.return = dw_syscall.poll.return !, nd_syscall.poll.return ? {}
 
@@ -34,17 +41,57 @@ probe dw_syscall.poll.return = kernel.function("sys_poll").return
 
 # nd_poll _____________________________________________________
 
-probe nd_syscall.poll = kprobe.function("sys_poll") ?
+probe nd_syscall.poll = nd1_syscall.poll!, nd2_syscall.poll!, tp_syscall.poll
+  { }
+
+probe nd1_syscall.poll = kprobe.function("sys_poll") ?
 {
 	@_SYSCALL_POLL_NAME
 	asmlinkage()
-	ufds_uaddr = pointer_arg(1)
-	nfds = uint_arg(2)
-	timeout = int_arg(3)
+	@_SYSCALL_POLL_REGARGS
 	@_SYSCALL_POLL_ARGSTR
 }
-probe nd_syscall.poll.return = kprobe.function("sys_poll").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.poll = kprobe.function(@arch_syscall_prefix "sys_poll") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_POLL_NAME
+	@_SYSCALL_POLL_REGARGS
+	@_SYSCALL_POLL_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.poll = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_poll"), @const("__NR_compat_poll"))
+	@_SYSCALL_POLL_NAME
+	@_SYSCALL_POLL_REGARGS
+	@_SYSCALL_POLL_ARGSTR
+}
+
+probe nd_syscall.poll.return = nd1_syscall.poll.return!, nd2_syscall.poll.return!, tp_syscall.poll.return
+  { }
+  
+probe nd1_syscall.poll.return = kprobe.function("sys_poll").return ?
 {
 	@_SYSCALL_POLL_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.poll.return = kprobe.function(@arch_syscall_prefix "sys_poll").return ?
+{
+	@_SYSCALL_POLL_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.poll.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_poll"), @const("__NR_compat_poll"))
+	@_SYSCALL_POLL_NAME
+	retstr = return_str(1,$ret)
 }

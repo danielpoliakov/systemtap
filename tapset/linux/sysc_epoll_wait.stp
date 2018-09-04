@@ -17,6 +17,14 @@
 	argstr = sprintf("%d, %p, %d, %d", epfd, events_uaddr, maxevents, timeout)
 %)
 
+@define _SYSCALL_EPOLL_WAIT_REGARGS
+%(
+	epfd = int_arg(1)
+	events_uaddr = pointer_arg(2)
+	maxevents = int_arg(3)
+	timeout = int_arg(4)
+%)
+
 probe syscall.epoll_wait = dw_syscall.epoll_wait !, nd_syscall.epoll_wait ? {}
 probe syscall.epoll_wait.return = dw_syscall.epoll_wait.return !, nd_syscall.epoll_wait.return ? {}
 
@@ -64,8 +72,11 @@ probe __syscall.epoll_wait.return = kernel.function("sys_epoll_wait").return ?
 
 # nd_epoll_wait _____________________________________________________
 
-probe nd_syscall.epoll_wait = kprobe.function("compat_sys_epoll_wait") ?,
-                              __nd_syscall.epoll_wait ?
+probe nd_syscall.epoll_wait = nd1_syscall.epoll_wait!, nd2_syscall.epoll_wait!, tp_syscall.epoll_wait
+  { }
+
+probe nd1_syscall.epoll_wait = kprobe.function("compat_sys_epoll_wait") ?,
+                              __nd1_syscall.epoll_wait ?
 {
 %( arch != "s390" || kernel_v < "3.15" %?
 	@__syscall_compat_gate(@const("__NR_epoll_wait"),
@@ -73,21 +84,41 @@ probe nd_syscall.epoll_wait = kprobe.function("compat_sys_epoll_wait") ?,
 %)
 	@_SYSCALL_EPOLL_WAIT_NAME
 	asmlinkage()
-	epfd = int_arg(1)
-	events_uaddr = pointer_arg(2)
-	maxevents = int_arg(3)
-	timeout = int_arg(4)
+	@_SYSCALL_EPOLL_WAIT_REGARGS
 	@_SYSCALL_EPOLL_WAIT_ARGSTR
 }
-probe __nd_syscall.epoll_wait = kprobe.function("sys_epoll_wait") ?
+probe __nd1_syscall.epoll_wait = kprobe.function("sys_epoll_wait") ?
 {
 %( arch == "s390" && kernel_v >= "3.15" %?
 	@__syscall_gate(@const("__NR_epoll_wait"))
 %)
 }
-probe nd_syscall.epoll_wait.return =
+
+/* kernel 4.17+ */
+probe nd2_syscall.epoll_wait = kprobe.function(@arch_syscall_prefix "sys_epoll_wait") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_EPOLL_WAIT_NAME
+	@_SYSCALL_EPOLL_WAIT_REGARGS
+	@_SYSCALL_EPOLL_WAIT_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.epoll_wait = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_epoll_wait"), @const("__NR_compat_epoll_wait"))
+	@_SYSCALL_EPOLL_WAIT_NAME
+	@_SYSCALL_EPOLL_WAIT_REGARGS
+	@_SYSCALL_EPOLL_WAIT_ARGSTR
+}
+
+probe nd_syscall.epoll_wait.return = nd1_syscall.epoll_wait.return!, nd2_syscall.epoll_wait.return!, tp_syscall.epoll_wait.return
+  { }
+  
+probe nd1_syscall.epoll_wait.return =
 	kprobe.function("compat_sys_epoll_wait").return ?,
-	__nd_syscall.epoll_wait.return ?
+	__nd1_syscall.epoll_wait.return ?
 {
 %( arch != "s390" || kernel_v < "3.15" %?
 	@__syscall_compat_gate(@const("__NR_epoll_wait"),
@@ -96,10 +127,26 @@ probe nd_syscall.epoll_wait.return =
 	@_SYSCALL_EPOLL_WAIT_NAME
 	retstr = returnstr(1)
 }
-probe __nd_syscall.epoll_wait.return =
+probe __nd1_syscall.epoll_wait.return =
 	kprobe.function("sys_epoll_wait").return ?
 {
 %( arch == "s390" && kernel_v >= "3.15" %?
 	@__syscall_gate(@const("__NR_epoll_wait"))
 %)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.epoll_wait.return = kprobe.function(@arch_syscall_prefix "sys_epoll_wait").return ?
+{
+	@_SYSCALL_EPOLL_WAIT_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.epoll_wait.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_epoll_wait"), @const("__NR_compat_epoll_wait"))
+	@_SYSCALL_EPOLL_WAIT_NAME
+	retstr = return_str(1,$ret)
 }

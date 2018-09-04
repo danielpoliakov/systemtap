@@ -13,14 +13,21 @@
 	name = "mq_open"
 %)
 
-@define _SYSCALL_MQ_OPEN_ARGSTR_2
-%(
-	argstr = sprintf("%s, %s, %#o, %p", filename, oflag_str, mode, u_attr_uaddr)
-%)
-
 @define _SYSCALL_MQ_OPEN_ARGSTR
 %(
-	argstr = sprintf("%s, %s", filename, oflag_str)
+	if (oflag & @const("O_CREAT"))
+		argstr = sprintf("%s, %s, %#o, %p", filename, oflag_str, mode, u_attr_uaddr)
+	else
+		argstr = sprintf("%s, %s", filename, oflag_str)
+%)
+
+@define _SYSCALL_MQ_OPEN_REGARGS
+%(
+	name_uaddr = pointer_arg(1)
+	filename = user_string_quoted(name_uaddr)
+	u_attr_uaddr = pointer_arg(4)
+	oflag = int_arg(2)
+	oflag_str = _sys_open_flag_str(oflag)
 %)
 
 probe syscall.mq_open = dw_syscall.mq_open !, nd_syscall.mq_open ? {}
@@ -38,10 +45,7 @@ probe dw_syscall.mq_open = __syscall.mq_open,
 	oflag = __int32($oflag)
 	oflag_str = _sys_open_flag_str(oflag)
 	mode = (@__compat_task ? __ushort($mode) : __uint32($mode))
-	if (oflag & @const("O_CREAT"))
-		@_SYSCALL_MQ_OPEN_ARGSTR_2
-	else
-		@_SYSCALL_MQ_OPEN_ARGSTR
+	@_SYSCALL_MQ_OPEN_ARGSTR
 }
 
 probe __syscall.mq_open = kernel.function("sys_mq_open").call
@@ -62,22 +66,18 @@ probe __syscall.mq_open.return = kernel.function("sys_mq_open").return
 
 # nd_mq_open _____________________________________________________
 
-probe nd_syscall.mq_open = __nd_syscall.mq_open,
-                           __nd_syscall.compat_mq_open ?
+probe nd_syscall.mq_open = nd1_syscall.mq_open!, nd2_syscall.mq_open!, tp_syscall.mq_open
+  { }
+
+probe nd1_syscall.mq_open = __nd1_syscall.mq_open,
+                            __nd1_syscall.compat_mq_open ?
 {
 	asmlinkage()
 	@_SYSCALL_MQ_OPEN_NAME
-	name_uaddr = pointer_arg(1)
-	filename = user_string_quoted(name_uaddr)
-	u_attr_uaddr = pointer_arg(4)
-	oflag = int_arg(2)
-	oflag_str = _sys_open_flag_str(oflag)
-	if (oflag & @const("O_CREAT"))
-		@_SYSCALL_MQ_OPEN_ARGSTR_2
-	else
-		@_SYSCALL_MQ_OPEN_ARGSTR
+	@_SYSCALL_MQ_OPEN_REGARGS
+	@_SYSCALL_MQ_OPEN_ARGSTR
 }
-probe __nd_syscall.mq_open = kprobe.function("sys_mq_open")
+probe __nd1_syscall.mq_open = kprobe.function("sys_mq_open")
 {
 	asmlinkage()
         @__syscall_gate(@const("__NR_mq_open"))
@@ -87,19 +87,81 @@ probe __nd_syscall.mq_open = kprobe.function("sys_mq_open")
         mode = (uint_arg(3) & 0xffff)
 %)
 }
-probe __nd_syscall.compat_mq_open = kprobe.function("compat_sys_mq_open")
+probe __nd1_syscall.compat_mq_open = kprobe.function("compat_sys_mq_open")
 {
 	asmlinkage()
 	mode = (uint_arg(3) & 0xffff)
 }
-probe nd_syscall.mq_open.return =
-        __nd_syscall.mq_open.return ?,
+
+/* kernel 4.17+ */
+probe nd2_syscall.mq_open = __nd2_syscall.mq_open,
+                            __nd2_syscall.compat_mq_open ? 
+{
+	@_SYSCALL_MQ_OPEN_NAME
+	@_SYSCALL_MQ_OPEN_REGARGS
+	@_SYSCALL_MQ_OPEN_ARGSTR
+}
+probe __nd2_syscall.mq_open = kprobe.function(@arch_syscall_prefix "sys_mq_open")
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+        mode = uint_arg(3)
+}
+probe __nd2_syscall.compat_mq_open = kprobe.function(@arch_syscall_prefix "compat_sys_mq_open")
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	mode = (uint_arg(3) & 0xffff)
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.mq_open = __tp_syscall.mq_open,
+                           __tp_syscall.compat_mq_open ?
+{
+	@_SYSCALL_MQ_OPEN_NAME
+	@_SYSCALL_MQ_OPEN_REGARGS
+	@_SYSCALL_MQ_OPEN_ARGSTR
+}
+probe __tp_syscall.mq_open = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_mq_open"))
+	mode = uint_arg(3)
+}
+probe __tp_syscall.compat_mq_open = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_compat_mq_open"))
+	mode = (uint_arg(3) & 0xffff)
+}
+
+probe nd_syscall.mq_open.return = nd1_syscall.mq_open.return!, nd2_syscall.mq_open.return!, tp_syscall.mq_open.return
+  { }
+  
+probe nd1_syscall.mq_open.return =
+        __nd1_syscall.mq_open.return ?,
         kprobe.function("compat_sys_mq_open").return ?
 {
 	@_SYSCALL_MQ_OPEN_NAME
 	retstr = returnstr(1)
 }
-probe __nd_syscall.mq_open.return = kprobe.function("sys_mq_open").return
+probe __nd1_syscall.mq_open.return = kprobe.function("sys_mq_open").return
 {
         @__syscall_gate(@const("__NR_mq_open"))
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.mq_open.return =
+	kprobe.function(@arch_syscall_prefix "sys_mq_open").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_mq_open").return ?
+{
+	@_SYSCALL_MQ_OPEN_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.mq_open.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_mq_open"), @const("__NR_compat_mq_open"))
+	@_SYSCALL_MQ_OPEN_NAME
+	retstr = return_str(1,$ret)
 }

@@ -16,6 +16,11 @@
 	argstr = sprintf("%#x", persona);
 %)
 
+@define _SYSCALL_PERSONALITY_REGARGS
+%(
+	persona = uint_arg(1)
+%)
+
 probe syscall.personality = dw_syscall.personality !, nd_syscall.personality ? {}
 probe syscall.personality.return = dw_syscall.personality.return !,
                                    nd_syscall.personality.return ? {}
@@ -36,15 +41,57 @@ probe dw_syscall.personality.return = kernel.function("sys_personality").return
 
 # nd_personality _____________________________________________________
 
-probe nd_syscall.personality = kprobe.function("sys_personality") ?
+probe nd_syscall.personality = nd1_syscall.personality!, nd2_syscall.personality!, tp_syscall.personality
+  { }
+
+probe nd1_syscall.personality = kprobe.function("sys_personality") ?
 {
 	@_SYSCALL_PERSONALITY_NAME
 	asmlinkage()
-	persona = uint_arg(1)
+	@_SYSCALL_PERSONALITY_REGARGS
 	@_SYSCALL_PERSONALITY_ARGSTR
 }
-probe nd_syscall.personality.return = kprobe.function("sys_personality").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.personality = kprobe.function(@arch_syscall_prefix "sys_personality") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_PERSONALITY_NAME
+	@_SYSCALL_PERSONALITY_REGARGS
+	@_SYSCALL_PERSONALITY_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.personality = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_personality"), @const("__NR_compat_personality"))
+	@_SYSCALL_PERSONALITY_NAME
+	@_SYSCALL_PERSONALITY_REGARGS
+	@_SYSCALL_PERSONALITY_ARGSTR
+}
+
+probe nd_syscall.personality.return = nd1_syscall.personality.return!, nd2_syscall.personality.return!, tp_syscall.personality.return
+  { }
+  
+probe nd1_syscall.personality.return = kprobe.function("sys_personality").return ?
 {
 	@_SYSCALL_PERSONALITY_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.personality.return = kprobe.function(@arch_syscall_prefix "sys_personality").return ?
+{
+	@_SYSCALL_PERSONALITY_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.personality.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_personality"), @const("__NR_compat_personality"))
+	@_SYSCALL_PERSONALITY_NAME
+	retstr = return_str(1,$ret)
 }

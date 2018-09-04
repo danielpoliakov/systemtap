@@ -11,6 +11,11 @@
 	argstr = sprintf("%d", pid)
 %)
 
+@define _SYSCALL_GETPGID_REGARGS
+%(
+	pid = int_arg(1)
+%)
+
 probe syscall.getpgid = dw_syscall.getpgid !, nd_syscall.getpgid ? {}
 probe syscall.getpgid.return = dw_syscall.getpgid.return !, nd_syscall.getpgid.return ? {}
 
@@ -32,17 +37,59 @@ probe dw_syscall.getpgid.return = kernel.function("sys_getpgid").return
 
 # nd_getpgid _____________________________________________________
 
-probe nd_syscall.getpgid = kprobe.function("sys_getpgid") ?
+probe nd_syscall.getpgid = nd1_syscall.getpgid!, nd2_syscall.getpgid!, tp_syscall.getpgid
+  { }
+
+probe nd1_syscall.getpgid = kprobe.function("sys_getpgid") ?
 {
 	@__syscall_compat_gate(@const("__NR_getpgid"), @const("__NR_compat_getpgid"))
 	@_SYSCALL_GETPGID_NAME
 	asmlinkage()
-	pid = int_arg(1)
+	@_SYSCALL_GETPGID_REGARGS
 	@_SYSCALL_GETPGID_ARGSTR
 }
-probe nd_syscall.getpgid.return = kprobe.function("sys_getpgid").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.getpgid = kprobe.function(@arch_syscall_prefix "sys_getpgid") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_GETPGID_NAME
+	@_SYSCALL_GETPGID_REGARGS
+	@_SYSCALL_GETPGID_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.getpgid = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_getpgid"), @const("__NR_compat_getpgid"))
+	@_SYSCALL_GETPGID_NAME
+	@_SYSCALL_GETPGID_REGARGS
+	@_SYSCALL_GETPGID_ARGSTR
+}
+
+probe nd_syscall.getpgid.return = nd1_syscall.getpgid.return!, nd2_syscall.getpgid.return!, tp_syscall.getpgid.return
+  { }
+  
+probe nd1_syscall.getpgid.return = kprobe.function("sys_getpgid").return ?
 {
 	@__syscall_compat_gate(@const("__NR_getpgid"), @const("__NR_compat_getpgid"))
 	@_SYSCALL_GETPGID_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.getpgid.return = kprobe.function(@arch_syscall_prefix "sys_getpgid").return ?
+{
+	@_SYSCALL_GETPGID_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.getpgid.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_getpgid"), @const("__NR_compat_getpgid"))
+	@_SYSCALL_GETPGID_NAME
+	retstr = return_str(1,$ret)
 }
