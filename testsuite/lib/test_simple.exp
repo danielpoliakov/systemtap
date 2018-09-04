@@ -1,0 +1,140 @@
+# test_simple.exp
+#
+# Simple commands for running user shell commands and checking their outputs.
+# Also provided commands for generic string value and boolean value checks.
+
+# run_cmd_2way CMD STDOUT_VAR STDERR_VAR
+# * CMD is a string value for the user shell command to run.
+# * STDOUT_VAR is the (output) variable name (without the `$` prefix!) to hold
+#   the stdout output.
+# * STDERR_VAR is the (output) variable name (without the `$` prefix!) to hold
+#   the stderr output.
+# Returns the exit code number
+# TODO add timeout protection
+
+proc run_cmd_2way { cmd stdout_var stderr_var } {
+    upvar 1 $stdout_var stdout
+    upvar 1 $stderr_var stderr
+
+    send_log "executing: $cmd\n"
+
+    set pipe [open "| sh -c {$cmd}" r]
+    set stdout [read $pipe]
+    set exit_code 0
+    if {[catch {close $pipe} stderr] != 0} {
+        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
+            # Alas. close() automatically remove the trailing newline, so we
+            # have to add it back here...
+            append stderr "\n"
+        }
+        global errorCode
+        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
+            set exit_code [lindex $errorCode 2]
+        }
+    }
+
+    return $exit_code
+}
+
+# like TEST_NAME GOT REGEX_PATTERN REGEX_OPTS
+# The test passes when the TARGET_STR string matches the regex in REGEX_PATTERN.
+# * TEST_NAME is a string describing the current check.
+# * GOT is the target string to be checked.
+# * REGEX_PATTERN is a tcl regular expression string to be matched against.
+# * REGEX_OPTS is optional regex options like -expanded and -nocase.
+# Returns 1 when the check passes, 0 otherwise.
+
+proc like { test_name target regex regex_opts } {
+    regsub -all -- {\n} $regex {\n} escaped_regex
+    if {[regexp {*}$regex_opts -- $regex $target]} {
+        pass "${test_name}: matches regex \"$escaped_regex\""
+        return 1
+    }
+    fail "${test_name}: fails to match regex \"$escaped_regex\": got \"$target\""
+    return 0
+}
+
+# unlike TEST_NAME GOT REGEX_PATTERN REGEX_OPTS
+# The test passes when the GOT string does NOT match the regex in
+# REGEX_PATTERN.
+# * TEST_NAME is a string describing the current check.
+# * GOT is the target string to be checked.
+# * REGEX_PATTERN is a tcl regular expression string to be matched against.
+# * REGEX_OPTS is optional regex options like -expanded and -nocase.
+# Returns 1 when the check passes, 0 otherwise.
+
+proc unlike { test_name got regex regex_opts } {
+    regsub -all -- {\n} $regex {\n} escaped_regex
+    if {[regexp {*}$regex_opts -- $regex $got]} {
+        fail "${test_name}: should NOT match regex \"$escaped_regex\" but matches: got \"$got\""
+        return 0
+    }
+    pass "${test_name}: matches regex \"$escaped_regex\""
+    return 1
+}
+
+# is TEST_NAME GOT EXPECTED
+# The test passes when the GOT string is (exactly) equal to the string EXPECTED.
+# * TEST_NAME is a string describing the current check.
+# * GOT is the target string to be checked.
+# * EXPECTED is the expected string to be matched.
+# Returns 1 when the check passes, 0 otherwise.
+
+proc is { test_name got expected } {
+    regsub -all -- {\n} $expected {\n} escaped_exp
+    if {$got eq $expected} {
+        pass "${test_name}: string is \"$escaped_exp\""
+        return 1
+    }
+    fail "${test_name}: string should be \"$escaped_exp\", but got \"$got\""
+    return 0
+}
+
+# isnt TEST_NAME GOT EXPECTED
+# The test passes when the GOT string is NOT equal to the string EXPECTED.
+# * TEST_NAME is a string describing the current check.
+# * GOT is the target string to be checked.
+# * EXPECTED is the expected string to be matched.
+# Returns 1 when the check passes, 0 otherwise.
+
+proc isnt { test_name got expected } {
+    regsub -all -- {\n} $expected {\n} escaped_exp
+    if {$got eq $expected} {
+        fail "${test_name}: string should NOT be \"$escaped_exp\", but got \"$got\""
+        return 0
+    }
+    pass "${test_name}: string should NOT be \"$escaped_exp\""
+    return 1
+}
+
+# ok TEST_NAME RESULT
+# The test passes when RESULT is a true value in Tcl.
+# * TEST_NAME is a string describing the current check.
+# * RESULT is the boolean value to be checked
+# Returns 1 when the check passes, 0 otherwise.
+
+proc ok { test_name result } {
+    regsub -all -- {\n} $expected {\n} escaped_exp
+    if {! $result} {
+        fail "${test_name}: not ok: $result"
+        return 0
+    }
+    pass "${test_name}: ok: $result"
+    return 1
+}
+
+# nok TEST_NAME RESULT
+# The test passes when RESULT is a *false* value in Tcl.
+# * TEST_NAME is a string describing the current check.
+# * RESULT is the boolean value to be checked
+# Returns 1 when the check passes, 0 otherwise.
+
+proc nok { test_name result } {
+    regsub -all -- {\n} $expected {\n} escaped_exp
+    if {$result} {
+        fail "${test_name}: should NOT be ok but is ok: $result"
+        return 0
+    }
+    pass "${test_name}: sould NOT be ok: $result"
+    return 1
+}

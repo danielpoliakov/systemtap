@@ -12,47 +12,20 @@ foreach runtime [get_runtime_list] {
     }
     set test_name "$test: $subtest1 ($runtime)"
 
-    set cmd "stap --runtime=$runtime '$srcdir/$subdir/${test}_1.stp'"
-    send_log "executing: $cmd\n"
-    set pipe [open "| sh -c {$cmd}" r]
-    set out [read $pipe]
-    set failed 0
-    if {[catch {close $pipe} stderr] != 0} {
-        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-            append stderr "\n"
-        }
-        global errorCode
-        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-            set failed [lindex $errorCode 2]
-        }
-    }
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_1.stp'" out stderr]
 
     set exp_out "enter f
 exit
 "
-    regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-    if {$out eq $exp_out} {
-        pass "${test_name}: stdout matches \"$escaped_exp_out\""
-    } else {
-        fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-    }
+    is "${test_name}: stdout" $out $exp_out
 
     set stderr_pat "\\AWARNING: statement will never be reached: identifier 'println' at \[^\\n\]*?\\.stp:4:5
  source:     println\\(\"leave f\"\\);
              \\^
 \\Z"
-    regsub -all -- {\n} $stderr_pat {\n} escaped_stderr_pat
-    if {[regexp -linestop -- $stderr_pat $stderr]} {
-        pass "${test_name}: stderr matches \"$escaped_stderr_pat\""
-    } else {
-        fail "${test_name}: stderr fails to match \"$escaped_stderr_pat\": got \"$stderr\""
-    }
+    like "${test_name}: stderr" $stderr $stderr_pat "-linestop"
 
-    if {$failed} {
-        fail "${test_name}: exit code should be zero but is $failed"
-    } else {
-        pass "${test_name}: exit code is zero"
-    }
+    is "${test_name}: exit code" $exit_code 0
 }
 
 # --- TEST 2 ---
@@ -64,45 +37,18 @@ foreach runtime [get_runtime_list] {
     }
     set test_name "$test: $subtest2 ($runtime)"
 
-    set cmd "stap --runtime=$runtime '$srcdir/$subdir/${test}_2.stp'"
-    send_log "executing: $cmd\n"
-    set pipe [open "| sh -c {$cmd}" r]
-    set out [read $pipe]
-    set failed 0
-    if {[catch {close $pipe} stderr] != 0} {
-        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-            append stderr "\n"
-        }
-        global errorCode
-        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-            set failed [lindex $errorCode 2]
-        }
-    }
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_2.stp'" out stderr]
 
     set exp_out "enter f
 leave f
 exit
 "
-    regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-    if {$out eq $exp_out} {
-        pass "${test_name}: stdout matches \"$escaped_exp_out\""
-    } else {
-        fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-    }
+    is "${test_name}: stdout" $out $exp_out
 
     set exp_stderr ""
-    regsub -all -- {\n} $exp_stderr {\n} escaped_exp_stderr
-    if {$stderr eq $exp_stderr} {
-        pass "${test_name}: stderr matches \"$escaped_exp_stderr\""
-    } else {
-        fail "${test_name}: stderr fails to match \"$escaped_exp_stderr\": got \"$stderr\""
-    }
+    is "${test_name}: stderr" $stderr $exp_stderr
 
-    if {$failed} {
-        fail "${test_name}: exit code should be zero but is $failed"
-    } else {
-        pass "${test_name}: exit code is zero"
-    }
+    is "${test_name}: exit code" $exit_code 0
 }
 
 # --- TEST 3 ---
@@ -110,34 +56,11 @@ exit
 set subtest3 "TEST 3: return nothing in long type func (inferred by another return stmt)"
 set test_name "$test: $subtest3"
 
-set cmd "stap '$srcdir/$subdir/${test}_3.stp'"
-send_log "executing: $cmd\n"
-set pipe [open "| sh -c {$cmd}" r]
-set out [read $pipe]
-set failed 0
-if {[catch {close $pipe} stderr] != 0} {
-    if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-        append stderr "\n"
-    }
-    global errorCode
-    if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-        set failed [lindex $errorCode 2]
-    }
-}
+set exit_code [run_cmd_2way "stap '$srcdir/$subdir/${test}_3.stp'" out stderr]
 
 set exp_out ""
-regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-if {$out eq $exp_out} {
-    pass "${test_name}: stdout matches \"$escaped_exp_out\""
-} else {
-    fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-}
-
-if {$failed} {
-    pass "${test_name}: exit code should be non-zero"
-} else {
-    fail "${test_name}: exit code should be non-zero but is zero"
-}
+is "${test_name}: stdout" $out $exp_out
+isnt "${test_name}: exit code" $exit_code 0
 
 set stderr_pat "\\Asemantic error: type mismatch \\(unknown\\): keyword at \[^\\n\]*?\\.stp:3:9
         source:         return;
@@ -147,46 +70,18 @@ semantic error: type was first inferred here \\(long\\): number '1' at :5:12
         source:     return 1;
                            \\^
 "
-regsub -all -- {\n} $stderr_pat {\n} escaped_stderr_pat
-if {[regexp -linestop -- $stderr_pat $stderr]} {
-    pass "${test_name}: stderr matches \"$escaped_stderr_pat\""
-} else {
-    fail "${test_name}: stderr fails to match \"$escaped_stderr_pat\": got \"$stderr\""
-}
+like "${test_name}: stderr" $stderr $stderr_pat "-linestop"
 
 # --- TEST 4 ---
 
 set subtest4 "TEST 4: return nothing in long type func (inferred by caller)"
 set test_name "$test: $subtest4"
 
-set cmd "stap '$srcdir/$subdir/${test}_4.stp'"
-send_log "executing: $cmd\n"
-set pipe [open "| sh -c {$cmd}" r]
-set out [read $pipe]
-set failed 0
-if {[catch {close $pipe} stderr] != 0} {
-    if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-        append stderr "\n"
-    }
-    global errorCode
-    if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-        set failed [lindex $errorCode 2]
-    }
-}
+set exit_code [run_cmd_2way "stap '$srcdir/$subdir/${test}_4.stp'" out stderr]
 
 set exp_out ""
-regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-if {$out eq $exp_out} {
-    pass "${test_name}: stdout matches \"$escaped_exp_out\""
-} else {
-    fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-}
-
-if {$failed} {
-    pass "${test_name}: exit code should be non-zero"
-} else {
-    fail "${test_name}: exit code should be non-zero but is zero"
-}
+is "${test_name}: stdout" $out $exp_out
+isnt "${test_name}: exit code" $exit_code 0
 
 set stderr_pat "\\Asemantic error: type mismatch \\(unknown\\): keyword at \[^\\n\]*?\\.stp:3:9
         source:         return;
@@ -197,46 +92,19 @@ semantic error: type was first inferred here \\(long\\): identifier 'f' at :8:17
                                 \\^
 
 "
-regsub -all -- {\n} $stderr_pat {\n} escaped_stderr_pat
-if {[regexp -linestop -- $stderr_pat $stderr]} {
-    pass "${test_name}: stderr matches \"$escaped_stderr_pat\""
-} else {
-    fail "${test_name}: stderr fails to match \"$escaped_stderr_pat\": got \"$stderr\""
-}
+like "${test_name}: stderr" $stderr $stderr_pat "-linestop"
 
 # --- TEST 5 ---
 
 set subtest5 "TEST 5: pretty-printer adds a semicolon (two return stmts in a row)"
 set test_name "$test: $subtest5"
 
-set cmd "stap -p1 '$srcdir/$subdir/${test}_5.stp'"
-send_log "executing: $cmd\n"
-set pipe [open "| sh -c {$cmd}" r]
-set out [read $pipe]
-set failed 0
-if {[catch {close $pipe} stderr] != 0} {
-    if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-        append stderr "\n"
-    }
-    global errorCode
-    if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-        set failed [lindex $errorCode 2]
-    }
-}
+set exit_code [run_cmd_2way "stap -p1 '$srcdir/$subdir/${test}_5.stp'" out stderr]
 
 set out_pat "^return;\\nreturn;\\n"
-regsub -all -- {\n} $out_pat {\n} escaped_out_pat
-if {[regexp -linestop -lineanchor -- $out_pat $out]} {
-    pass "${test_name}: stdout matches \"$escaped_out_pat\""
-} else {
-    fail "${test_name}: stdout fails to match \"$escaped_out_pat\": got \"$out\""
-}
+like "${test_name}: stdout" $out $out_pat "-linestop -lineanchor"
 
-if {$failed} {
-    fail "${test_name}: exit code should be zero but is $failed"
-} else {
-    pass "${test_name}: exit code is zero"
-}
+is "${test_name}: exit code" $exit_code 0
 if {$stderr ne ""} {
     send_log "stderr:\n$stderr"
 }
@@ -246,36 +114,14 @@ if {$stderr ne ""} {
 set subtest6 "TEST 6: pretty-printer adds a semicolon (under if)"
 set test_name "$test: $subtest6"
 
-set cmd "stap -p1 '$srcdir/$subdir/${test}_6.stp'"
-send_log "executing: $cmd\n"
-set pipe [open "| sh -c {$cmd}" r]
-set out [read $pipe]
-set failed 0
-if {[catch {close $pipe} stderr] != 0} {
-    if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-        append stderr "\n"
-    }
-    global errorCode
-    if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-        set failed [lindex $errorCode 2]
-    }
-}
+set exit_code [run_cmd_2way "stap -p1 '$srcdir/$subdir/${test}_6.stp'" out stderr]
 
 set out_pat "^if \\(1\\) return
 ;
 "
-regsub -all -- {\n} $out_pat {\n} escaped_out_pat
-if {[regexp -linestop -lineanchor -- $out_pat $out]} {
-    pass "${test_name}: stdout matches \"$escaped_out_pat\""
-} else {
-    fail "${test_name}: stdout fails to match \"$escaped_out_pat\": got \"$out\""
-}
+like "${test_name}: stdout" $out $out_pat "-linestop -lineanchor"
 
-if {$failed} {
-    fail "${test_name}: exit code should be zero but is $failed"
-} else {
-    pass "${test_name}: exit code is zero"
-}
+is "${test_name}: exit code" $exit_code 0
 if {$stderr ne ""} {
     send_log "stderr:\n$stderr"
 }
@@ -285,35 +131,13 @@ if {$stderr ne ""} {
 set subtest7 "TEST 7: pretty-printer adds a semicolon (under for)"
 set test_name "$test: $subtest7"
 
-set cmd "stap -p1 '$srcdir/$subdir/${test}_7.stp'"
-send_log "executing: $cmd\n"
-set pipe [open "| sh -c {$cmd}" r]
-set out [read $pipe]
-set failed 0
-if {[catch {close $pipe} stderr] != 0} {
-    if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-        append stderr "\n"
-    }
-    global errorCode
-    if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-        set failed [lindex $errorCode 2]
-    }
-}
+set exit_code [run_cmd_2way "stap -p1 '$srcdir/$subdir/${test}_7.stp'" out stderr]
 
 set out_pat "^for \\(; 1; \\) return;
 "
-regsub -all -- {\n} $out_pat {\n} escaped_out_pat
-if {[regexp -linestop -lineanchor -- $out_pat $out]} {
-    pass "${test_name}: stdout matches \"$escaped_out_pat\""
-} else {
-    fail "${test_name}: stdout fails to match \"$escaped_out_pat\": got \"$out\""
-}
+like "${test_name}: stdout" $out $out_pat "-linestop -lineanchor"
 
-if {$failed} {
-    fail "${test_name}: exit code should be zero but is $failed"
-} else {
-    pass "${test_name}: exit code is zero"
-}
+is "${test_name}: exit code" $exit_code 0
 if {$stderr ne ""} {
     send_log "stderr:\n$stderr"
 }
@@ -323,35 +147,13 @@ if {$stderr ne ""} {
 set subtest8 "TEST 8: pretty-printer adds a semicolon (under while)"
 set test_name "$test: $subtest8"
 
-set cmd "stap -p1 '$srcdir/$subdir/${test}_8.stp'"
-send_log "executing: $cmd\n"
-set pipe [open "| sh -c {$cmd}" r]
-set out [read $pipe]
-set failed 0
-if {[catch {close $pipe} stderr] != 0} {
-    if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-        append stderr "\n"
-    }
-    global errorCode
-    if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-        set failed [lindex $errorCode 2]
-    }
-}
+set exit_code [run_cmd_2way "stap -p1 '$srcdir/$subdir/${test}_8.stp'" out stderr]
 
 set out_pat "^for \\(; 1; \\) return;
 "
-regsub -all -- {\n} $out_pat {\n} escaped_out_pat
-if {[regexp -linestop -lineanchor -- $out_pat $out]} {
-    pass "${test_name}: stdout matches \"$escaped_out_pat\""
-} else {
-    fail "${test_name}: stdout fails to match \"$escaped_out_pat\": got \"$out\""
-}
+like "${test_name}: stdout" $out $out_pat "-linestop -lineanchor"
 
-if {$failed} {
-    fail "${test_name}: exit code should be zero but is $failed"
-} else {
-    pass "${test_name}: exit code is zero"
-}
+is "${test_name}: exit code" $exit_code 0
 if {$stderr ne ""} {
     send_log "stderr:\n$stderr"
 }
@@ -361,35 +163,13 @@ if {$stderr ne ""} {
 set subtest9 "TEST 9: pretty-printer adds a semicolon (under foreach)"
 set test_name "$test: $subtest9"
 
-set cmd "stap -p1 '$srcdir/$subdir/${test}_9.stp'"
-send_log "executing: $cmd\n"
-set pipe [open "| sh -c {$cmd}" r]
-set out [read $pipe]
-set failed 0
-if {[catch {close $pipe} stderr] != 0} {
-    if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-        append stderr "\n"
-    }
-    global errorCode
-    if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-        set failed [lindex $errorCode 2]
-    }
-}
+set exit_code [run_cmd_2way "stap -p1 '$srcdir/$subdir/${test}_9.stp'" out stderr]
 
 set out_pat "^foreach \\(\\\[k\\\] in a\\) return;
 "
-regsub -all -- {\n} $out_pat {\n} escaped_out_pat
-if {[regexp -linestop -lineanchor -- $out_pat $out]} {
-    pass "${test_name}: stdout matches \"$escaped_out_pat\""
-} else {
-    fail "${test_name}: stdout fails to match \"$escaped_out_pat\": got \"$out\""
-}
+like "${test_name}: stdout" $out $out_pat "-linestop -lineanchor"
 
-if {$failed} {
-    fail "${test_name}: exit code should be zero but is $failed"
-} else {
-    pass "${test_name}: exit code is zero"
-}
+is "${test_name}: exit code" $exit_code 0
 if {$stderr ne ""} {
     send_log "stderr:\n$stderr"
 }
@@ -403,46 +183,18 @@ foreach runtime [get_runtime_list] {
     }
     set test_name "$test: $subtest10 ($runtime)"
 
-    set cmd "stap --runtime=$runtime '$srcdir/$subdir/${test}_10.stp'"
-    send_log "executing: $cmd\n"
-    set pipe [open "| sh -c {$cmd}" r]
-    set out [read $pipe]
-    set failed 0
-    if {[catch {close $pipe} stderr] != 0} {
-        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-            append stderr "\n"
-        }
-        global errorCode
-        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-            set failed [lindex $errorCode 2]
-        }
-    }
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_10.stp'" out stderr]
 
     set exp_out ""
-    regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-    if {$out eq $exp_out} {
-        pass "${test_name}: stdout matches \"$escaped_exp_out\""
-    } else {
-        fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-    }
-
-    if {$failed} {
-        pass "${test_name}: exit code should be non-zero"
-    } else {
-        fail "${test_name}: exit code should be non-zero but is zero"
-    }
+    is "${test_name}: stdout" $out $exp_out
+    isnt "${test_name}: exit code" $exit_code 0
 
     set stderr_pat "^parse error: expected literal string or number
         saw: keyword at \[^\\n\]*?\\.stp:4:5
      source:     if \\(1\\) \\\{
                  \\^
 "
-    regsub -all -- {\n} $stderr_pat {\n} escaped_stderr_pat
-    if {[regexp -linestop -lineanchor -- $stderr_pat $stderr]} {
-        pass "${test_name}: stderr matches \"$escaped_stderr_pat\""
-    } else {
-        fail "${test_name}: stderr fails to match \"$escaped_stderr_pat\": got \"$stderr\""
-    }
+    like "${test_name}: stderr" $stderr $stderr_pat "-linestop -lineanchor"
 }
 
 # --- TEST 11 ---
@@ -454,46 +206,18 @@ foreach runtime [get_runtime_list] {
     }
     set test_name "$test: $subtest11 ($runtime)"
 
-    set cmd "stap --runtime=$runtime '$srcdir/$subdir/${test}_11.stp'"
-    send_log "executing: $cmd\n"
-    set pipe [open "| sh -c {$cmd}" r]
-    set out [read $pipe]
-    set failed 0
-    if {[catch {close $pipe} stderr] != 0} {
-        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-            append stderr "\n"
-        }
-        global errorCode
-        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-            set failed [lindex $errorCode 2]
-        }
-    }
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_11.stp'" out stderr]
 
     set exp_out ""
-    regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-    if {$out eq $exp_out} {
-        pass "${test_name}: stdout matches \"$escaped_exp_out\""
-    } else {
-        fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-    }
-
-    if {$failed} {
-        pass "${test_name}: exit code should be non-zero"
-    } else {
-        fail "${test_name}: exit code should be non-zero but is zero"
-    }
+    is "${test_name}: stdout" $out $exp_out
+    isnt "${test_name}: exit code" $exit_code 0
 
     set stderr_pat "^parse error: expected literal string or number
         saw: keyword at \[^\\n\]*?\\.stp:4:5
      source:     for \\(;;\\) \\\{
                  \\^
 "
-    regsub -all -- {\n} $stderr_pat {\n} escaped_stderr_pat
-    if {[regexp -linestop -lineanchor -- $stderr_pat $stderr]} {
-        pass "${test_name}: stderr matches \"$escaped_stderr_pat\""
-    } else {
-        fail "${test_name}: stderr fails to match \"$escaped_stderr_pat\": got \"$stderr\""
-    }
+    like "${test_name}: stderr" $stderr $stderr_pat "-linestop -lineanchor"
 }
 
 # --- TEST 12 ---
@@ -505,46 +229,18 @@ foreach runtime [get_runtime_list] {
     }
     set test_name "$test: $subtest12 ($runtime)"
 
-    set cmd "stap --runtime=$runtime '$srcdir/$subdir/${test}_12.stp'"
-    send_log "executing: $cmd\n"
-    set pipe [open "| sh -c {$cmd}" r]
-    set out [read $pipe]
-    set failed 0
-    if {[catch {close $pipe} stderr] != 0} {
-        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-            append stderr "\n"
-        }
-        global errorCode
-        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-            set failed [lindex $errorCode 2]
-        }
-    }
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_12.stp'" out stderr]
 
     set exp_out ""
-    regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-    if {$out eq $exp_out} {
-        pass "${test_name}: stdout matches \"$escaped_exp_out\""
-    } else {
-        fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-    }
-
-    if {$failed} {
-        pass "${test_name}: exit code should be non-zero"
-    } else {
-        fail "${test_name}: exit code should be non-zero but is zero"
-    }
+    is "${test_name}: stdout" $out $exp_out
+    isnt "${test_name}: exit code" $exit_code 0
 
     set stderr_pat "^parse error: expected literal string or number
         saw: keyword at \[^\\n\]*?\\.stp:4:5
      source:     while \\(1\\) \\\{
                  \\^
 "
-    regsub -all -- {\n} $stderr_pat {\n} escaped_stderr_pat
-    if {[regexp -linestop -lineanchor -- $stderr_pat $stderr]} {
-        pass "${test_name}: stderr matches \"$escaped_stderr_pat\""
-    } else {
-        fail "${test_name}: stderr fails to match \"$escaped_stderr_pat\": got \"$stderr\""
-    }
+    like "${test_name}: stderr" $stderr $stderr_pat "-linestop -lineanchor"
 }
 
 # --- TEST 13 ---
@@ -556,46 +252,18 @@ foreach runtime [get_runtime_list] {
     }
     set test_name "$test: $subtest13 ($runtime)"
 
-    set cmd "stap --runtime=$runtime '$srcdir/$subdir/${test}_13.stp'"
-    send_log "executing: $cmd\n"
-    set pipe [open "| sh -c {$cmd}" r]
-    set out [read $pipe]
-    set failed 0
-    if {[catch {close $pipe} stderr] != 0} {
-        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-            append stderr "\n"
-        }
-        global errorCode
-        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-            set failed [lindex $errorCode 2]
-        }
-    }
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_13.stp'" out stderr]
 
     set exp_out ""
-    regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-    if {$out eq $exp_out} {
-        pass "${test_name}: stdout matches \"$escaped_exp_out\""
-    } else {
-        fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-    }
-
-    if {$failed} {
-        pass "${test_name}: exit code should be non-zero"
-    } else {
-        fail "${test_name}: exit code should be non-zero but is zero"
-    }
+    is "${test_name}: stdout" $out $exp_out
+    isnt "${test_name}: exit code" $exit_code 0
 
     set stderr_pat "^parse error: expected literal string or number
         saw: keyword at \[^\\n\]*?\\.stp:6:5
      source:     foreach \\(k in a\\) \\\{
                  \\^
 "
-    regsub -all -- {\n} $stderr_pat {\n} escaped_stderr_pat
-    if {[regexp -linestop -lineanchor -- $stderr_pat $stderr]} {
-        pass "${test_name}: stderr matches \"$escaped_stderr_pat\""
-    } else {
-        fail "${test_name}: stderr fails to match \"$escaped_stderr_pat\": got \"$stderr\""
-    }
+    like "${test_name}: stderr" $stderr $stderr_pat "-linestop -lineanchor"
 }
 
 # --- TEST 14 ---
@@ -607,46 +275,18 @@ foreach runtime [get_runtime_list] {
     }
     set test_name "$test: $subtest14 ($runtime)"
 
-    set cmd "stap --runtime=$runtime '$srcdir/$subdir/${test}_14.stp'"
-    send_log "executing: $cmd\n"
-    set pipe [open "| sh -c {$cmd}" r]
-    set out [read $pipe]
-    set failed 0
-    if {[catch {close $pipe} stderr] != 0} {
-        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-            append stderr "\n"
-        }
-        global errorCode
-        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-            set failed [lindex $errorCode 2]
-        }
-    }
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_14.stp'" out stderr]
 
     set exp_out ""
-    regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-    if {$out eq $exp_out} {
-        pass "${test_name}: stdout matches \"$escaped_exp_out\""
-    } else {
-        fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-    }
-
-    if {$failed} {
-        pass "${test_name}: exit code should be non-zero"
-    } else {
-        fail "${test_name}: exit code should be non-zero but is zero"
-    }
+    is "${test_name}: stdout" $out $exp_out
+    isnt "${test_name}: exit code" $exit_code 0
 
     set stderr_pat "^parse error: expected literal string or number
         saw: keyword at \[^\\n\]*?\\.stp:4:5
      source:     return
                  \\^
 "
-    regsub -all -- {\n} $stderr_pat {\n} escaped_stderr_pat
-    if {[regexp -linestop -lineanchor -- $stderr_pat $stderr]} {
-        pass "${test_name}: stderr matches \"$escaped_stderr_pat\""
-    } else {
-        fail "${test_name}: stderr fails to match \"$escaped_stderr_pat\": got \"$stderr\""
-    }
+    like "${test_name}: stderr" $stderr $stderr_pat "-linestop -lineanchor"
 }
 
 # --- TEST 15 ---
@@ -658,46 +298,18 @@ foreach runtime [get_runtime_list] {
     }
     set test_name "$test: $subtest15 ($runtime)"
 
-    set cmd "stap --runtime=$runtime '$srcdir/$subdir/${test}_15.stp'"
-    send_log "executing: $cmd\n"
-    set pipe [open "| sh -c {$cmd}" r]
-    set out [read $pipe]
-    set failed 0
-    if {[catch {close $pipe} stderr] != 0} {
-        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-            append stderr "\n"
-        }
-        global errorCode
-        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-            set failed [lindex $errorCode 2]
-        }
-    }
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_15.stp'" out stderr]
 
     set exp_out ""
-    regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-    if {$out eq $exp_out} {
-        pass "${test_name}: stdout matches \"$escaped_exp_out\""
-    } else {
-        fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-    }
-
-    if {$failed} {
-        pass "${test_name}: exit code should be non-zero"
-    } else {
-        fail "${test_name}: exit code should be non-zero but is zero"
-    }
+    is "${test_name}: stdout" $out $exp_out
+    isnt "${test_name}: exit code" $exit_code 0
 
     set stderr_pat "^parse error: expected literal string or number
         saw: keyword at \[^\\n\]*?\\.stp:4:5
      source:     next
                  \\^
 "
-    regsub -all -- {\n} $stderr_pat {\n} escaped_stderr_pat
-    if {[regexp -linestop -lineanchor -- $stderr_pat $stderr]} {
-        pass "${test_name}: stderr matches \"$escaped_stderr_pat\""
-    } else {
-        fail "${test_name}: stderr fails to match \"$escaped_stderr_pat\": got \"$stderr\""
-    }
+    like "${test_name}: stderr" $stderr $stderr_pat "-linestop -lineanchor"
 }
 
 # --- TEST 16 ---
@@ -709,46 +321,18 @@ foreach runtime [get_runtime_list] {
     }
     set test_name "$test: $subtest16 ($runtime)"
 
-    set cmd "stap --runtime=$runtime '$srcdir/$subdir/${test}_16.stp'"
-    send_log "executing: $cmd\n"
-    set pipe [open "| sh -c {$cmd}" r]
-    set out [read $pipe]
-    set failed 0
-    if {[catch {close $pipe} stderr] != 0} {
-        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-            append stderr "\n"
-        }
-        global errorCode
-        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-            set failed [lindex $errorCode 2]
-        }
-    }
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_16.stp'" out stderr]
 
     set exp_out ""
-    regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-    if {$out eq $exp_out} {
-        pass "${test_name}: stdout matches \"$escaped_exp_out\""
-    } else {
-        fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-    }
-
-    if {$failed} {
-        pass "${test_name}: exit code should be non-zero"
-    } else {
-        fail "${test_name}: exit code should be non-zero but is zero"
-    }
+    is "${test_name}: stdout" $out $exp_out
+    isnt "${test_name}: exit code" $exit_code 0
 
     set stderr_pat "^parse error: expected literal string or number
         saw: keyword at \[^\\n\]*?\\.stp:6:5
      source:     delete a
                  \\^
 "
-    regsub -all -- {\n} $stderr_pat {\n} escaped_stderr_pat
-    if {[regexp -linestop -lineanchor -- $stderr_pat $stderr]} {
-        pass "${test_name}: stderr matches \"$escaped_stderr_pat\""
-    } else {
-        fail "${test_name}: stderr fails to match \"$escaped_stderr_pat\": got \"$stderr\""
-    }
+    like "${test_name}: stderr" $stderr $stderr_pat "-linestop -lineanchor"
 }
 
 # --- TEST 17 ---
@@ -760,46 +344,18 @@ foreach runtime [get_runtime_list] {
     }
     set test_name "$test: $subtest17 ($runtime)"
 
-    set cmd "stap --runtime=$runtime '$srcdir/$subdir/${test}_17.stp'"
-    send_log "executing: $cmd\n"
-    set pipe [open "| sh -c {$cmd}" r]
-    set out [read $pipe]
-    set failed 0
-    if {[catch {close $pipe} stderr] != 0} {
-        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-            append stderr "\n"
-        }
-        global errorCode
-        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-            set failed [lindex $errorCode 2]
-        }
-    }
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_17.stp'" out stderr]
 
     set exp_out ""
-    regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-    if {$out eq $exp_out} {
-        pass "${test_name}: stdout matches \"$escaped_exp_out\""
-    } else {
-        fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-    }
-
-    if {$failed} {
-        pass "${test_name}: exit code should be non-zero"
-    } else {
-        fail "${test_name}: exit code should be non-zero but is zero"
-    }
+    is "${test_name}: stdout" $out $exp_out
+    isnt "${test_name}: exit code" $exit_code 0
 
     set stderr_pat "^parse error: expected literal string or number
         saw: keyword at \[^\\n\]*?\\.stp:6:5
      source:     try \\\{
                  \\^
 "
-    regsub -all -- {\n} $stderr_pat {\n} escaped_stderr_pat
-    if {[regexp -linestop -lineanchor -- $stderr_pat $stderr]} {
-        pass "${test_name}: stderr matches \"$escaped_stderr_pat\""
-    } else {
-        fail "${test_name}: stderr fails to match \"$escaped_stderr_pat\": got \"$stderr\""
-    }
+    like "${test_name}: stderr" $stderr $stderr_pat "-linestop -lineanchor"
 }
 
 # --- TEST 18 ---
@@ -811,46 +367,18 @@ foreach runtime [get_runtime_list] {
     }
     set test_name "$test: $subtest18 ($runtime)"
 
-    set cmd "stap --runtime=$runtime '$srcdir/$subdir/${test}_18.stp'"
-    send_log "executing: $cmd\n"
-    set pipe [open "| sh -c {$cmd}" r]
-    set out [read $pipe]
-    set failed 0
-    if {[catch {close $pipe} stderr] != 0} {
-        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-            append stderr "\n"
-        }
-        global errorCode
-        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-            set failed [lindex $errorCode 2]
-        }
-    }
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_18.stp'" out stderr]
 
     set exp_out ""
-    regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-    if {$out eq $exp_out} {
-        pass "${test_name}: stdout matches \"$escaped_exp_out\""
-    } else {
-        fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-    }
-
-    if {$failed} {
-        pass "${test_name}: exit code should be non-zero"
-    } else {
-        fail "${test_name}: exit code should be non-zero but is zero"
-    }
+    is "${test_name}: stdout" $out $exp_out
+    isnt "${test_name}: exit code" $exit_code 0
 
     set stderr_pat "^parse error: expected literal string or number
         saw: keyword at \[^\\n\]*?\\.stp:5:9
      source:         break
                      \\^
 "
-    regsub -all -- {\n} $stderr_pat {\n} escaped_stderr_pat
-    if {[regexp -linestop -lineanchor -- $stderr_pat $stderr]} {
-        pass "${test_name}: stderr matches \"$escaped_stderr_pat\""
-    } else {
-        fail "${test_name}: stderr fails to match \"$escaped_stderr_pat\": got \"$stderr\""
-    }
+    like "${test_name}: stderr" $stderr $stderr_pat "-linestop -lineanchor"
 }
 
 # --- TEST 19 ---
@@ -862,44 +390,16 @@ foreach runtime [get_runtime_list] {
     }
     set test_name "$test: $subtest19 ($runtime)"
 
-    set cmd "stap --runtime=$runtime '$srcdir/$subdir/${test}_19.stp'"
-    send_log "executing: $cmd\n"
-    set pipe [open "| sh -c {$cmd}" r]
-    set out [read $pipe]
-    set failed 0
-    if {[catch {close $pipe} stderr] != 0} {
-        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-            append stderr "\n"
-        }
-        global errorCode
-        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-            set failed [lindex $errorCode 2]
-        }
-    }
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_19.stp'" out stderr]
 
     set exp_out ""
-    regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-    if {$out eq $exp_out} {
-        pass "${test_name}: stdout matches \"$escaped_exp_out\""
-    } else {
-        fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-    }
-
-    if {$failed} {
-        pass "${test_name}: exit code should be non-zero"
-    } else {
-        fail "${test_name}: exit code should be non-zero but is zero"
-    }
+    is "${test_name}: stdout" $out $exp_out
+    isnt "${test_name}: exit code" $exit_code 0
 
     set stderr_pat "^parse error: expected literal string or number
         saw: keyword at \[^\\n\]*?\\.stp:5:9
      source:         continue
                      \\^
 "
-    regsub -all -- {\n} $stderr_pat {\n} escaped_stderr_pat
-    if {[regexp -linestop -lineanchor -- $stderr_pat $stderr]} {
-        pass "${test_name}: stderr matches \"$escaped_stderr_pat\""
-    } else {
-        fail "${test_name}: stderr fails to match \"$escaped_stderr_pat\": got \"$stderr\""
-    }
+    like "${test_name}: stderr" $stderr $stderr_pat "-linestop -lineanchor"
 }

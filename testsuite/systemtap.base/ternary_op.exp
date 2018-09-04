@@ -12,35 +12,13 @@ foreach runtime [get_runtime_list] {
     }
     set test_name "$test: $subtest1 ($runtime)"
 
-    set cmd "stap --runtime=$runtime '$srcdir/$subdir/${test}_1.stp'"
-    send_log "executing: $cmd\n"
-    set pipe [open "| sh -c {$cmd}" r]
-    set out [read $pipe]
-    set failed 0
-    if {[catch {close $pipe} stderr] != 0} {
-        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-            append stderr "\n"
-        }
-        global errorCode
-        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-            set failed [lindex $errorCode 2]
-        }
-    }
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_1.stp'" out stderr]
 
     set exp_out "positive 3
 "
-    regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-    if {$out eq $exp_out} {
-        pass "${test_name}: stdout matches \"$escaped_exp_out\""
-    } else {
-        fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-    }
+    is "${test_name}: stdout" $out $exp_out
 
-    if {$failed} {
-        fail "${test_name}: exit code should be zero but is $failed"
-    } else {
-        pass "${test_name}: exit code is zero"
-    }
+    is "${test_name}: exit code" $exit_code 0
     if {$stderr ne ""} {
         send_log "stderr:\n$stderr"
     }
@@ -51,90 +29,34 @@ foreach runtime [get_runtime_list] {
 set subtest2 "TEST 2: ternary operator should be tighter than = (bad case)"
 set test_name "$test: $subtest2"
 
-set cmd "stap '$srcdir/$subdir/${test}_2.stp'"
-send_log "executing: $cmd\n"
-set pipe [open "| sh -c {$cmd}" r]
-set out [read $pipe]
-set failed 0
-if {[catch {close $pipe} stderr] != 0} {
-    if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-        append stderr "\n"
-    }
-    global errorCode
-    if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-        set failed [lindex $errorCode 2]
-    }
-}
+set exit_code [run_cmd_2way "stap '$srcdir/$subdir/${test}_2.stp'" out stderr]
 
 set exp_out ""
-regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-if {$out eq $exp_out} {
-    pass "${test_name}: stdout matches \"$escaped_exp_out\""
-} else {
-    fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-}
-
-if {$failed} {
-    pass "${test_name}: exit code should be non-zero"
-} else {
-    fail "${test_name}: exit code should be non-zero but is zero"
-}
+is "${test_name}: stdout" $out $exp_out
+isnt "${test_name}: exit code" $exit_code 0
 
 set stderr_pat "^semantic error: Expecting lvalue for assignment: operator '=' at \[^\\n\]*?\\.stp:4:58
         source:     printf\\(\"a = %d, b = %d, c = %d\\\\n\", a > 0 \\? b = 4 : c = 5, b, c\\);
                                                                          \\^
 "
-regsub -all -- {\n} $stderr_pat {\n} escaped_stderr_pat
-if {[regexp -linestop -lineanchor -- $stderr_pat $stderr]} {
-    pass "${test_name}: stderr matches \"$escaped_stderr_pat\""
-} else {
-    fail "${test_name}: stderr fails to match \"$escaped_stderr_pat\": got \"$stderr\""
-}
+like "${test_name}: stderr" $stderr $stderr_pat "-linestop -lineanchor"
 
 # --- TEST 3 ---
 
 set subtest3 "TEST 3: ternary operator should be tighter than = (bad case, compatible 4.0)"
 set test_name "$test: $subtest3"
 
-set cmd "stap --compatible 4.0 '$srcdir/$subdir/${test}_2.stp'"
-send_log "executing: $cmd\n"
-set pipe [open "| sh -c {$cmd}" r]
-set out [read $pipe]
-set failed 0
-if {[catch {close $pipe} stderr] != 0} {
-    if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-        append stderr "\n"
-    }
-    global errorCode
-    if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-        set failed [lindex $errorCode 2]
-    }
-}
+set exit_code [run_cmd_2way "stap --compatible 4.0 '$srcdir/$subdir/${test}_2.stp'" out stderr]
 
 set exp_out ""
-regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-if {$out eq $exp_out} {
-    pass "${test_name}: stdout matches \"$escaped_exp_out\""
-} else {
-    fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-}
-
-if {$failed} {
-    pass "${test_name}: exit code should be non-zero"
-} else {
-    fail "${test_name}: exit code should be non-zero but is zero"
-}
+is "${test_name}: stdout" $out $exp_out
+isnt "${test_name}: exit code" $exit_code 0
 
 set stderr_pat "^semantic error: Expecting lvalue for assignment: operator '=' at \[^\\n\]*?\\.stp:4:58
         source:     printf\\(\"a = %d, b = %d, c = %d\\\\n\", a > 0 \\? b = 4 : c = 5, b, c\\);
                                                                          \\^
 "
-regsub -all -- {\n} $stderr_pat {\n} escaped_stderr_pat
-if {[regexp -linestop -lineanchor -- $stderr_pat $stderr]} {
-    pass "${test_name}: stderr matches \"$escaped_stderr_pat\""
-} else {
-    fail "${test_name}: stderr fails to match \"$escaped_stderr_pat\": got \"$stderr\""
-}
+like "${test_name}: stderr" $stderr $stderr_pat "-linestop -lineanchor"
 
 # --- TEST 4 ---
 
@@ -145,35 +67,13 @@ foreach runtime [get_runtime_list] {
     }
     set test_name "$test: $subtest4 ($runtime)"
 
-    set cmd "stap --compatible 3.3 --runtime=$runtime '$srcdir/$subdir/${test}_2.stp'"
-    send_log "executing: $cmd\n"
-    set pipe [open "| sh -c {$cmd}" r]
-    set out [read $pipe]
-    set failed 0
-    if {[catch {close $pipe} stderr] != 0} {
-        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-            append stderr "\n"
-        }
-        global errorCode
-        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-            set failed [lindex $errorCode 2]
-        }
-    }
+    set exit_code [run_cmd_2way "stap --compatible 3.3 --runtime=$runtime '$srcdir/$subdir/${test}_2.stp'" out stderr]
 
     set exp_out "a = 4, b = 4, c = 0
 "
-    regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-    if {$out eq $exp_out} {
-        pass "${test_name}: stdout matches \"$escaped_exp_out\""
-    } else {
-        fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-    }
+    is "${test_name}: stdout" $out $exp_out
 
-    if {$failed} {
-        fail "${test_name}: exit code should be zero but is $failed"
-    } else {
-        pass "${test_name}: exit code is zero"
-    }
+    is "${test_name}: exit code" $exit_code 0
     if {$stderr ne ""} {
         send_log "stderr:\n$stderr"
     }
@@ -188,35 +88,13 @@ foreach runtime [get_runtime_list] {
     }
     set test_name "$test: $subtest5 ($runtime)"
 
-    set cmd "stap --compatible 3.2 --runtime=$runtime '$srcdir/$subdir/${test}_2.stp'"
-    send_log "executing: $cmd\n"
-    set pipe [open "| sh -c {$cmd}" r]
-    set out [read $pipe]
-    set failed 0
-    if {[catch {close $pipe} stderr] != 0} {
-        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-            append stderr "\n"
-        }
-        global errorCode
-        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-            set failed [lindex $errorCode 2]
-        }
-    }
+    set exit_code [run_cmd_2way "stap --compatible 3.2 --runtime=$runtime '$srcdir/$subdir/${test}_2.stp'" out stderr]
 
     set exp_out "a = 4, b = 4, c = 0
 "
-    regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-    if {$out eq $exp_out} {
-        pass "${test_name}: stdout matches \"$escaped_exp_out\""
-    } else {
-        fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-    }
+    is "${test_name}: stdout" $out $exp_out
 
-    if {$failed} {
-        fail "${test_name}: exit code should be zero but is $failed"
-    } else {
-        pass "${test_name}: exit code is zero"
-    }
+    is "${test_name}: exit code" $exit_code 0
     if {$stderr ne ""} {
         send_log "stderr:\n$stderr"
     }
@@ -231,46 +109,19 @@ foreach runtime [get_runtime_list] {
     }
     set test_name "$test: $subtest6 ($runtime)"
 
-    set cmd "stap --runtime=$runtime '$srcdir/$subdir/${test}_6.stp'"
-    send_log "executing: $cmd\n"
-    set pipe [open "| sh -c {$cmd}" r]
-    set out [read $pipe]
-    set failed 0
-    if {[catch {close $pipe} stderr] != 0} {
-        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-            append stderr "\n"
-        }
-        global errorCode
-        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-            set failed [lindex $errorCode 2]
-        }
-    }
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_6.stp'" out stderr]
 
     set exp_out "3
 "
-    regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-    if {$out eq $exp_out} {
-        pass "${test_name}: stdout matches \"$escaped_exp_out\""
-    } else {
-        fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-    }
+    is "${test_name}: stdout" $out $exp_out
 
     set stderr_pat "^WARNING: Eliding assignment to 'b': operator '=' at \[^\\n\]*?\\.stp:3:30
 .*?
 WARNING: Eliding assignment to 'c': operator '=' at :3:39
 "
-    regsub -all -- {\n} $stderr_pat {\n} escaped_stderr_pat
-    if {[regexp -lineanchor -- $stderr_pat $stderr]} {
-        pass "${test_name}: stderr matches \"$escaped_stderr_pat\""
-    } else {
-        fail "${test_name}: stderr fails to match \"$escaped_stderr_pat\": got \"$stderr\""
-    }
+    like "${test_name}: stderr" $stderr $stderr_pat "-lineanchor"
 
-    if {$failed} {
-        fail "${test_name}: exit code should be zero but is $failed"
-    } else {
-        pass "${test_name}: exit code is zero"
-    }
+    is "${test_name}: exit code" $exit_code 0
 }
 
 # --- TEST 7 ---
@@ -282,38 +133,16 @@ foreach runtime [get_runtime_list] {
     }
     set test_name "$test: $subtest7 ($runtime)"
 
-    set cmd "stap --runtime=$runtime '$srcdir/$subdir/${test}_7.stp'"
-    send_log "executing: $cmd\n"
-    set pipe [open "| sh -c {$cmd}" r]
-    set out [read $pipe]
-    set failed 0
-    if {[catch {close $pipe} stderr] != 0} {
-        if {$stderr ne "" && [string index $stderr end] ne "\n"} {
-            append stderr "\n"
-        }
-        global errorCode
-        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
-            set failed [lindex $errorCode 2]
-        }
-    }
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_7.stp'" out stderr]
 
     set exp_out "3
 4
 6
 5
 "
-    regsub -all -- {\n} $exp_out {\n} escaped_exp_out
-    if {$out eq $exp_out} {
-        pass "${test_name}: stdout matches \"$escaped_exp_out\""
-    } else {
-        fail "${test_name}: stdout fails to match \"$escaped_exp_out\": got \"$out\""
-    }
+    is "${test_name}: stdout" $out $exp_out
 
-    if {$failed} {
-        fail "${test_name}: exit code should be zero but is $failed"
-    } else {
-        pass "${test_name}: exit code is zero"
-    }
+    is "${test_name}: exit code" $exit_code 0
     if {$stderr ne ""} {
         send_log "stderr:\n$stderr"
     }
