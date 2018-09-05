@@ -85,6 +85,9 @@
 #ifndef __NR_getsockopt
 #define __NR_getsockopt (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_io_pgetevents
+#define __NR_io_pgetevents (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_ipc
 #define __NR_ipc (__NR_syscall_max + 1)
 #endif
@@ -99,6 +102,9 @@
 #endif
 #ifndef __NR_membarrier
 #define __NR_membarrier (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_mlock2
+#define __NR_mlock2 (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_mmap2
 #define __NR_mmap2 (__NR_syscall_max + 1)
@@ -127,8 +133,14 @@
 #ifndef __NR_open
 #define __NR_open (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_preadv2
+#define __NR_preadv2 (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_pselect7
 #define __NR_pselect7 (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_pwritev2
+#define __NR_pwritev2 (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_recv
 #define __NR_recv (__NR_syscall_max + 1)
@@ -141,6 +153,9 @@
 #endif
 #ifndef __NR_renameat2
 #define __NR_renameat2 (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_rseq
+#define __NR_rseq (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_semtimedop
 #define __NR_semtimedop (__NR_syscall_max + 1)
@@ -177,6 +192,9 @@
 #endif
 #ifndef __NR_socketpair
 #define __NR_socketpair (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_statx
+#define __NR_statx (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_stime
 #define __NR_stime (__NR_syscall_max + 1)
