@@ -222,7 +222,7 @@ compile_dyninst (systemtap_session& s)
       "gcc", "--std=gnu99", s.translated_source, "-o", module,
       "-fvisibility=hidden", "-O2", "-I" + s.runtime_path, "-D__DYNINST__",
       "-Wall", WERROR, "-Wno-unused", "-Wno-strict-aliasing",
-      "-Wno-tautological-compare", "-pthread", "-lrt", "-fPIC", "-shared",
+      "-pthread", "-lrt", "-fPIC", "-shared",
     };
 
   // BZ855981/948279.  Since dyninst/runtime.h includes __sync_* calls,
@@ -233,6 +233,10 @@ compile_dyninst (systemtap_session& s)
   if (s.architecture == "i386")
     cmd.push_back("-march=i586");
 
+  // Need this for scripts where tautologies pass through to generated
+  // code.  XXX: but this is gcc-version-dependent
+  cmd.push_back("-Wno-tautological-compare");
+  
   for (size_t i = 0; i < s.c_macros.size(); ++i)
     cmd.push_back("-D" + s.c_macros[i]);
 
@@ -507,7 +511,7 @@ compile_pass (systemtap_session& s)
   o << "EXTRA_CFLAGS += $(call cc-option,-fno-ipa-icf)" << endl;
 
   // Assumes linux 2.6 kbuild
-  o << "EXTRA_CFLAGS += -Wno-unused -Wno-tautological-compare " << WERROR
+  o << "EXTRA_CFLAGS += -Wno-unused $(call cc-option,-Wno-tautological-compare) " << WERROR
     << endl;
   #if CHECK_POINTER_ARITH_PR5947
   o << "EXTRA_CFLAGS += -Wpointer-arith" << endl;
