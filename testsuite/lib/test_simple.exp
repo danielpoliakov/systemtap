@@ -28,7 +28,7 @@ proc run_cmd_2way { cmd stdout_var stderr_var } {
             append stderr "\n"
         }
         global errorCode
-        if {"CHILDSTATUS" == [lindex $errorCode 0]} {
+        if {[lindex $errorCode 0] eq "CHILDSTATUS"} {
             set exit_code [lindex $errorCode 2]
         }
     }
