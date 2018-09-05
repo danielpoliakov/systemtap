@@ -24,7 +24,6 @@ static struct context *_stp_runtime_get_context(void);
 #if defined(__KERNEL__)
 
 #include "linux/runtime.h"
-#include "linux/compat_unistd.h"
 
 #elif defined(__DYNINST__)
 
