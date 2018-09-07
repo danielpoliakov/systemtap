@@ -1,0 +1,40 @@
+#! /usr/bin/env stap
+
+# General interval measurement / monitor.  Gives a report of event interval measurement on a
+# per-process or systemwide basis.
+# 
+# Invoke with a list of probe point patterns as script command-line arguments:
+# stap measureinterval.stp 'measurement' 'match' 'accumulation' 'start_event(s)' 'end_event(s)'
+#
+
+global interval%, acc%
+
+probe $4
+{
+  measure = $1
+  if ($2 in interval) {
+    acc[%($# >= 6 %? $6 %: 0 %)] <<< measure - interval[$2]
+  }
+  interval[$2] = measure;
+}
+
+# optional end of pipeline probe
+probe %($# >= 5 %? $5 %: never %)
+{
+  measure = $1
+  if ($2 in interval) {
+    acc[%($# >= 6 %? $6 %: 0 %)] <<< measure - interval[$2]
+    delete interval[$2]
+  }
+}
+
+function report()
+{
+  print("\n");
+  foreach(i+ in acc){
+     printdln("=", "id", i)
+     println($3(acc[i]))
+  }
+}
+
+probe end {report()}
