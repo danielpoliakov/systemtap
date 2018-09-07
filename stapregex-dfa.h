@@ -74,6 +74,7 @@ std::ostream& operator << (std::ostream &o, const tdfa_action& a);
 
    TODOXXX: May want to test how this plays out in 32-bit architectures. */
 typedef std::pair<unsigned long long, unsigned> arc_priority;
+#define MAKE_START_PRIORITY make_pair(0,0)
 arc_priority refine_higher(const arc_priority& a);
 arc_priority refine_lower(const arc_priority& a);
 int arc_compare(const arc_priority& a, const arc_priority& b);

@@ -214,7 +214,7 @@ add_kernel (state_kernel *kernel, ins *i)
 {
   kernel_point point;
   point.i = i;
-  point.priority = make_pair(0,0);
+  point.priority = MAKE_START_PRIORITY;
   // NB: point->map_items is empty
 
   kernel->push_back(point);
@@ -228,6 +228,64 @@ make_kernel (ins *i)
   return kernel;
 }
 
+struct sort_priorities {
+  bool operator ()(const arc_priority &a, const arc_priority &b)
+  {
+    return arc_compare(a,b) > 0;
+  }
+};
+
+struct sort_denominator {
+  bool operator ()(const arc_priority &a, const arc_priority &b)
+  {
+    return a.second > b.second;
+  }
+};
+
+struct sort_kernel_points {
+  bool operator ()(const kernel_point &k, const kernel_point &l)
+  {
+    return arc_compare(k.priority, l.priority) > 0;
+  }
+};
+
+// Move points from worklist to new_worklist while rebalancing priorities:
+void
+rebalance_priorities(stack<kernel_point> &worklist, stack<kernel_point> &new_worklist)
+{
+  // Sort worklist in order of priority:
+  priority_queue<kernel_point, vector<kernel_point>, sort_kernel_points> sorted_worklist;
+  while (!worklist.empty())
+    {
+      kernel_point point = worklist.top(); worklist.pop();
+      sorted_worklist.push(point);
+    }
+
+  // Generate a 'clean' set of priorities:
+  priority_queue<arc_priority, vector<arc_priority>, sort_priorities> sorted_priorities;
+  priority_queue<arc_priority, vector<arc_priority>, sort_denominator> new_priorities;
+  new_priorities.push(MAKE_START_PRIORITY);
+  while (new_priorities.size() < sorted_worklist.size())
+    {
+      arc_priority new_priority = new_priorities.top(); new_priorities.pop();
+      new_priorities.push(refine_higher(new_priority));
+      new_priorities.push(refine_lower(new_priority));
+    }
+  for (unsigned i = 0; i < sorted_worklist.size(); i++)
+    {
+      arc_priority new_priority = new_priorities.top(); new_priorities.pop();
+      sorted_priorities.push(new_priority);
+    }
+
+  while (!sorted_worklist.empty())
+    {
+      kernel_point point = sorted_worklist.top(); sorted_worklist.pop();
+      arc_priority new_priority = sorted_priorities.top(); sorted_priorities.pop();
+      point.priority = new_priority;
+      new_worklist.push(point);
+    }
+}
+
 /* Compute the set of kernel_points that are 'tag-wise unambiguously
    reachable' from a given initial set of points. Absent tagging, this
    becomes a bog-standard NFA e_closure construction. */
@@ -235,7 +293,8 @@ state_kernel *
 te_closure (dfa *dfa, state_kernel *start, int ntags, bool is_initial = false)
 {
   state_kernel *closure = new state_kernel(*start);
-  stack<kernel_point> worklist;
+  stack<kernel_point> base_worklist; // -- with old priorities
+  stack<kernel_point> worklist; // -- with rebalanced priorities
   // XXX: state_kernel is a list<kernel_point> so we avoid iterator
   // invalidation and make a new copy of each kernel_point from start
 
@@ -255,13 +314,7 @@ te_closure (dfa *dfa, state_kernel *start, int ntags, bool is_initial = false)
       cerr << endl;
 #endif
 
-      // XXX: Retaining the priority from the previous state has the
-      // potential to overflow the arc_priority representation if
-      // there is too much branching. This should cause an explicit
-      // assertion failure if it occurs in practice (see refine_*()),
-      // and might be fixable by adding an explicit step to rebalance
-      // priorities in the kernel.
-      worklist.push(*it); // -- push with existing priority
+      base_worklist.push(*it); // -- push with existing priority, rebalance later
 
       // Store the element in relevant caches:
 
@@ -271,6 +324,16 @@ te_closure (dfa *dfa, state_kernel *start, int ntags, bool is_initial = false)
 
       closure_map[it->i].push_back(it);
     }
+
+  // PR23608: Retaining the priority from the previous state has the
+  // potential to overflow the arc_priority representation with large
+  // numbers when there are many distinct DFA states. This should
+  // cause an explicit assertion failure if it occurs in practice (see
+  // refine_*()), e.g. with long non-branching regexes such as
+  // "aaaa...aaaaa".
+  //
+  // Fixed by adding an explicit step to rebalance priorities:
+  rebalance_priorities(base_worklist, worklist);
 
   while (!worklist.empty())
     {
