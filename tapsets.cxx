@@ -7474,17 +7474,14 @@ sdt_query::handle_query_module()
       GElf_Shdr *shdr = dw.get_section (".stapsdt.base", &shdr_mem);
 
       // The 'base' lets us adjust the hardcoded addresses in notes for prelink
-      // effects.  The 'semaphore_load_offset' accounts for the difference in
-      // load addresses between text and data, so the semaphore can be
-      // converted to a file offset if needed.
+      // effects.  The 'semaphore_load_offset' is the load address of the .probes
+      // section so the semaphore can be converted to a section offset if needed.
       if (shdr)
 	{
 	  base = shdr->sh_addr;
-	  GElf_Addr base_offset = shdr->sh_offset;
 	  shdr = dw.get_section (".probes", &shdr_mem);
 	  if (shdr)
-	    semaphore_load_offset =
-	      (shdr->sh_addr - shdr->sh_offset) - (base - base_offset);
+	    semaphore_load_offset = shdr->sh_addr - shdr->sh_offset;
 	}
       else
 	base = semaphore_load_offset = 0;
