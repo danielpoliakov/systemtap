@@ -8,6 +8,7 @@ if {[http_start_server] == 0} {
     pass "$test $subtest"
 } else {
     fail "$test $subtest"
+    return
 }
 
 #-------------------------------------------------------
@@ -76,4 +77,16 @@ set subtest "user exe2"
 set rc [stap_run_batch "" -e "probe process(\"/usr/bin/ls\").function(\"main\") { exit() }" --use-http-server=$systemtap_http_server_spec -c /usr/bin/ls]
 if {$rc == 0} { pass "$test $subtest" } else { fail "$test $subtest" }
 
+#-------------------------------------------------------
+# Try probing a user executable (not from an rpm) with an absolute path.
+set wd [pwd]
+set filename "$srcdir/systemtap.base/gtod.c"
+target_compile $filename $wd/gtod executable ""
+set subtest "user exe3"
+set testscript [format "probe process(\"%s/gtod\").function(\"main\") { exit() }" $wd]
+set rc [stap_run_batch "" -e $testscript --use-http-server=$systemtap_http_server_spec -c ${wd}/gtod]
+if {$rc == 0} { pass "$test $subtest" } else { fail "$test $subtest" }
+
+
+catch {exec rm -f $wd/gtod}
 http_shutdown_server

@@ -779,6 +779,7 @@ void *
 build_info::module_build()
 {
     vector<string> argv;
+    bool client_zip_exists = false;
 
     // The client can optionally send over a "client.zip" file, which
     // we automatically unzip here.
@@ -796,15 +797,31 @@ build_info::module_build()
 		set_result(ri);
 		return NULL;
 	    }
+	    client_zip_exists = true;
 	}
     }
 
     // Process the command arguments.
     argv.push_back("stap");
 
-    // Specify the right kernel version.
+    // Specify the right kernel version.  Since we might be using a
+    // '--sysroot' option, we need to specify the full path to the
+    // kernel build directory (or stap will look for it in the
+    // sysroot).
     argv.push_back("-r");
-    argv.push_back(crd->kver);
+    string kernel_build_tree = "/lib/modules/" + crd->kver + "/build";
+    argv.push_back(kernel_build_tree);
+
+    if (client_zip_exists) {
+	// If a directory called "files" exists in the stuff we
+	// unzipped from client.zip, then we need a sysroot option (so
+	// that stap can find the target user executables).
+	struct stat stbuf;
+	string files_path = crd->client_dir + "/files";
+	if (stat(files_path.c_str(), &stbuf) == 0) {
+	    argv.push_back("--sysroot=" + files_path);
+	}
+    }
 
     // Make sure stap knows where to put the results.
     argv.push_back(string("--tmpdir=") + crd->client_dir);
