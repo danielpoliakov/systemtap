@@ -142,10 +142,10 @@ probe nd2_syscall.epoll_create.return = __nd2_syscall.epoll_create1.return !,
 }
 probe __nd2_syscall.epoll_create1.return = kprobe.function(@arch_syscall_prefix "sys_epoll_create1").return
 {
-	__set_syscall_pt_regs(pointer_arg(1))
+	retstr = returnstr(1)
+	__set_syscall_pt_regs(@entry(pointer_arg(1)))
 	flags = int_arg(1)
 	name = (flags == 0) ? "epoll_create" : "epoll_create1";
-	retstr = returnstr(1)
 }
 probe __nd2_syscall.epoll_create.return = kprobe.function(@arch_syscall_prefix "sys_epoll_create").return
 {

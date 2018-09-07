@@ -306,6 +306,7 @@ probe nd2_syscall.compat_sys_msgrcv.return =
 	__set_syscall_pt_regs(@entry(pointer_arg(1)))
 	if ((uint_arg(1) & 0xffff) != @const("MSGRCV")) next;
 	@_SYSCALL_MSGRCV_NAME
+	__set_syscall_pt_regs(0)
 	retstr = returnstr(1) /* NB: not in the $regs */
 }
 

@@ -123,6 +123,7 @@ probe __nd2_syscall.compat_ipc.msgget.return =
 {
 	__set_syscall_pt_regs(@entry(pointer_arg(1)))
 	if ((uint_arg(1) & 0xffff) != @const("MSGGET")) next;
+	__set_syscall_pt_regs(0)
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */

@@ -319,6 +319,7 @@ probe nd2_syscall.pipe.return = __nd2_syscall.pipe2.return ?,
 probe __nd2_syscall.pipe2.return = kprobe.function(@arch_syscall_prefix "sys_pipe2").return ?
 {
 	name = "pipe2";
+	retstr = returnstr(1)
 	__set_syscall_pt_regs(@entry(pointer_arg(1)))
 	fildes_uaddr = pointer_arg(1)
 	if (fildes_uaddr == 0) {
@@ -328,11 +329,11 @@ probe __nd2_syscall.pipe2.return = kprobe.function(@arch_syscall_prefix "sys_pip
 		pipe0 = _fildes_index_u(fildes_uaddr, 0)
 		pipe1 = _fildes_index_u(fildes_uaddr, 1)
 	}
-	retstr = returnstr(1)
 }
 probe __nd2_syscall.pipe.return = kprobe.function(@arch_syscall_prefix "sys_pipe").return
 {
 	name = "pipe"
+	retstr = returnstr(1)
 	__set_syscall_pt_regs(@entry(pointer_arg(1)))
 	fildes_uaddr = int_arg(1)
 	if (fildes_uaddr == 0) {
@@ -342,7 +343,6 @@ probe __nd2_syscall.pipe.return = kprobe.function(@arch_syscall_prefix "sys_pipe
 		pipe0 = _fildes_index_u(fildes_uaddr, 0)
 		pipe1 = _fildes_index_u(fildes_uaddr, 1)
 	}
-	retstr = returnstr(1)
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */

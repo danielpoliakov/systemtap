@@ -151,6 +151,7 @@ probe nd2_syscall.wait4.return = kprobe.function(@arch_syscall_prefix "sys_wait4
 	kprobe.function(@arch_syscall_prefix "compat_sys_wait4").return ?
 {
 	@_SYSCALL_WAIT4_NAME
+	retstr = returnstr(1)
 
 	__set_syscall_pt_regs(@entry(pointer_arg(1)))
 	status_uaddr = pointer_arg(2)
@@ -160,8 +161,6 @@ probe nd2_syscall.wait4.return = kprobe.function(@arch_syscall_prefix "sys_wait4
 		status_str = "NULL"
 	else
 		status_str = _wait_status_str(user_int(status_uaddr))
-
-	retstr = returnstr(1)
 }
 
 probe tp_syscall.wait4.return = kernel.trace("sys_exit")
