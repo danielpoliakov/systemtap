@@ -65,13 +65,19 @@ close $fp
 ########## Begin stap-postgres.sh ########## 
 set fp [open "$pgdata.sh" "w"]
 puts $fp "
+##### begin run_tests #####
 function run_tests \{
 /bin/rm -rf $pgdata
 $postgresdir/bin/initdb $pgdata
 
-echo '$env(SYSTEMTAP_PATH)/stap -m \$(date +stapsdt_%j%k%M%N | sed 's/ //') -c \"$postgresdir/bin/postgres -D $pgdata\" $pgdata.stp >$pgdata-markers.log'
+if \[ \"\$1\"x = \"dyninstx\" \] ; then 
+   echo -e \"\n##### Using --dyninst\n\" >$pgdata.log
+   RUN=\"--dyninst\" 
+fi
+echo \"$env(SYSTEMTAP_PATH)/stap \$RUN -m \$(date +stapsdt_%j%k%M%N | sed 's/ //') -c \"$postgresdir/bin/postgres -D $pgdata\" $pgdata.stp >$pgdata-markers.log\"
 $env(SYSTEMTAP_PATH)/stap -m \$(date +stapsdt_%j%k%M%N | sed 's/ //') -c \"$postgresdir/bin/postgres -D $pgdata\" $pgdata.stp >$pgdata-markers.log 2>&1 &
 STAPPID=\$!
+sleep 10
 
 # wait until postgres is running
 for i in \$(seq 0 10) ; do
@@ -82,7 +88,7 @@ for i in \$(seq 0 10) ; do
 done
 
 (cd $postgresdir/../src/test/regress/
- make installcheck > $pgdata.log 2>&1)
+ make installcheck >> $pgdata.log 2>&1)
 
 ACQUIRE=\$(grep 'lwlock__acquire 0x\[0-9\]* 0x\[0-9\]*' $pgdata-markers.log | wc -l)
 RELEASE=\$(grep 'lwlock__release 0x\[0-9\]*' $pgdata-markers.log | wc -l)
@@ -100,10 +106,14 @@ else
 fi
 
 if \[ \$OKAY -gt 100 \] ; then
-   echo PASS: postgres markers \$OKAY
+   echo PASS: postgres markers \$1 \$OKAY
 else
-   echo FAIL: postgres markers \$OKAY
+   echo FAIL: postgres markers \$1 \$OKAY
 fi
+
+mv $pgdata.log $pgdata-\$1.log
+cat $pgdata-markers.log >> $pgdata-\$1.log
+rm $pgdata-markers.log
 
 $postgresdir/bin/pg_ctl stop -D $pgdata
 kill \$STAPPID
@@ -133,7 +143,8 @@ fi
 J=\$(getconf _NPROCESSORS_CONF)
 make -j\$J
 make install
-run_tests
+run_tests uprobe
+run_tests dyninst
 "
 
 ########## End stap-postgres.sh ########## 
@@ -159,6 +170,6 @@ catch {close}; catch {wait}
 if { $verbose == 0 } {
 catch {exec rm -rf $pgdata}
 catch {exec rm -rf $pgdata.stp $pgdata.log \
-	   $pgdata-markers.log $pgdata.sh postgresql-${postgresrelease}.tar.bz2}
+	   $pgdata-uprobe.log $pgdata-dyninst.log $pgdata.sh postgresql-${postgresrelease}.tar.bz2}
 catch {exec rm -rf postgresql-${postgresrelease}}
 }

@@ -247,9 +247,16 @@ $mysqldir/scripts/mysql_install_db --basedir=$mysqldir --datadir=$msdata --user=
 (cd $mysqldir/mysql-test
 # wait until mysql is running
 MOD=stapsdt_\$(date +%j%k%M%N | sed 's/ //')
-$env(SYSTEMTAP_PATH)/stap -m \$MOD -c \"$mysqldir/bin/mysqld --basedir=$mysqldir --datadir=$msdata --log-error=$msdata/mysql.log --pid-file=$msdata/mysql.pid  --socket=$msdata/mysql.sock\" $testsuite/stap-mysql.stp $mysqldir/bin/mysqld >$testsuite/stap-mysql-markers.log 2>&1 &
+if \[ \"\$1\"x = \"dyninstx\" \] ; then 
+   echo -e \"\n##### Using --dyninst\n\" >$testsuite/stap-mysql.log
+   RUN=\"--dyninst\" 
+fi
+echo \"$env(SYSTEMTAP_PATH)/stap \$RUN -m \$MOD -c \"$mysqldir/bin/mysqld --basedir=$mysqldir --datadir=$msdata --log-error=$msdata/mysql.log --pid-file=$msdata/mysql.pid  --socket=$msdata/mysql.sock\" $testsuite/stap-mysql.stp $mysqldir/bin/mysqld >$testsuite/stap-mysql-markers.log\"
+$env(SYSTEMTAP_PATH)/stap \$RUN -m \$MOD -c \"$mysqldir/bin/mysqld --basedir=$mysqldir --datadir=$msdata --log-error=$msdata/mysql.log --pid-file=$msdata/mysql.pid  --socket=$msdata/mysql.sock\" $testsuite/stap-mysql.stp $mysqldir/bin/mysqld >$testsuite/stap-mysql-markers.log 2>&1 &
 STAPPID=\$!
+sleep 10
 
+# wait until mysql is running
 for i in \$(seq 0 10) ; do
     if $mysqldir/bin/mysqladmin ping --socket=$msdata/mysql.sock
     then break;
@@ -263,7 +270,7 @@ do
   export PERL5LIB=$mysqldir/mysql-test
   ./mysql-test-run.pl --force --extern socket=$msdata/mysql.sock \
     --tmpdir=/tmp/,mysql --vardir=/tmp/,mysql  --do-test=\$i
-done > $testsuite/stap-mysql.log
+done >> $testsuite/stap-mysql.log
 )
 
 ACQUIRE=\$(grep 'handler__unlock__start' $testsuite/stap-mysql-markers.log | wc -l)
@@ -297,8 +304,8 @@ rm $testsuite/stap-mysql-markers.log
 
 $mysqldir/bin/mysqladmin shutdown -u root --socket=$testsuite/stap-mysql/mysql.sock
 kill -9 \$STAPPID
-kill -9 $testsuite/stap-mysql/mysql.pid
-\}
+kill -9 \$(cat $msdata/mysql.pid)
+}
 ##### end run_tests #####
 
 if \[ ! -r $mysqlrelease.tar.gz \] ; then
@@ -345,7 +352,7 @@ sed -i -e '/HAVE_DTRACE/i\\
 make -j\$J
 make install
 run_tests uprobe
-
+run_tests dyninst
 "
 ########## End stap-mysql.sh ########## 
 close $fp
@@ -373,6 +380,7 @@ catch {close}; catch {wait}
 if { $verbose == 0 } {
 catch {exec rm -rf $msdata}
 catch {exec rm -rf $testsuite/stap-mysql.stp $testsuite/stap-mysql.log \
-	   $testsuite/stap-mysql-markers.log $testsuite/stap-mysql.sh $mysqlrelease.tar.gz}
+	   $testsuite/stap-mysql-markers.log $testsuite/stap-mysql-dyninst.log $testsuite/stap-mysql-uprobe.log \
+	   $testsuite/stap-mysql.sh $mysqlrelease.tar.gz}
 catch {exec rm -rf mysql}
 }
