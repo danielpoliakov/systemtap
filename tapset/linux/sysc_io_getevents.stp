@@ -25,8 +25,8 @@
 @define _SYSCALL_IO_GETEVENTS_REGARGS
 %(
 	ctx_id = ulong_arg(1)
-	min_nr = long_arg(2)
-	nr = long_arg(3)
+	min_nr = @__compat_task ? int_arg(2) : long_arg(2)
+	nr = @__compat_task ? int_arg(3) : long_arg(3)
 	events_uaddr = pointer_arg(4)
 	timeout_uaddr = pointer_arg(5)
         timestr = (@__compat_task

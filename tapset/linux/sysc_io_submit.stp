@@ -16,7 +16,7 @@
 @define _SYSCALL_IO_SUBMIT_REGARGS
 %(
 	ctx_id = ulong_arg(1)
-	nr = long_arg(2)
+	nr = @__compat_task ? int_arg(2) : long_arg(2)
 	iocbpp_uaddr = pointer_arg(3)
 %)
 

@@ -13,6 +13,16 @@
 	argstr = sprintf("%d, %s, %s", pid, sig_name, siginfo_str)
 %)
 
+@define _SYSCALL_RT_SIGQUEUEINFO_REGARGS
+%(
+	pid = int_arg(1)
+	sig = int_arg(2)
+	sig_name = _signal_name(sig)
+	uinfo_uaddr = pointer_arg(3)
+	siginfo_str = (@__compat_task ? _stp_compat_siginfo_u(uinfo_uaddr)
+	               : _stp_siginfo_u(uinfo_uaddr))
+%)
+
 probe syscall.rt_sigqueueinfo = dw_syscall.rt_sigqueueinfo !,
                                 nd_syscall.rt_sigqueueinfo ? {}
 probe syscall.rt_sigqueueinfo.return = dw_syscall.rt_sigqueueinfo.return !,
@@ -54,35 +64,76 @@ probe __syscall.rt_sigqueueinfo.return =
 
 # nd_rt_sigqueueinfo _____________________________________________________
 
-probe nd_syscall.rt_sigqueueinfo =
-	__nd_syscall.rt_sigqueueinfo ?,
+probe nd_syscall.rt_sigqueueinfo = nd1_syscall.rt_sigqueueinfo!, nd2_syscall.rt_sigqueueinfo!, tp_syscall.rt_sigqueueinfo
+  { }
+
+probe nd1_syscall.rt_sigqueueinfo =
+	__nd1_syscall.rt_sigqueueinfo ?,
 	kprobe.function("sys32_rt_sigqueueinfo") ?,
 	kprobe.function("compat_sys_rt_sigqueueinfo") ?
 {
 	@_SYSCALL_RT_SIGQUEUEINFO_NAME
 	asmlinkage()
-	pid = int_arg(1)
-	sig = int_arg(2)
-	sig_name = _signal_name(sig)
-	uinfo_uaddr = pointer_arg(3)
-	siginfo_str = (@__compat_task ? _stp_compat_siginfo_u(uinfo_uaddr)
-	               : _stp_siginfo_u(uinfo_uaddr))
+	@_SYSCALL_RT_SIGQUEUEINFO_REGARGS
 	@_SYSCALL_RT_SIGQUEUEINFO_ARGSTR
 }
-probe __nd_syscall.rt_sigqueueinfo = kprobe.function("sys_rt_sigqueueinfo")
+probe __nd1_syscall.rt_sigqueueinfo = kprobe.function("sys_rt_sigqueueinfo")
 {
 	@__syscall_gate(@const("__NR_rt_sigqueueinfo"))
 }
-probe nd_syscall.rt_sigqueueinfo.return =
-	__nd_syscall.rt_sigqueueinfo.return ?,
+
+/* kernel 4.17+ */
+probe nd2_syscall.rt_sigqueueinfo =
+	kprobe.function(@arch_syscall_prefix "sys_rt_sigqueueinfo") ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_rt_sigqueueinfo") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_RT_SIGQUEUEINFO_NAME
+	@_SYSCALL_RT_SIGQUEUEINFO_REGARGS
+	@_SYSCALL_RT_SIGQUEUEINFO_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.rt_sigqueueinfo = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_rt_sigqueueinfo"), @const("__NR_compat_rt_sigqueueinfo"))
+	@_SYSCALL_RT_SIGQUEUEINFO_NAME
+	@_SYSCALL_RT_SIGQUEUEINFO_REGARGS
+	@_SYSCALL_RT_SIGQUEUEINFO_ARGSTR
+}
+
+probe nd_syscall.rt_sigqueueinfo.return = nd1_syscall.rt_sigqueueinfo.return!, nd2_syscall.rt_sigqueueinfo.return!, tp_syscall.rt_sigqueueinfo.return
+  { }
+  
+probe nd1_syscall.rt_sigqueueinfo.return =
+	__nd1_syscall.rt_sigqueueinfo.return ?,
 	kprobe.function("sys32_rt_sigqueueinfo").return ?,
 	kprobe.function("compat_sys_rt_sigqueueinfo").return ?
 {
 	@_SYSCALL_RT_SIGQUEUEINFO_NAME
 	retstr = returnstr(1)
 }
-probe __nd_syscall.rt_sigqueueinfo.return =
+probe __nd1_syscall.rt_sigqueueinfo.return =
 	kprobe.function("sys_rt_sigqueueinfo").return
 {
 	@__syscall_gate(@const("__NR_rt_sigqueueinfo"))
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.rt_sigqueueinfo.return =
+	kprobe.function(@arch_syscall_prefix "sys_rt_sigqueueinfo").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_rt_sigqueueinfo").return ?
+{
+	@_SYSCALL_RT_SIGQUEUEINFO_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.rt_sigqueueinfo.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_rt_sigqueueinfo"), @const("__NR_compat_rt_sigqueueinfo"))
+	@_SYSCALL_RT_SIGQUEUEINFO_NAME
+	retstr = return_str(1,$ret)
 }

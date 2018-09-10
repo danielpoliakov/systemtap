@@ -15,6 +15,13 @@
 	argstr = sprintf("%u, %p, %u", fd, dirent, count)
 %)
 
+@define _SYSCALL_READDIR_REGARGS
+%(
+	fd = uint_arg(1)
+	dirent = pointer_arg(2)
+	count = uint_arg(3)
+%)
+
 probe syscall.readdir = dw_syscall.readdir !, nd_syscall.readdir ? {}
 probe syscall.readdir.return = dw_syscall.readdir.return !,
                                nd_syscall.readdir.return ? {}
@@ -43,23 +50,63 @@ probe dw_syscall.readdir.return = kernel.function("compat_sys_old_readdir").retu
 
 # nd_readdir _____________________________________________________
 
-probe nd_syscall.readdir = kprobe.function("compat_sys_old_readdir") ?,
-                           kprobe.function("old32_readdir") ?,
-                           kprobe.function("old_readdir") ?,
-                           kprobe.function("sys_old_readdir").call ?
+probe nd_syscall.readdir = nd1_syscall.readdir!, nd2_syscall.readdir!, tp_syscall.readdir
+  { }
+
+probe nd1_syscall.readdir = kprobe.function("compat_sys_old_readdir") ?,
+                            kprobe.function("old32_readdir") ?,
+                            kprobe.function("old_readdir") ?,
+                            kprobe.function("sys_old_readdir").call ?
 {
 	@_SYSCALL_READDIR_NAME
 	asmlinkage()
-	fd = uint_arg(1)
-	dirent = pointer_arg(2)
-	count = uint_arg(3)
+	@_SYSCALL_READDIR_REGARGS
 	@_SYSCALL_READDIR_ARGSTR
 }
-probe nd_syscall.readdir.return = kprobe.function("compat_sys_old_readdir").return ?,
-                                  kprobe.function("old32_readdir").return ?,
-                                  kprobe.function("old_readdir").return ?,
-                                  kprobe.function("sys_old_readdir").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.readdir = kprobe.function(@arch_syscall_prefix "compat_sys_old_readdir") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_READDIR_NAME
+	@_SYSCALL_READDIR_REGARGS
+	@_SYSCALL_READDIR_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.readdir = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_readdir"), @const("__NR_compat_readdir"))
+	@_SYSCALL_READDIR_NAME
+	@_SYSCALL_READDIR_REGARGS
+	@_SYSCALL_READDIR_ARGSTR
+}
+
+probe nd_syscall.readdir.return = nd1_syscall.readdir.return!, nd2_syscall.readdir.return!, tp_syscall.readdir.return
+  { }
+  
+probe nd1_syscall.readdir.return = kprobe.function("compat_sys_old_readdir").return ?,
+                                   kprobe.function("old32_readdir").return ?,
+                                   kprobe.function("old_readdir").return ?,
+                                   kprobe.function("sys_old_readdir").return ?
 {
 	@_SYSCALL_READDIR_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.readdir.return = kprobe.function(@arch_syscall_prefix "compat_sys_old_readdir").return ?
+{
+	@_SYSCALL_READDIR_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.readdir.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_readdir"), @const("__NR_compat_readdir"))
+	@_SYSCALL_READDIR_NAME
+	retstr = return_str(1,$ret)
 }

@@ -19,6 +19,22 @@
 	argstr = sprintf("%s, %s, %s, %d", uthese_str, uinfo_str, uts_str, sigsetsize)
 %)
 
+@define _SYSCALL_RT_SIGTIMEDWAIT_REGARGS
+%(
+	uthese_uaddr = pointer_arg(1)
+	uinfo_uaddr = pointer_arg(2)
+	uts_uaddr = pointer_arg(3)
+	if (@__compat_task) {
+		uthese_str = _stp_compat_sigset_u(uthese_uaddr)
+		uinfo_str = _stp_compat_siginfo_u(uinfo_uaddr)
+		uts_str = _struct_compat_timespec_u(uts_uaddr, 1)
+	} else {
+		uthese_str = _stp_sigset_u(uthese_uaddr)
+		uinfo_str = _stp_siginfo_u(uinfo_uaddr)
+		uts_str = _struct_timespec_u(uts_uaddr, 1)
+	}
+%)
+
 probe syscall.rt_sigtimedwait = dw_syscall.rt_sigtimedwait !,
                                 nd_syscall.rt_sigtimedwait ? {}
 probe syscall.rt_sigtimedwait.return = dw_syscall.rt_sigtimedwait.return !,
@@ -56,40 +72,97 @@ probe dw_syscall.rt_sigtimedwait.return =
 
 # nd_rt_sigtimedwait _____________________________________________________
 
-probe nd_syscall.rt_sigtimedwait = __nd_syscall.rt_sigtimedwait ?,
-				   __nd_syscall.compat_rt_sigtimedwait ?
+probe nd_syscall.rt_sigtimedwait = nd1_syscall.rt_sigtimedwait!, nd2_syscall.rt_sigtimedwait!, tp_syscall.rt_sigtimedwait
+  { }
+
+probe nd1_syscall.rt_sigtimedwait = __nd1_syscall.rt_sigtimedwait ?,
+				    __nd1_syscall.compat_rt_sigtimedwait ?
 {
 	@_SYSCALL_RT_SIGTIMEDWAIT_NAME
 	asmlinkage()
-	uthese_uaddr = pointer_arg(1)
-	uinfo_uaddr = pointer_arg(2)
-	uts_uaddr = pointer_arg(3)
-	if (@__compat_task) {
-		uthese_str = _stp_compat_sigset_u(uthese_uaddr)
-		uinfo_str = _stp_compat_siginfo_u(uinfo_uaddr)
-		uts_str = _struct_compat_timespec_u(uts_uaddr, 1)
-	} else {
-		uthese_str = _stp_sigset_u(uthese_uaddr)
-		uinfo_str = _stp_siginfo_u(uinfo_uaddr)
-		uts_str = _struct_timespec_u(uts_uaddr, 1)
-	}
+	@_SYSCALL_RT_SIGTIMEDWAIT_REGARGS
 	@_SYSCALL_RT_SIGTIMEDWAIT_ARGSTR
 }
-probe __nd_syscall.rt_sigtimedwait = kprobe.function("sys_rt_sigtimedwait")
+probe __nd1_syscall.rt_sigtimedwait = kprobe.function("sys_rt_sigtimedwait")
 {
 	asmlinkage()
 	sigsetsize = ulong_arg(4)
 }
-probe __nd_syscall.compat_rt_sigtimedwait =
+probe __nd1_syscall.compat_rt_sigtimedwait =
 	kprobe.function("compat_sys_rt_sigtimedwait")
 {
 	asmlinkage()
 	sigsetsize = u32_arg(4)
 }
-probe nd_syscall.rt_sigtimedwait.return =
+
+/* kernel 4.17+ */
+probe nd2_syscall.rt_sigtimedwait = __nd2_syscall.rt_sigtimedwait ?,
+				    __nd2_syscall.compat_rt_sigtimedwait ?
+{
+	@_SYSCALL_RT_SIGTIMEDWAIT_NAME
+	@_SYSCALL_RT_SIGTIMEDWAIT_REGARGS
+	@_SYSCALL_RT_SIGTIMEDWAIT_ARGSTR
+}
+probe __nd2_syscall.rt_sigtimedwait =
+	kprobe.function(@arch_syscall_prefix "sys_rt_sigtimedwait")
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	sigsetsize = ulong_arg(4)
+}
+probe __nd2_syscall.compat_rt_sigtimedwait =
+	kprobe.function(@arch_syscall_prefix "compat_sys_rt_sigtimedwait")
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	sigsetsize = u32_arg(4)
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.rt_sigtimedwait = __tp_syscall.rt_sigtimedwait ?,
+				   __tp_syscall.compat_rt_sigtimedwait ?
+{
+	@_SYSCALL_RT_SIGTIMEDWAIT_NAME
+	@_SYSCALL_RT_SIGTIMEDWAIT_REGARGS
+	sigsetsize = ulong_arg(4)
+	@_SYSCALL_RT_SIGTIMEDWAIT_ARGSTR
+}
+probe __tp_syscall.rt_sigtimedwait = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_rt_sigtimedwait"))
+	sigsetsize = ulong_arg(4)
+}
+probe __tp_syscall.compat_rt_sigtimedwait = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_compat_rt_sigtimedwait"))
+	sigsetsize = u32_arg(4)
+}
+
+probe nd_syscall.rt_sigtimedwait.return = nd1_syscall.rt_sigtimedwait.return!, nd2_syscall.rt_sigtimedwait.return!, tp_syscall.rt_sigtimedwait.return
+  { }
+  
+probe nd1_syscall.rt_sigtimedwait.return =
 	kprobe.function("compat_sys_rt_sigtimedwait").return ?,
 	kprobe.function("sys_rt_sigtimedwait").return ?
 {
 	@_SYSCALL_RT_SIGTIMEDWAIT_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.rt_sigtimedwait.return =
+	kprobe.function(@arch_syscall_prefix "sys_rt_sigtimedwait").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_rt_sigtimedwait").return ?
+{
+	@_SYSCALL_RT_SIGTIMEDWAIT_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.rt_sigtimedwait.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_rt_sigtimedwait"), @const("__NR_compat_rt_sigtimedwait"))
+	@_SYSCALL_RT_SIGTIMEDWAIT_NAME
+	retstr = return_str(1,$ret)
 }

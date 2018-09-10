@@ -2,6 +2,8 @@
 #
 # asmlinkage ssize_t
 # ssize_t sys32_readahead(int fd, unsigned off_lo, unsigned off_hi, size_t count)
+# COMPAT_SYSCALL_DEFINE4(x86_readahead, int, fd, unsigned int, off_lo,
+#                        unsigned int, off_hi, size_t, count)
 #
 
 @define _SYSCALL_COMPAT_READAHEAD_NAME
@@ -12,6 +14,13 @@
 @define _SYSCALL_COMPAT_READAHEAD_ARGSTR
 %(
 	argstr = sprintf("%d, %d, %u", fd, offset, count)
+%)
+
+@define _SYSCALL_COMPAT_READAHEAD_REGARGS
+%(
+	fd = int_arg(1)
+	offset = ((uint_arg(3) << 32) | uint_arg(2))
+	count = ulong_arg(4)
 %)
 
 probe syscall.compat_readahead = dw_syscall.compat_readahead !,
@@ -38,18 +47,62 @@ probe dw_syscall.compat_readahead.return =
 
 # nd_compat_readahead _____________________________________________________
 
-probe nd_syscall.compat_readahead = kprobe.function("sys32_readahead") ?
+probe nd_syscall.compat_readahead = nd1_syscall.compat_readahead!, nd2_syscall.compat_readahead!, tp_syscall.compat_readahead
+  { }
+
+probe nd1_syscall.compat_readahead = kprobe.function("sys32_readahead") ?,
+	kprobe.function("compat_sys_x86_readahead") ?
 {
 	@_SYSCALL_COMPAT_READAHEAD_NAME
 	asmlinkage()
-	fd = int_arg(1)
-	offset = ((uint_arg(3) << 32) | uint_arg(2))
-	count = ulong_arg(4)
+	@_SYSCALL_COMPAT_READAHEAD_REGARGS
 	@_SYSCALL_COMPAT_READAHEAD_ARGSTR
 }
-probe nd_syscall.compat_readahead.return =
-	kprobe.function("sys32_readahead").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.compat_readahead =
+	kprobe.function(@arch_syscall_prefix "compat_sys_x86_readahead") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_COMPAT_READAHEAD_NAME
+	@_SYSCALL_COMPAT_READAHEAD_REGARGS
+	@_SYSCALL_COMPAT_READAHEAD_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.compat_readahead = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_ia32_readahead"))
+	@_SYSCALL_COMPAT_READAHEAD_NAME
+	@_SYSCALL_COMPAT_READAHEAD_REGARGS
+	@_SYSCALL_COMPAT_READAHEAD_ARGSTR
+}
+
+probe nd_syscall.compat_readahead.return = nd1_syscall.compat_readahead.return!, nd2_syscall.compat_readahead.return!, tp_syscall.compat_readahead.return
+  { }
+  
+probe nd1_syscall.compat_readahead.return =
+	kprobe.function("sys32_readahead").return ?,
+	kprobe.function("compat_sys_x86_readahead").return ?
 {
 	@_SYSCALL_COMPAT_READAHEAD_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.compat_readahead.return =
+	kprobe.function(@arch_syscall_prefix "compat_sys_x86_readahead").return ?
+{
+	@_SYSCALL_COMPAT_READAHEAD_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.compat_readahead.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_ia32_readahead"))
+	@_SYSCALL_COMPAT_READAHEAD_NAME
+	retstr = return_str(1,$ret)
 }

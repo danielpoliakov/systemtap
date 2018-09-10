@@ -23,6 +23,16 @@
 	                 liovcnt, remote_iov_uaddr, riovcnt, flags)
 %)
 
+@define _SYSCALL_PROCESS_VM_READV_REGARGS
+%(
+	pid = int_arg(1)
+	local_iov_uaddr = pointer_arg(2)
+	liovcnt = ulong_arg(3)
+	remote_iov_uaddr = pointer_arg(4)
+	riovcnt = ulong_arg(5)
+	flags = ulong_arg(6)
+%)
+
 probe syscall.process_vm_readv = dw_syscall.process_vm_readv !,
                                  nd_syscall.process_vm_readv ? {}
 probe syscall.process_vm_readv.return = dw_syscall.process_vm_readv.return !,
@@ -52,23 +62,64 @@ probe dw_syscall.process_vm_readv.return =
 
 # nd_process_vm_readv _____________________________________________________
 
-probe nd_syscall.process_vm_readv = kprobe.function("sys_process_vm_readv") ?,
+probe nd_syscall.process_vm_readv = nd1_syscall.process_vm_readv!, nd2_syscall.process_vm_readv!, tp_syscall.process_vm_readv
+  { }
+
+probe nd1_syscall.process_vm_readv = kprobe.function("sys_process_vm_readv") ?,
 	kprobe.function("compat_sys_process_vm_readv") ?
 {
 	@_SYSCALL_PROCESS_VM_READV_NAME
 	asmlinkage()
-	pid = int_arg(1)
-	local_iov_uaddr = pointer_arg(2)
-	liovcnt = ulong_arg(3)
-	remote_iov_uaddr = pointer_arg(4)
-	riovcnt = ulong_arg(5)
-	flags = ulong_arg(6)
+	@_SYSCALL_PROCESS_VM_READV_REGARGS
 	@_SYSCALL_PROCESS_VM_READV_ARGSTR
 }
-probe nd_syscall.process_vm_readv.return =
+
+/* kernel 4.17+ */
+probe nd2_syscall.process_vm_readv =
+	kprobe.function(@arch_syscall_prefix "sys_process_vm_readv") ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_process_vm_readv") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_PROCESS_VM_READV_NAME
+	@_SYSCALL_PROCESS_VM_READV_REGARGS
+	@_SYSCALL_PROCESS_VM_READV_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.process_vm_readv = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_process_vm_readv"), @const("__NR_compat_process_vm_readv"))
+	@_SYSCALL_PROCESS_VM_READV_NAME
+	@_SYSCALL_PROCESS_VM_READV_REGARGS
+	@_SYSCALL_PROCESS_VM_READV_ARGSTR
+}
+
+probe nd_syscall.process_vm_readv.return = nd1_syscall.process_vm_readv.return!, nd2_syscall.process_vm_readv.return!, tp_syscall.process_vm_readv.return
+  { }
+  
+probe nd1_syscall.process_vm_readv.return =
 	kprobe.function("sys_process_vm_readv").return ?,
 	kprobe.function("compat_sys_process_vm_readv").return ?
 {
 	@_SYSCALL_PROCESS_VM_READV_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.process_vm_readv.return =
+	kprobe.function(@arch_syscall_prefix "sys_process_vm_readv").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_process_vm_readv").return ?
+{
+	@_SYSCALL_PROCESS_VM_READV_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.process_vm_readv.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_process_vm_readv"), @const("__NR_compat_process_vm_readv"))
+	@_SYSCALL_PROCESS_VM_READV_NAME
+	retstr = return_str(1,$ret)
 }

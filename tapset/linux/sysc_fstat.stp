@@ -38,6 +38,9 @@ probe dw_syscall.fstat = kernel.function("sys_fstat").call ?,
 %( arch == "s390" %?
                       kernel.function("compat_sys_s390_fstat64").call ?,
 %)
+%( arch == "x86_64" %?
+                      kernel.function("compat_sys_x86_fstat64").call ?,
+%)
                       kernel.function("compat_sys_newfstat").call ?
 {
 	@_SYSCALL_FSTAT_NAME
@@ -52,6 +55,9 @@ probe dw_syscall.fstat.return = kernel.function("sys_fstat").return ?,
 	kernel.function("sys_oabi_fstat64").return ?,
 %( arch == "s390" %?
 	kernel.function("compat_sys_s390_fstat64").return ?,
+%)
+%( arch == "x86_64" %?
+	kernel.function("compat_sys_x86_fstat64").return ?,
 %)
 	kernel.function("compat_sys_newfstat").return ?
 {
@@ -71,6 +77,9 @@ probe nd1_syscall.fstat = kprobe.function("sys_fstat") ?,
                           kprobe.function("sys_oabi_fstat64") ?,
 %( arch == "s390" %?
                          kprobe.function("compat_sys_s390_fstat64") ?,
+%)
+%( arch == "x86_64" %?
+                         kprobe.function("compat_sys_x86_fstat64") ?,
 %)
                          kprobe.function("compat_sys_newfstat") ?
 {
@@ -117,6 +126,9 @@ probe nd1_syscall.fstat.return = kprobe.function("sys_fstat").return ?,
 	kprobe.function("sys_oabi_fstat64").return ?,
 %( arch == "s390" %?
 	kprobe.function("compat_sys_s390_fstat64").return ?,
+%)
+%( arch == "x86_64" %?
+	kprobe.function("compat_sys_x86_fstat64").return ?,
 %)
 	kprobe.function("compat_sys_newfstat").return ?
 {

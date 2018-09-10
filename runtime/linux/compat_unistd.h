@@ -21,6 +21,9 @@
 #ifndef __NR_syscall_max
 #define __NR_syscall_max 0xffff
 #endif
+#ifndef __NR_syscall_compat_max
+#define __NR_syscall_compat_max 0xffff
+#endif
 
 #ifndef __NR__llseek
 #define __NR__llseek (__NR_syscall_max + 1)
@@ -141,6 +144,9 @@
 #endif
 #ifndef __NR_pwritev2
 #define __NR_pwritev2 (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_readdir
+#define __NR_readdir (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_recv
 #define __NR_recv (__NR_syscall_max + 1)
@@ -417,6 +423,9 @@
 #ifndef __NR_ia32_get_mempolicy
 #define __NR_ia32_get_mempolicy 275
 #endif
+#ifndef __NR_ia32_get_robust_list
+#define __NR_ia32_get_robust_list 311
+#endif
 #ifndef __NR_ia32_getcpu
 #define __NR_ia32_getcpu 318
 #endif
@@ -518,8 +527,8 @@
 #endif
 #ifndef __NR_ia32_kexec_file_load
 // x86_64 doesn't have kexec_file_load for 32-bit, just use
-// __NR_syscall_max for __NR_ia32_kexec_file_load
-#define __NR_ia32_kexec_file_load (__NR_syscall_max + 1)
+// __NR_syscall_compat_max for __NR_ia32_kexec_file_load
+#define __NR_ia32_kexec_file_load (__NR_syscall_compat_max + 1)
 #endif
 #ifndef __NR_ia32_kexec_load
 #define __NR_ia32_kexec_load 283
@@ -683,19 +692,55 @@
 #ifndef __NR_ia32_ppoll
 #define __NR_ia32_ppoll 309
 #endif
+#ifndef __NR_ia32_prctl
+#define __NR_ia32_prctl 172
+#endif
+#ifndef __NR_ia32_pread64
+#define __NR_ia32_pread64 180
+#endif
+#ifndef __NR_ia32_preadv
+#define __NR_ia32_preadv 333
+#endif
+#ifndef __NR_ia32_preadv2
+#define __NR_ia32_preadv2 378
+#endif
 #ifndef __NR_ia32_prlimit64
 #define __NR_ia32_prlimit64 340
+#endif
+#ifndef __NR_ia32_process_vm_readv
+#define __NR_ia32_process_vm_readv 347
+#endif
+#ifndef __NR_ia32_process_vm_writev
+#define __NR_ia32_process_vm_writev 348
 #endif
 #ifndef __NR_ia32_pselect6
 #define __NR_ia32_pselect6 308
 #endif
 #ifndef __NR_ia32_pselect7
 // Since a kernel that had a pselect7 syscall can't be found, just use
-// __NR_syscall_max for __NR_ia32_pselect7.
-#define __NR_ia32_pselect7 (__NR_syscall_max + 1)
+// __NR_syscall_compat_max for __NR_ia32_pselect7.
+#define __NR_ia32_pselect7 (__NR_syscall_compat_max + 1)
+#endif
+#ifndef __NR_ia32_ptrace
+#define __NR_ia32_ptrace 26
+#endif
+#ifndef __NR_ia32_pwrite64
+#define __NR_ia32_pwrite64 181
+#endif
+#ifndef __NR_ia32_pwritev
+#define __NR_ia32_pwritev 334
+#endif
+#ifndef __NR_ia32_pwritev2
+#define __NR_ia32_pwritev2 379
+#endif
+#ifndef __NR_ia32_quotactl
+#define __NR_ia32_quotactl 131
 #endif
 #ifndef __NR_ia32_read
 #define __NR_ia32_read 3
+#endif
+#ifndef __NR_ia32_readdir
+#define __NR_ia32_readdir 89
 #endif
 #ifndef __NR_ia32_readlink
 #define __NR_ia32_readlink 85 
@@ -703,8 +748,20 @@
 #ifndef __NR_ia32_readlinkat
 #define __NR_ia32_readlinkat 305
 #endif
+#ifndef __NR_ia32_readv
+#define __NR_ia32_readv 145
+#endif
+#ifndef __NR_ia32_reboot
+#define __NR_ia32_reboot 88
+#endif
 #ifndef __NR_ia32_recvmmsg
 #define __NR_ia32_recvmmsg 337
+#endif
+#ifndef __NR_ia32_remap_file_pages
+#define __NR_ia32_remap_file_pages 257
+#endif
+#ifndef __NR_ia32_rename
+#define __NR_ia32_rename 38
 #endif
 #ifndef __NR_ia32_renameat
 #define __NR_ia32_renameat 302
@@ -715,17 +772,41 @@
 #ifndef __NR_ia32_request_key
 #define __NR_ia32_request_key 287
 #endif
+#ifndef __NR_ia32_restart_syscall
+#define __NR_ia32_restart_syscall 0
+#endif
 #ifndef __NR_ia32_rmdir
 #define __NR_ia32_rmdir 40
 #endif
+#ifndef __NR_ia32_rt_sigaction
+#define __NR_ia32_rt_sigaction 174
+#endif
+#ifndef __NR_ia32_rt_sigpending
+#define __NR_ia32_rt_sigpending 176
+#endif
 #ifndef __NR_ia32_rt_sigprocmask
 #define __NR_ia32_rt_sigprocmask 175
+#endif
+#ifndef __NR_ia32_rt_sigqueueinfo
+#define __NR_ia32_rt_sigqueueinfo 178
+#endif
+#ifndef __NR_ia32_rt_sigsuspend
+#define __NR_ia32_rt_sigsuspend 179
+#endif
+#ifndef __NR_ia32_rt_sigtimedwait
+#define __NR_ia32_rt_sigtimedwait 177
+#endif
+#ifndef __NR_ia32_rt_tgsigqueueinfo
+#define __NR_ia32_rt_tgsigqueueinfo 335
 #endif
 #ifndef __NR_ia32_sendmmsg
 #define __NR_ia32_sendmmsg 345
 #endif
 #ifndef __NR_ia32_set_mempolicy
 #define __NR_ia32_set_mempolicy 276
+#endif
+#ifndef __NR_ia32_set_robust_list
+#define __NR_ia32_set_robust_list 312
 #endif
 #ifndef __NR_ia32_setdomainname
 #define __NR_ia32_setdomainname 121
@@ -770,9 +851,9 @@
 #define __NR_ia32_setuid32 213
 #endif
 // Since a kernel that had a 32-bit shmctl syscall can't be found
-// (they all used __NR_ipc), just use __NR_syscall_max.
+// (they all used __NR_ipc), just use __NR_syscall_compat_max.
 #ifndef __NR_ia32_shmctl
-#define __NR_ia32_shmctl (__NR_syscall_max + 1)
+#define __NR_ia32_shmctl (__NR_syscall_compat_max + 1)
 #endif
 #ifndef __NR_ia32_socketcall
 #define __NR_ia32_socketcall 102
@@ -884,6 +965,7 @@
 #define __NR_compat_futimesat		__NR_ia32_futimesat
 #define __NR_compat_futex		__NR_ia32_futex
 #define __NR_compat_get_mempolicy	__NR_ia32_get_mempolicy
+#define __NR_compat_get_robust_list	__NR_ia32_get_robust_list
 #define __NR_compat_getcpu		__NR_ia32_getcpu
 #define __NR_compat_getdents		__NR_ia32_getdents
 #define __NR_compat_getdents64		__NR_ia32_getdents64
@@ -971,20 +1053,44 @@
 #define __NR_compat_pivot_root		__NR_ia32_pivot_root
 #define __NR_compat_poll		__NR_ia32_poll
 #define __NR_compat_ppoll		__NR_ia32_ppoll
+#define __NR_compat_prctl		__NR_ia32_prctl
+#define __NR_compat_pread64		__NR_ia32_pread64
+#define __NR_compat_preadv		__NR_ia32_preadv
+#define __NR_compat_preadv2		__NR_ia32_preadv2
 #define __NR_compat_prlimit64		__NR_ia32_prlimit64
+#define __NR_compat_process_vm_readv	__NR_ia32_process_vm_readv
+#define __NR_compat_process_vm_writev	__NR_ia32_process_vm_writev
 #define __NR_compat_pselect6		__NR_ia32_pselect6
 #define __NR_compat_pselect7		__NR_ia32_pselect7
+#define __NR_compat_ptrace		__NR_ia32_ptrace
+#define __NR_compat_pwrite64		__NR_ia32_pwrite64
+#define __NR_compat_pwritev		__NR_ia32_pwritev
+#define __NR_compat_pwritev2		__NR_ia32_pwritev2
+#define __NR_compat_quotactl		__NR_ia32_quotactl
 #define __NR_compat_read		__NR_ia32_read
+#define __NR_compat_readdir		__NR_ia32_readdir
 #define __NR_compat_readlink		__NR_ia32_readlink
 #define __NR_compat_readlinkat		__NR_ia32_readlinkat
+#define __NR_compat_readv		__NR_ia32_readv
+#define __NR_compat_reboot		__NR_ia32_reboot
 #define __NR_compat_recvmmsg		__NR_ia32_recvmmsg
+#define __NR_compat_remap_file_pages	__NR_ia32_remap_file_pages
+#define __NR_compat_rename		__NR_ia32_rename
 #define __NR_compat_renameat		__NR_ia32_renameat
 #define __NR_compat_renameat2		__NR_ia32_renameat2
 #define __NR_compat_request_key		__NR_ia32_request_key
+#define __NR_compat_restart_syscall	__NR_ia32_restart_syscall
 #define __NR_compat_rmdir		__NR_ia32_rmdir
+#define __NR_compat_rt_sigaction	__NR_ia32_rt_sigaction
+#define __NR_compat_rt_sigpending	__NR_ia32_rt_sigpending
 #define __NR_compat_rt_sigprocmask	__NR_ia32_rt_sigprocmask
+#define __NR_compat_rt_sigqueueinfo	__NR_ia32_rt_sigqueueinfo
+#define __NR_compat_rt_sigsuspend	__NR_ia32_rt_sigsuspend
+#define __NR_compat_rt_sigtimedwait	__NR_ia32_rt_sigtimedwait
+#define __NR_compat_rt_tgsigqueueinfo	__NR_ia32_rt_tgsigqueueinfo
 #define __NR_compat_sendmmsg		__NR_ia32_sendmmsg
 #define __NR_compat_set_mempolicy	__NR_ia32_set_mempolicy
+#define __NR_compat_set_robust_list	__NR_ia32_set_robust_list
 #define __NR_compat_setdomainname	__NR_ia32_setdomainname
 #define __NR_compat_sethostname		__NR_ia32_sethostname
 #define __NR_compat_setitimer		__NR_ia32_setitimer
@@ -1083,6 +1189,7 @@
 #define __NR_compat_futimesat		__NR_futimesat
 #define __NR_compat_futex		__NR_futex
 #define __NR_compat_get_mempolicy	__NR_get_mempolicy
+#define __NR_compat_get_robust_list	__NR_get_robust_list
 #define __NR_compat_getcpu		__NR_getcpu
 #define __NR_compat_getdents		__NR_getdents
 #define __NR_compat_getdents64		__NR_getdents64
@@ -1168,20 +1275,44 @@
 #define __NR_compat_pivot_root		__NR_pivot_root
 #define __NR_compat_poll		__NR_poll
 #define __NR_compat_ppoll		__NR_ppoll
+#define __NR_compat_prctl		__NR_prctl
+#define __NR_compat_pread64		__NR_pread64
+#define __NR_compat_preadv		__NR_preadv
+#define __NR_compat_preadv2		__NR_preadv2
 #define __NR_compat_prlimit64		__NR_prlimit64
+#define __NR_compat_process_vm_readv	__NR_process_vm_readv
+#define __NR_compat_process_vm_writev	__NR_process_vm_writev
 #define __NR_compat_pselect6		__NR_pselect6
 #define __NR_compat_pselect7		__NR_pselect7
+#define __NR_compat_ptrace		__NR_ptrace
+#define __NR_compat_pwrite64		__NR_pwrite64
+#define __NR_compat_pwritev		__NR_pwritev
+#define __NR_compat_pwritev2		__NR_pwritev2
+#define __NR_compat_quotactl		__NR_quoactl
 #define __NR_compat_read		__NR_read
+#define __NR_compat_readdir		__NR_readdir
 #define __NR_compat_readlink		__NR_readlink
 #define __NR_compat_readlinkat		__NR_readlinkat
+#define __NR_compat_readv		__NR_readv
+#define __NR_compat_reboot		__NR_reboot
 #define __NR_compat_recvmmsg		__NR_recvmmsg
+#define __NR_compat_remap_file_pages	__NR_remap_file_pages
+#define __NR_compat_rename		__NR_rename
 #define __NR_compat_renameat		__NR_renameat
 #define __NR_compat_renameat2		__NR_renameat2
 #define __NR_compat_request_key		__NR_request_key
+#define __NR_compat_restart_syscall	__NR_restart_syscall
 #define __NR_compat_rmdir		__NR_rmdir
+#define __NR_compat_rt_sigaction	__NR_rt_sigaction
+#define __NR_compat_rt_sigpending	__NR_rt_sigpending
 #define __NR_compat_rt_sigprocmask	__NR_rt_sigprocmask
+#define __NR_compat_rt_sigqueue		__NR_rt_sigqueue
+#define __NR_compat_rt_sigsuspend	__NR_rt_sigsuspend
+#define __NR_compat_rt_sigtimedwait	__NR_rt_sigtimedwait
+#define __NR_compat_rt_tgsigqueueinfo	__NR_rt_tgsigqueueinfo
 #define __NR_compat_sendmmsg		__NR_sendmmsg
 #define __NR_compat_set_mempolicy	__NR_set_mempolicy
+#define __NR_compat_set_robust_list	__NR_set_robust_list
 #define __NR_compat_setdomainname	__NR_setdomainname
 #define __NR_compat_sethostname		__NR_sethostname
 #define __NR_compat_setitimer		__NR_setitimer

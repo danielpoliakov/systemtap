@@ -76,7 +76,10 @@ probe dw_syscall.rt_sigprocmask.return =
 
 # nd_rt_sigprocmask _____________________________________________________
 
-probe nd_syscall.rt_sigprocmask = kprobe.function("sys_rt_sigprocmask") ?
+probe nd_syscall.rt_sigprocmask = nd1_syscall.rt_sigprocmask!, nd2_syscall.rt_sigprocmask!, tp_syscall.rt_sigprocmask
+  { }
+
+probe nd1_syscall.rt_sigprocmask = kprobe.function("sys_rt_sigprocmask") ?
 {
 %( arch != "x86_64" || kernel_v < "3.4" || CONFIG_COMPAT != "y" %?
 	// In kernels < 3.4, a 32-bit rt_sigprocmask call goes through
@@ -117,7 +120,52 @@ probe nd_syscall.rt_sigprocmask = kprobe.function("sys_rt_sigprocmask") ?
 		@_SYSCALL_RT_SIGPROCMASK_ARGSTR
 	}
 }
-probe nd_syscall.rt_sigprocmask.return =
+
+/* kernel 4.17+ */
+probe nd2_syscall.rt_sigprocmask = kprobe.function(@arch_syscall_prefix "sys_rt_sigprocmask") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_RT_SIGPROCMASK_NAME
+	how = int_arg(1)
+	how_str = _sigprocmask_how_str(how)
+	set_uaddr = pointer_arg(2)
+	oldset_uaddr = pointer_arg(3)
+	set_str = _stp_sigset_u(set_uaddr)
+	sigsetsize = uint_arg(4)
+	@_SYSCALL_RT_SIGPROCMASK_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.rt_sigprocmask = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_rt_sigprocmask"), @const("__NR_compat_rt_sigprocmask"))
+	@_SYSCALL_RT_SIGPROCMASK_NAME
+	how = int_arg(1)
+	how_str = _sigprocmask_how_str(how)
+	set_uaddr = pointer_arg(2)
+%( arch == "x86_64" && kernel_v >= "3.4" && CONFIG_COMPAT == "y" %?
+	if (@__compat_task &&
+	    _stp_syscall_nr() == @const("__NR_compat_rt_sigprocmask")) {
+		oldset_uaddr = uint_arg(3)
+		set_str = _stp_compat_sigset_u(set_uaddr)
+		sigsetsize = int_arg(4)
+		@_SYSCALL_RT_SIGPROCMASK_ARGSTR
+	}
+	else
+%)
+	{
+		oldset_uaddr = pointer_arg(3)
+		set_str = _stp_sigset_u(set_uaddr)
+		sigsetsize = uint_arg(4)
+		@_SYSCALL_RT_SIGPROCMASK_ARGSTR
+	}
+}
+
+probe nd_syscall.rt_sigprocmask.return = nd1_syscall.rt_sigprocmask.return!, nd2_syscall.rt_sigprocmask.return!, tp_syscall.rt_sigprocmask.return
+  { }
+  
+probe nd1_syscall.rt_sigprocmask.return =
 	kprobe.function("sys_rt_sigprocmask").return ?
 {
 %( arch != "x86_64" || kernel_v < "3.4" || CONFIG_COMPAT != "y" %?
@@ -125,6 +173,22 @@ probe nd_syscall.rt_sigprocmask.return =
 %)
 	@_SYSCALL_RT_SIGPROCMASK_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.rt_sigprocmask.return = kprobe.function(@arch_syscall_prefix "sys_rt_sigprocmask").return ?
+{
+	@_SYSCALL_RT_SIGPROCMASK_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.rt_sigprocmask.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_rt_sigprocmask"), @const("__NR_compat_rt_sigprocmask"))
+	@_SYSCALL_RT_SIGPROCMASK_NAME
+	retstr = return_str(1,$ret)
 }
 
 # syscall. compat_rt_sigprocmask _______________________________________________

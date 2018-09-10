@@ -23,6 +23,16 @@
 			 liovcnt, remote_iov_uaddr, riovcnt, flags)
 %)
 
+@define _SYSCALL_PROCESS_VM_WRITEV_REGARGS
+%(
+	pid = int_arg(1)
+	local_iov_uaddr = pointer_arg(2)
+	liovcnt = ulong_arg(3)
+	remote_iov_uaddr = pointer_arg(4)
+	riovcnt = ulong_arg(5)
+	flags = ulong_arg(6)
+%)
+
 probe syscall.process_vm_writev = dw_syscall.process_vm_writev !,
                                   nd_syscall.process_vm_writev ? {}
 probe syscall.process_vm_writev.return = dw_syscall.process_vm_writev.return !,
@@ -53,24 +63,65 @@ probe dw_syscall.process_vm_writev.return =
 
 # nd_process_vm_writev _____________________________________________________
 
-probe nd_syscall.process_vm_writev =
+probe nd_syscall.process_vm_writev = nd1_syscall.process_vm_writev!, nd2_syscall.process_vm_writev!, tp_syscall.process_vm_writev
+  { }
+
+probe nd1_syscall.process_vm_writev =
 	kprobe.function("sys_process_vm_writev") ?,
 	kprobe.function("compat_sys_process_vm_writev") ?
 {
 	@_SYSCALL_PROCESS_VM_WRITEV_NAME
 	asmlinkage()
-	pid = int_arg(1)
-	local_iov_uaddr = pointer_arg(2)
-	liovcnt = ulong_arg(3)
-	remote_iov_uaddr = pointer_arg(4)
-	riovcnt = ulong_arg(5)
-	flags = ulong_arg(6)
+	@_SYSCALL_PROCESS_VM_WRITEV_REGARGS
 	@_SYSCALL_PROCESS_VM_WRITEV_ARGSTR
 }
-probe nd_syscall.process_vm_writev.return =
+
+/* kernel 4.17+ */
+probe nd2_syscall.process_vm_writev =
+	kprobe.function(@arch_syscall_prefix "sys_process_vm_writev") ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_process_vm_writev") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_PROCESS_VM_WRITEV_NAME
+	@_SYSCALL_PROCESS_VM_WRITEV_REGARGS
+	@_SYSCALL_PROCESS_VM_WRITEV_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.process_vm_writev = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_process_vm_writev"), @const("__NR_compat_process_vm_writev"))
+	@_SYSCALL_PROCESS_VM_WRITEV_NAME
+	@_SYSCALL_PROCESS_VM_WRITEV_REGARGS
+	@_SYSCALL_PROCESS_VM_WRITEV_ARGSTR
+}
+
+probe nd_syscall.process_vm_writev.return = nd1_syscall.process_vm_writev.return!, nd2_syscall.process_vm_writev.return!, tp_syscall.process_vm_writev.return
+  { }
+  
+probe nd1_syscall.process_vm_writev.return =
 	kprobe.function("sys_process_vm_writev").return ?,
 	kprobe.function("compat_sys_process_vm_writev").return ?
 {
 	@_SYSCALL_PROCESS_VM_WRITEV_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.process_vm_writev.return =
+	kprobe.function(@arch_syscall_prefix "sys_process_vm_writev").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_process_vm_writev").return ?
+{
+	@_SYSCALL_PROCESS_VM_WRITEV_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.process_vm_writev.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_process_vm_writev"), @const("__NR_compat_process_vm_writev"))
+	@_SYSCALL_PROCESS_VM_WRITEV_NAME
+	retstr = return_str(1,$ret)
 }

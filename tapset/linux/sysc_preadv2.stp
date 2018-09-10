@@ -19,6 +19,26 @@
 	                 offset, flags_str)
 %)
 
+@define _SYSCALL_PREADV2_REGARGS
+%(
+	fd = int_arg(1)
+	vector_uaddr = pointer_arg(2)
+	count = int_arg(3)
+	offset = @__pos_from_hilo(ulong_arg(5), ulong_arg(4))
+	flags = int_arg(6)
+	flags_str = _preadv2_flags_str(flags)
+%)
+
+@define _SYSCALL_COMPAT_PREADV2_REGARGS
+%(
+	fd = int_arg(1)
+	vector_uaddr = pointer_arg(2)
+	count = int_arg(3)
+	offset = (u32_arg(5) << 32) + u32_arg(4)
+	flags = int_arg(6)
+	flags_str = _preadv2_flags_str(flags)
+%)
+
 probe syscall.preadv2 = dw_syscall.preadv2 !, nd_syscall.preadv2 ? {}
 probe syscall.preadv2.return = dw_syscall.preadv2.return !,
                                nd_syscall.preadv2.return ? {}
@@ -58,36 +78,90 @@ probe dw_syscall.preadv2.return = kernel.function("sys_preadv2").return ?,
 
 # nd_preadv2 _____________________________________________________
 
-probe nd_syscall.preadv2 = __nd_syscall.preadv2 ?,
-	__nd_syscall.compat_preadv2 ?
+probe nd_syscall.preadv2 = nd1_syscall.preadv2!, nd2_syscall.preadv2!, tp_syscall.preadv2
+  { }
+
+probe nd1_syscall.preadv2 = __nd1_syscall.preadv2 ?,
+	__nd1_syscall.compat_preadv2 ?
 {
 	@_SYSCALL_PREADV2_NAME
 }
-probe __nd_syscall.preadv2 = kprobe.function("sys_preadv2")
+probe __nd1_syscall.preadv2 = kprobe.function("sys_preadv2")
 {
 	asmlinkage()
-	fd = int_arg(1)
-	vector_uaddr = pointer_arg(2)
-	count = int_arg(3)
-	offset = @__pos_from_hilo(ulong_arg(5), ulong_arg(4))
-	flags = int_arg(6)
-	flags_str = _preadv2_flags_str(flags)
+	@_SYSCALL_PREADV2_REGARGS
 	@_SYSCALL_PREADV2_ARGSTR
 }
-probe __nd_syscall.compat_preadv2 = kprobe.function("compat_sys_preadv2")
+probe __nd1_syscall.compat_preadv2 = kprobe.function("compat_sys_preadv2")
 {
 	asmlinkage()
-	fd = int_arg(1)
-	vector_uaddr = pointer_arg(2)
-	count = int_arg(3)
-	offset = (u32_arg(5) << 32) + u32_arg(4)
-	flags = int_arg(6)
-	flags_str = _preadv2_flags_str(flags)
+	@_SYSCALL_COMPAT_PREADV2_REGARGS
 	@_SYSCALL_PREADV2_ARGSTR
 }
-probe nd_syscall.preadv2.return = kprobe.function("sys_preadv2").return ?,
+
+/* kernel 4.17+ */
+probe nd2_syscall.preadv2 = __nd2_syscall.preadv2 ?, 
+	__nd2_syscall.compat_preadv2 ?
+{
+	@_SYSCALL_PREADV2_NAME
+}
+probe __nd2_syscall.preadv2 = kprobe.function(@arch_syscall_prefix "sys_preadv2")
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_PREADV2_REGARGS
+	@_SYSCALL_PREADV2_ARGSTR
+}
+probe __nd2_syscall.compat_preadv2 = kprobe.function(@arch_syscall_prefix "compat_sys_preadv2")
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_COMPAT_PREADV2_REGARGS
+	@_SYSCALL_PREADV2_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.preadv2 = __tp_syscall.preadv2 ?, 
+	__tp_syscall.compat_preadv2 ?
+{
+	@_SYSCALL_PREADV2_NAME
+}
+probe __tp_syscall.preadv2 = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_preadv2"))
+	@_SYSCALL_PREADV2_REGARGS
+	@_SYSCALL_PREADV2_ARGSTR
+}
+probe __tp_syscall.compat_preadv2 = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_compat_preadv2"))
+	@_SYSCALL_COMPAT_PREADV2_REGARGS
+	@_SYSCALL_PREADV2_ARGSTR
+}
+
+probe nd_syscall.preadv2.return = nd1_syscall.preadv2.return!, nd2_syscall.preadv2.return!, tp_syscall.preadv2.return
+  { }
+  
+probe nd1_syscall.preadv2.return = kprobe.function("sys_preadv2").return ?,
 	kprobe.function("compat_sys_preadv2").return ?
 {
 	@_SYSCALL_PREADV2_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.preadv2.return = kprobe.function(@arch_syscall_prefix "sys_preadv2").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_preadv2").return ?
+{
+	@_SYSCALL_PREADV2_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.preadv2.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_preadv2"), @const("__NR_compat_preadv2"))
+	@_SYSCALL_PREADV2_NAME
+	retstr = return_str(1,$ret)
 }

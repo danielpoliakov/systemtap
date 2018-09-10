@@ -16,6 +16,22 @@
 	argstr = sprintf("%d, %p, %d, 0x%x", fd, vector_uaddr, count, offset)
 %)
 
+@define _SYSCALL_PWRITEV_REGARGS
+%(
+	fd = int_arg(1)
+	vector_uaddr = pointer_arg(2)
+	count = int_arg(3)
+	offset = @__pos_from_hilo(ulong_arg(5), ulong_arg(4))
+%)
+
+@define _SYSCALL_COMPAT_PWRITEV_REGARGS
+%(
+	fd = int_arg(1)
+	vector_uaddr = pointer_arg(2)
+	count = int_arg(3)
+	offset = (u32_arg(5) << 32) + u32_arg(4)
+%)
+
 probe syscall.pwritev = dw_syscall.pwritev !, nd_syscall.pwritev ? {}
 probe syscall.pwritev.return = dw_syscall.pwritev.return !,
                                nd_syscall.pwritev.return ? {}
@@ -51,33 +67,92 @@ probe dw_syscall.pwritev.return = kernel.function("sys_pwritev").return ?,
 
 # nd_pwritev _____________________________________________________
 
-probe nd_syscall.pwritev = __nd_syscall.pwritev ?,
-			   __nd_syscall.compat_pwritev ?
+probe nd_syscall.pwritev = nd1_syscall.pwritev!, nd2_syscall.pwritev!, tp_syscall.pwritev
+  { }
+
+probe nd1_syscall.pwritev = __nd1_syscall.pwritev ?,
+			    __nd1_syscall.compat_pwritev ?
 {
 	@_SYSCALL_PWRITEV_NAME
 }
-probe __nd_syscall.pwritev = kprobe.function("sys_pwritev").call
+probe __nd1_syscall.pwritev = kprobe.function("sys_pwritev").call
 {
 	asmlinkage()
-	fd = int_arg(1)
-	vector_uaddr = pointer_arg(2)
-	count = int_arg(3)
-	offset = @__pos_from_hilo(ulong_arg(5), ulong_arg(4))
+	@_SYSCALL_PWRITEV_REGARGS
 	@_SYSCALL_PWRITEV_ARGSTR
 }
-probe __nd_syscall.compat_pwritev = kprobe.function("compat_sys_pwritev").call
+probe __nd1_syscall.compat_pwritev = kprobe.function("compat_sys_pwritev").call
 {
 	asmlinkage()
-	fd = int_arg(1)
-	vector_uaddr = pointer_arg(2)
-	count = int_arg(3)
-	offset = (u32_arg(5) << 32) + u32_arg(4)
+	@_SYSCALL_COMPAT_PWRITEV_REGARGS
 	@_SYSCALL_PWRITEV_ARGSTR
 }
-probe nd_syscall.pwritev.return =
+
+/* kernel 4.17+ */
+probe nd2_syscall.pwritev = __nd2_syscall.pwritev ?,
+			    __nd2_syscall.compat_pwritev ?
+{
+	@_SYSCALL_PWRITEV_NAME
+}
+probe __nd2_syscall.pwritev = kprobe.function(@arch_syscall_prefix "sys_pwritev").call
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_PWRITEV_REGARGS
+	@_SYSCALL_PWRITEV_ARGSTR
+}
+probe __nd2_syscall.compat_pwritev = kprobe.function(@arch_syscall_prefix "compat_sys_pwritev").call
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_COMPAT_PWRITEV_REGARGS
+	@_SYSCALL_PWRITEV_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.pwritev = __tp_syscall.pwritev ?,
+			   __tp_syscall.compat_pwritev ?
+{
+	@_SYSCALL_PWRITEV_NAME
+}
+probe __tp_syscall.pwritev = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_pwritev"))
+	@_SYSCALL_PWRITEV_REGARGS
+	@_SYSCALL_PWRITEV_ARGSTR
+}
+probe __tp_syscall.compat_pwritev = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_compat_pwritev"))
+	@_SYSCALL_COMPAT_PWRITEV_REGARGS
+	@_SYSCALL_PWRITEV_ARGSTR
+}
+
+probe nd_syscall.pwritev.return = nd1_syscall.pwritev.return!, nd2_syscall.pwritev.return!, tp_syscall.pwritev.return
+  { }
+  
+probe nd1_syscall.pwritev.return =
 	kprobe.function("sys_pwritev").return ?,
 	kprobe.function("compat_sys_pwritev").return ?
 {
 	@_SYSCALL_PWRITEV_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.pwritev.return =
+	kprobe.function(@arch_syscall_prefix "sys_pwritev").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_pwritev").return ?
+{
+	@_SYSCALL_PWRITEV_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.pwritev.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_pwritev"), @const("__NR_compat_pwritev"))
+	@_SYSCALL_PWRITEV_NAME
+	retstr = return_str(1,$ret)
 }

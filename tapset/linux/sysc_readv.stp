@@ -18,6 +18,13 @@
 	argstr = sprintf("%d, %p, %d", fd, vector_uaddr, count)
 %)
 
+@define _SYSCALL_READV_REGARGS
+%(
+	vector_uaddr = pointer_arg(2)
+	count = int_arg(3)
+	fd = int_arg(1)
+%)
+
 probe syscall.readv = dw_syscall.readv !, nd_syscall.readv ? {}
 probe syscall.readv.return = dw_syscall.readv.return !,
                              nd_syscall.readv.return ? {}
@@ -44,19 +51,61 @@ probe dw_syscall.readv.return = kernel.function("compat_sys_readv").return ?,
 
 # nd_readv _____________________________________________________
 
-probe nd_syscall.readv = kprobe.function("compat_sys_readv") ?,
-                         kprobe.function("sys_readv") ?
+probe nd_syscall.readv = nd1_syscall.readv!, nd2_syscall.readv!, tp_syscall.readv
+  { }
+
+probe nd1_syscall.readv = kprobe.function("compat_sys_readv") ?,
+                          kprobe.function("sys_readv") ?
 {
 	@_SYSCALL_READV_NAME
 	asmlinkage()
-	vector_uaddr = pointer_arg(2)
-	count = int_arg(3)
-	fd = int_arg(1)
+	@_SYSCALL_READV_REGARGS
 	@_SYSCALL_READV_ARGSTR
 }
-probe nd_syscall.readv.return = kprobe.function("compat_sys_readv").return ?,
-                                kprobe.function("sys_readv").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.readv = kprobe.function(@arch_syscall_prefix "sys_readv") ?,
+                          kprobe.function(@arch_syscall_prefix "compat_sys_readv") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_READV_NAME
+	@_SYSCALL_READV_REGARGS
+	@_SYSCALL_READV_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.readv = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_readv"), @const("__NR_compat_readv"))
+	@_SYSCALL_READV_NAME
+	@_SYSCALL_READV_REGARGS
+	@_SYSCALL_READV_ARGSTR
+}
+
+probe nd_syscall.readv.return = nd1_syscall.readv.return!, nd2_syscall.readv.return!, tp_syscall.readv.return
+  { }
+  
+probe nd1_syscall.readv.return = kprobe.function("compat_sys_readv").return ?,
+                                 kprobe.function("sys_readv").return ?
 {
 	@_SYSCALL_READV_NAME
 	retstr = returnstr(1)
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.readv.return = kprobe.function(@arch_syscall_prefix "sys_readv").return ?,
+                                 kprobe.function(@arch_syscall_prefix "compat_sys_readv").return ?
+{
+	@_SYSCALL_READV_NAME
+	retstr = returnstr(1) /* NB: not in the $regs */
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.readv.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_readv"), @const("__NR_compat_readv"))
+	@_SYSCALL_READV_NAME
+	retstr = return_str(1,$ret)
 }
