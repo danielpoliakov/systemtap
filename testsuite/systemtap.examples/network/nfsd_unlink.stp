@@ -11,8 +11,8 @@ probe nfsd.unlink.return
 {
   if (vsf_unlink_success[tid()]) {
     printf("address %s unlinks %s\n",
-           ip_ntop(addr_from_rqst($rqstp)),
-           kernel_string($fname))
+           ip_ntop(addr_from_rqst(@entry($rqstp))),
+           kernel_string(@entry($fname)))
     delete vsf_unlink_success[tid()]
   }
   delete nfsd_unlink_active[tid()]

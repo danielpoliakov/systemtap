@@ -44,9 +44,10 @@ probe syscall.socket.return {
 probe syscall.close.return {
   if (!target_set_pid(pid()))
          next
-  if (socketstart[$fd] != 0 && eventnumber[$fd] >= 1)
-         printf("Socket %d close\n", $fd)
-  delete socketstart[$fd]
+  fd = @entry($fd)
+  if (socketstart[fd] != 0 && eventnumber[fd] >= 1)
+         printf("Socket %d close\n", fd)
+  delete socketstart[fd]
 }
 
 probe syscall.send, syscall.sendmsg {
@@ -79,13 +80,14 @@ probe syscall.sendto {
 probe __syscall.send.return, __syscall.sendmsg.return {
   if (!target_set_pid(pid()))
          next
-  if (socketstart[$fd] != 0 && $return > 0) {
-         eventbytes[$fd, eventnumber[$fd]] += $return
-	 eventlength[$fd, eventnumber[$fd]] += gettimeofday_us() - sendstart[$fd]
-	 eventend[$fd, eventnumber[$fd]] = gettimeofday_us()
+  fd = @entry($fd)
+  if (socketstart[fd] != 0 && $return > 0) {
+         eventbytes[fd, eventnumber[fd]] += $return
+	 eventlength[fd, eventnumber[fd]] += gettimeofday_us() - sendstart[fd]
+	 eventend[fd, eventnumber[fd]] = gettimeofday_us()
   }
-  sendstart[$fd] = 0
-  lastevent[$fd] = "send"
+  sendstart[fd] = 0
+  lastevent[fd] = "send"
 }
 
 probe syscall.sendto.return {
@@ -117,13 +119,14 @@ probe syscall.recv, syscall.recvfrom, syscall.recvmsg {
 probe __syscall.recv.return, __syscall.recvfrom.return, __syscall.recvmsg.return {
   if (!target_set_pid(pid()))
 	  next
-  if (socketstart[$fd] != 0 && $return > 0) {
-	  eventbytes[$fd, eventnumber[$fd]] += $return
-	  eventlength[$fd, eventnumber[$fd]] += gettimeofday_us() - recvstart[$fd]
-	  eventend[$fd, eventnumber[$fd]] = gettimeofday_us()
+  fd = @entry($fd)
+  if (socketstart[fd] != 0 && $return > 0) {
+	  eventbytes[fd, eventnumber[fd]] += $return
+	  eventlength[fd, eventnumber[fd]] += gettimeofday_us() - recvstart[fd]
+	  eventend[fd, eventnumber[fd]] = gettimeofday_us()
   }
-  recvstart[$fd] = 0
-  lastevent[$fd] = "recv"
+  recvstart[fd] = 0
+  lastevent[fd] = "recv"
 }
 
 probe syscall.write, syscall.writev {
@@ -142,13 +145,14 @@ probe syscall.write, syscall.writev {
 probe syscall.write.return, syscall.writev.return {
   if (!target_set_pid(pid()))
 	  next
-  if (socketstart[$fd] != 0 && $return > 0) {
-          eventbytes[$fd, eventnumber[$fd]] += $return
-	  eventlength[$fd, eventnumber[$fd]] += gettimeofday_us() - writestart[$fd]
-	  eventend[$fd, eventnumber[$fd]] = gettimeofday_us()
+  fd = @entry($fd)
+  if (socketstart[fd] != 0 && $return > 0) {
+          eventbytes[fd, eventnumber[fd]] += $return
+	  eventlength[fd, eventnumber[fd]] += gettimeofday_us() - writestart[fd]
+	  eventend[fd, eventnumber[fd]] = gettimeofday_us()
   }
-  writestart[$fd] = 0
-  lastevent[$fd] = "write"
+  writestart[fd] = 0
+  lastevent[fd] = "write"
 }
 
 probe syscall.read, syscall.readv {
@@ -167,11 +171,12 @@ probe syscall.read, syscall.readv {
 probe syscall.read.return, syscall.readv.return {
   if (!target_set_pid(pid()))
 	  next
-  if (socketstart[$fd] != 0 && $return > 0) {
-          eventbytes[$fd, eventnumber[$fd]] += $return
-	  eventlength[$fd, eventnumber[$fd]] += gettimeofday_us() - readstart[$fd]
-	  eventend[$fd, eventnumber[$fd]] = gettimeofday_us()
+  fd = @entry($fd)
+  if (socketstart[fd] != 0 && $return > 0) {
+          eventbytes[fd, eventnumber[fd]] += $return
+	  eventlength[fd, eventnumber[fd]] += gettimeofday_us() - readstart[fd]
+	  eventend[fd, eventnumber[fd]] = gettimeofday_us()
   }
-  readstart[$fd] = 0
-  lastevent[$fd] = "read"
+  readstart[fd] = 0
+  lastevent[fd] = "read"
 }

@@ -40,7 +40,7 @@ probe begin { start = gettimeofday_us() }
 global filehandles, fileread, filewrite
 
 probe syscall.open.return {
-  filename = user_string($filename)
+  filename = user_string(@entry($filename))
   if ($return != -1) {
     filehandles[pid(), $return] = filename
   } else {
@@ -50,7 +50,7 @@ probe syscall.open.return {
 
 probe syscall.read.return {
   p = pid()
-  fd = $fd
+  fd = @entry($fd)
   bytes = $return
   time = gettimeofday_us() - @entry(gettimeofday_us())
   if (bytes > 0)
@@ -60,7 +60,7 @@ probe syscall.read.return {
 
 probe syscall.write.return {
   p = pid()
-  fd = $fd
+  fd = @entry($fd)
   bytes = $return
   time = gettimeofday_us() - @entry(gettimeofday_us())
   if (bytes > 0)

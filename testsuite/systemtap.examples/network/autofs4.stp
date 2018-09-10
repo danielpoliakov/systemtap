@@ -49,12 +49,12 @@ probe kernel.function("autofs4_expire_direct").return !,
 {
         if ($return != 0) {
 	    if (@defined($mnt->mnt_mountpoint)) {
-                	relative_path = reverse_path_walk($mnt->mnt_mountpoint)
-	                root_path = sprintf("/%s", reverse_path_walk($mnt->mnt_parent->mnt_mountpoint))
+                        relative_path = reverse_path_walk(@entry($mnt->mnt_mountpoint))
+	                root_path = sprintf("/%s", reverse_path_walk(@entry($mnt->mnt_parent->mnt_mountpoint)))
 		}
 		else {
 			relative_path = ""
-			root_path = task_dentry_path(task_current(), $mnt->mnt_root, $mnt)
+			root_path = task_dentry_path(task_current(), @entry($mnt->mnt_root), @entry($mnt))
 		}
                 printf("%s process %s[%d] expiring direct mount %s/%s\n",
                        ctime(gettimeofday_s()), execname(), pid(),
@@ -82,8 +82,8 @@ probe kernel.function("autofs4_expire_indirect").return !,
 
                 root_path = (@defined($mnt->mnt_root)
 			     ? task_dentry_path(task_current(),
-						$mnt->mnt_root, $mnt)
-			     : reverse_path_walk($mnt->mnt_mountpoint))
+						@entry($mnt->mnt_root), @entry($mnt))
+			     : reverse_path_walk(@entry($mnt->mnt_mountpoint)))
                 printf("%s process %s[%d] expiring indirect mount %s/%s\n",
                        ctime(gettimeofday_s()), execname(), pid(),
                        root_path, relative_path)
@@ -101,11 +101,11 @@ probe kernel.function("autofs4_expire_indirect").return !,
 probe kernel.function("autofs4_wait").return !,
       module("autofs4").function("autofs4_wait").return
 {
-        if ($notify > 0) {
-                dname = d_name($dentry)
+        if (@entry($notify) > 0) {
+                dname = d_name(@entry($dentry))
                 printf("%s %s of %s %s\n",
                        ctime(gettimeofday_s()),
-                       ($notify==1?"mount":"unmount"),
+                       (@entry($notify)==1?"mount":"unmount"),
                        dname,
                        $return == 0?"succeeded":"failed")
         }
