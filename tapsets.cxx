@@ -11637,6 +11637,22 @@ static vector<string> tracepoint_extra_decls (systemtap_session& s,
     {
       they_live.push_back ("struct drm_file;");
     }
+
+  if (header.find("cachefiles") != string::npos ||
+      header.find("fscache") != string::npos)
+    {
+      they_live.push_back ("#include <linux/fscache.h>");
+      they_live.push_back ("#include <linux/fscache-cache.h>");
+      they_live.push_back ("struct cachefiles_object;"); // fs/cachefiles/internal.h
+    }
+
+  #if 0
+  /* This doesn't work as of 4.17ish, because it interferes with subsequent tracepoints
+     coming in from other trace headers. e.g. module:module_put vs mei:module_put. */
+  if (header_exists(s, "/drivers/misc/mei/mei-trace.h"))
+    they_live.push_back ("#include \"drivers/misc/mei/mei-trace.h\"");
+  #endif
+
   return they_live;
 }
 
