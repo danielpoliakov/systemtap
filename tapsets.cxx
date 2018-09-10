@@ -12396,16 +12396,34 @@ tracepoint_builder::init_dw(systemtap_session& s)
     }
 
   // find kernel_source_tree from a source link, when different from build
-  if (s.kernel_source_tree == "" && endswith(s.kernel_build_tree, "/build"))
+  if (s.kernel_source_tree == "")
     {
-      string source_tree = s.kernel_build_tree;
-      source_tree.replace(source_tree.length() - 5, 5, "source");
-      if (file_exists(source_tree) &&
-          resolve_path(source_tree) != resolve_path(s.kernel_build_tree))
+      vector<string> source_trees;
+
+      // vendor kernel (e.g. Fedora): the source link is in the same dir
+      // as the build tree
+      if (endswith(s.kernel_build_tree, "/build"))
         {
-          if (s.verbose > 2)
-            clog << _F("Located kernel source tree at '%s'", source_tree.c_str()) << endl;
-          s.kernel_source_tree = source_tree;
+          string source_tree = s.kernel_build_tree;
+          source_tree.replace(source_tree.length() - 5, 5, "source");
+          source_trees.push_back(source_tree);
+        }
+
+      // vanilla kernel: the source link is in the build tree
+      source_trees.push_back(s.kernel_build_tree + "/source");
+
+      for (unsigned i = 0; i < source_trees.size(); i++)
+        {
+          string source_tree = source_trees[i];
+
+          if (dir_exists(source_tree) &&
+              resolve_path(source_tree) != resolve_path(s.kernel_build_tree))
+            {
+              if (s.verbose > 2)
+                clog << _F("Located kernel source tree at '%s'", source_tree.c_str()) << endl;
+              s.kernel_source_tree = source_tree;
+              break;
+            }
         }
     }
 

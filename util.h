@@ -72,6 +72,7 @@ const char *get_home_directory(void);
 size_t get_file_size(const std::string &path);
 size_t get_file_size(int fd);
 bool file_exists (const std::string &path);
+bool dir_exists(const std::string &path);
 bool copy_file(const std::string& src, const std::string& dest,
                bool verbose=false);
 int create_dir(const char *dir, int mode = 0777);

@@ -103,6 +103,19 @@ file_exists (const string &path)
   return false;
 }
 
+// Check that a dir is present
+bool
+dir_exists(const string &path)
+{
+  struct stat info;
+
+  if (stat(path.c_str(), &info) == 0 &&
+      S_ISDIR(info.st_mode))
+    return true;
+
+  return false;
+}
+
 // Copy a file.  The copy is done via a temporary file and atomic
 // rename.
 bool
