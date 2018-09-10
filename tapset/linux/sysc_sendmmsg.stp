@@ -249,7 +249,6 @@ probe __nd2_syscall.compat_socketcall.sendmmsg.return =
 {
 	__set_syscall_pt_regs(@entry(pointer_arg(1)))
 	if (int_arg(1) != @const("SYS_SENDMMSG")) next;
-	__set_syscall_pt_regs(0)
 }
 probe __nd2_syscall.compat_sendmmsg.return =
 	kprobe.function(@arch_syscall_prefix "compat_sys_sendmmsg").return ?

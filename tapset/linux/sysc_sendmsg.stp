@@ -225,7 +225,6 @@ probe __nd2_syscall.socketcall.sendmsg.return =
 {
 	__set_syscall_pt_regs(@entry(pointer_arg(1)))
 	if (int_arg(1) != @const("SYS_SENDMSG")) next;
-	__set_syscall_pt_regs(0)
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -348,7 +347,6 @@ probe nd2_syscall.compat_sys_sendmsg.return =
 	__set_syscall_pt_regs(@entry(pointer_arg(1)))
 	if (int_arg(1) != @const("SYS_SENDMSG")) next;
 	@_SYSCALL_SENDMSG_NAME
-	__set_syscall_pt_regs(0)
 	retstr = returnstr(1) /* NB: not in the $regs */
 }
 

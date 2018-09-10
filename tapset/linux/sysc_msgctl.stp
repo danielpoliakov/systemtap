@@ -243,7 +243,6 @@ probe nd2_syscall.compat_sys_msgctl.return =
 	__set_syscall_pt_regs(@entry(pointer_arg(1)))
 	if ((uint_arg(1) & 0xffff) != @const("MSGCTL")) next;
 	@_SYSCALL_MSGCTL_NAME
-	__set_syscall_pt_regs(0)
 	retstr = returnstr(1) /* NB: not in the $regs */
 }
 

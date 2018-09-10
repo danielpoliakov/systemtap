@@ -261,7 +261,6 @@ probe nd2_syscall.compat_sys_msgsnd.return =
 	__set_syscall_pt_regs(@entry(pointer_arg(1)))
 	if ((uint_arg(1) & 0xffff) != @const("MSGSND")) next;
 	@_SYSCALL_MSGSND_NAME
-	__set_syscall_pt_regs(0)
 	retstr = returnstr(1) /* NB: not in the $regs */
 }
 
