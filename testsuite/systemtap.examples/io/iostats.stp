@@ -8,7 +8,7 @@ probe syscall.open {
 }
 
 probe syscall.read.return {
-  count = returnval()
+  count = retval
   if ( count >= 0 ) {
     reads[execname()] <<< count # statistics array
     totals[execname()] += count
@@ -16,7 +16,7 @@ probe syscall.read.return {
 }
 
 probe syscall.write.return {
-  count = returnval()
+  count = retval
   if (count >= 0 ) {
     writes[execname()] <<< count # statistics array
     totals[execname()] += count

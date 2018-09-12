@@ -161,8 +161,8 @@ probe nd_syscall.*.return {
   }
 
   # note any syscalls returning errors
-  if (returnval() < 0 && child_of_target(task_current())) {
-    syscall_errno[execname(), name, returnval()] <<< 1
+  if (retval < 0 && child_of_target(task_current())) {
+    syscall_errno[execname(), name, retval] <<< 1
   }
 }
 

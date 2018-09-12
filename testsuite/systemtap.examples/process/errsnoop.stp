@@ -17,7 +17,7 @@ probe syscall.* {
 }
 
 probe syscall.*.return {
-	errno = errno_p(returnval())
+	errno = errno_p(retval)
 	if (errno != 0) {
 		argstr = trace[tid()]
 		delete trace[tid()]

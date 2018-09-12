@@ -90,7 +90,7 @@ probe process.plt.return, process.library("*").plt.return
       next
     }
 
-  report_line_returnval[$$name] = arg(returnval())
+  report_line_returnval[$$name] = arg(retval)
   foreach (rl in report_line) {
     first_key = rl
     break

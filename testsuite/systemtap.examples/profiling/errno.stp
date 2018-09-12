@@ -12,7 +12,7 @@
 global execname, errors
 
 probe syscall.*.return {
-  errno = returnval()
+  errno = retval
   if ( errno < 0 ) {
     p = pid()
     execname[p]=execname();

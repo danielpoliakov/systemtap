@@ -44,7 +44,7 @@ probe begin
 probe nd_syscall.accept.return,
     nd_syscall.accept4.return
 {
-	ts[tid(), returnval()] = gettimeofday_ns();
+	ts[tid(), retval] = gettimeofday_ns();
 }
 
 probe nd_syscall.close
