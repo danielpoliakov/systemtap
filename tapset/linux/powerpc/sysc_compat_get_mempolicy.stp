@@ -37,7 +37,7 @@ probe dw_syscall.compat_get_mempolicy = kernel.function("compat_get_mempolicy") 
 probe dw_syscall.compat_get_mempolicy.return = kernel.function("compat_get_mempolicy").return ?
 {
 	@_SYSCALL_COMPAT_GET_MEMPOLICY_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_compat_get_mempolicy _____________________________________________________
@@ -56,5 +56,5 @@ probe nd_syscall.compat_get_mempolicy = kprobe.function("compat_get_mempolicy") 
 probe nd_syscall.compat_get_mempolicy.return = kprobe.function("compat_get_mempolicy").return ?
 {
 	@_SYSCALL_COMPAT_GET_MEMPOLICY_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

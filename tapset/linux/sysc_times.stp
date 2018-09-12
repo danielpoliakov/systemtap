@@ -31,7 +31,7 @@ probe dw_syscall.times.return = kernel.function("compat_sys_times").return ?,
                              kernel.function("sys_times").return ?
 {
 	@_SYSCALL_TIMES_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_times _____________________________________________________
@@ -49,5 +49,5 @@ probe nd_syscall.times.return = kprobe.function("compat_sys_times").return ?,
                                 kprobe.function("sys_times").return ?
 {
 	@_SYSCALL_TIMES_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

@@ -33,7 +33,7 @@ probe dw_syscall.shmget = kernel.function("sys_shmget").call ?
 probe dw_syscall.shmget.return = kernel.function("sys_shmget").return ?
 {
 	@_SYSCALL_SHMGET_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_shmget _____________________________________________________
@@ -51,5 +51,5 @@ probe nd_syscall.shmget = kprobe.function("sys_shmget") ?
 probe nd_syscall.shmget.return = kprobe.function("sys_shmget").return ?
 {
 	@_SYSCALL_SHMGET_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

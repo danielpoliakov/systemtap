@@ -296,8 +296,11 @@ A pretty-printed form of the entire argument list, without parentheses.
 .IR name
 The name of the system call.
 .TP
+.IR retval
+For return probes, the raw numeric system-call result.
+.TP
 .IR retstr
-For return probes, a pretty-printed form of the system-call result.
+For return probes, a pretty-printed string form of the system-call result.
 .PP
 As usual for probe aliases, these variables are all initialized once
 from the underlying $context variables, so that later changes to

@@ -47,7 +47,7 @@ probe dw_syscall.sync_file_range.return =
 	kernel.function("sys_sync_file_range").return ?
 {
 	@_SYSCALL_SYNC_FILE_RANGE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_sync_file_range _____________________________________________________
@@ -80,5 +80,5 @@ probe nd_syscall.sync_file_range.return =
 	kprobe.function("sys_sync_file_range").return ?
 {
 	@_SYSCALL_SYNC_FILE_RANGE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

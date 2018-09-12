@@ -31,7 +31,7 @@ probe dw_syscall.sys32_rt_sigpending = kernel.function("sys32_rt_sigpending") ?
 probe dw_syscall.sys32_rt_sigpending.return = kernel.function("sys32_rt_sigpending").return ?
 {
 	@_SYSCALL_SYS32_RT_SIGPENDING_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_sys32_rt_sigpending _____________________________________________________
@@ -47,5 +47,5 @@ probe nd_syscall.sys32_rt_sigpending = kprobe.function("sys32_rt_sigpending") ?
 probe nd_syscall.sys32_rt_sigpending.return = kprobe.function("sys32_rt_sigpending").return ?
 {
 	@_SYSCALL_SYS32_RT_SIGPENDING_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

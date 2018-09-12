@@ -82,7 +82,7 @@ probe dw_syscall.accept.return = __syscall.accept.return ?,
 	__syscall.socketcall.accept.return ?
 {
 	@_SYSCALL_ACCEPT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.accept.return = kernel.function("sys_accept").return ?
 {
@@ -211,7 +211,7 @@ probe nd1_syscall.accept.return = __nd1_syscall.accept.return ?,
 	__nd1_syscall.socketcall.accept.return ?
 {
 	@_SYSCALL_ACCEPT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.accept.return = kprobe.function("sys_accept").return ?
 {
@@ -230,7 +230,7 @@ probe nd2_syscall.accept.return =
 	__nd2_syscall.socketcall.accept.return ?
 {
 	@_SYSCALL_ACCEPT_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd2_syscall.socketcall.accept.return =
 	kprobe.function(@arch_syscall_prefix "sys_socketcall").return ?,
@@ -238,6 +238,7 @@ probe __nd2_syscall.socketcall.accept.return =
 {
 	__set_syscall_pt_regs(@entry(pointer_arg(1)))
 	if (int_arg(1) != @const("SYS_ACCEPT")) next;
+        __set_syscall_pt_regs(0)
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -245,7 +246,7 @@ probe tp_syscall.accept.return = __tp_syscall.accept.return ?,
 	__tp_syscall.socketcall.accept.return ?
 {
 	@_SYSCALL_ACCEPT_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 probe __tp_syscall.accept.return = kernel.trace("sys_exit")
 {

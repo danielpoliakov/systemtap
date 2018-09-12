@@ -62,7 +62,7 @@ probe dw_syscall.pwritev.return = kernel.function("sys_pwritev").return ?,
 			       kernel.function("compat_sys_pwritev").return ?
 {
 	@_SYSCALL_PWRITEV_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_pwritev _____________________________________________________
@@ -136,7 +136,7 @@ probe nd1_syscall.pwritev.return =
 	kprobe.function("compat_sys_pwritev").return ?
 {
 	@_SYSCALL_PWRITEV_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -145,7 +145,7 @@ probe nd2_syscall.pwritev.return =
 	kprobe.function(@arch_syscall_prefix "compat_sys_pwritev").return ?
 {
 	@_SYSCALL_PWRITEV_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -154,5 +154,5 @@ probe tp_syscall.pwritev.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_pwritev"), @const("__NR_compat_pwritev"))
 	@_SYSCALL_PWRITEV_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

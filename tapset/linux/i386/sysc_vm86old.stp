@@ -30,7 +30,7 @@ probe dw_syscall.vm86old = kernel.function("sys_vm86old") ?
 probe dw_syscall.vm86old.return = kernel.function("sys_vm86old").return ?
 {
 	@_SYSCALL_VM86OLD_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_vm86old _____________________________________________________
@@ -47,5 +47,5 @@ probe nd_syscall.vm86old = kprobe.function("sys_vm86old") ?
 probe nd_syscall.vm86old.return = kprobe.function("sys_vm86old").return ?
 {
 	@_SYSCALL_VM86OLD_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

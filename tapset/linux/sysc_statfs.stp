@@ -32,7 +32,7 @@ probe dw_syscall.statfs.return = kernel.function("compat_sys_statfs").return ?,
                               kernel.function("sys_statfs").return ?
 {
 	@_SYSCALL_STATFS_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_statfs _____________________________________________________
@@ -50,5 +50,5 @@ probe nd_syscall.statfs.return = kprobe.function("compat_sys_statfs").return ?,
                                  kprobe.function("sys_statfs").return ?
 {
 	@_SYSCALL_STATFS_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

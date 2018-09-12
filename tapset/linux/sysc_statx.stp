@@ -45,7 +45,7 @@ probe dw_syscall.statx = kernel.function("sys_statx").call ?
 probe dw_syscall.statx.return = kernel.function("sys_statx").return ?
 {
 	@_SYSCALL_STATX_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_statx _____________________________________________________
@@ -70,5 +70,5 @@ probe nd_syscall.statx = kprobe.function("sys_statx") ?
 probe nd_syscall.statx.return = kprobe.function("sys_statx").return ?
 {
 	@_SYSCALL_STATX_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

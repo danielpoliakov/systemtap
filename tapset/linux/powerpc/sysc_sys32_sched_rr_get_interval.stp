@@ -31,7 +31,7 @@ probe dw_syscall.sys32_sched_rr_get_interval = kernel.function("sys32_sched_rr_g
 probe dw_syscall.sys32_sched_rr_get_interval.return = kernel.function("sys32_sched_rr_get_interval").return ?
 {
 	@_SYSCALL_SYS32_SCHED_RR_GET_INTERVAL_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_sys32_sched_rr_get_interval _____________________________________________________
@@ -47,5 +47,5 @@ probe nd_syscall.sys32_sched_rr_get_interval = kprobe.function("sys32_sched_rr_g
 probe nd_syscall.sys32_sched_rr_get_interval.return = kprobe.function("sys32_sched_rr_get_interval").return ?
 {
 	@_SYSCALL_SYS32_SCHED_RR_GET_INTERVAL_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

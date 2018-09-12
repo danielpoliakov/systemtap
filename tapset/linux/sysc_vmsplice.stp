@@ -37,7 +37,7 @@ probe dw_syscall.vmsplice.return = kernel.function("sys_vmsplice").return ?
 {
 	@__syscall_gate_compat_simple
 	@_SYSCALL_VMSPLICE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_vmsplice _____________________________________________________
@@ -58,7 +58,7 @@ probe nd_syscall.vmsplice.return = kprobe.function("sys_vmsplice").return ?
 {
 	@__syscall_gate_compat_simple
 	@_SYSCALL_VMSPLICE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 # compat_vmsplice ____________________________________________
@@ -89,7 +89,7 @@ probe dw_syscall.compat_vmsplice = kernel.function("compat_sys_vmsplice").call ?
 probe dw_syscall.compat_vmsplice.return = kernel.function("compat_sys_vmsplice").return ?
 {
 	@_SYSCALL_VMSPLICE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_compat_vmsplice _____________________________________________________
@@ -108,5 +108,5 @@ probe nd_syscall.compat_vmsplice = kprobe.function("compat_sys_vmsplice") ?
 probe nd_syscall.compat_vmsplice.return = kprobe.function("compat_sys_vmsplice").return ?
 {
 	@_SYSCALL_VMSPLICE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

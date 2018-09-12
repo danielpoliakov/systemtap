@@ -50,7 +50,7 @@ probe dw_syscall.linkat.return = kernel.function("sys_linkat").return ?
 {
 	@__syscall_compat_gate(@const("__NR_linkat"), @const("__NR_compat_linkat"))
 	@_SYSCALL_LINKAT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_linkat _____________________________________________________
@@ -93,14 +93,14 @@ probe nd1_syscall.linkat.return = kprobe.function("sys_linkat").return ?
 {
 	@__syscall_compat_gate(@const("__NR_linkat"), @const("__NR_compat_linkat"))
 	@_SYSCALL_LINKAT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.linkat.return = kprobe.function(@arch_syscall_prefix "sys_linkat").return ?
 {
 	@_SYSCALL_LINKAT_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -109,5 +109,5 @@ probe tp_syscall.linkat.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_linkat"), @const("__NR_compat_linkat"))
 	@_SYSCALL_LINKAT_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

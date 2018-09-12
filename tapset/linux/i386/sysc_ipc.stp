@@ -38,7 +38,7 @@ probe dw_syscall.ipc = kernel.function("sys_ipc") ?
 probe dw_syscall.ipc.return = kernel.function("sys_ipc").return ?
 {
 	@_SYSCALL_IPC_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_ipc _____________________________________________________
@@ -58,6 +58,6 @@ probe nd_syscall.ipc = kprobe.function("sys_ipc") ?
 probe nd_syscall.ipc.return = kprobe.function("sys_ipc").return ?
 {
 	@_SYSCALL_IPC_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 %)

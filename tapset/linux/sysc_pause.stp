@@ -31,7 +31,7 @@ probe dw_syscall.pause.return = kernel.function("sys_pause").return ?,
                              kernel.function("compat_sys_pause").return ?
 {
 	@_SYSCALL_PAUSE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_pause _____________________________________________________
@@ -70,14 +70,14 @@ probe nd1_syscall.pause.return = kprobe.function("sys_pause").return ?,
                                 kprobe.function("compat_sys_pause").return ?
 {
 	@_SYSCALL_PAUSE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.pause.return = kprobe.function(@arch_syscall0_prefix "sys_pause").return ?
 {
 	@_SYSCALL_PAUSE_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -86,5 +86,5 @@ probe tp_syscall.pause.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_pause"), @const("__NR_compat_pause"))
 	@_SYSCALL_PAUSE_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

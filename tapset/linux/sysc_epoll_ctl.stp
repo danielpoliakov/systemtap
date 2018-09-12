@@ -58,7 +58,7 @@ probe dw_syscall.epoll_ctl.return =
 	__syscall.epoll_ctl.return ?
 {
 	@_SYSCALL_EPOLL_CTL_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.epoll_ctl.return = kernel.function("sys_epoll_ctl").return ?
 {
@@ -110,7 +110,7 @@ probe nd1_syscall.epoll_ctl.return =
 	__nd1_syscall.epoll_ctl.return ?
 {
 	@_SYSCALL_EPOLL_CTL_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.epoll_ctl.return = kprobe.function("sys_epoll_ctl").return ?
 {
@@ -121,7 +121,7 @@ probe __nd1_syscall.epoll_ctl.return = kprobe.function("sys_epoll_ctl").return ?
 probe nd2_syscall.epoll_ctl.return = kprobe.function(@arch_syscall_prefix "sys_epoll_ctl").return ?
 {
 	@_SYSCALL_EPOLL_CTL_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -130,5 +130,5 @@ probe tp_syscall.epoll_ctl.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_epoll_ctl"), @const("__NR_compat_epoll_ctl"))
 	@_SYSCALL_EPOLL_CTL_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

@@ -48,7 +48,7 @@ probe dw_syscall.lgetxattr = kernel.function("sys_lgetxattr").call
 probe dw_syscall.lgetxattr.return = kernel.function("sys_lgetxattr").return
 {
 	@_SYSCALL_LGETXATTR_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_lgetxattr _____________________________________________________
@@ -89,14 +89,14 @@ probe nd_syscall.lgetxattr.return = nd1_syscall.lgetxattr.return!, nd2_syscall.l
 probe nd1_syscall.lgetxattr.return = kprobe.function("sys_lgetxattr").return ?
 {
 	@_SYSCALL_LGETXATTR_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.lgetxattr.return = kprobe.function(@arch_syscall_prefix "sys_lgetxattr").return ?
 {
 	@_SYSCALL_LGETXATTR_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -105,5 +105,5 @@ probe tp_syscall.lgetxattr.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_lgetxattr"), @const("__NR_compat_lgetxattr"))
 	@_SYSCALL_LGETXATTR_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

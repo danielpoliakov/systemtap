@@ -47,7 +47,7 @@ probe dw_syscall.fstatat.return = kernel.function("sys_fstatat64").return ?,
 	kernel.function("sys32_fstatat").return ?
 {
 	@_SYSCALL_FSTATAT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_fstatat _____________________________________________________
@@ -81,5 +81,5 @@ probe nd_syscall.fstatat.return = kprobe.function("sys_fstatat64").return ?,
 	kprobe.function("sys32_fstatat").return ?
 {
 	@_SYSCALL_FSTATAT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

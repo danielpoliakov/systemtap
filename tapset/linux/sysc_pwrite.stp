@@ -49,7 +49,7 @@ probe dw_syscall.pwrite.return = kernel.function("sys_pwrite64").return
 	@__syscall_gate(@const("__NR_pwrite64"))
 %)
 	@_SYSCALL_PWRITE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_pwrite _____________________________________________________
@@ -99,14 +99,14 @@ probe nd1_syscall.pwrite.return = kprobe.function("sys_pwrite64").return ?
 	@__syscall_gate(@const("__NR_pwrite64"))
 %)
 	@_SYSCALL_PWRITE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.pwrite.return = kprobe.function(@arch_syscall_prefix "sys_pwrite64").return ?
 {
 	@_SYSCALL_PWRITE_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -115,7 +115,7 @@ probe tp_syscall.pwrite.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_gate(@const("__NR_pwrite64"))
 	@_SYSCALL_PWRITE_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 
 # long sys32_pwrite64(unsigned int fd, const char __user *ubuf,
@@ -158,7 +158,7 @@ probe dw_syscall.pwrite32.return =
 	kernel.function("sys32_pwrite64").return ?
 {
 	@_SYSCALL_PWRITE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_pwrite32 _____________________________________________________
@@ -216,7 +216,7 @@ probe nd1_syscall.pwrite32.return =
 	kprobe.function("sys32_pwrite64").return ?
 {
 	@_SYSCALL_PWRITE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -224,7 +224,7 @@ probe nd2_syscall.pwrite32.return =
 	kprobe.function(@arch_syscall_prefix "compat_sys_x86_pwrite").return ?
 {
 	@_SYSCALL_PWRITE_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -233,5 +233,5 @@ probe tp_syscall.pwrite32.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__compat_syscall_gate(@const("__NR_compat_pwrite64"))
 	@_SYSCALL_PWRITE_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

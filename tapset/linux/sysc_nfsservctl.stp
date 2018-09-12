@@ -41,7 +41,7 @@ probe dw_syscall.nfsservctl.return = __syscall.nfsservctl.return ?,
 	kernel.function("compat_sys_nfsservctl").return ?
 {
 	@_SYSCALL_NFSSERVCTL_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.nfsservctl.return = kernel.function("sys_nfsservctl").return ?
 {
@@ -69,7 +69,7 @@ probe nd_syscall.nfsservctl.return = __nd_syscall.nfsservctl.return ?,
 	kprobe.function("compat_sys_nfsservctl").return ?
 {
 	@_SYSCALL_NFSSERVCTL_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd_syscall.nfsservctl.return =
 	kprobe.function("sys_nfsservctl").return ?

@@ -32,7 +32,7 @@ probe dw_syscall.compat_execve = kernel.function("sys32_execve").call ?
 probe dw_syscall.compat_execve.return = kernel.function("sys32_execve").return ?
 {
 	@_SYSCALL_COMPAT_EXECVE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_compat_execve _____________________________________________________
@@ -49,6 +49,6 @@ probe nd_syscall.compat_execve = kprobe.function("sys32_execve") ?
 probe nd_syscall.compat_execve.return = kprobe.function("sys32_execve").return ?
 {
 	@_SYSCALL_COMPAT_EXECVE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 %)

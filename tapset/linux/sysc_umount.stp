@@ -56,7 +56,7 @@ probe dw_syscall.umount.return = __syscall.umount.return,
 			      kernel.function("sys_oldumount").return ?
 {
 	@_SYSCALL_UMOUNT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.umount.return = kernel.function("sys_umount").return
 {
@@ -131,7 +131,7 @@ probe nd1_syscall.umount.return = __nd1_syscall.umount.return,
 				 kprobe.function("sys_oldumount").return ?
 {
 	@_SYSCALL_UMOUNT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.umount.return = kprobe.function("sys_umount").return
 {
@@ -143,7 +143,7 @@ probe nd2_syscall.umount.return = kprobe.function(@arch_syscall_prefix "sys_umou
                                   kprobe.function(@arch_syscall_prefix "sys_oldumount").return ?
 {
 	@_SYSCALL_UMOUNT_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -151,7 +151,7 @@ probe tp_syscall.umount.return = __tp_syscall.umount.return, __tp_syscall.oldumo
 {
 	__set_syscall_pt_regs($regs)
 	@_SYSCALL_UMOUNT_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 probe __tp_syscall.umount.return = kernel.trace("sys_exit")
 {

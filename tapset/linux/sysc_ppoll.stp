@@ -56,7 +56,7 @@ probe dw_syscall.ppoll = kernel.function("sys_ppoll").call ?
 probe dw_syscall.ppoll.return = kernel.function("sys_ppoll").return ?
 {
 	@_SYSCALL_PPOLL_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_ppoll _____________________________________________________
@@ -97,14 +97,14 @@ probe nd_syscall.ppoll.return = nd1_syscall.ppoll.return!, nd2_syscall.ppoll.ret
 probe nd1_syscall.ppoll.return = kprobe.function("sys_ppoll").return ?
 {
 	@_SYSCALL_PPOLL_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.ppoll.return = kprobe.function(@arch_syscall_prefix "sys_ppoll").return ?
 {
 	@_SYSCALL_PPOLL_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -113,7 +113,7 @@ probe tp_syscall.ppoll.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_gate(@const("__NR_ppoll"))
 	@_SYSCALL_PPOLL_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 
 # compat_ppoll ________________________________________________
@@ -144,7 +144,7 @@ probe dw_syscall.compat_ppoll = kernel.function("compat_sys_ppoll").call ?
 probe dw_syscall.compat_ppoll.return = kernel.function("compat_sys_ppoll").return ?
 {
 	@_SYSCALL_PPOLL_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_compat_ppoll _____________________________________________________
@@ -185,14 +185,14 @@ probe nd_syscall.compat_ppoll.return = nd1_syscall.compat_ppoll.return!, nd2_sys
 probe nd1_syscall.compat_ppoll.return = kprobe.function("compat_sys_ppoll").return ?
 {
 	@_SYSCALL_PPOLL_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.compat_ppoll.return = kprobe.function(@arch_syscall_prefix "compat_sys_ppoll").return ?
 {
 	@_SYSCALL_PPOLL_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -201,5 +201,5 @@ probe tp_syscall.compat_ppoll.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__compat_syscall_gate(@const("__NR_compat_ppoll"))
 	@_SYSCALL_PPOLL_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

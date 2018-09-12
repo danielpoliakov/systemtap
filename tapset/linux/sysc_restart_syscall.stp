@@ -29,7 +29,7 @@ probe dw_syscall.restart_syscall = kernel.function("sys_restart_syscall").call
 probe dw_syscall.restart_syscall.return = kernel.function("sys_restart_syscall").return
 {
 	@_SYSCALL_RESTART_SYSCALL_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_restart_syscall _____________________________________________________
@@ -64,14 +64,14 @@ probe nd_syscall.restart_syscall.return = nd1_syscall.restart_syscall.return!, n
 probe nd1_syscall.restart_syscall.return = kprobe.function("sys_restart_syscall").return
 {
 	@_SYSCALL_RESTART_SYSCALL_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.restart_syscall.return = kprobe.function(@arch_syscall0_prefix "sys_restart_syscall").return ?
 {
 	@_SYSCALL_RESTART_SYSCALL_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -80,5 +80,5 @@ probe tp_syscall.restart_syscall.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_restart_syscall"), @const("__NR_compat_restart_syscall"))
 	@_SYSCALL_RESTART_SYSCALL_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

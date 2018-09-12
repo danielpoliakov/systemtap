@@ -31,7 +31,7 @@ probe dw_syscall.nice = kernel.function("sys_nice").call ?
 probe dw_syscall.nice.return = kernel.function("sys_nice").return ?
 {
 	@_SYSCALL_NICE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_nice _____________________________________________________
@@ -72,14 +72,14 @@ probe nd_syscall.nice.return = nd1_syscall.nice.return!, nd2_syscall.nice.return
 probe nd1_syscall.nice.return = kprobe.function("sys_nice").return ?
 {
 	@_SYSCALL_NICE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.nice.return = kprobe.function(@arch_syscall_prefix "sys_nice").return ?
 {
 	@_SYSCALL_NICE_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -88,5 +88,5 @@ probe tp_syscall.nice.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_nice"), @const("__NR_compat_nice"))
 	@_SYSCALL_NICE_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

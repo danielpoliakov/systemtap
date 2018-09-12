@@ -50,7 +50,7 @@ probe dw_syscall.semop.return = kernel.function("sys_semop").return ?,
 	__syscall.compat_semop.return ?
 {
 	@_SYSCALL_SEMOP_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.compat_semop.return =
 	kernel.function("compat_sys_ipc").return ?,
@@ -91,7 +91,7 @@ probe nd_syscall.semop.return = kprobe.function("sys_semop").return ?,
 	__nd_syscall.compat_semop.return ?
 {
 	@_SYSCALL_SEMOP_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd_syscall.compat_semop.return =
 	kprobe.function("compat_sys_ipc").return ?,

@@ -26,7 +26,7 @@ probe dw_syscall.getcwd = kernel.function("sys_getcwd").call
 probe dw_syscall.getcwd.return = kernel.function("sys_getcwd").return
 {
 	@_SYSCALL_GETCWD_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_getcwd _____________________________________________________
@@ -42,5 +42,5 @@ probe nd_syscall.getcwd = kprobe.function("sys_getcwd") ?
 probe nd_syscall.getcwd.return = kprobe.function("sys_getcwd").return ?
 {
 	@_SYSCALL_GETCWD_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

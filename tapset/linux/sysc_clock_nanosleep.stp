@@ -55,7 +55,7 @@ probe dw_syscall.clock_nanosleep.return =
 {
 	@__syscall_gate(@const("__NR_clock_nanosleep"))
 	@_SYSCALL_CLOCK_NANOSLEEP_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_clock_nanosleep _____________________________________________________
@@ -102,7 +102,7 @@ probe nd1_syscall.clock_nanosleep.return =
 {
 	@__syscall_gate(@const("__NR_clock_nanosleep"))
 	@_SYSCALL_CLOCK_NANOSLEEP_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -110,7 +110,7 @@ probe nd2_syscall.clock_nanosleep.return =
 	kprobe.function(@arch_syscall_prefix "sys_clock_nanosleep").return ?
 {
 	@_SYSCALL_CLOCK_NANOSLEEP_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -119,7 +119,7 @@ probe tp_syscall.clock_nanosleep.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_gate(@const("__NR_clock_nanosleep"))
 	@_SYSCALL_CLOCK_NANOSLEEP_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 
 # compat_clock_nanosleep ________________________________________
@@ -158,7 +158,7 @@ probe dw_syscall.compat_clock_nanosleep.return =
 	kernel.function("compat_sys_clock_nanosleep").return ?
 {
 	@_SYSCALL_CLOCK_NANOSLEEP_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_compat_clock_nanosleep _____________________________________________________
@@ -207,7 +207,7 @@ probe nd1_syscall.compat_clock_nanosleep.return =
 	kprobe.function("compat_sys_clock_nanosleep").return ?
 {
 	@_SYSCALL_CLOCK_NANOSLEEP_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -215,7 +215,7 @@ probe nd2_syscall.compat_clock_nanosleep.return =
 	kprobe.function(@arch_syscall_prefix "compat_sys_clock_nanosleep").return ?
 {
 	@_SYSCALL_CLOCK_NANOSLEEP_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -224,5 +224,5 @@ probe tp_syscall.compat_clock_nanosleep.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__compat_syscall_gate(@const("__NR_compat_clock_nanosleep"))
 	@_SYSCALL_CLOCK_NANOSLEEP_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

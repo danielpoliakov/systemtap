@@ -32,7 +32,7 @@ probe dw_syscall.brk.return = kernel.function("ia64_brk").return ?,
                            kernel.function("sys_brk").return
 {
 	@_SYSCALL_BRK_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_brk _____________________________________________________
@@ -75,14 +75,14 @@ probe nd1_syscall.brk.return = kprobe.function("ia64_brk").return ?,
                                kprobe.function("sys_brk").return ?
 {
 	@_SYSCALL_BRK_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.brk.return = kprobe.function(@arch_syscall_prefix "sys_brk").return
 {
 	@_SYSCALL_BRK_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -91,5 +91,5 @@ probe tp_syscall.brk.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_brk"), @const("__NR_compat_brk"))
 	@_SYSCALL_BRK_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

@@ -34,7 +34,7 @@ probe dw_syscall.mq_unlink = kernel.function("sys_mq_unlink").call ?
 probe dw_syscall.mq_unlink.return = kernel.function("sys_mq_unlink").return ?
 {
 	@_SYSCALL_MQ_UNLINK_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_mq_unlink _____________________________________________________
@@ -75,14 +75,14 @@ probe nd_syscall.mq_unlink.return = nd1_syscall.mq_unlink.return!, nd2_syscall.m
 probe nd1_syscall.mq_unlink.return = kprobe.function("sys_mq_unlink").return ?
 {
 	@_SYSCALL_MQ_UNLINK_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.mq_unlink.return = kprobe.function(@arch_syscall_prefix "sys_mq_unlink").return ?
 {
 	@_SYSCALL_MQ_UNLINK_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -91,5 +91,5 @@ probe tp_syscall.mq_unlink.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_mq_unlink"), @const("__NR_compat_mq_unlink"))
 	@_SYSCALL_MQ_UNLINK_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

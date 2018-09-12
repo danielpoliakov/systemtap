@@ -74,7 +74,7 @@ probe dw_syscall.getpeername.return = __syscall.getpeername.return ?,
 	__syscall.socketcall.getpeername.return ?
 {
 	@_SYSCALL_GETPEERNAME_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.getpeername.return = kernel.function("sys_getpeername").return ?
 {
@@ -182,7 +182,7 @@ probe nd1_syscall.getpeername.return =
 	__nd1_syscall.socketcall.getpeername.return ?
 {
 	@_SYSCALL_GETPEERNAME_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.getpeername.return =
 	kprobe.function("sys_getpeername").return ?
@@ -202,7 +202,7 @@ probe nd2_syscall.getpeername.return =
 	__nd2_syscall.socketcall.getpeername.return ?
 {
 	@_SYSCALL_GETPEERNAME_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd2_syscall.socketcall.getpeername.return =
 	kprobe.function(@arch_syscall_prefix "sys_socketcall").return ?,
@@ -217,7 +217,7 @@ probe tp_syscall.getpeername.return = __tp_syscall.getpeername.return ?,
 	__tp_syscall.socketcall.getpeername.return ?
 {
 	@_SYSCALL_GETPEERNAME_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 probe __tp_syscall.getpeername.return = kernel.trace("sys_exit")
 {

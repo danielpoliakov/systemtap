@@ -49,7 +49,7 @@ probe dw_syscall.msgrcv.return = kernel.function("sys_msgrcv").return ?
 {
 	@__syscall_gate_compat_simple
 	@_SYSCALL_MSGRCV_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_msgrcv _____________________________________________________
@@ -92,14 +92,14 @@ probe nd1_syscall.msgrcv.return = kprobe.function("sys_msgrcv").return ?
 {
 	@__syscall_gate_compat_simple
 	@_SYSCALL_MSGRCV_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.msgrcv.return = kprobe.function(@arch_syscall_prefix "sys_msgrcv").return ?
 {
 	@_SYSCALL_MSGRCV_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -108,7 +108,7 @@ probe tp_syscall.msgrcv.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_gate(@const("__NR_msgrcv"))
 	@_SYSCALL_MSGRCV_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 
 # compat_sys_msgrcv ________________________________________
@@ -172,7 +172,7 @@ probe dw_syscall.compat_sys_msgrcv.return =
 	__syscall.compat_ipc.msgrcv.return ?
 {
 	@_SYSCALL_MSGRCV_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.compat_sys_msgrcv.return =
 	kernel.function("compat_sys_msgrcv").return ?
@@ -285,7 +285,7 @@ probe nd1_syscall.compat_sys_msgrcv.return =
 	__nd1_syscall.compat_ipc.msgrcv.return ?
 {
 	@_SYSCALL_MSGRCV_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.compat_sys_msgrcv.return =
 	kprobe.function("compat_sys_msgrcv").return ?
@@ -306,7 +306,7 @@ probe nd2_syscall.compat_sys_msgrcv.return =
 	__set_syscall_pt_regs(@entry(pointer_arg(1)))
 	if ((uint_arg(1) & 0xffff) != @const("MSGRCV")) next;
 	@_SYSCALL_MSGRCV_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -316,5 +316,5 @@ probe tp_syscall.msgrcv.return = kernel.trace("sys_exit")
 	@__compat_syscall_gate(@const("__NR_compat_ipc"))
 	if ((uint_arg(1) & 0xffff) != @const("MSGRCV")) next;
 	@_SYSCALL_MSGRCV_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

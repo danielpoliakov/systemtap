@@ -47,7 +47,7 @@ probe dw_syscall.symlinkat.return = kernel.function("sys_symlinkat").return ?
 	@__syscall_compat_gate(@const("__NR_symlinkat"),
 			       @const("__NR_compat_symlinkat"))
 	@_SYSCALL_SYMLINKAT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_symlinkat _____________________________________________________
@@ -93,14 +93,14 @@ probe nd1_syscall.symlinkat.return = kprobe.function("sys_symlinkat").return ?
 	@__syscall_compat_gate(@const("__NR_symlinkat"),
 			       @const("__NR_compat_symlinkat"))
 	@_SYSCALL_SYMLINKAT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.symlinkat.return = kprobe.function(@arch_syscall_prefix "sys_symlinkat").return ?
 {
 	@_SYSCALL_SYMLINKAT_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -110,5 +110,5 @@ probe tp_syscall.symlinkat.return = kernel.trace("sys_exit")
 	@__syscall_compat_gate(@const("__NR_symlinkat"),
 			       @const("__NR_compat_symlinkat"))
 	@_SYSCALL_SYMLINKAT_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

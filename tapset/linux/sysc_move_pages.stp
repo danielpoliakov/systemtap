@@ -49,7 +49,7 @@ probe dw_syscall.move_pages.return = __syscall.move_pages.return ?,
                                   kernel.function("compat_sys_move_pages").return ?
 {
 	@_SYSCALL_MOVE_PAGES_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.move_pages.return = kernel.function("sys_move_pages").return
 {
@@ -80,7 +80,7 @@ probe nd_syscall.move_pages.return = __nd_syscall.move_pages.return ?,
                                      kprobe.function("compat_sys_move_pages").return ?
 {
 	@_SYSCALL_MOVE_PAGES_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd_syscall.move_pages.return = kprobe.function("sys_move_pages").return
 {

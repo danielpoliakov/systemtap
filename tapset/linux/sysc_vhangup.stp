@@ -28,7 +28,7 @@ probe dw_syscall.vhangup = kernel.function("sys_vhangup").call
 probe dw_syscall.vhangup.return = kernel.function("sys_vhangup").return
 {
 	@_SYSCALL_VHANGUP_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_vhangup _____________________________________________________
@@ -41,5 +41,5 @@ probe nd_syscall.vhangup = kprobe.function("sys_vhangup")
 probe nd_syscall.vhangup.return = kprobe.function("sys_vhangup").return
 {
 	@_SYSCALL_VHANGUP_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

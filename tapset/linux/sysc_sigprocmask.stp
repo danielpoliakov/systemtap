@@ -39,7 +39,7 @@ probe dw_syscall.sigprocmask.return = __syscall.sigprocmask.return ?,
 	kernel.function("compat_sys_sigprocmask").return ?
 {
 	@_SYSCALL_SIGPROCMASK_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.sigprocmask.return =
 	kernel.function("sys_sigprocmask").return ?
@@ -68,7 +68,7 @@ probe nd_syscall.sigprocmask.return = __nd_syscall.sigprocmask.return ?,
 	kprobe.function("compat_sys_sigprocmask").return ?
 {
 	@_SYSCALL_SIGPROCMASK_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd_syscall.sigprocmask.return =
 	kprobe.function("sys_sigprocmask").return ?

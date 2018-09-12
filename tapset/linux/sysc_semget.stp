@@ -31,7 +31,7 @@ probe dw_syscall.semget = kernel.function("sys_semget").call ?
 probe dw_syscall.semget.return = kernel.function("sys_semget").return ?
 {
 	@_SYSCALL_SEMGET_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_semget _____________________________________________________
@@ -50,5 +50,5 @@ probe nd_syscall.semget = kprobe.function("sys_semget") ?
 probe nd_syscall.semget.return = kprobe.function("sys_semget").return ?
 {
 	@_SYSCALL_SEMGET_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

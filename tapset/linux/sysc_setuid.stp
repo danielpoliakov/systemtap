@@ -61,7 +61,7 @@ probe dw_syscall.setuid.return = kernel.function("sys_setuid16").return ?,
 				 __syscall.setuid.return ?
 {
 	@_SYSCALL_SETUID_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.setuid.return = kernel.function("sys_setuid").return ?
 {
@@ -86,7 +86,7 @@ probe nd_syscall.setuid.return = kprobe.function("sys_setuid16").return ?,
 				 __nd_syscall.setuid.return ?
 {
 	@_SYSCALL_SETUID_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd_syscall.setuid.return = kprobe.function("sys_setuid").return ?
 {

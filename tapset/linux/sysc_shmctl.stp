@@ -39,7 +39,7 @@ probe dw_syscall.shmctl.return = kernel.function("sys_shmctl").return ?
 	@__syscall_gate_compat_simple
 #%)
 	@_SYSCALL_SHMCTL_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_shmctl _____________________________________________________
@@ -63,7 +63,7 @@ probe nd_syscall.shmctl.return = kprobe.function("sys_shmctl").return ?
 	@__syscall_gate_compat_simple
 #%)
 	@_SYSCALL_SHMCTL_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 # compat_sys_shmctl ________________________________________
@@ -108,7 +108,7 @@ probe dw_syscall.compat_sys_shmctl.return =
 	__syscall.compat_ipc.shmctl.return ?
 {
 	@_SYSCALL_SHMCTL_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.compat_ipc.shmctl.return =
 	kernel.function("compat_sys_ipc").return ?,
@@ -156,7 +156,7 @@ probe nd_syscall.compat_sys_shmctl.return =
 	__nd_syscall.compat_ipc.shmctl.return ?
 {
 	@_SYSCALL_SHMCTL_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd_syscall.compat_ipc.shmctl.return =
 	kprobe.function("compat_sys_ipc").return ?,

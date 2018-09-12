@@ -27,7 +27,7 @@ probe dw_syscall.setns = kernel.function("sys_setns") ?
 probe dw_syscall.setns.return = kernel.function("sys_setns").return ?
 {
 	@_SYSCALL_SETNS_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_setns _____________________________________________________
@@ -44,5 +44,5 @@ probe nd_syscall.setns = kprobe.function("sys_setns") ?
 probe nd_syscall.setns.return = kprobe.function("sys_setns").return ?
 {
 	@_SYSCALL_SETNS_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

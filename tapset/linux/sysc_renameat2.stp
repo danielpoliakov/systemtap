@@ -57,7 +57,7 @@ probe dw_syscall.renameat2.return = kernel.function("sys_renameat2").return ?
 	@__syscall_compat_gate(@const("__NR_renameat2"),
 			       @const("__NR_compat_renameat2"))
 	@_SYSCALL_RENAMEAT2_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_renameat2 _____________________________________________________
@@ -102,14 +102,14 @@ probe nd1_syscall.renameat2.return = kprobe.function("sys_renameat2").return ?
 	@__syscall_compat_gate(@const("__NR_renameat2"),
 			       @const("__NR_compat_renameat2"))
 	@_SYSCALL_RENAMEAT2_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.renameat2.return = kprobe.function(@arch_syscall_prefix "sys_renameat2").return ?
 {
 	@_SYSCALL_RENAMEAT2_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -118,5 +118,5 @@ probe tp_syscall.renameat2.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_renameat2"), @const("__NR_compat_renameat2"))
 	@_SYSCALL_RENAMEAT2_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

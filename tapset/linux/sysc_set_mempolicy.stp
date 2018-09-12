@@ -49,7 +49,7 @@ probe dw_syscall.set_mempolicy.return = __syscall.set_mempolicy.return ?,
 	kernel.function("compat_sys_set_mempolicy").return ?
 {
 	@_SYSCALL_SET_MEMPOLICY_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.set_mempolicy.return =
 	kernel.function("sys_set_mempolicy").return ?
@@ -106,7 +106,7 @@ probe nd1_syscall.set_mempolicy.return = __nd1_syscall.set_mempolicy.return ?,
 	kprobe.function("compat_sys_set_mempolicy").return ?
 {
 	@_SYSCALL_SET_MEMPOLICY_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.set_mempolicy.return =
 	kprobe.function("sys_set_mempolicy").return ?
@@ -121,7 +121,7 @@ probe __nd1_syscall.set_mempolicy.return =
 probe nd2_syscall.set_mempolicy.return = kprobe.function(@arch_syscall_prefix "sys_set_mempolicy").return ?
 {
 	@_SYSCALL_SET_MEMPOLICY_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -130,5 +130,5 @@ probe tp_syscall.set_mempolicy.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_set_mempolicy"), @const("__NR_compat_set_mempolicy"))
 	@_SYSCALL_SET_MEMPOLICY_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

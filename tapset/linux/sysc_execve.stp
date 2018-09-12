@@ -59,7 +59,7 @@ probe dw_syscall.execve = kernel.function("sys_execve").call
 probe dw_syscall.execve.return = kernel.function("sys_execve").return
 {
 	@_SYSCALL_EXECVE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # In kernels >= 3.7, compat_sys_execve() has been moved to generic
@@ -84,7 +84,7 @@ probe dw_syscall.compat_execve.return =
 	kernel.function("compat_sys_execve").return ?
 {
 	@_SYSCALL_EXECVE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_execve _____________________________________________________
@@ -125,14 +125,14 @@ probe nd_syscall.execve.return = nd1_syscall.execve.return!, nd2_syscall.execve.
 probe nd1_syscall.execve.return = kprobe.function("sys_execve").return
 {
 	@_SYSCALL_EXECVE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.execve.return = kprobe.function(@arch_syscall_prefix "sys_execve").return ?
 {
 	@_SYSCALL_EXECVE_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -141,7 +141,7 @@ probe tp_syscall.execve.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_gate(@const("__NR_execve"))
 	@_SYSCALL_EXECVE_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 
 # In kernels >= 3.7, compat_sys_execve() has been moved to generic
@@ -189,14 +189,14 @@ probe nd1_syscall.compat_execve.return =
 	kprobe.function("compat_sys_execve").return ?
 {
 	@_SYSCALL_EXECVE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.compat_execve.return = kprobe.function(@arch_syscall_prefix "compat_sys_execve").return ?
 {
 	@_SYSCALL_EXECVE_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -205,6 +205,6 @@ probe tp_syscall.compat_execve.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__compat_syscall_gate(@const("__NR_compat_execve"))
 	@_SYSCALL_EXECVE_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 %)

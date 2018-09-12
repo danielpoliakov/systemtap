@@ -35,7 +35,7 @@ probe dw_syscall.getresgid.return = kernel.function("sys_getresgid16").return ?,
                                  kernel.function("sys_getresgid").return
 {
 	@_SYSCALL_GETRESGID_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_getresgid _____________________________________________________
@@ -54,5 +54,5 @@ probe nd_syscall.getresgid.return = kprobe.function("sys_getresgid16").return ?,
                                     kprobe.function("sys_getresgid").return ?
 {
 	@_SYSCALL_GETRESGID_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

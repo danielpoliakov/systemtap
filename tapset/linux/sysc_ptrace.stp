@@ -44,7 +44,7 @@ probe dw_syscall.ptrace.return = kernel.function("sys_ptrace").return ?,
 	kernel.function("compat_sys_ptrace").return ?
 {
 	@_SYSCALL_PTRACE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 
 	geteventmsg_data = _ptrace_return_geteventmsg_data(@entry($request), @entry($data))
 	arch_prctl_addr = _ptrace_return_arch_prctl_addr(@entry($request), @entry($addr), @entry($data))
@@ -91,7 +91,7 @@ probe nd1_syscall.ptrace.return = kprobe.function("sys_ptrace").return ?,
 	kprobe.function("compat_sys_ptrace").return ?
 {
 	@_SYSCALL_PTRACE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 
 	geteventmsg_data = 0
 	arch_prctl_addr = 0
@@ -102,7 +102,7 @@ probe nd2_syscall.ptrace.return = kprobe.function(@arch_syscall_prefix "sys_ptra
 	kprobe.function(@arch_syscall_prefix "compat_sys_ptrace").return ?
 {
 	@_SYSCALL_PTRACE_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 
 	geteventmsg_data = 0
 	arch_prctl_addr = 0
@@ -114,7 +114,7 @@ probe tp_syscall.ptrace.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_ptrace"), @const("__NR_compat_ptrace"))
 	@_SYSCALL_PTRACE_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 
 	geteventmsg_data = 0
 	arch_prctl_addr = 0

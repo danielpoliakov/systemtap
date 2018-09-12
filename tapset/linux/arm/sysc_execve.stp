@@ -36,7 +36,7 @@ probe dw_syscall.execve = kernel.function("sys_execve").call
 probe dw_syscall.execve.return = kernel.function("sys_execve").return
 {
 	@_SYSCALL_EXECVE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_execve _____________________________________________________
@@ -52,7 +52,7 @@ probe nd_syscall.execve = kprobe.function("sys_execve").call
 probe nd_syscall.execve.return = kprobe.function("sys_execve").return
 {
 	@_SYSCALL_EXECVE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 %:
 # We want to make sure this file isn't empty, so we'll add a "never"

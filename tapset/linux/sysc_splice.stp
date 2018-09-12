@@ -37,7 +37,7 @@ probe dw_syscall.splice = kernel.function("sys_splice").call ?
 probe dw_syscall.splice.return = kernel.function("sys_splice").return ?
 {
 	@_SYSCALL_SPLICE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_splice _____________________________________________________
@@ -58,5 +58,5 @@ probe nd_syscall.splice = kprobe.function("sys_splice") ?
 probe nd_syscall.splice.return = kprobe.function("sys_splice").return ?
 {
 	@_SYSCALL_SPLICE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

@@ -57,7 +57,7 @@ probe dw_syscall.sigaltstack = kernel.function("sys_sigaltstack")
 probe dw_syscall.sigaltstack.return = kernel.function("sys_sigaltstack").return
 {
 	@_SYSCALL_SIGALTSTACK_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_sigaltstack _____________________________________________________
@@ -82,6 +82,6 @@ probe nd_syscall.sigaltstack = kprobe.function("sys_sigaltstack")
 probe nd_syscall.sigaltstack.return = kprobe.function("sys_sigaltstack").return
 {
 	@_SYSCALL_SIGALTSTACK_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 %)

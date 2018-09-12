@@ -56,7 +56,7 @@ probe dw_syscall.open.return = kernel.function("compat_sys_open").return ?,
 {
 	@__syscall_compat_gate(@const("__NR_open"), @const("__NR_compat_open"))
 	@_SYSCALL_OPEN_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_open _____________________________________________________
@@ -103,7 +103,7 @@ probe nd1_syscall.open.return = kprobe.function("compat_sys_open").return ?,
 {
 	@__syscall_compat_gate(@const("__NR_open"), @const("__NR_compat_open"))
 	@_SYSCALL_OPEN_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -111,7 +111,7 @@ probe nd2_syscall.open.return = kprobe.function(@arch_syscall_prefix "compat_sys
                                 kprobe.function(@arch_syscall_prefix "sys_open").return ?
 {
 	@_SYSCALL_OPEN_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 3.5+, but undesirable because of it affects all syscalls */
@@ -120,5 +120,5 @@ probe tp_syscall.open.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_open"), @const("__NR_compat_open"))
 	@_SYSCALL_OPEN_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

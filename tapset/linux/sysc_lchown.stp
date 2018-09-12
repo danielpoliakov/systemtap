@@ -48,7 +48,7 @@ probe dw_syscall.lchown.return = kernel.function("sys_lchown").return
 	@__syscall_gate(@const("__NR_lchown32"))
 %)
 	@_SYSCALL_LCHOWN_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_lchown _____________________________________________________
@@ -106,14 +106,14 @@ probe nd1_syscall.lchown.return = kprobe.function("sys_lchown").return ?
 	@__syscall_gate(@const("__NR_lchown32"))
 %)
 	@_SYSCALL_LCHOWN_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.lchown.return = kprobe.function(@arch_syscall_prefix "sys_lchown").return ?
 {
 	@_SYSCALL_LCHOWN_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -126,5 +126,5 @@ probe tp_syscall.lchown.return = kernel.trace("sys_exit")
 	@__syscall_gate(@const("__NR_lchown32"))
 %)
 	@_SYSCALL_LCHOWN_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

@@ -32,7 +32,7 @@ probe dw_syscall.tkill = kernel.function("sys_tkill").call
 probe dw_syscall.tkill.return = kernel.function("sys_tkill").return
 {
 	@_SYSCALL_TKILL_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_tkill _____________________________________________________
@@ -49,5 +49,5 @@ probe nd_syscall.tkill = kprobe.function("sys_tkill") ?
 probe nd_syscall.tkill.return = kprobe.function("sys_tkill").return ?
 {
 	@_SYSCALL_TKILL_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

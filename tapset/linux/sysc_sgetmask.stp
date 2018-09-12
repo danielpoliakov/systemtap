@@ -27,7 +27,7 @@ probe dw_syscall.sgetmask = kernel.function("sys_sgetmask").call ?
 probe dw_syscall.sgetmask.return = kernel.function("sys_sgetmask").return ?
 {
 	@_SYSCALL_SGETMASK_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_sgetmask _____________________________________________________
@@ -40,5 +40,5 @@ probe nd_syscall.sgetmask = kprobe.function("sys_sgetmask") ?
 probe nd_syscall.sgetmask.return = kprobe.function("sys_sgetmask").return ?
 {
 	@_SYSCALL_SGETMASK_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

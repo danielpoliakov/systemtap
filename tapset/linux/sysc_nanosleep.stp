@@ -44,7 +44,7 @@ probe dw_syscall.nanosleep = kernel.function("sys_nanosleep").call
 probe dw_syscall.nanosleep.return = kernel.function("sys_nanosleep").return
 {
 	@_SYSCALL_NANOSLEEP_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe dw_syscall.compat_nanosleep = kernel.function("compat_sys_nanosleep").call ?
 {
@@ -57,7 +57,7 @@ probe dw_syscall.compat_nanosleep = kernel.function("compat_sys_nanosleep").call
 probe dw_syscall.compat_nanosleep.return = kernel.function("compat_sys_nanosleep").return ?
 {
 	@_SYSCALL_NANOSLEEP_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_nanosleep _____________________________________________________
@@ -101,14 +101,14 @@ probe nd_syscall.nanosleep.return = nd1_syscall.nanosleep.return!, nd2_syscall.n
 probe nd1_syscall.nanosleep.return = kprobe.function("sys_nanosleep").return ?
 {
 	@_SYSCALL_NANOSLEEP_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.nanosleep.return = kprobe.function(@arch_syscall_prefix "sys_nanosleep").return ?
 {
 	@_SYSCALL_NANOSLEEP_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -117,7 +117,7 @@ probe tp_syscall.nanosleep.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_gate(@const("__NR_nanosleep"))
 	@_SYSCALL_NANOSLEEP_NAME
-	retstr = return_str(1,$ret) /* NB: not in the $regs */
+	@SYSC_RETVALSTR($ret) /* NB: not in the $regs */
 }
 
 probe nd_syscall.compat_nanosleep = nd1_syscall.compat_nanosleep!, nd2_syscall.compat_nanosleep!, tp_syscall.compat_nanosleep
@@ -159,14 +159,14 @@ probe nd_syscall.compat_nanosleep.return = nd1_syscall.compat_nanosleep.return!,
 probe nd1_syscall.compat_nanosleep.return = kprobe.function("compat_sys_nanosleep").return ?
 {
 	@_SYSCALL_NANOSLEEP_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.compat_nanosleep.return = kprobe.function(@arch_syscall_prefix "compat_sys_nanosleep").return ?
 {
 	@_SYSCALL_NANOSLEEP_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -175,5 +175,5 @@ probe tp_syscall.compat_nanosleep.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__compat_syscall_gate(@const("__NR_compat_nanosleep"))
 	@_SYSCALL_NANOSLEEP_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

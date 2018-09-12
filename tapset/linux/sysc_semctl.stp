@@ -36,7 +36,7 @@ probe dw_syscall.semctl.return = kernel.function("sys_semctl").return ?
 {
 	@__syscall_gate_compat_simple
 	@_SYSCALL_SEMCTL_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_semctl _____________________________________________________
@@ -57,7 +57,7 @@ probe nd_syscall.semctl.return = kprobe.function("sys_semctl").return ?
 {
 	@__syscall_gate_compat_simple
 	@_SYSCALL_SEMCTL_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 # compat_sys_semctl ________________________________________
@@ -103,7 +103,7 @@ probe dw_syscall.compat_sys_semctl.return = __syscall.compat_semctl.return ?,
 	__syscall.compat_ipc.semctl.return ?
 {
 	@_SYSCALL_SEMCTL_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.compat_semctl.return =
 	kernel.function("compat_sys_semctl").return ?
@@ -148,7 +148,7 @@ probe nd_syscall.compat_sys_semctl.return =
 	__nd_syscall.compat_ipc.semctl.return ?
 {
 	@_SYSCALL_SEMCTL_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd_syscall.compat_semctl.return =
 	kprobe.function("compat_sys_semctl").return ?

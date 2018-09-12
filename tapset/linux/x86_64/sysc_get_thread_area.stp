@@ -35,7 +35,7 @@ probe dw_syscall.get_thread_area.return =
 	kernel.function("sys32_get_thread_area").return ?
 {
 	@_SYSCALL_GET_THREAD_AREA_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_get_thread_area _____________________________________________________
@@ -54,5 +54,5 @@ probe nd_syscall.get_thread_area.return =
 	kprobe.function("sys32_get_thread_area").return ?
 {
 	@_SYSCALL_GET_THREAD_AREA_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

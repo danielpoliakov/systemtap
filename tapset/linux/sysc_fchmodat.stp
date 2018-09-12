@@ -49,7 +49,7 @@ probe dw_syscall.fchmodat.return = kernel.function("sys_fchmodat").return ?
 	@__syscall_compat_gate(@const("__NR_fchmodat"),
 			       @const("__NR_compat_fchmodat"))
 	@_SYSCALL_FCHMODAT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_fchmodat _____________________________________________________
@@ -94,14 +94,14 @@ probe nd1_syscall.fchmodat.return = kprobe.function("sys_fchmodat").return ?
 	@__syscall_compat_gate(@const("__NR_fchmodat"),
 			       @const("__NR_compat_fchmodat"))
 	@_SYSCALL_FCHMODAT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.fchmodat.return = kprobe.function(@arch_syscall_prefix "sys_fchmodat").return ?
 {
 	@_SYSCALL_FCHMODAT_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -110,5 +110,5 @@ probe tp_syscall.fchmodat.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_fchmodat"), @const("__NR_compat_fchmodat"))
 	@_SYSCALL_FCHMODAT_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

@@ -34,7 +34,7 @@ probe dw_syscall.sigpending.return = __syscall.sigpending.return ?,
 	kernel.function("compat_sys_sigpending").return ?
 {
 	@_SYSCALL_SIGPENDING_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.sigpending.return = kernel.function("sys_sigpending").return ?
 {
@@ -59,7 +59,7 @@ probe nd_syscall.sigpending.return = __nd_syscall.sigpending.return ?,
 	kprobe.function("compat_sys_sigpending").return ?
 {
 	@_SYSCALL_SIGPENDING_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd_syscall.sigpending.return =
 	kprobe.function("sys_sigpending").return ?

@@ -27,7 +27,7 @@ probe dw_syscall.syncfs = kernel.function("sys_syncfs").call ?
 probe dw_syscall.syncfs.return = kernel.function("sys_syncfs").return ?
 {
 	@_SYSCALL_SYNCFS_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_syncfs _____________________________________________________
@@ -42,5 +42,5 @@ probe nd_syscall.syncfs = kprobe.function("sys_syncfs") ?
 probe nd_syscall.syncfs.return = kprobe.function("sys_syncfs").return ?
 {
 	@_SYSCALL_SYNCFS_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

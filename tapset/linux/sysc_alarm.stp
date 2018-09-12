@@ -34,7 +34,7 @@ probe dw_syscall.alarm.return = kernel.function("sys32_alarm").return ?,
                              kernel.function("sys_alarm").return ?
 {
 	@_SYSCALL_ALARM_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_alarm _____________________________________________________
@@ -77,14 +77,14 @@ probe nd1_syscall.alarm.return = kprobe.function("sys32_alarm").return ?,
                                  kprobe.function("sys_alarm").return ?
 {
 	@_SYSCALL_ALARM_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.alarm.return = kprobe.function(@arch_syscall_prefix "sys_alarm").return ?
 {
 	@_SYSCALL_ALARM_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -93,5 +93,5 @@ probe tp_syscall.alarm.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_alarm"), @const("__NR_compat_alarm"))
 	@_SYSCALL_ALARM_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

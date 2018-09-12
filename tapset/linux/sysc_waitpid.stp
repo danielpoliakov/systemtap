@@ -34,7 +34,7 @@ probe dw_syscall.waitpid.return = kernel.function("sys_waitpid").return ?,
 	kernel.function("sys32_waitpid").return ?
 {
 	@_SYSCALL_WAITPID_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_waitpid _____________________________________________________
@@ -54,5 +54,5 @@ probe nd_syscall.waitpid.return = kprobe.function("sys_waitpid").return ?,
 	kprobe.function("sys32_waitpid").return ?
 {
 	@_SYSCALL_WAITPID_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

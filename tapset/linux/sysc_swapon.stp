@@ -33,7 +33,7 @@ probe dw_syscall.swapon = kernel.function("sys_swapon").call ?
 probe dw_syscall.swapon.return = kernel.function("sys_swapon").return ?
 {
 	@_SYSCALL_SWAPON_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_swapon _____________________________________________________
@@ -51,5 +51,5 @@ probe nd_syscall.swapon = kprobe.function("sys_swapon") ?
 probe nd_syscall.swapon.return = kprobe.function("sys_swapon").return ?
 {
 	@_SYSCALL_SWAPON_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

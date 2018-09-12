@@ -67,7 +67,7 @@ probe dw_syscall.wait4.return = __syscall.wait4.return,
 	else
 		status_str = _wait_status_str(user_int(@entry($stat_addr)))
 
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.wait4.return = kernel.function("sys_wait4").return
 {
@@ -135,7 +135,7 @@ probe nd1_syscall.wait4.return = __nd1_syscall.wait4.return,
 	else
 		status_str = _wait_status_str(user_int(status_uaddr))
 
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.wait4.return = kprobe.function("sys_wait4").return
 {
@@ -161,7 +161,7 @@ probe nd2_syscall.wait4.return = kprobe.function(@arch_syscall_prefix "sys_wait4
 	else
 		status_str = _wait_status_str(user_int(status_uaddr))
 
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 probe tp_syscall.wait4.return = kernel.trace("sys_exit")
@@ -178,5 +178,5 @@ probe tp_syscall.wait4.return = kernel.trace("sys_exit")
 	else
 		status_str = _wait_status_str(user_int(status_uaddr))
 
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

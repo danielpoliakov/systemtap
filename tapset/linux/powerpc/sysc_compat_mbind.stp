@@ -36,7 +36,7 @@ probe dw_syscall.compat_mbind = kernel.function("compat_mbind") ?
 probe dw_syscall.compat_mbind.return = kernel.function("compat_mbind").return ?
 {
 	@_SYSCALL_COMPAT_MBIND_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_compat_mbind _____________________________________________________
@@ -56,5 +56,5 @@ probe nd_syscall.compat_mbind = kprobe.function("compat_mbind") ?
 probe nd_syscall.compat_mbind.return = kprobe.function("compat_mbind").return ?
 {
 	@_SYSCALL_COMPAT_MBIND_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

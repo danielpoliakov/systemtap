@@ -25,7 +25,7 @@ probe dw_syscall.fsync = kernel.function("sys_fsync").call
 probe dw_syscall.fsync.return = kernel.function("sys_fsync").return
 {
 	@_SYSCALL_FSYNC_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_fsync _____________________________________________________
@@ -40,5 +40,5 @@ probe nd_syscall.fsync = kprobe.function("sys_fsync") ?
 probe nd_syscall.fsync.return = kprobe.function("sys_fsync").return ?
 {
 	@_SYSCALL_FSYNC_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

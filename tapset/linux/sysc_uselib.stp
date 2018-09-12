@@ -30,7 +30,7 @@ probe dw_syscall.uselib = kernel.function("sys_uselib").call ?
 probe dw_syscall.uselib.return = kernel.function("sys_uselib").return ?
 {
 	@_SYSCALL_USELIB_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_uselib _____________________________________________________
@@ -46,5 +46,5 @@ probe nd_syscall.uselib = kprobe.function("sys_uselib") ?
 probe nd_syscall.uselib.return = kprobe.function("sys_uselib").return ?
 {
 	@_SYSCALL_USELIB_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

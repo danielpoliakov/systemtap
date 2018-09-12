@@ -36,7 +36,7 @@ probe dw_syscall.fork = kernel.function("sys_fork").call ?
 probe dw_syscall.fork.return = kernel.function("sys_fork").return ?
 {
 	@_SYSCALL_FORK_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_fork _____________________________________________________
@@ -101,14 +101,14 @@ probe nd_syscall.fork.return = nd1_syscall.fork.return!, nd2_syscall.fork.return
 probe nd1_syscall.fork.return = kprobe.function("sys_fork").return ?
 {
 	@_SYSCALL_FORK_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.fork.return = kprobe.function(@arch_syscall0_prefix "sys_fork").return ?
 {
 	@_SYSCALL_FORK_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -117,5 +117,5 @@ probe tp_syscall.fork.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_fork"), @const("__NR_compat_fork"))
 	@_SYSCALL_FORK_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

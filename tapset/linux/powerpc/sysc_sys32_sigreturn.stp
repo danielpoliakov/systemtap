@@ -36,7 +36,7 @@ probe dw_syscall.sys32_sigreturn = kernel.function("sys32_sigreturn") ?
 probe dw_syscall.sys32_sigreturn.return = kernel.function("sys32_sigreturn").return ?
 {
 	@_SYSCALL_SYS32_SIGRETURN_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_sys32_sigreturn _____________________________________________________
@@ -56,5 +56,5 @@ probe nd_syscall.sys32_sigreturn = kprobe.function("sys32_sigreturn") ?
 probe nd_syscall.sys32_sigreturn.return = kprobe.function("sys32_sigreturn").return ?
 {
 	@_SYSCALL_SYS32_SIGRETURN_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

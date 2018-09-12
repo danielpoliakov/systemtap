@@ -39,7 +39,7 @@ probe dw_syscall.sys32_swapcontext = kernel.function("sys32_swapcontext") ?
 probe dw_syscall.sys32_swapcontext.return = kernel.function("sys32_swapcontext").return ?
 {
 	@_SYSCALL_SYS32_SWAPCONTEXT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_sys32_swapcontext _____________________________________________________
@@ -60,5 +60,5 @@ probe nd_syscall.sys32_swapcontext = kprobe.function("sys32_swapcontext") ?
 probe nd_syscall.sys32_swapcontext.return = kprobe.function("sys32_swapcontext").return ?
 {
 	@_SYSCALL_SYS32_SWAPCONTEXT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

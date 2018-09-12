@@ -90,7 +90,7 @@ probe dw_syscall.fanotify_mark.return =
 	kernel.function("compat_sys_fanotify_mark").return ?
 {
 	@_SYSCALL_FANOTIFY_MARK_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_fanotify_mark _____________________________________________________
@@ -173,7 +173,7 @@ probe nd1_syscall.fanotify_mark.return =
 	kprobe.function("compat_sys_fanotify_mark").return ?
 {
 	@_SYSCALL_FANOTIFY_MARK_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -182,7 +182,7 @@ probe nd2_syscall.fanotify_mark.return =
 	kprobe.function(@arch_syscall_prefix "compat_sys_fanotify_mark").return ?
 {
 	@_SYSCALL_FANOTIFY_MARK_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -191,5 +191,5 @@ probe tp_syscall.fanotify_mark.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_fanotify_mark"), @const("__NR_compat_fanotify_mark"))
 	@_SYSCALL_FANOTIFY_MARK_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

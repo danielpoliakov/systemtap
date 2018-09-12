@@ -45,7 +45,7 @@ probe dw_syscall.clock_getres.return =
 	__syscall.clock_getres.return ?
 {
 	@_SYSCALL_CLOCK_GETRES_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.clock_getres.return =
 	kernel.function("sys_clock_getres").return
@@ -101,7 +101,7 @@ probe nd1_syscall.clock_getres.return =
 	__nd1_syscall.clock_getres.return ?
 {
 	@_SYSCALL_CLOCK_GETRES_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.clock_getres.return =
 	kprobe.function("sys_clock_getres").return
@@ -115,7 +115,7 @@ probe nd2_syscall.clock_getres.return =
 	kprobe.function(@arch_syscall_prefix "sys_clock_getres").return ?
 {
 	@_SYSCALL_CLOCK_GETRES_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -124,5 +124,5 @@ probe tp_syscall.clock_getres.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_clock_getres"), @const("__NR_compat_clock_getres"))
 	@_SYSCALL_CLOCK_GETRES_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

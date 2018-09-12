@@ -40,7 +40,7 @@ probe dw_syscall.pselect7.return = kernel.function("sys_pselect7").return ?
 {
 	@__syscall_gate(@const("__NR_pselect7"))
 	@_SYSCALL_PSELECT7_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_pselect7 _____________________________________________________
@@ -64,7 +64,7 @@ probe nd_syscall.pselect7.return = kprobe.function("sys_pselect7").return ?
 {
 	@__syscall_gate(@const("__NR_pselect7"))
 	@_SYSCALL_PSELECT7_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 # compat_pselect7 ______________________________________________
 
@@ -93,7 +93,7 @@ probe dw_syscall.compat_pselect7.return = kernel.function("compat_sys_pselect7")
 {
 	@__compat_syscall_gate(@const("__NR_compat_pselect7"))
 	@_SYSCALL_PSELECT7_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_compat_pselect7 _____________________________________________________
@@ -117,5 +117,5 @@ probe nd_syscall.compat_pselect7.return = kprobe.function("compat_sys_pselect7")
 {
 	@__compat_syscall_gate(@const("__NR_compat_pselect7"))
 	@_SYSCALL_PSELECT7_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

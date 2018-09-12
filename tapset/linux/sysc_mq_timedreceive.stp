@@ -60,7 +60,7 @@ probe dw_syscall.mq_timedreceive.return =
         kernel.function("compat_sys_mq_timedreceive").return ?
 {
 	@_SYSCALL_MQ_TIMEDRECEIVE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.mq_timedreceive.return = kernel.function("sys_mq_timedreceive").return
 {
@@ -147,7 +147,7 @@ probe nd1_syscall.mq_timedreceive.return =
         kprobe.function("compat_sys_mq_timedreceive").return ?
 {
 	@_SYSCALL_MQ_TIMEDRECEIVE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.mq_timedreceive.return = kprobe.function("sys_mq_timedreceive").return
 {
@@ -160,7 +160,7 @@ probe nd2_syscall.mq_timedreceive.return =
 	kprobe.function(@arch_syscall_prefix "compat_sys_mq_timedreceive").return ?
 {
 	@_SYSCALL_MQ_TIMEDRECEIVE_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -169,5 +169,5 @@ probe tp_syscall.mq_timedreceive.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_mq_timedreceive"), @const("__NR_compat_mq_timedreceive"))
 	@_SYSCALL_MQ_TIMEDRECEIVE_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

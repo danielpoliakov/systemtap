@@ -24,7 +24,7 @@ probe dw_syscall.getpgrp = kernel.function("sys_getpgrp").call ?
 probe dw_syscall.getpgrp.return = kernel.function("sys_getpgrp").return ?
 {
 	@_SYSCALL_GETPGRP_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_getpgrp _____________________________________________________
@@ -59,14 +59,14 @@ probe nd_syscall.getpgrp.return = nd1_syscall.getpgrp.return!, nd2_syscall.getpg
 probe nd1_syscall.getpgrp.return = kprobe.function("sys_getpgrp").return ?
 {
 	@_SYSCALL_GETPGRP_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.getpgrp.return = kprobe.function(@arch_syscall0_prefix "sys_getpgrp").return ?
 {
 	@_SYSCALL_GETPGRP_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -75,5 +75,5 @@ probe tp_syscall.getpgrp.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_getpgrp"), @const("__NR_compat_getpgrp"))
 	@_SYSCALL_GETPGRP_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

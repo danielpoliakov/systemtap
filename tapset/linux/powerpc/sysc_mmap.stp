@@ -44,7 +44,7 @@ probe dw_syscall.mmap = kernel.function("sys_mmap") ?
 probe dw_syscall.mmap.return = kernel.function("sys_mmap").return ?
 {
         @_SYSCALL_MMAP_NAME
-        retstr = return_str(2, $return)
+        @SYSC_RETVALSTR2($return)
 }
 
 # nd_mmap _____________________________________________________
@@ -68,6 +68,6 @@ probe nd_syscall.mmap = kprobe.function("sys_mmap") ?
 probe nd_syscall.mmap.return = kprobe.function("sys_mmap").return ?
 {
 	@_SYSCALL_MMAP_NAME
-	retstr = returnstr(2)
+	@SYSC_RETVALSTR2(returnval())
 }
 %)

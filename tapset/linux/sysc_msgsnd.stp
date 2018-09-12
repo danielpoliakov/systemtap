@@ -63,7 +63,7 @@ probe dw_syscall.msgsnd.return = kernel.function("sys_msgsnd").return ?
 {
 	@__syscall_gate_compat_simple
 	@_SYSCALL_MSGSND_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_msgsnd _____________________________________________________
@@ -106,14 +106,14 @@ probe nd1_syscall.msgsnd.return = kprobe.function("sys_msgsnd").return ?
 {
 	@__syscall_gate_compat_simple
 	@_SYSCALL_MSGSND_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.msgsnd.return = kprobe.function(@arch_syscall_prefix "sys_msgsnd").return ?
 {
 	@_SYSCALL_MSGSND_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -122,7 +122,7 @@ probe tp_syscall.msgsnd.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_gate(@const("__NR_msgsnd"))
 	@_SYSCALL_MSGSND_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 
 # compat_sys_msgsnd ________________________________________
@@ -172,7 +172,7 @@ probe dw_syscall.compat_sys_msgsnd.return =
 	__syscall.compat_ipc.msgsnd.return ?
 {
 	@_SYSCALL_MSGSND_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.compat_sys_msgsnd.return =
 	kernel.function("compat_sys_msgsnd").return ?
@@ -240,7 +240,7 @@ probe nd1_syscall.compat_sys_msgsnd.return =
 	__nd1_syscall.compat_ipc.msgsnd.return ?
 {
 	@_SYSCALL_MSGSND_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.compat_sys_msgsnd.return =
 	kprobe.function("compat_sys_msgsnd").return ?
@@ -261,7 +261,7 @@ probe nd2_syscall.compat_sys_msgsnd.return =
 	__set_syscall_pt_regs(@entry(pointer_arg(1)))
 	if ((uint_arg(1) & 0xffff) != @const("MSGSND")) next;
 	@_SYSCALL_MSGSND_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -271,5 +271,5 @@ probe tp_syscall.msgsnd.return = kernel.trace("sys_exit")
 	@__compat_syscall_gate(@const("__NR_compat_ipc"))
 	if ((uint_arg(1) & 0xffff) != @const("MSGSND")) next;
 	@_SYSCALL_MSGSND_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

@@ -46,7 +46,7 @@ probe dw_syscall.recvmmsg = kernel.function("sys_recvmmsg").call ?
 probe dw_syscall.recvmmsg.return = kernel.function("sys_recvmmsg").return ?
 {
 	@_SYSCALL_RECVMMSG_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_recvmmsg _____________________________________________________
@@ -90,14 +90,14 @@ probe nd_syscall.recvmmsg.return = nd1_syscall.recvmmsg.return!, nd2_syscall.rec
 probe nd1_syscall.recvmmsg.return = kprobe.function("sys_recvmmsg").return ?
 {
 	@_SYSCALL_RECVMMSG_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.recvmmsg.return = kprobe.function(@arch_syscall_prefix "sys_recvmmsg").return ?
 {
 	@_SYSCALL_RECVMMSG_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -106,7 +106,7 @@ probe tp_syscall.recvmmsg.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_gate(@const("__NR_recvmmsg"))
 	@_SYSCALL_RECVMMSG_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 
 # compat_recvmmsg ___________________________________________________
@@ -139,7 +139,7 @@ probe dw_syscall.compat_recvmmsg.return =
 	kernel.function("compat_sys_recvmmsg").return ?
 {
 	@_SYSCALL_RECVMMSG_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_compat_recvmmsg _____________________________________________________
@@ -184,14 +184,14 @@ probe nd1_syscall.compat_recvmmsg.return =
 	kprobe.function("compat_sys_recvmmsg").return ?
 {
 	@_SYSCALL_RECVMMSG_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.compat_recvmmsg.return = kprobe.function(@arch_syscall_prefix "compat_sys_recvmmsg").return ?
 {
 	@_SYSCALL_RECVMMSG_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -200,5 +200,5 @@ probe tp_syscall.compat_recvmmsg.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__compat_syscall_gate(@const("__NR_compat_recvmmsg"))
 	@_SYSCALL_RECVMMSG_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

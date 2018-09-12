@@ -37,7 +37,7 @@ probe dw_syscall.iopl = kernel.function("sys_iopl")
 probe dw_syscall.iopl.return = kernel.function("sys_iopl").return
 {
 	@_SYSCALL_IOPL_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_iopl _____________________________________________________
@@ -78,14 +78,14 @@ probe nd_syscall.iopl.return = nd1_syscall.iopl.return!, nd2_syscall.iopl.return
 probe nd1_syscall.iopl.return = kprobe.function("sys_iopl").return
 {
 	@_SYSCALL_IOPL_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.iopl.return = kprobe.function(@arch_syscall_prefix "sys_iopl").return ?
 {
 	@_SYSCALL_IOPL_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -94,5 +94,5 @@ probe tp_syscall.iopl.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_gate(@const("__NR_iopl"))
 	@_SYSCALL_IOPL_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

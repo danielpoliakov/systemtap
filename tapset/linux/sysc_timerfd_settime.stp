@@ -50,7 +50,7 @@ probe dw_syscall.timerfd_settime.return = __syscall.timerfd_settime.return ?,
 	kernel.function("compat_sys_timerfd_settime").return ?
 {
 	@_SYSCALL_TIMERFD_SETTIME_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.timerfd_settime.return =
 	kernel.function("sys_timerfd_settime").return ?
@@ -94,7 +94,7 @@ probe nd_syscall.timerfd_settime.return = __nd_syscall.timerfd_settime.return ?,
 	kprobe.function("compat_sys_timerfd_settime").return ?
 {
 	@_SYSCALL_TIMERFD_SETTIME_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd_syscall.timerfd_settime.return =
 	kprobe.function("sys_timerfd_settime").return ?

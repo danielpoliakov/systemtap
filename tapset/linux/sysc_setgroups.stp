@@ -41,7 +41,7 @@ probe dw_syscall.setgroups.return = kernel.function("sys_setgroups16").return ?,
 	kernel.function("sys_setgroups").return ?
 {
 	@_SYSCALL_SETGROUPS_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_setgroups _____________________________________________________
@@ -67,5 +67,5 @@ probe nd_syscall.setgroups.return = kprobe.function("sys_setgroups16").return ?,
 	kprobe.function("sys_setgroups").return ?
 {
 	@_SYSCALL_SETGROUPS_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

@@ -34,7 +34,7 @@ probe dw_syscall.memfd_create = kernel.function("sys_memfd_create").call ?
 probe dw_syscall.memfd_create.return = kernel.function("sys_memfd_create").return ?
 {
 	@_SYSCALL_MEMFD_CREATE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_memfd_create _____________________________________________________
@@ -75,14 +75,14 @@ probe nd_syscall.memfd_create.return = nd1_syscall.memfd_create.return!, nd2_sys
 probe nd1_syscall.memfd_create.return = kprobe.function("sys_memfd_create").return ?
 {
 	@_SYSCALL_MEMFD_CREATE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.memfd_create.return = kprobe.function(@arch_syscall_prefix "sys_memfd_create").return ?
 {
 	@_SYSCALL_MEMFD_CREATE_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -91,5 +91,5 @@ probe tp_syscall.memfd_create.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_memfd_create"), @const("__NR_compat_memfd_create"))
 	@_SYSCALL_MEMFD_CREATE_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

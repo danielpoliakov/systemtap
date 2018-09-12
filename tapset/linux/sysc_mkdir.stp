@@ -34,7 +34,7 @@ probe dw_syscall.mkdir = kernel.function("sys_mkdir").call
 probe dw_syscall.mkdir.return = kernel.function("sys_mkdir").return
 {
 	@_SYSCALL_MKDIR_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_mkdir _____________________________________________________
@@ -75,14 +75,14 @@ probe nd_syscall.mkdir.return = nd1_syscall.mkdir.return!, nd2_syscall.mkdir.ret
 probe nd1_syscall.mkdir.return = kprobe.function("sys_mkdir").return ?
 {
 	@_SYSCALL_MKDIR_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.mkdir.return = kprobe.function(@arch_syscall_prefix "sys_mkdir").return
 {
 	@_SYSCALL_MKDIR_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -91,5 +91,5 @@ probe tp_syscall.mkdir.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_mkdir"), @const("__NR_compat_mkdir"))
 	@_SYSCALL_MKDIR_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

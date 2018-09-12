@@ -27,7 +27,7 @@ probe dw_syscall.userfaultfd = kernel.function("sys_userfaultfd").call ?
 probe dw_syscall.userfaultfd.return = kernel.function("sys_userfaultfd").return ?
 {
 	@_SYSCALL_USERFAULTFD_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_userfaultfd _____________________________________________________
@@ -44,5 +44,5 @@ probe nd_syscall.userfaultfd.return =
 	kprobe.function("sys_userfaultfd").return ?
 {
 	@_SYSCALL_USERFAULTFD_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

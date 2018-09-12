@@ -30,7 +30,7 @@ probe __syscall.eventfd = kernel.function("sys_eventfd").call
 probe dw_syscall.eventfd.return = __syscall.eventfd2.return ?,
 			       __syscall.eventfd.return ?
 {
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.eventfd2.return = kernel.function("sys_eventfd2").return
 {
@@ -124,7 +124,7 @@ probe nd_syscall.eventfd.return = nd1_syscall.eventfd.return!, nd2_syscall.event
 probe nd1_syscall.eventfd.return = __nd1_syscall.eventfd2.return ?,
                                   __nd1_syscall.eventfd.return ?
 {
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.eventfd2.return = kprobe.function("sys_eventfd2").return
 {
@@ -140,7 +140,7 @@ probe __nd1_syscall.eventfd.return = kprobe.function("sys_eventfd").return
 probe nd2_syscall.eventfd.return = __nd2_syscall.eventfd2.return ?,
                                   __nd2_syscall.eventfd.return ?
 {
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd2_syscall.eventfd2.return = kprobe.function(@arch_syscall_prefix "sys_eventfd2").return
 {
@@ -156,7 +156,7 @@ probe tp_syscall.eventfd.return = __tp_syscall.eventfd2.return ?,
                                   __tp_syscall.eventfd.return ?
 {
 	__set_syscall_pt_regs($regs)
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 probe __tp_syscall.eventfd2.return = kernel.trace("sys_exit")
 {

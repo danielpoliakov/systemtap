@@ -37,7 +37,7 @@ probe dw_syscall.bpf = kernel.function("sys_bpf") ?
 probe dw_syscall.bpf.return = kernel.function("sys_bpf").return ?
 {
 	@_SYSCALL_BPF_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_bpf _____________________________________________________
@@ -78,14 +78,14 @@ probe nd_syscall.bpf.return = nd1_syscall.bpf.return!, nd2_syscall.bpf.return!, 
 probe nd1_syscall.bpf.return = kprobe.function("sys_bpf").return ?
 {
 	@_SYSCALL_BPF_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.bpf.return = kprobe.function(@arch_syscall_prefix "sys_bpf").return ?
 {
 	@_SYSCALL_BPF_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -94,5 +94,5 @@ probe tp_syscall.bpf.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_bpf"), @const("__NR_compat_bpf"))
 	@_SYSCALL_BPF_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

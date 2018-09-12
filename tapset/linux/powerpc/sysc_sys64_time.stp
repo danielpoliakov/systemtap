@@ -27,7 +27,7 @@ probe dw_syscall.sys64_time = kernel.function("sys64_time") ?
 probe dw_syscall.sys64_time.return = kernel.function("sys64_time").return ?
 {
 	@_SYSCALL_SYS64_TIME_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_sys64_time _____________________________________________________
@@ -42,5 +42,5 @@ probe nd_syscall.sys64_time = kprobe.function("sys64_time") ?
 probe nd_syscall.sys64_time.return = kprobe.function("sys64_time").return ?
 {
 	@_SYSCALL_SYS64_TIME_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

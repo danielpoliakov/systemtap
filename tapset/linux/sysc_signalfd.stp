@@ -44,7 +44,7 @@ probe __syscall.signalfd = kernel.function("sys_signalfd").call
 probe dw_syscall.signalfd.return = __syscall.signalfd4.return !,
 				__syscall.signalfd.return ?
 {
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.signalfd4.return = kernel.function("sys_signalfd4").return
 {
@@ -78,7 +78,7 @@ probe dw_syscall.compat_signalfd.return =
 {
 	flags = __int32(@entry(@choose_defined($flags, 0)))
 	name = (flags == 0) ? "signalfd" : "signalfd4"
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_signalfd _____________________________________________________
@@ -114,7 +114,7 @@ probe __nd_syscall.signalfd = kprobe.function("sys_signalfd")
 probe nd_syscall.signalfd.return = __nd_syscall.signalfd4.return !,
                                    __nd_syscall.signalfd.return ?
 {
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd_syscall.signalfd4.return = kprobe.function("sys_signalfd4").return
 {
@@ -165,12 +165,12 @@ probe __nd_syscall.compat_signalfd4.return =
 {
 	flags = @entry(__asmlinkage_int_arg(4))
 	name = (flags == 0) ? "signalfd" : "signalfd4"
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd_syscall.compat_signalfd.return =
 		kprobe.function("compat_sys_signalfd").return
 {
 	flags = 0
 	name = "signalfd"
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

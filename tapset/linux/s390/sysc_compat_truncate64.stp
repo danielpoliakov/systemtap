@@ -35,7 +35,7 @@ probe dw_syscall.compat_truncate64.return =
 	kernel.function("compat_sys_s390_truncate64").return ?
 {
 	@_SYSCALL_COMPAT_TRUNCATE64_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_compat_truncate64 _____________________________________________________
@@ -55,5 +55,5 @@ probe nd_syscall.compat_truncate64.return =
 	kprobe.function("compat_sys_s390_truncate64").return ?
 {
 	@_SYSCALL_COMPAT_TRUNCATE64_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

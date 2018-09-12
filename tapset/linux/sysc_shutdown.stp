@@ -69,7 +69,7 @@ probe dw_syscall.shutdown.return = __syscall.shutdown.return ?,
 	__syscall.socketcall.shutdown.return ?
 {
 	@_SYSCALL_SHUTDOWN_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.shutdown.return = kernel.function("sys_shutdown").return ?
 {
@@ -177,7 +177,7 @@ probe nd1_syscall.shutdown.return = __nd1_syscall.shutdown.return ?,
 	__nd1_syscall.socketcall.shutdown.return ?
 {
 	@_SYSCALL_SHUTDOWN_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.shutdown.return = kprobe.function("sys_shutdown").return ?
 {
@@ -196,7 +196,7 @@ probe nd2_syscall.shutdown.return =
 	__nd2_syscall.socketcall.shutdown.return ?
 {
 	@_SYSCALL_SHUTDOWN_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd2_syscall.socketcall.shutdown.return =
 	kprobe.function(@arch_syscall_prefix "sys_socketcall").return ?,
@@ -211,7 +211,7 @@ probe tp_syscall.shutdown.return = __tp_syscall.shutdown.return ?,
 	__tp_syscall.socketcall.shutdown.return ?
 {
 	@_SYSCALL_SHUTDOWN_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 probe __tp_syscall.shutdown.return = kernel.trace("sys_exit")
 {

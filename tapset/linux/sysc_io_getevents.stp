@@ -62,7 +62,7 @@ probe dw_syscall.io_getevents.return = __syscall.io_getevents.return,
 	kernel.function("compat_sys_io_getevents").return ?
 {
 	@_SYSCALL_IO_GETEVENTS_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.io_getevents.return = kernel.function("sys_io_getevents").return ?
 {
@@ -114,7 +114,7 @@ probe nd1_syscall.io_getevents.return = __nd1_syscall.io_getevents.return,
 	kprobe.function("compat_sys_io_getevents").return ?
 {
 	@_SYSCALL_IO_GETEVENTS_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.io_getevents.return =
 	kprobe.function("sys_io_getevents").return ?
@@ -127,7 +127,7 @@ probe nd2_syscall.io_getevents.return = kprobe.function(@arch_syscall_prefix "sy
 	kprobe.function(@arch_syscall_prefix "compat_sys_io_getevents").return ?
 {
 	@_SYSCALL_IO_GETEVENTS_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -136,5 +136,5 @@ probe tp_syscall.io_getevents.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_io_getevents"), @const("__NR_compat_io_getevents"))
 	@_SYSCALL_IO_GETEVENTS_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

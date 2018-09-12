@@ -40,7 +40,7 @@ probe dw_syscall.compat_lookup_dcookie.return = kernel.function("sys_lookup_dcoo
 {
 	@__syscall_gate_noncompat_simple
 	@_SYSCALL_COMPAT_LOOKUP_DCOOKIE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_compat_lookup_dcookie _____________________________________________________
@@ -78,7 +78,7 @@ probe nd1_syscall.compat_lookup_dcookie.return =
 {
 	@__syscall_gate_noncompat_simple
         @_SYSCALL_COMPAT_LOOKUP_DCOOKIE_NAME
-        retstr = returnstr(1)
+        @SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -87,5 +87,5 @@ probe tp_syscall.compat_lookup_dcookie.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__compat_syscall_gate(@const("__NR_lookup_dcookie"))
 	@_SYSCALL_COMPAT_LOOKUP_DCOOKIE_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

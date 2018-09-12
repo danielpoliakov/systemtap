@@ -37,7 +37,7 @@ probe dw_syscall.setpgid = kernel.function("sys_setpgid").call
 probe dw_syscall.setpgid.return = kernel.function("sys_setpgid").return
 {
 	@_SYSCALL_SETPGID_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_setpgid _____________________________________________________
@@ -78,14 +78,14 @@ probe nd_syscall.setpgid.return = nd1_syscall.setpgid.return!, nd2_syscall.setpg
 probe nd1_syscall.setpgid.return = kprobe.function("sys_setpgid").return ?
 {
 	@_SYSCALL_SETPGID_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.setpgid.return = kprobe.function(@arch_syscall_prefix "sys_setpgid").return ?
 {
 	@_SYSCALL_SETPGID_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -94,5 +94,5 @@ probe tp_syscall.setpgid.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_setpgid"), @const("__NR_compat_setpgid"))
 	@_SYSCALL_SETPGID_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

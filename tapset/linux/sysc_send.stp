@@ -85,7 +85,7 @@ probe dw_syscall.send.return = __syscall.send.return ?,
 	__syscall.socketcall.send.return ?
 {
 	@_SYSCALL_SEND_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.send.return = kernel.function("sys_send").return ?
 {
@@ -195,7 +195,7 @@ probe nd1_syscall.send.return = __nd1_syscall.send.return ?,
 	__nd1_syscall.socketcall.send.return ?
 {
 	@_SYSCALL_SEND_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.send.return = kprobe.function("sys_send").return ?
 {
@@ -214,7 +214,7 @@ probe nd2_syscall.send.return =
 	__nd2_syscall.socketcall.send.return ?
 {
 	@_SYSCALL_SEND_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd2_syscall.socketcall.send.return =
 	kprobe.function(@arch_syscall_prefix "sys_socketcall").return ?,
@@ -229,7 +229,7 @@ probe tp_syscall.send.return = __tp_syscall.send.return ?,
 	__tp_syscall.socketcall.send.return ?
 {
 	@_SYSCALL_SEND_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 probe __tp_syscall.send.return = kernel.trace("sys_exit")
 {

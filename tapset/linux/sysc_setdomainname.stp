@@ -46,7 +46,7 @@ probe dw_syscall.setdomainname = kernel.function("sys_setdomainname").call
 probe dw_syscall.setdomainname.return = kernel.function("sys_setdomainname").return
 {
 	@_SYSCALL_SETDOMAINNAME_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_setdomainname _____________________________________________________
@@ -87,14 +87,14 @@ probe nd_syscall.setdomainname.return = nd1_syscall.setdomainname.return!, nd2_s
 probe nd1_syscall.setdomainname.return = kprobe.function("sys_setdomainname").return ?
 {
 	@_SYSCALL_SETDOMAINNAME_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.setdomainname.return = kprobe.function(@arch_syscall_prefix "sys_setdomainname").return ?
 {
 	@_SYSCALL_SETDOMAINNAME_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -103,5 +103,5 @@ probe tp_syscall.setdomainname.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_setdomainname"), @const("__NR_compat_setdomainname"))
 	@_SYSCALL_SETDOMAINNAME_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

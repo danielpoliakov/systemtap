@@ -50,7 +50,7 @@ probe dw_syscall.name_to_handle_at.return =
 	kernel.function("sys_name_to_handle_at").return ?
 {
 	@_SYSCALL_NAME_TO_HANDLE_AT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_name_to_handle_at _____________________________________________________
@@ -95,7 +95,7 @@ probe nd1_syscall.name_to_handle_at.return =
 	kprobe.function("sys_name_to_handle_at").return ?
 {
 	@_SYSCALL_NAME_TO_HANDLE_AT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -103,7 +103,7 @@ probe nd2_syscall.name_to_handle_at.return =
 	kprobe.function(@arch_syscall_prefix "sys_name_to_handle_at").return ?
 {
 	@_SYSCALL_NAME_TO_HANDLE_AT_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -113,5 +113,5 @@ probe tp_syscall.name_to_handle_at.return = kernel.trace("sys_exit")
 	@__syscall_compat_gate(@const("__NR_name_to_handle_at"), 
 			       @const("__NR_compat_name_to_handle_at"))
 	@_SYSCALL_NAME_TO_HANDLE_AT_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

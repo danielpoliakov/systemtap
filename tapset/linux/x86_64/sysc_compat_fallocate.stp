@@ -49,7 +49,7 @@ probe dw_syscall.compat_fallocate.return =
 	kernel.function("compat_sys_x86_fallocate").return ?
 {
 	@_SYSCALL_COMPAT_FALLOCATE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_compat_fallocate _____________________________________________________
@@ -94,7 +94,7 @@ probe nd1_syscall.compat_fallocate.return =
 	kprobe.function("compat_sys_x86_fallocate").return ?
 {
 	@_SYSCALL_COMPAT_FALLOCATE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -102,7 +102,7 @@ probe nd2_syscall.compat_fallocate.return =
 	kprobe.function(@arch_syscall_prefix "compat_sys_x86_fallocate").return ?
 {
 	@_SYSCALL_COMPAT_FALLOCATE_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -111,5 +111,5 @@ probe tp_syscall.compat_fallocate.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__compat_syscall_gate(@const("__NR_ia32_fallocate"))
 	@_SYSCALL_COMPAT_FALLOCATE_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

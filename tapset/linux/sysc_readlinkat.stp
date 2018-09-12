@@ -48,7 +48,7 @@ probe dw_syscall.readlinkat.return = kernel.function("sys_readlinkat").return ?
 	@__syscall_compat_gate(@const("__NR_readlinkat"),
 			       @const("__NR_compat_readlinkat"))
 	@_SYSCALL_READLINKAT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_readlinkat _____________________________________________________
@@ -94,14 +94,14 @@ probe nd1_syscall.readlinkat.return = kprobe.function("sys_readlinkat").return ?
 	@__syscall_compat_gate(@const("__NR_readlinkat"),
 			       @const("__NR_compat_readlinkat"))
 	@_SYSCALL_READLINKAT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.readlinkat.return = kprobe.function(@arch_syscall_prefix "sys_readlinkat").return ?
 {
 	@_SYSCALL_READLINKAT_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -111,5 +111,5 @@ probe tp_syscall.readlinkat.return = kernel.trace("sys_exit")
 	@__syscall_compat_gate(@const("__NR_readlinkat"),
 			       @const("__NR_compat_readlinkat"))
 	@_SYSCALL_READLINKAT_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

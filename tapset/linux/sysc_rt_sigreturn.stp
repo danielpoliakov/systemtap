@@ -34,7 +34,7 @@ probe dw_syscall.rt_sigreturn.return =
 %( arch == "mips" %?
 	retstr = "void"
 %:
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 %)
 }
 
@@ -53,5 +53,5 @@ probe nd_syscall.rt_sigreturn.return =
 	kprobe.function("sys32_rt_sigreturn").return ?
 {
 	@_SYSCALL_RT_SIGRETURN_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

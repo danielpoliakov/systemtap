@@ -39,7 +39,7 @@ probe dw_syscall.fanotify_init.return =
 	kernel.function("sys_fanotify_init").return ?
 {
 	@_SYSCALL_FANOTIFY_INIT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_fanotify_init _____________________________________________________
@@ -81,14 +81,14 @@ probe nd1_syscall.fanotify_init.return =
 	kprobe.function("sys_fanotify_init").return ?
 {
 	@_SYSCALL_FANOTIFY_INIT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.fanotify_init.return = kprobe.function(@arch_syscall_prefix "sys_fanotify_init").return ?
 {
 	@_SYSCALL_FANOTIFY_INIT_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -97,5 +97,5 @@ probe tp_syscall.fanotify_init.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_fanotify_init"), @const("__NR_compat_fanotify_init"))
 	@_SYSCALL_FANOTIFY_INIT_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

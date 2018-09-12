@@ -67,7 +67,7 @@ probe dw_syscall.rt_sigtimedwait.return =
 	kernel.function("sys_rt_sigtimedwait").return
 {
 	@_SYSCALL_RT_SIGTIMEDWAIT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_rt_sigtimedwait _____________________________________________________
@@ -146,7 +146,7 @@ probe nd1_syscall.rt_sigtimedwait.return =
 	kprobe.function("sys_rt_sigtimedwait").return ?
 {
 	@_SYSCALL_RT_SIGTIMEDWAIT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -155,7 +155,7 @@ probe nd2_syscall.rt_sigtimedwait.return =
 	kprobe.function(@arch_syscall_prefix "compat_sys_rt_sigtimedwait").return ?
 {
 	@_SYSCALL_RT_SIGTIMEDWAIT_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -164,5 +164,5 @@ probe tp_syscall.rt_sigtimedwait.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_rt_sigtimedwait"), @const("__NR_compat_rt_sigtimedwait"))
 	@_SYSCALL_RT_SIGTIMEDWAIT_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

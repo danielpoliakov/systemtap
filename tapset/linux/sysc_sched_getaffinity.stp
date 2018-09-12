@@ -41,7 +41,7 @@ probe dw_syscall.sched_getaffinity.return =
 	kernel.function("compat_sys_sched_getaffinity").return ?
 {
 	@_SYSCALL_SCHED_GETAFFINITY_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_sched_getaffinity _____________________________________________________
@@ -62,5 +62,5 @@ probe nd_syscall.sched_getaffinity.return =
 	kprobe.function("compat_sys_sched_getaffinity").return ?
 {
 	@_SYSCALL_SCHED_GETAFFINITY_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

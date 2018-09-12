@@ -49,7 +49,7 @@ probe dw_syscall.open_by_handle_at.return =
 	kernel.function("compat_sys_open_by_handle_at").return ?
 {
 	@_SYSCALL_OPEN_BY_HANDLE_AT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_open_by_handle_at _____________________________________________________
@@ -96,7 +96,7 @@ probe nd1_syscall.open_by_handle_at.return =
 	kprobe.function("compat_sys_open_by_handle_at").return ?
 {
 	@_SYSCALL_OPEN_BY_HANDLE_AT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -105,7 +105,7 @@ probe nd2_syscall.open_by_handle_at.return =
 	kprobe.function(@arch_syscall_prefix "compat_sys_open_by_handle_at").return ?
 {
 	@_SYSCALL_OPEN_BY_HANDLE_AT_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -115,5 +115,5 @@ probe tp_syscall.open_by_handle_at.return = kernel.trace("sys_exit")
 	@__syscall_compat_gate(@const("__NR_open_by_handle_at"),
 			       @const("__NR_compat_open_by_handle_at"))
 	@_SYSCALL_OPEN_BY_HANDLE_AT_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

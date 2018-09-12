@@ -57,7 +57,7 @@ probe dw_syscall.getdents.return = __syscall.getdents.return ?,
 	kernel.function("compat_sys_getdents64").return ?
 {
 	@_SYSCALL_GETDENTS_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.getdents.return = kernel.function("sys_getdents").return ?,
                                   kernel.function("sys_getdents64").return ?
@@ -122,7 +122,7 @@ probe nd1_syscall.getdents.return = __nd1_syscall.getdents.return ?,
 	kprobe.function("compat_sys_getdents64").return ?
 {
 	@_SYSCALL_GETDENTS_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.getdents.return = kprobe.function("sys_getdents").return ?,
                                       kprobe.function("sys_getdents64").return ?
@@ -137,7 +137,7 @@ probe nd2_syscall.getdents.return = kprobe.function(@arch_syscall_prefix "sys_ge
                                     kprobe.function(@arch_syscall_prefix "compat_sys_getdents64").return ?
 {
 	@_SYSCALL_GETDENTS_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -145,7 +145,7 @@ probe tp_syscall.getdents.return = __tp_syscall.getdents.return, __tp_syscall.ge
 {
 	__set_syscall_pt_regs($regs)
 	@_SYSCALL_GETDENTS_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 probe __tp_syscall.getdents.return = kernel.trace("sys_exit")
 {

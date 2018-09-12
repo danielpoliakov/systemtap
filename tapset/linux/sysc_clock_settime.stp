@@ -59,12 +59,12 @@ probe __syscall.clock_settime.return =
 	kernel.function("sys_clock_settime").return
 {
 	@__syscall_gate(@const("__NR_clock_settime"))
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.compat_clock_settime.return =
 	kernel.function("compat_sys_clock_settime").return ?
 {
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_clock_settime _____________________________________________________
@@ -142,12 +142,12 @@ probe __nd1_syscall.clock_settime.return =
 	kprobe.function("sys_clock_settime").return
 {
 	@__syscall_gate(@const("__NR_clock_settime"))
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.compat_clock_settime.return =
 	kprobe.function("compat_sys_clock_settime").return ?
 {
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -155,7 +155,7 @@ probe nd2_syscall.clock_settime.return = kprobe.function(@arch_syscall_prefix "s
 	kprobe.function(@arch_syscall_prefix "compat_sys_clock_settime").return ?
 {
 	@_SYSCALL_CLOCK_SETTIME_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -164,5 +164,5 @@ probe tp_syscall.clock_settime.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_clock_settime"), @const("__NR_compat_clock_settime"))
 	@_SYSCALL_CLOCK_SETTIME_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

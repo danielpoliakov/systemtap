@@ -61,7 +61,7 @@ probe dw_syscall.setgid.return = kernel.function("sys_setgid16").return ?,
 				 __syscall.setgid.return ?
 {
 	@_SYSCALL_SETGID_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.setgid.return = kernel.function("sys_setgid").return ?
 {
@@ -86,7 +86,7 @@ probe nd_syscall.setgid.return = kprobe.function("sys_setgid16").return ?,
 				 __nd_syscall.setgid.return ?
 {
 	@_SYSCALL_SETGID_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd_syscall.setgid.return = kprobe.function("sys_setgid").return ?
 {

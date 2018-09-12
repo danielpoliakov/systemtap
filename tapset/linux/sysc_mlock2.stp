@@ -38,7 +38,7 @@ probe dw_syscall.mlock2 = kernel.function("sys_mlock2").call ?
 probe dw_syscall.mlock2.return = kernel.function("sys_mlock2").return ?
 {
 	@_SYSCALL_MLOCK2_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_mlock2 _____________________________________________________
@@ -79,14 +79,14 @@ probe nd_syscall.mlock2.return = nd1_syscall.mlock2.return!, nd2_syscall.mlock2.
 probe nd1_syscall.mlock2.return = kprobe.function("sys_mlock2").return ?
 {
 	@_SYSCALL_MLOCK2_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.mlock2.return = kprobe.function(@arch_syscall_prefix "sys_mlock2").return ?
 {
 	@_SYSCALL_MLOCK2_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -95,5 +95,5 @@ probe tp_syscall.mlock2.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_mlock2"), @const("__NR_compat_mlock2"))
 	@_SYSCALL_MLOCK2_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

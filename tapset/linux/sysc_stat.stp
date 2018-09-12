@@ -49,7 +49,7 @@ probe dw_syscall.stat.return = kernel.function("sys_stat").return ?,
                             kernel.function("compat_sys_newstat").return ?
 {
 	@_SYSCALL_STAT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_stat _____________________________________________________
@@ -82,5 +82,5 @@ probe nd_syscall.stat.return = kprobe.function("sys_stat").return ?,
 	kprobe.function("compat_sys_newstat").return ?
 {
 	@_SYSCALL_STAT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

@@ -33,7 +33,7 @@ probe dw_syscall.seccomp = kernel.function("sys_seccomp").call ?
 probe dw_syscall.seccomp.return = kernel.function("sys_seccomp").return ?
 {
 	@_SYSCALL_SECCOMP_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_seccomp _____________________________________________________
@@ -55,5 +55,5 @@ probe nd_syscall.seccomp = kprobe.function("sys_seccomp") ?
 probe nd_syscall.seccomp.return = kprobe.function("sys_seccomp").return ?
 {
 	@_SYSCALL_SECCOMP_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

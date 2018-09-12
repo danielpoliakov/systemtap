@@ -28,7 +28,7 @@ probe dw_syscall.sysctl32 = kernel.function("sys32_sysctl") ?
 probe dw_syscall.sysctl32.return = kernel.function("sys32_sysctl").return ?
 {
 	@_SYSCALL_SYSCTL32_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_sysctl32 _____________________________________________________
@@ -43,5 +43,5 @@ probe nd_syscall.sysctl32 = kprobe.function("sys32_sysctl") ?
 probe nd_syscall.sysctl32.return = kprobe.function("sys32_sysctl").return ?
 {
 	@_SYSCALL_SYSCTL32_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

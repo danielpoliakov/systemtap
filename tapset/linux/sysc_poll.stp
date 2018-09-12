@@ -36,7 +36,7 @@ probe dw_syscall.poll = kernel.function("sys_poll").call
 probe dw_syscall.poll.return = kernel.function("sys_poll").return
 {
 	@_SYSCALL_POLL_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_poll _____________________________________________________
@@ -77,14 +77,14 @@ probe nd_syscall.poll.return = nd1_syscall.poll.return!, nd2_syscall.poll.return
 probe nd1_syscall.poll.return = kprobe.function("sys_poll").return ?
 {
 	@_SYSCALL_POLL_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.poll.return = kprobe.function(@arch_syscall_prefix "sys_poll").return ?
 {
 	@_SYSCALL_POLL_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -93,5 +93,5 @@ probe tp_syscall.poll.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_poll"), @const("__NR_compat_poll"))
 	@_SYSCALL_POLL_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

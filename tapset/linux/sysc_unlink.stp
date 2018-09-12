@@ -28,7 +28,7 @@ probe dw_syscall.unlink = kernel.function("sys_unlink").call
 probe dw_syscall.unlink.return = kernel.function("sys_unlink").return
 {
 	@_SYSCALL_UNLINK_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_unlink _____________________________________________________
@@ -44,5 +44,5 @@ probe nd_syscall.unlink = kprobe.function("sys_unlink") ?
 probe nd_syscall.unlink.return = kprobe.function("sys_unlink").return ?
 {
 	@_SYSCALL_UNLINK_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

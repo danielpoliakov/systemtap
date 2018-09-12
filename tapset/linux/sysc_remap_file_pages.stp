@@ -50,7 +50,7 @@ probe dw_syscall.remap_file_pages = kernel.function("sys_remap_file_pages").call
 probe dw_syscall.remap_file_pages.return = kernel.function("sys_remap_file_pages").return ?
 {
 	@_SYSCALL_REMAP_FILE_PAGES_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_remap_file_pages _____________________________________________________
@@ -91,14 +91,14 @@ probe nd_syscall.remap_file_pages.return = nd1_syscall.remap_file_pages.return!,
 probe nd1_syscall.remap_file_pages.return = kprobe.function("sys_remap_file_pages").return ?
 {
 	@_SYSCALL_REMAP_FILE_PAGES_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.remap_file_pages.return = kprobe.function(@arch_syscall_prefix "sys_remap_file_pages").return ?
 {
 	@_SYSCALL_REMAP_FILE_PAGES_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -107,5 +107,5 @@ probe tp_syscall.remap_file_pages.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_remap_file_pages"), @const("__NR_compat_remap_file_pages"))
 	@_SYSCALL_REMAP_FILE_PAGES_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

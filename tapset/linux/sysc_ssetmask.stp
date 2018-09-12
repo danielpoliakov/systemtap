@@ -29,7 +29,7 @@ probe dw_syscall.ssetmask = kernel.function("sys_ssetmask").call ?
 probe dw_syscall.ssetmask.return = kernel.function("sys_ssetmask").return ?
 {
 	@_SYSCALL_SSETMASK_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_ssetmask _____________________________________________________
@@ -45,5 +45,5 @@ probe nd_syscall.ssetmask = kprobe.function("sys_ssetmask") ?
 probe nd_syscall.ssetmask.return = kprobe.function("sys_ssetmask").return ?
 {
 	@_SYSCALL_SSETMASK_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

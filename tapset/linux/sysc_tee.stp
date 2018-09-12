@@ -30,7 +30,7 @@ probe dw_syscall.tee = kernel.function("sys_tee").call ?
 probe dw_syscall.tee.return = kernel.function("sys_tee").return ?
 {
 	@_SYSCALL_TEE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_tee _____________________________________________________
@@ -48,5 +48,5 @@ probe nd_syscall.tee = kprobe.function("sys_tee") ?
 probe nd_syscall.tee.return = kprobe.function("sys_tee").return ?
 {
 	@_SYSCALL_TEE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

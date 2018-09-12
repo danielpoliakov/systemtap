@@ -51,7 +51,7 @@ probe dw_syscall.sendfile.return = __syscall.sendfile.return ?,
 	kernel.function("sys32_sendfile").return ?
 {
 	@_SYSCALL_SENDFILE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.sendfile.return = kernel.function("sys_sendfile").return ?,
 	kernel.function("sys_sendfile64").return ?
@@ -85,7 +85,7 @@ probe nd_syscall.sendfile.return = __nd_syscall.sendfile.return ?,
 	kprobe.function("sys32_sendfile").return ?
 {
 	@_SYSCALL_SENDFILE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd_syscall.sendfile.return = kprobe.function("sys_sendfile").return ?,
 	kprobe.function("sys_sendfile64").return ?

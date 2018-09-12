@@ -32,7 +32,7 @@ probe dw_syscall.fadvise64.return = kernel.function("sys_fadvise64").return ?
 {
 	@__syscall_gate_compat_simple
 	@_SYSCALL_FADVISE64_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_fadvise64 _____________________________________________________
@@ -105,14 +105,14 @@ probe nd1_syscall.fadvise64.return = kprobe.function("sys_fadvise64").return ?
 {
 	@__syscall_gate_compat_simple
 	@_SYSCALL_FADVISE64_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.fadvise64.return = kprobe.function(@arch_syscall_prefix "sys_fadvise64").return ?
 {
 	@_SYSCALL_FADVISE64_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -121,7 +121,7 @@ probe tp_syscall.fadvise64.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_gate(@const("__NR_fadvise64"))
 	@_SYSCALL_FADVISE64_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 
 # fadvise64_64 _______________________________________________
@@ -159,7 +159,11 @@ probe dw_syscall.fadvise64_64.return =
 	@_SYSCALL_FADVISE64_NAME
         # sys_fadvise64_64 appears to miss dwarf on kernels such as 4.3.0-0.rc3.git4.1.fc24.x86_64
         # and symbol-table-based .return probes don't resolve $return
-        if (@defined($return)) { retstr = return_str(1, $return) } else { retstr = returnstr(1) }
+        if (@defined($return)) {
+              @SYSC_RETVALSTR($return)
+        } else {
+              @SYSC_RETVALSTR(returnval())
+        }
 }
 
 # nd_fadvise64_64 _____________________________________________________
@@ -242,7 +246,7 @@ probe nd1_syscall.fadvise64_64.return =
 	@__syscall_gate(@const("__NR_fadvise64_64"))
 %)
 	@_SYSCALL_FADVISE64_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -251,5 +255,5 @@ probe tp_syscall.fadvise64_64.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_gate(@const("__NR_fadvise64_64"))
 	@_SYSCALL_FADVISE64_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

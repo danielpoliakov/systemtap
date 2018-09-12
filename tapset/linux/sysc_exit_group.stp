@@ -1,8 +1,6 @@
 # exit_group _________________________________________________
 # void sys_exit_group(int error_code)
 #
-# sys_exit_group() never returns, and is blacklisted for return probes,
-# so no alias here.  See bz6588.
 # NB: the explicit .call ensures that alias suffixes can't infer .return
 
 @define _SYSCALL_EXIT_GROUP_NAME
@@ -21,7 +19,13 @@
 %)
 
 probe syscall.exit_group = dw_syscall.exit_group !, nd_syscall.exit_group ? {}
-probe syscall.exit_group.return = dw_syscall.exit_group.return !, nd_syscall.exit_group.return ? {}
+
+probe syscall.exit_group.return = never
+{
+	@_SYSCALL_EXIT_GROUP_NAME
+	@SYSC_RETVALSTR(0)
+}
+
 
 # dw_exit_group _____________________________________________________
 

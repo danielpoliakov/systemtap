@@ -33,7 +33,7 @@ probe dw_syscall.sys32_ptrace = kernel.function("sys32_ptrace") ?
 probe dw_syscall.sys32_ptrace.return = kernel.function("sys32_ptrace").return ?
 {
 	@_SYSCALL_SYS32_PTRACE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_sys32_ptrace _____________________________________________________
@@ -51,5 +51,5 @@ probe nd_syscall.sys32_ptrace = kprobe.function("sys32_ptrace") ?
 probe nd_syscall.sys32_ptrace.return = kprobe.function("sys32_ptrace").return ?
 {
 	@_SYSCALL_SYS32_PTRACE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

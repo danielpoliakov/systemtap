@@ -32,7 +32,7 @@ probe dw_syscall.getresuid16.return =
 	kernel.function("compat_sys_s390_getresuid16").return ?
 {
 	@_SYSCALL_GETRESUID16_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_getresuid16 _____________________________________________________
@@ -52,5 +52,5 @@ probe nd_syscall.getresuid16.return =
 	kprobe.function("compat_sys_s390_getresuid16").return ?
 {
 	@_SYSCALL_GETRESUID16_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

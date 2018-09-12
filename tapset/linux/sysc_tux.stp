@@ -27,7 +27,7 @@ probe dw_syscall.tux = kernel.function("sys_tux").call ?
 probe dw_syscall.tux.return = kernel.function("sys_tux").return ?
 {
 	@_SYSCALL_TUX_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_tux _____________________________________________________
@@ -43,5 +43,5 @@ probe nd_syscall.tux = kprobe.function("sys_tux") ?
 probe nd_syscall.tux.return = kprobe.function("sys_tux").return ?
 {
 	@_SYSCALL_TUX_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

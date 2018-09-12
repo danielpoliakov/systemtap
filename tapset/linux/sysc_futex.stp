@@ -50,7 +50,7 @@ probe dw_syscall.futex = kernel.function("sys_futex").call ?
 probe dw_syscall.futex.return = kernel.function("sys_futex").return ?
 {
 	@_SYSCALL_FUTEX_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe dw_syscall.compat_futex = kernel.function("compat_sys_futex").call ?
 {
@@ -67,7 +67,7 @@ probe dw_syscall.compat_futex.return =
 	kernel.function("compat_sys_futex").return ?
 {
 	@_SYSCALL_FUTEX_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_futex _____________________________________________________
@@ -108,14 +108,14 @@ probe nd_syscall.futex.return = nd1_syscall.futex.return!, nd2_syscall.futex.ret
 probe nd1_syscall.futex.return = kprobe.function("sys_futex").return ?
 {
 	@_SYSCALL_FUTEX_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.futex.return = kprobe.function(@arch_syscall_prefix "sys_futex").return ?
 {
 	@_SYSCALL_FUTEX_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -124,7 +124,7 @@ probe tp_syscall.futex.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_gate(@const("__NR_futex"))
 	@_SYSCALL_FUTEX_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 
 probe nd_syscall.compat_futex = nd1_syscall.compat_futex!, nd2_syscall.compat_futex!, tp_syscall.compat_futex
@@ -164,7 +164,7 @@ probe nd1_syscall.compat_futex.return =
 	kprobe.function("compat_sys_futex").return ?
 {
 	@_SYSCALL_FUTEX_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -172,7 +172,7 @@ probe nd2_syscall.compat_futex.return =
 	kprobe.function(@arch_syscall_prefix "compat_sys_futex").return ?
 {
 	@_SYSCALL_FUTEX_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -181,5 +181,5 @@ probe tp_syscall.compat_futex.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__compat_syscall_gate(@const("__NR_compat_futex"))
 	@_SYSCALL_FUTEX_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

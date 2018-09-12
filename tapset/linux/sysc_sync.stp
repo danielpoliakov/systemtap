@@ -26,7 +26,7 @@ probe dw_syscall.sync = kernel.function("sys_sync").call
 probe dw_syscall.sync.return = kernel.function("sys_sync").return
 {
 	@_SYSCALL_SYNC_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_sync _____________________________________________________
@@ -39,5 +39,5 @@ probe nd_syscall.sync = kprobe.function("sys_sync")
 probe nd_syscall.sync.return = kprobe.function("sys_sync").return
 {
 	@_SYSCALL_SYNC_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

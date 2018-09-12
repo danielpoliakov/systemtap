@@ -61,7 +61,7 @@ probe dw_syscall.truncate.return = __syscall.truncate.return ?,
 				kernel.function("compat_sys_truncate").return ?
 {
 	@_SYSCALL_TRUNCATE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.truncate.return = kernel.function("sys_truncate").return ?
 {
@@ -101,7 +101,7 @@ probe nd_syscall.truncate.return = __nd_syscall.truncate.return ?,
 	kprobe.function("compat_sys_truncate").return ?
 {
 	@_SYSCALL_TRUNCATE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd_syscall.truncate.return = kprobe.function("sys_truncate").return ?
 {

@@ -40,7 +40,7 @@ probe dw_syscall.semtimedop.return = kernel.function("sys_semtimedop").return ?
 {
 	@__syscall_gate2(@const("__NR_semtimedop"), @const("__NR_ipc"))
 	@_SYSCALL_SEMTIMEDOP_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_semtimedop _____________________________________________________
@@ -61,7 +61,7 @@ probe nd_syscall.semtimedop.return = kprobe.function("sys_semtimedop").return ?
 {
 	@__syscall_gate2(@const("__NR_semtimedop"), @const("__NR_ipc"))
 	@_SYSCALL_SEMTIMEDOP_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 # compat_sys_semtimedop ________________________________________
@@ -108,7 +108,7 @@ probe dw_syscall.compat_sys_semtimedop.return =
 	__syscall.compat_ipc.semtimedop.return ?
 {
 	@_SYSCALL_SEMTIMEDOP_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.compat_sys_semtimedop.return =
 	kernel.function("compat_sys_semtimedop").return ?
@@ -168,7 +168,7 @@ probe nd_syscall.compat_sys_semtimedop.return =
 	__nd_syscall.compat_ipc.semtimedop.return ?
 {
 	@_SYSCALL_SEMTIMEDOP_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd_syscall.compat_sys_semtimedop.return =
 	kprobe.function("compat_sys_semtimedop").return ?

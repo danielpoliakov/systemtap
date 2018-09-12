@@ -57,7 +57,7 @@ probe dw_syscall.process_vm_readv.return =
 	kernel.function("compat_sys_process_vm_readv").return ?
 {
 	@_SYSCALL_PROCESS_VM_READV_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_process_vm_readv _____________________________________________________
@@ -103,7 +103,7 @@ probe nd1_syscall.process_vm_readv.return =
 	kprobe.function("compat_sys_process_vm_readv").return ?
 {
 	@_SYSCALL_PROCESS_VM_READV_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -112,7 +112,7 @@ probe nd2_syscall.process_vm_readv.return =
 	kprobe.function(@arch_syscall_prefix "compat_sys_process_vm_readv").return ?
 {
 	@_SYSCALL_PROCESS_VM_READV_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -121,5 +121,5 @@ probe tp_syscall.process_vm_readv.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_process_vm_readv"), @const("__NR_compat_process_vm_readv"))
 	@_SYSCALL_PROCESS_VM_READV_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

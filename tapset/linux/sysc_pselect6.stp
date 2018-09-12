@@ -46,7 +46,7 @@ probe dw_syscall.pselect6 = kernel.function("sys_pselect6").call ?
 probe dw_syscall.pselect6.return = kernel.function("sys_pselect6").return ?
 {
 	@_SYSCALL_PSELECT6_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_pselect6 _____________________________________________________
@@ -90,14 +90,14 @@ probe nd_syscall.pselect6.return = nd1_syscall.pselect6.return!, nd2_syscall.pse
 probe nd1_syscall.pselect6.return = kprobe.function("sys_pselect6").return ?
 {
 	@_SYSCALL_PSELECT6_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.pselect6.return = kprobe.function(@arch_syscall_prefix "sys_pselect6").return ?
 {
 	@_SYSCALL_PSELECT6_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -106,7 +106,7 @@ probe tp_syscall.pselect6.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_gate(@const("__NR_pselect6"))
 	@_SYSCALL_PSELECT6_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 
 # pselect6 _____________________________________________________
@@ -136,7 +136,7 @@ probe dw_syscall.compat_pselect6 = kernel.function("compat_sys_pselect6").call ?
 probe dw_syscall.compat_pselect6.return = kernel.function("compat_sys_pselect6").return ?
 {
 	@_SYSCALL_PSELECT6_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_compat_pselect6 _____________________________________________________
@@ -178,14 +178,14 @@ probe nd_syscall.compat_pselect6.return = nd1_syscall.compat_pselect6.return!, n
 probe nd1_syscall.compat_pselect6.return = kprobe.function("compat_sys_pselect6").return ?
 {
 	@_SYSCALL_PSELECT6_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.compat_pselect6.return = kprobe.function(@arch_syscall_prefix "compat_sys_pselect6").return ?
 {
 	@_SYSCALL_PSELECT6_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -194,5 +194,5 @@ probe tp_syscall.compat_pselect6.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__compat_syscall_gate(@const("__NR_compat_pselect6"))
 	@_SYSCALL_PSELECT6_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

@@ -36,7 +36,7 @@ probe dw_syscall.sys32_rt_sigtimedwait = kernel.function("sys32_rt_sigtimedwait"
 probe dw_syscall.sys32_rt_sigtimedwait.return = kernel.function("sys32_rt_sigtimedwait").return ?
 {
 	@_SYSCALL_SYS32_RT_SIGTIMEDWAIT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_sys32_rt_sigtimedwait _____________________________________________________
@@ -54,5 +54,5 @@ probe nd_syscall.sys32_rt_sigtimedwait = kprobe.function("sys32_rt_sigtimedwait"
 probe nd_syscall.sys32_rt_sigtimedwait.return = kprobe.function("sys32_rt_sigtimedwait").return ?
 {
 	@_SYSCALL_SYS32_RT_SIGTIMEDWAIT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

@@ -29,7 +29,7 @@ probe dw_syscall.sys32_adjtimex = kernel.function("sys32_adjtimex") ?
 probe dw_syscall.sys32_adjtimex.return = kernel.function("sys32_adjtimex").return ?
 {
 	@_SYSCALL_SYS32_ADJTIMEX_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_sys32_adjtimex _____________________________________________________
@@ -44,6 +44,6 @@ probe nd_syscall.sys32_adjtimex = kprobe.function("sys32_adjtimex") ?
 probe nd_syscall.sys32_adjtimex.return = kprobe.function("sys32_adjtimex").return ?
 {
 	@_SYSCALL_SYS32_ADJTIMEX_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 

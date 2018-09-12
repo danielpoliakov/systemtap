@@ -38,7 +38,7 @@ probe dw_syscall.llistxattr = kernel.function("sys_llistxattr").call
 probe dw_syscall.llistxattr.return = kernel.function("sys_llistxattr").return
 {
 	@_SYSCALL_LLISTXATTR_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_llistxattr _____________________________________________________
@@ -79,14 +79,14 @@ probe nd_syscall.llistxattr.return = nd1_syscall.llistxattr.return!, nd2_syscall
 probe nd1_syscall.llistxattr.return = kprobe.function("sys_llistxattr").return ?
 {
 	@_SYSCALL_LLISTXATTR_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.llistxattr.return = kprobe.function(@arch_syscall_prefix "sys_llistxattr").return ?
 {
 	@_SYSCALL_LLISTXATTR_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -95,5 +95,5 @@ probe tp_syscall.llistxattr.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_llistxattr"), @const("__NR_compat_llistxattr"))
 	@_SYSCALL_LLISTXATTR_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

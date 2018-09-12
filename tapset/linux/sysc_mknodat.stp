@@ -46,7 +46,7 @@ probe dw_syscall.mknodat.return = kernel.function("sys_mknodat").return ?
 {
 	@__syscall_compat_gate(@const("__NR_mknodat"), @const("__NR_compat_mknodat"))
 	@_SYSCALL_MKNODAT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_mknodat _____________________________________________________
@@ -89,14 +89,14 @@ probe nd1_syscall.mknodat.return = kprobe.function("sys_mknodat").return ?
 {
 	@__syscall_compat_gate(@const("__NR_mknodat"), @const("__NR_compat_mknodat"))
 	@_SYSCALL_MKNODAT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.mknodat.return = kprobe.function(@arch_syscall_prefix "sys_mknodat").return ?
 {
 	@_SYSCALL_MKNODAT_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -105,5 +105,5 @@ probe tp_syscall.mknodat.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_mknodat"), @const("__NR_compat_mknodat"))
 	@_SYSCALL_MKNODAT_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

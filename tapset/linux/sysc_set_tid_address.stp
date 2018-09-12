@@ -30,7 +30,7 @@ probe dw_syscall.set_tid_address = kernel.function("sys_set_tid_address").call
 probe dw_syscall.set_tid_address.return = kernel.function("sys_set_tid_address").return
 {
 	@_SYSCALL_SET_TID_ADDRESS_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_set_tid_address _____________________________________________________
@@ -45,5 +45,5 @@ probe nd_syscall.set_tid_address = kprobe.function("sys_set_tid_address") ?
 probe nd_syscall.set_tid_address.return = kprobe.function("sys_set_tid_address").return ?
 {
 	@_SYSCALL_SET_TID_ADDRESS_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

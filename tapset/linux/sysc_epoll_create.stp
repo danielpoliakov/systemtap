@@ -25,7 +25,7 @@ probe dw_syscall.epoll_create.return = kernel.function("sys_epoll_create1").retu
 {
 	flags = __int32(@entry(@choose_defined($flags, 0)));
 	name = (flags == 0) ? "epoll_create" : "epoll_create1";
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_epoll_create _____________________________________________________
@@ -126,13 +126,13 @@ probe __nd1_syscall.epoll_create1.return = kprobe.function("sys_epoll_create1").
 {
 	flags = @entry(__asmlinkage_int_arg(1))
 	name = (flags == 0) ? "epoll_create" : "epoll_create1";
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.epoll_create.return = kprobe.function("sys_epoll_create").return
 {
 	flags = 0
 	name = "epoll_create"
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -145,13 +145,13 @@ probe __nd2_syscall.epoll_create1.return = kprobe.function(@arch_syscall_prefix 
 	__set_syscall_pt_regs(@entry(pointer_arg(1)))
 	flags = int_arg(1)
 	name = (flags == 0) ? "epoll_create" : "epoll_create1";
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd2_syscall.epoll_create.return = kprobe.function(@arch_syscall_prefix "sys_epoll_create").return
 {
 	flags = 0
 	name = "epoll_create"
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -165,7 +165,7 @@ probe __tp_syscall.epoll_create1.return = kernel.trace("sys_exit")
 	@__syscall_compat_gate(@const("__NR_epoll_create1"), @const("__NR_compat_epoll_create1"))
 	flags = int_arg(1)
 	name = (flags == 0) ? "epoll_create" : "epoll_create1";
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 probe __tp_syscall.epoll_create.return = kernel.trace("sys_exit")
 {
@@ -173,5 +173,5 @@ probe __tp_syscall.epoll_create.return = kernel.trace("sys_exit")
 	@__syscall_compat_gate(@const("__NR_epoll_create"), @const("__NR_compat_epoll_create"))
 	flags = 0
 	name = "epoll_create"
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

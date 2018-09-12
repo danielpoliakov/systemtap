@@ -66,7 +66,7 @@ probe dw_syscall.pread.return =
 	__syscall.pread.return
 {
 	@_SYSCALL_PREAD_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.pread.return = kernel.function("sys_pread64").return
 {
@@ -157,7 +157,7 @@ probe nd1_syscall.pread.return =
 	__nd1_syscall.pread.return
 {
 	@_SYSCALL_PREAD_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.pread.return = kprobe.function("sys_pread64").return
 {
@@ -171,7 +171,7 @@ probe nd2_syscall.pread.return = kprobe.function(@arch_syscall_prefix "sys_pread
 	kprobe.function(@arch_syscall_prefix "compat_sys_x86_pread").return ?
 {
 	@_SYSCALL_PREAD_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -180,5 +180,5 @@ probe tp_syscall.pread.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_pread64"), @const("__NR_compat_pread64"))
 	@_SYSCALL_PREAD_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

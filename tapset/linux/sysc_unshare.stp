@@ -28,7 +28,7 @@ probe dw_syscall.unshare = kernel.function("sys_unshare").call ?
 probe dw_syscall.unshare.return = kernel.function("sys_unshare").return ?
 {
 	@_SYSCALL_UNSHARE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_unshare _____________________________________________________
@@ -44,5 +44,5 @@ probe nd_syscall.unshare = kprobe.function("sys_unshare") ?
 probe nd_syscall.unshare.return = kprobe.function("sys_unshare").return ?
 {
 	@_SYSCALL_UNSHARE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

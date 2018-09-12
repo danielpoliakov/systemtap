@@ -44,7 +44,7 @@ probe dw_syscall.getrlimit.return =
 	__syscall.getrlimit.return ?
 {
 	@_SYSCALL_GETRLIMIT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.getrlimit.return = kernel.function("sys_getrlimit").return
 {
@@ -106,7 +106,7 @@ probe nd1_syscall.getrlimit.return = __nd1_syscall.getrlimit.return ?,
 	kprobe.function("compat_sys_getrlimit").return ?
 {
 	@_SYSCALL_GETRLIMIT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.getrlimit.return = kprobe.function("sys_getrlimit").return
 {
@@ -119,7 +119,7 @@ probe nd2_syscall.getrlimit.return =
 	kprobe.function(@arch_syscall_prefix "compat_sys_getrlimit").return ?
 {
 	@_SYSCALL_GETRLIMIT_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -127,7 +127,7 @@ probe tp_syscall.getrlimit.return = __tp_syscall.getrlimit.return, __tp_syscall.
 {
 	__set_syscall_pt_regs($regs)
 	@_SYSCALL_GETRLIMIT_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 probe __tp_syscall.getrlimit.return = kernel.trace("sys_exit")
 {

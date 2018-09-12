@@ -79,7 +79,7 @@ probe dw_syscall.sendmsg.return = __syscall.sendmsg.return ?,
 	# check is that we're not in a compat task.
 	@__syscall_gate_compat_simple
 	@_SYSCALL_SENDMSG_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.sendmsg.return = kernel.function("sys_sendmsg").return ?
 {
@@ -193,7 +193,7 @@ probe nd1_syscall.sendmsg.return = __nd1_syscall.sendmsg.return ?,
 	@__syscall_gate_compat_simple
 
 	@_SYSCALL_SENDMSG_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.sendmsg.return = kprobe.function("sys_sendmsg").return ?
 {
@@ -218,7 +218,7 @@ probe nd2_syscall.sendmsg.return =
 	@__syscall_gate_compat_simple
 
 	@_SYSCALL_SENDMSG_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd2_syscall.socketcall.sendmsg.return =
 	kprobe.function(@arch_syscall_prefix "sys_socketcall").return ?
@@ -239,7 +239,7 @@ probe tp_syscall.sendmsg.return = __tp_syscall.sendmsg.return ?,
 	@__syscall_gate_compat_simple
 
 	@_SYSCALL_SENDMSG_NAME
-	retstr = return_str(1, $ret)
+	@SYSC_RETVALSTR($ret)
 }
 probe __tp_syscall.sendmsg.return = kernel.trace("sys_exit")
 {
@@ -289,7 +289,7 @@ probe dw_syscall.compat_sys_sendmsg.return =
 {
 	if (__int32(@entry($call)) != @const("SYS_SENDMSG")) next;
 	@_SYSCALL_SENDMSG_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_compat_sys_sendmsg _____________________________________________________
@@ -337,7 +337,7 @@ probe nd1_syscall.compat_sys_sendmsg.return =
 {
 	if (@entry(__asmlinkage_int_arg(1)) != @const("SYS_SENDMSG")) next;
 	@_SYSCALL_SENDMSG_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -347,7 +347,7 @@ probe nd2_syscall.compat_sys_sendmsg.return =
 	__set_syscall_pt_regs(@entry(pointer_arg(1)))
 	if (int_arg(1) != @const("SYS_SENDMSG")) next;
 	@_SYSCALL_SENDMSG_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -357,5 +357,5 @@ probe tp_syscall.compat_sys_sendmsg.return = kernel.trace("sys_exit")
 	@__compat_syscall_gate(@const("__NR_compat_socketcall"))
 	if (int_arg(1) != @const("SYS_SENDMSG")) next;
 	@_SYSCALL_SENDMSG_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

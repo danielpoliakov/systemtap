@@ -31,7 +31,7 @@ probe dw_syscall.sysfs = kernel.function("sys_sysfs").call
 probe dw_syscall.sysfs.return = kernel.function("sys_sysfs").return
 {
 	name = "sysfs"
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_sysfs _____________________________________________________
@@ -55,5 +55,5 @@ probe nd_syscall.sysfs = kprobe.function("sys_sysfs") ?
 probe nd_syscall.sysfs.return = kprobe.function("sys_sysfs").return ?
 {
 	name = "sysfs"
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

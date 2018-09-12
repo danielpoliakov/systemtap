@@ -27,7 +27,7 @@ probe dw_syscall.setsid = kernel.function("sys_setsid").call
 probe dw_syscall.setsid.return = kernel.function("sys_setsid").return
 {
 	@_SYSCALL_SETSID_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_setsid _____________________________________________________
@@ -40,5 +40,5 @@ probe nd_syscall.setsid = kprobe.function("sys_setsid")
 probe nd_syscall.setsid.return = kprobe.function("sys_setsid").return
 {
 	@_SYSCALL_SETSID_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

@@ -47,7 +47,7 @@ probe dw_syscall.get_robust_list.return = __syscall.get_robust_list.return ?,
 		kernel.function("compat_sys_get_robust_list").return ?
 {
 	@_SYSCALL_GET_ROBUST_LIST_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.get_robust_list.return =
 		kernel.function("sys_get_robust_list").return
@@ -102,7 +102,7 @@ probe nd1_syscall.get_robust_list.return = __nd1_syscall.get_robust_list.return 
                                            kprobe.function("compat_sys_get_robust_list").return ?
 {
 	@_SYSCALL_GET_ROBUST_LIST_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.get_robust_list.return = kprobe.function("sys_get_robust_list").return
 {
@@ -115,7 +115,7 @@ probe nd2_syscall.get_robust_list.return =
 	kprobe.function(@arch_syscall_prefix "compat_sys_get_robust_list").return ?
 {
 	@_SYSCALL_GET_ROBUST_LIST_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -124,5 +124,5 @@ probe tp_syscall.get_robust_list.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_get_robust_list"), @const("__NR_compat_get_robust_list"))
 	@_SYSCALL_GET_ROBUST_LIST_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

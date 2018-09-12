@@ -38,7 +38,7 @@ probe dw_syscall.getcpu = kernel.function("sys_getcpu").call ?
 probe dw_syscall.getcpu.return = kernel.function("sys_getcpu").return ?
 {
 	@_SYSCALL_GETCPU_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_getcpu _____________________________________________________
@@ -79,14 +79,14 @@ probe nd_syscall.getcpu.return = nd1_syscall.getcpu.return!, nd2_syscall.getcpu.
 probe nd1_syscall.getcpu.return = kprobe.function("sys_getcpu").return ?
 {
 	@_SYSCALL_GETCPU_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.getcpu.return = kprobe.function(@arch_syscall_prefix "sys_getcpu").return ?
 {
 	@_SYSCALL_GETCPU_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -95,5 +95,5 @@ probe tp_syscall.getcpu.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_getcpu"), @const("__NR_compat_getcpu"))
 	@_SYSCALL_GETCPU_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

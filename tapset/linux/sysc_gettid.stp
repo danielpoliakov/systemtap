@@ -25,7 +25,7 @@ probe dw_syscall.gettid = kernel.function("sys_gettid").call
 probe dw_syscall.gettid.return = kernel.function("sys_gettid").return
 {
 	@_SYSCALL_GETTID_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_gettid _____________________________________________________
@@ -60,14 +60,14 @@ probe nd_syscall.gettid.return = nd1_syscall.gettid.return!, nd2_syscall.gettid.
 probe nd1_syscall.gettid.return = kprobe.function("sys_gettid").return
 {
 	@_SYSCALL_GETTID_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.gettid.return = kprobe.function(@arch_syscall0_prefix "sys_gettid").return ?
 {
 	@_SYSCALL_GETTID_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -76,5 +76,5 @@ probe tp_syscall.gettid.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_gettid"), @const("__NR_compat_gettid"))
 	@_SYSCALL_GETTID_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

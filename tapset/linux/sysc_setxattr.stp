@@ -40,7 +40,7 @@ probe dw_syscall.setxattr = kernel.function("sys_setxattr").call
 probe dw_syscall.setxattr.return = kernel.function("sys_setxattr").return
 {
 	@_SYSCALL_SETXATTR_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_setxattr _____________________________________________________
@@ -63,5 +63,5 @@ probe nd_syscall.setxattr = kprobe.function("sys_setxattr") ?
 probe nd_syscall.setxattr.return = kprobe.function("sys_setxattr").return ?
 {
 	@_SYSCALL_SETXATTR_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

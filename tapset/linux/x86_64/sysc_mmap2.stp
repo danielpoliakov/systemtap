@@ -53,7 +53,7 @@ probe dw_syscall.mmap2.return = kernel.function("sys_mmap2").return ?,
 {
 	@__syscall_compat_gate(@const("__NR_mmap2"), @const("__NR_ia32_mmap2"))
 	@_SYSCALL_MMAP2_NAME
-	retstr = return_str(2, $return)
+	@SYSC_RETVALSTR2($return)
 }
 
 # nd_mmap2 _____________________________________________________
@@ -88,6 +88,6 @@ probe nd_syscall.mmap2.return = kprobe.function("sys32_mmap2").return ?,
 {
 	@__syscall_compat_gate(@const("__NR_mmap2"), @const("__NR_ia32_mmap2"))
 	@_SYSCALL_MMAP2_NAME
-	retstr = returnstr(2)
+	@SYSC_RETVALSTR2(returnval())
 }
 %)

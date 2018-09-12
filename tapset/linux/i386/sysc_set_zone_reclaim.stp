@@ -34,7 +34,7 @@ probe dw_syscall.set_zone_reclaim = kernel.function("sys_set_zone_reclaim") ?
 probe dw_syscall.set_zone_reclaim.return = kernel.function("sys_set_zone_reclaim").return ?
 {
 	@_SYSCALL_SET_ZONE_RECLAIM_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_set_zone_reclaim _____________________________________________________
@@ -51,5 +51,5 @@ probe nd_syscall.set_zone_reclaim = kprobe.function("sys_set_zone_reclaim") ?
 probe nd_syscall.set_zone_reclaim.return = kprobe.function("sys_set_zone_reclaim").return ?
 {
 	@_SYSCALL_SET_ZONE_RECLAIM_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

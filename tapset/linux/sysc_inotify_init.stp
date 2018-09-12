@@ -39,13 +39,13 @@ probe __syscall.inotify_init1.return =
 	@__syscall_compat_gate(@const("__NR_inotify_init1"),
 			       @const("__NR_compat_inotify_init1"))
 	name = "inotify_init1"
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.inotify_init.return =
 	kernel.function("sys_inotify_init").return ?
 {
 	name = "inotify_init"
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_inotify_init _____________________________________________________
@@ -132,13 +132,13 @@ probe __nd1_syscall.inotify_init1.return =
 	@__syscall_compat_gate(@const("__NR_inotify_init1"),
 			       @const("__NR_compat_inotify_init1"))
 	name = "inotify_init1"
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.inotify_init.return =
 	kprobe.function("sys_inotify_init").return
 {
 	name = "inotify_init"
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -150,13 +150,13 @@ probe __nd2_syscall.inotify_init1.return =
 	kprobe.function(@arch_syscall_prefix "sys_inotify_init1").return ?
 {
 	name = "inotify_init1"
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd2_syscall.inotify_init.return = 
 	kprobe.function(@arch_syscall0_prefix "sys_inotify_init").return ?
 {
 	name = "inotify_init"
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -170,7 +170,7 @@ probe __tp_syscall.inotify_init1.return = kernel.trace("sys_exit")
 	@__syscall_compat_gate(@const("__NR_inotify_init1"), 
 			       @const("__NR_compat_inotify_init1"))
 	name = "inotify_init1"
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 probe __tp_syscall.inotify_init.return = kernel.trace("sys_exit")
 {
@@ -178,5 +178,5 @@ probe __tp_syscall.inotify_init.return = kernel.trace("sys_exit")
 	@__syscall_compat_gate(@const("__NR_inotify_init"),
 			       @const("__NR_compat_inotify_init"))
 	name = "inotify_init"
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

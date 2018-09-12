@@ -46,7 +46,7 @@ probe dw_syscall.select = kernel.function("sys_select").call
 probe dw_syscall.select.return = kernel.function("sys_select").return
 {
 	@_SYSCALL_SELECT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_select _____________________________________________________
@@ -90,14 +90,14 @@ probe nd_syscall.select.return = nd1_syscall.select.return!, nd2_syscall.select.
 probe nd1_syscall.select.return = kprobe.function("sys_select").return ?
 {
 	@_SYSCALL_SELECT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.select.return = kprobe.function(@arch_syscall_prefix "sys_select").return ?
 {
 	@_SYSCALL_SELECT_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -106,7 +106,7 @@ probe tp_syscall.select.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_gate2(@const("__NR_select"), @const("__NR__newselect"))
 	@_SYSCALL_SELECT_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 
 # long compat_sys_select(int n,
@@ -136,7 +136,7 @@ probe dw_syscall.compat_select = kernel.function("compat_sys_select").call ?
 probe dw_syscall.compat_select.return = kernel.function("compat_sys_select").return ?
 {
 	@_SYSCALL_SELECT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_compat_select _____________________________________________________
@@ -180,14 +180,14 @@ probe nd_syscall.compat_select.return = nd1_syscall.compat_select.return!, nd2_s
 probe nd1_syscall.compat_select.return = kprobe.function("compat_sys_select").return ?
 {
 	@_SYSCALL_SELECT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.compat_select.return = kprobe.function(@arch_syscall_prefix "compat_sys_select").return ?
 {
 	@_SYSCALL_SELECT_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -196,5 +196,5 @@ probe tp_syscall.compat_select.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__compat_syscall_gate(@const("__NR_compat__newselect"))
 	@_SYSCALL_SELECT_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

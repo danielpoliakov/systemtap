@@ -45,7 +45,7 @@ probe dw_syscall.msgget = kernel.function("sys_msgget").call ?
 probe dw_syscall.msgget.return = kernel.function("sys_msgget").return ?
 {
 	@_SYSCALL_MSGGET_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_msgget _____________________________________________________
@@ -107,7 +107,7 @@ probe nd_syscall.msgget.return = nd1_syscall.msgget.return!, nd2_syscall.msgget.
 probe nd1_syscall.msgget.return = kprobe.function("sys_msgget").return ?
 {
 	@_SYSCALL_MSGGET_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -116,7 +116,7 @@ probe nd2_syscall.msgget.return =
 	kprobe.function(@arch_syscall_prefix "sys_msgget").return ?
 {
 	@_SYSCALL_MSGGET_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd2_syscall.compat_ipc.msgget.return =
 	kprobe.function(@arch_syscall_prefix "compat_sys_ipc").return ?
@@ -129,7 +129,7 @@ probe __nd2_syscall.compat_ipc.msgget.return =
 probe tp_syscall.msgget.return = __tp_syscall.msgget.return, __tp_syscall.ipc.msgget.return
 {
 	@_SYSCALL_MSGGET_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 probe __tp_syscall.msgget.return = kernel.trace("sys_exit")
 {

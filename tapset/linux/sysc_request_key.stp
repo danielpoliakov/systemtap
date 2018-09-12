@@ -48,7 +48,7 @@ probe dw_syscall.request_key = kernel.function("sys_request_key").call ?
 probe dw_syscall.request_key.return = kernel.function("sys_request_key").return ?
 {
 	@_SYSCALL_REQUEST_KEY_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_request_key _____________________________________________________
@@ -89,14 +89,14 @@ probe nd_syscall.request_key.return = nd1_syscall.request_key.return!, nd2_sysca
 probe nd1_syscall.request_key.return = kprobe.function("sys_request_key").return ?
 {
 	@_SYSCALL_REQUEST_KEY_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.request_key.return = kprobe.function(@arch_syscall_prefix "sys_request_key").return ?
 {
 	@_SYSCALL_REQUEST_KEY_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -105,5 +105,5 @@ probe tp_syscall.request_key.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_request_key"), @const("__NR_compat_request_key"))
 	@_SYSCALL_REQUEST_KEY_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

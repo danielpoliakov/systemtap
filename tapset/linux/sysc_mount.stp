@@ -52,7 +52,7 @@ probe dw_syscall.mount.return = kernel.function("compat_sys_mount").return ?,
                              kernel.function("sys_mount").return
 {
 	@_SYSCALL_MOUNT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_mount _____________________________________________________
@@ -96,7 +96,7 @@ probe nd1_syscall.mount.return = kprobe.function("compat_sys_mount").return ?,
                                  kprobe.function("sys_mount").return ?
 {
 	@_SYSCALL_MOUNT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -104,7 +104,7 @@ probe nd2_syscall.mount.return = kprobe.function(@arch_syscall_prefix "sys_mount
                                  kprobe.function(@arch_syscall_prefix "compat_sys_mount").return ?
 {
 	@_SYSCALL_MOUNT_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -113,5 +113,5 @@ probe tp_syscall.mount.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_mount"), @const("__NR_compat_mount"))
 	@_SYSCALL_MOUNT_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

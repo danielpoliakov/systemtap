@@ -60,7 +60,7 @@ probe dw_syscall.compat_fadvise64.return =
 	kernel.function("compat_sys_x86_fadvise64").return ?
 {
 	@_SYSCALL_COMPAT_FADVISE64_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_compat_fadvise64 _____________________________________________________
@@ -105,7 +105,7 @@ probe nd1_syscall.compat_fadvise64.return =
 	kprobe.function("compat_sys_x86_fadvise64").return ?
 {
 	@_SYSCALL_COMPAT_FADVISE64_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -113,7 +113,7 @@ probe nd2_syscall.compat_fadvise64.return =
 	kprobe.function(@arch_syscall_prefix "compat_sys_x86_fadvise64").return ?
 {
 	@_SYSCALL_COMPAT_FADVISE64_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -122,7 +122,7 @@ probe tp_syscall.compat_fadvise64.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__compat_syscall_gate(@const("__NR_ia32_fadvise64"))
 	@_SYSCALL_COMPAT_FADVISE64_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 
 # fadvise64_64 __________________________________________________
@@ -156,7 +156,7 @@ probe dw_syscall.compat_fadvise64_64.return =
 	kernel.function("compat_sys_x86_fadvise64_64").return ?
 {
 	@_SYSCALL_COMPAT_FADVISE64_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_compat_fadvise64_64 _____________________________________________________
@@ -200,7 +200,7 @@ probe nd1_syscall.compat_fadvise64_64.return =
 	kprobe.function("compat_sys_x86_fadvise64_64").return ?
 {
 	@_SYSCALL_COMPAT_FADVISE64_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -208,7 +208,7 @@ probe nd2_syscall.compat_fadvise64_64.return =
 	kprobe.function(@arch_syscall_prefix "compat_sys_x86_fadvise64_64").return ?
 {
 	@_SYSCALL_COMPAT_FADVISE64_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -217,5 +217,5 @@ probe tp_syscall.compat_fadvise64_64.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__compat_syscall_gate(@const("__NR_ia32_fadvise64_64"))
 	@_SYSCALL_COMPAT_FADVISE64_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

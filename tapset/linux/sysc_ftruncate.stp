@@ -47,7 +47,7 @@ probe dw_syscall.ftruncate.return = __syscall.ftruncate.return,
 	kernel.function("compat_sys_ftruncate").return ?
 {
 	@_SYSCALL_FTRUNCATE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.ftruncate.return = kernel.function("sys_ftruncate").return
 {
@@ -74,7 +74,7 @@ probe nd_syscall.ftruncate.return = __nd_syscall.ftruncate.return,
 	kprobe.function("compat_sys_ftruncate").return ?
 {
 	@_SYSCALL_FTRUNCATE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd_syscall.ftruncate.return = kprobe.function("sys_ftruncate").return
 {
@@ -99,7 +99,7 @@ probe dw_syscall.ftruncate64 = kernel.function("sys_ftruncate64").call ?
 probe dw_syscall.ftruncate64.return = kernel.function("sys_ftruncate64").return ?
 {
 	@_SYSCALL_FTRUNCATE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_ftruncate64 _____________________________________________________
@@ -116,5 +116,5 @@ probe nd_syscall.ftruncate64.return =
 	kprobe.function("sys_ftruncate64").return ?
 {
 	@_SYSCALL_FTRUNCATE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

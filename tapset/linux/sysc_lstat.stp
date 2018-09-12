@@ -51,7 +51,7 @@ probe dw_syscall.lstat.return = kernel.function("sys_lstat").return ?,
 	kernel.function("sys_oabi_lstat64").return ?
 {
 	@_SYSCALL_LSTAT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_lstat _____________________________________________________
@@ -83,5 +83,5 @@ probe nd_syscall.lstat.return = kprobe.function("sys_lstat").return ?,
 	kprobe.function("sys_oabi_lstat64").return ?
 {
 	@_SYSCALL_LSTAT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

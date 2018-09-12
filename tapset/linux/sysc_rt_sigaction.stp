@@ -56,7 +56,7 @@ probe dw_syscall.rt_sigaction = kernel.function("sys_rt_sigaction").call ?
 probe dw_syscall.rt_sigaction.return = kernel.function("sys_rt_sigaction").return ?
 {
 	@_SYSCALL_RT_SIGACTION_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_rt_sigaction _____________________________________________________
@@ -98,14 +98,14 @@ probe nd1_syscall.rt_sigaction.return =
 	kprobe.function("sys_rt_sigaction").return ?
 {
 	@_SYSCALL_RT_SIGACTION_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.rt_sigaction.return = kprobe.function(@arch_syscall_prefix "sys_rt_sigaction").return ?
 {
 	@_SYSCALL_RT_SIGACTION_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -114,7 +114,7 @@ probe tp_syscall.rt_sigaction.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_gate(@const("__NR_rt_sigaction"))
 	@_SYSCALL_RT_SIGACTION_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 
 # long sys32_rt_sigaction(int sig,
@@ -151,7 +151,7 @@ probe dw_syscall.rt_sigaction32.return =
 	kernel.function("compat_sys_rt_sigaction").return ?
 {
 	@_SYSCALL_RT_SIGACTION_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_rt_sigaction32 _____________________________________________________
@@ -196,7 +196,7 @@ probe nd1_syscall.rt_sigaction32.return =
 	kprobe.function("compat_sys_rt_sigaction").return ?
 {
 	@_SYSCALL_RT_SIGACTION_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -204,7 +204,7 @@ probe nd2_syscall.rt_sigaction32.return =
 	kprobe.function(@arch_syscall_prefix "compat_sys_rt_sigaction").return ?
 {
 	@_SYSCALL_RT_SIGACTION_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -213,5 +213,5 @@ probe tp_syscall.rt_sigaction32.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__compat_syscall_gate(@const("__NR_compat_rt_sigaction"))
 	@_SYSCALL_RT_SIGACTION_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

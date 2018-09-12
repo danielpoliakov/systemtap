@@ -42,7 +42,7 @@ probe dw_syscall.dup2 = kernel.function("sys_dup2").call
 probe dw_syscall.dup2.return = kernel.function("sys_dup2").return
 {
 	@_SYSCALL_DUP2_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_dup2 _____________________________________________________
@@ -83,14 +83,14 @@ probe nd_syscall.dup2.return = nd1_syscall.dup2.return!, nd2_syscall.dup2.return
 probe nd1_syscall.dup2.return = kprobe.function("sys_dup2").return
 {
 	@_SYSCALL_DUP2_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.dup2.return = kprobe.function(@arch_syscall_prefix "sys_dup2").return ?
 {
 	@_SYSCALL_DUP2_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -99,5 +99,5 @@ probe tp_syscall.dup2.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_dup2"), @const("__NR_compat_dup2"))
 	@_SYSCALL_DUP2_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

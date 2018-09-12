@@ -30,7 +30,7 @@ probe dw_syscall.acct = kernel.function("sys_acct").call ?
 probe dw_syscall.acct.return = kernel.function("sys_acct").return ?
 {
 	@_SYSCALL_ACCT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_acct _____________________________________________________
@@ -71,14 +71,14 @@ probe nd_syscall.acct.return = nd1_syscall.acct.return!, nd2_syscall.acct.return
 probe nd1_syscall.acct.return = kprobe.function("sys_acct").return ?
 {
 	@_SYSCALL_ACCT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.acct.return = kprobe.function(@arch_syscall_prefix "sys_acct").return ?
 {
 	@_SYSCALL_ACCT_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -87,6 +87,6 @@ probe tp_syscall.acct.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_acct"), @const("__NR_compat_acct"))
 	@_SYSCALL_ACCT_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 

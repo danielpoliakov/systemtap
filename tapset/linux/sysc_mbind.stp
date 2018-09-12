@@ -54,7 +54,7 @@ probe dw_syscall.mbind.return = __syscall.mbind.return ?,
                              kernel.function("compat_sys_mbind").return ?
 {
 	@_SYSCALL_MBIND_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.mbind.return = kernel.function("sys_mbind").return
 {
@@ -90,7 +90,7 @@ probe nd_syscall.mbind.return = __nd_syscall.mbind.return ?,
                                 kprobe.function("compat_sys_mbind").return ?
 {
 	@_SYSCALL_MBIND_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd_syscall.mbind.return = kprobe.function("sys_mbind").return
 {

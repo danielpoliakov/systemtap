@@ -103,7 +103,7 @@ probe __syscall.pipe2.return = kernel.function("sys_pipe2").return ?
 		pipe0 = user_int(&@cast(@entry($fildes), "int")[0])
 		pipe1 = user_int(&@cast(@entry($fildes), "int")[1])
 	}
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.ia64_pipe.return = kernel.function("sys_ia64_pipe").return ?
 {
@@ -111,7 +111,9 @@ probe __syscall.ia64_pipe.return = kernel.function("sys_ia64_pipe").return ?
 	fildes_uaddr = 0;
 	pipe0 = _ia64_pipe0();
 	pipe1 = _ia64_pipe1();
-	retstr = (pipe0 < 0) ? return_str(1, $return) : "0";
+
+        @SYSC_RETVALSTR($return)
+        if (pipe0 >= 0) { retstr = "0" }
 }
 probe __syscall.pipe.return = kernel.function("sys_pipe").return
 {
@@ -128,7 +130,7 @@ probe __syscall.pipe.return = kernel.function("sys_pipe").return
 		pipe0 = user_int(&@cast(@entry($fildes), "int")[0])
 		pipe1 = user_int(&@cast(@entry($fildes), "int")[1])
 	}
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_pipe _____________________________________________________
@@ -286,7 +288,7 @@ probe __nd1_syscall.pipe2.return = kprobe.function("sys_pipe2").return ?
 		pipe0 = _fildes_index_u(fildes_uaddr, 0)
 		pipe1 = _fildes_index_u(fildes_uaddr, 1)
 	}
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.ia64_pipe.return = kprobe.function("sys_ia64_pipe").return ?
 {
@@ -294,7 +296,8 @@ probe __nd1_syscall.ia64_pipe.return = kprobe.function("sys_ia64_pipe").return ?
 	fildes_uaddr = 0;
 	pipe0 = _ia64_pipe0();
 	pipe1 = _ia64_pipe1();
-	retstr = (pipe0 < 0) ? returnstr(1) : "0";
+        @SYSC_RETVALSTR(returnval())
+        if (pipe0 >= 0) { retstr = "0" }
 }
 probe __nd1_syscall.pipe.return = kprobe.function("sys_pipe").return
 {
@@ -308,7 +311,7 @@ probe __nd1_syscall.pipe.return = kprobe.function("sys_pipe").return
 		pipe0 = _fildes_index_u(fildes_uaddr, 0)
 		pipe1 = _fildes_index_u(fildes_uaddr, 1)
 	}
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -328,7 +331,7 @@ probe __nd2_syscall.pipe2.return = kprobe.function(@arch_syscall_prefix "sys_pip
 		pipe0 = _fildes_index_u(fildes_uaddr, 0)
 		pipe1 = _fildes_index_u(fildes_uaddr, 1)
 	}
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd2_syscall.pipe.return = kprobe.function(@arch_syscall_prefix "sys_pipe").return
 {
@@ -342,7 +345,7 @@ probe __nd2_syscall.pipe.return = kprobe.function(@arch_syscall_prefix "sys_pipe
 		pipe0 = _fildes_index_u(fildes_uaddr, 0)
 		pipe1 = _fildes_index_u(fildes_uaddr, 1)
 	}
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -363,7 +366,7 @@ probe __tp_syscall.pipe2.return = kernel.trace("sys_exit")
 		pipe0 = _fildes_index_u(fildes_uaddr, 0)
 		pipe1 = _fildes_index_u(fildes_uaddr, 1)
 	}
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 probe __tp_syscall.pipe.return = kernel.trace("sys_exit")
 {
@@ -378,5 +381,5 @@ probe __tp_syscall.pipe.return = kernel.trace("sys_exit")
 		pipe0 = _fildes_index_u(fildes_uaddr, 0)
 		pipe1 = _fildes_index_u(fildes_uaddr, 1)
 	}
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

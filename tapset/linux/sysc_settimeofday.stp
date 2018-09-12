@@ -40,7 +40,7 @@ probe dw_syscall.settimeofday = kernel.function("sys_settimeofday").call
 probe dw_syscall.settimeofday.return = kernel.function("sys_settimeofday").return
 {
 	@_SYSCALL_SETTIMEOFDAY_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_settimeofday _____________________________________________________
@@ -84,14 +84,14 @@ probe nd_syscall.settimeofday.return = nd1_syscall.settimeofday.return!, nd2_sys
 probe nd1_syscall.settimeofday.return = kprobe.function("sys_settimeofday").return ?
 {
 	@_SYSCALL_SETTIMEOFDAY_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.settimeofday.return = kprobe.function(@arch_syscall_prefix "sys_settimeofday").return ?
 {
 	@_SYSCALL_SETTIMEOFDAY_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -100,7 +100,7 @@ probe tp_syscall.settimeofday.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_gate(@const("__NR_settimeofday"))
 	@_SYSCALL_SETTIMEOFDAY_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 
 #
@@ -129,7 +129,7 @@ probe dw_syscall.settimeofday32.return = kernel.function("sys32_settimeofday").r
                                       kernel.function("compat_sys_settimeofday").return ?
 {
 	@_SYSCALL_SETTIMEOFDAY_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_settimeofday32 _____________________________________________________
@@ -175,14 +175,14 @@ probe nd1_syscall.settimeofday32.return = kprobe.function("sys32_settimeofday").
                                           kprobe.function("compat_sys_settimeofday").return ?
 {
 	@_SYSCALL_SETTIMEOFDAY_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.settimeofday32.return = kprobe.function(@arch_syscall_prefix "compat_sys_settimeofday").return ?
 {
 	@_SYSCALL_SETTIMEOFDAY_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -191,5 +191,5 @@ probe tp_syscall.settimeofday32.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__compat_syscall_gate(@const("__NR_compat_settimeofday"))
 	@_SYSCALL_SETTIMEOFDAY_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

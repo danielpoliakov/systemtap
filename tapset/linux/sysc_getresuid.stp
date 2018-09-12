@@ -31,7 +31,7 @@ probe dw_syscall.getresuid.return = kernel.function("sys_getresuid16").return ?,
                                  kernel.function("sys_getresuid").return
 {
 	@_SYSCALL_GETRESUID_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_getresuid _____________________________________________________
@@ -50,5 +50,5 @@ probe nd_syscall.getresuid.return = kprobe.function("sys_getresuid16").return ?,
                                     kprobe.function("sys_getresuid").return ?
 {
 	@_SYSCALL_GETRESUID_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

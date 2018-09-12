@@ -50,7 +50,7 @@ probe dw_syscall.utime = kernel.function("sys_utime").call ?
 probe dw_syscall.utime.return = kernel.function("sys_utime").return ?
 {
 	@_SYSCALL_UTIME_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_utime _____________________________________________________
@@ -91,14 +91,14 @@ probe nd_syscall.utime.return = nd1_syscall.utime.return!, nd2_syscall.utime.ret
 probe nd1_syscall.utime.return = kprobe.function("sys_utime").return ?
 {
 	@_SYSCALL_UTIME_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.utime.return = kprobe.function(@arch_syscall_prefix "sys_utime").return ?
 {
 	@_SYSCALL_UTIME_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -107,7 +107,7 @@ probe tp_syscall.utime.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_gate(@const("__NR_utime"))
 	@_SYSCALL_UTIME_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 
 # long compat_sys_utime(char __user *filename, struct compat_utimbuf __user *t)
@@ -132,7 +132,7 @@ probe dw_syscall.compat_utime = kernel.function("compat_sys_utime").call ?
 probe dw_syscall.compat_utime.return = kernel.function("compat_sys_utime").return ?
 {
 	@_SYSCALL_UTIME_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_compat_utime _____________________________________________________
@@ -173,14 +173,14 @@ probe nd_syscall.compat_utime.return = nd1_syscall.compat_utime.return!, nd2_sys
 probe nd1_syscall.compat_utime.return = kprobe.function("compat_sys_utime").return ?
 {
 	@_SYSCALL_UTIME_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.compat_utime.return = kprobe.function(@arch_syscall_prefix "compat_sys_utime").return ?
 {
 	@_SYSCALL_UTIME_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -189,5 +189,5 @@ probe tp_syscall.compat_utime.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__compat_syscall_gate(@const("__NR_compat_utime"))
 	@_SYSCALL_UTIME_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

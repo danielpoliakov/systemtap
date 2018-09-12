@@ -56,7 +56,7 @@ probe dw_syscall.setreuid.return = kernel.function("sys_setreuid").return
 {
 	@_SYSCALL_GATE
 	@_SYSCALL_SETREUID_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_setreuid _____________________________________________________
@@ -74,7 +74,7 @@ probe nd_syscall.setreuid.return = kprobe.function("sys_setreuid").return ?
 {
 	@_SYSCALL_GATE
 	@_SYSCALL_SETREUID_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 # setreuid16 _________________________________________________
@@ -97,7 +97,7 @@ probe dw_syscall.setreuid16 = kernel.function("sys_setreuid16").call ?
 probe dw_syscall.setreuid16.return = kernel.function("sys_setreuid16").return ?
 {
 	@_SYSCALL_SETREUID_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_setreuid16 _____________________________________________________
@@ -113,5 +113,5 @@ probe nd_syscall.setreuid16 = kprobe.function("sys_setreuid16") ?
 probe nd_syscall.setreuid16.return = kprobe.function("sys_setreuid16").return ?
 {
 	@_SYSCALL_SETREUID_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

@@ -42,7 +42,7 @@ probe dw_syscall.setitimer = kernel.function("sys_setitimer").call
 probe dw_syscall.setitimer.return = kernel.function("sys_setitimer").return
 {
 	@_SYSCALL_SETITIMER_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_setitimer _____________________________________________________
@@ -86,14 +86,14 @@ probe nd_syscall.setitimer.return = nd1_syscall.setitimer.return!, nd2_syscall.s
 probe nd1_syscall.setitimer.return = kprobe.function("sys_setitimer").return ?
 {
 	@_SYSCALL_SETITIMER_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.setitimer.return = kprobe.function(@arch_syscall_prefix "sys_setitimer").return ?
 {
 	@_SYSCALL_SETITIMER_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -102,7 +102,7 @@ probe tp_syscall.setitimer.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_gate(@const("__NR_setitimer"))
 	@_SYSCALL_SETITIMER_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 
 # long compat_sys_setitimer(int which,
@@ -130,7 +130,7 @@ probe dw_syscall.compat_setitimer = kernel.function("compat_sys_setitimer").call
 probe dw_syscall.compat_setitimer.return = kernel.function("compat_sys_setitimer").return ?
 {
 	@_SYSCALL_SETITIMER_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_compat_setitimer _____________________________________________________
@@ -174,14 +174,14 @@ probe nd_syscall.compat_setitimer.return = nd1_syscall.compat_setitimer.return!,
 probe nd1_syscall.compat_setitimer.return = kprobe.function("compat_sys_setitimer").return ?
 {
 	@_SYSCALL_SETITIMER_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.compat_setitimer.return = kprobe.function(@arch_syscall_prefix "compat_sys_setitimer").return ?
 {
 	@_SYSCALL_SETITIMER_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -190,5 +190,5 @@ probe tp_syscall.compat_setitimer.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__compat_syscall_gate(@const("__NR_compat_setitimer"))
 	@_SYSCALL_SETITIMER_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

@@ -26,7 +26,7 @@ probe dw_syscall.gethostname = kernel.function("sys_gethostname").call ?
 probe dw_syscall.gethostname.return = kernel.function("sys_gethostname").return ?
 {
 	@_SYSCALL_GETHOSTNAME_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_gethostname _____________________________________________________
@@ -42,5 +42,5 @@ probe nd_syscall.gethostname = kprobe.function("sys_gethostname") ?
 probe nd_syscall.gethostname.return = kprobe.function("sys_gethostname").return ?
 {
 	@_SYSCALL_GETHOSTNAME_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

@@ -37,7 +37,7 @@ probe dw_syscall.stime.return = kernel.function("compat_sys_stime").return ?,
                              kernel.function("sys_stime").return ?
 {
 	@_SYSCALL_STIME_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_stime _____________________________________________________
@@ -83,7 +83,7 @@ probe nd1_syscall.stime.return = kprobe.function("compat_sys_stime").return ?,
                                 kprobe.function("sys_stime").return ?
 {
 	@_SYSCALL_STIME_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
@@ -91,7 +91,7 @@ probe nd2_syscall.stime.return = kprobe.function(@arch_syscall_prefix "compat_sy
 	kprobe.function(@arch_syscall_prefix "sys_stime").return ?
 {
 	@_SYSCALL_STIME_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -100,5 +100,5 @@ probe tp_syscall.stime.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_stime"), @const("__NR_compat_stime"))
 	@_SYSCALL_STIME_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

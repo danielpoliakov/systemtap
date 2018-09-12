@@ -38,7 +38,7 @@ probe dw_syscall.init_module = kernel.function("sys_init_module").call ?
 probe dw_syscall.init_module.return = kernel.function("sys_init_module").return ?
 {
 	@_SYSCALL_INIT_MODULE_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_init_module _____________________________________________________
@@ -80,14 +80,14 @@ probe nd1_syscall.init_module.return =
 	kprobe.function("sys_init_module").return ?
 {
 	@_SYSCALL_INIT_MODULE_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.init_module.return = kprobe.function(@arch_syscall_prefix "sys_init_module").return ?
 {
 	@_SYSCALL_INIT_MODULE_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -96,5 +96,5 @@ probe tp_syscall.init_module.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_init_module"), @const("__NR_compat_init_module"))
 	@_SYSCALL_INIT_MODULE_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

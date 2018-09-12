@@ -70,7 +70,7 @@ probe dw_syscall.clone.return = kernel.function("_do_fork").return !,
 	else
 		name = "clone2"
 %)
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_clone _____________________________________________________
@@ -179,7 +179,7 @@ probe nd1_syscall.clone.return = kprobe.function("_do_fork").return !,
 	else
 		name = "clone2"
 %)
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 probe tp_syscall.clone.return = kernel.trace("sys_exit")
@@ -198,5 +198,5 @@ probe tp_syscall.clone.return = kernel.trace("sys_exit")
 	else
 		name = "clone2"
 %)
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

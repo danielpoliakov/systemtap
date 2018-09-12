@@ -44,7 +44,7 @@ probe dw_syscall.rt_sigsuspend.return =
 	kernel.function("sys_rt_sigsuspend").return ?
 {
 	@_SYSCALL_RT_SIGSUSPEND_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_rt_sigsuspend _____________________________________________________
@@ -90,14 +90,14 @@ probe nd1_syscall.rt_sigsuspend.return =
 	kprobe.function("compat_sys_rt_sigsuspend").return ?
 {
 	@_SYSCALL_RT_SIGSUSPEND_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.rt_sigsuspend.return = kprobe.function(@arch_syscall_prefix "sys_rt_sigsuspend").return ?
 {
 	@_SYSCALL_RT_SIGSUSPEND_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -106,5 +106,5 @@ probe tp_syscall.rt_sigsuspend.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_rt_sigsuspend"), @const("__NR_compat_rt_sigsuspend"))
 	@_SYSCALL_RT_SIGSUSPEND_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

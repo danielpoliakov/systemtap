@@ -37,7 +37,7 @@ probe dw_syscall.getuid.return = kernel.function("sys_getuid16").return ?,
 	kernel.function("sys_getuid").return
 {
 	@_SYSCALL_GETUID_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_getuid _____________________________________________________
@@ -60,5 +60,5 @@ probe nd_syscall.getuid.return = kprobe.function("sys_getuid16").return ?,
 	kprobe.function("sys_getuid").return
 {
 	@_SYSCALL_GETUID_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

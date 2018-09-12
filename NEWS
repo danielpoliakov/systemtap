@@ -20,6 +20,13 @@
   sys_enter / sys_exit kernel tracepoints, if no other kprobe-based
   mechanism is found.
 
+- The syscall tapset now defines provision of a numeric "retval" value
+  for syscall.*.return aliases.  Use of the returnval() function for
+  this purpose will be deprecated soon.  So, out with:
+      probe syscall.*.return { println(returnval(), retstr) }
+  and in with:
+      probe syscall.*.return { println(retval, retstr) }
+      
 - New script language operators @kderef/@uderef and @kregister/@uregister
   were added.
   @kderef/@uderef (size,address) can be used to dereference integers and

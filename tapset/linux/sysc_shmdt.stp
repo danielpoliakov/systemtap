@@ -28,7 +28,7 @@ probe dw_syscall.shmdt = kernel.function("sys_shmdt").call ?
 probe dw_syscall.shmdt.return = kernel.function("sys_shmdt").return ?
 {
 	@_SYSCALL_SHMDT_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_shmdt _____________________________________________________
@@ -43,5 +43,5 @@ probe nd_syscall.shmdt = kprobe.function("sys_shmdt") ?
 probe nd_syscall.shmdt.return = kprobe.function("sys_shmdt").return ?
 {
 	@_SYSCALL_SHMDT_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

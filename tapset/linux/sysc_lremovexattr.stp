@@ -45,7 +45,7 @@ probe dw_syscall.lremovexattr = kernel.function("sys_lremovexattr").call
 probe dw_syscall.lremovexattr.return = kernel.function("sys_lremovexattr").return
 {
 	@_SYSCALL_LREMOVEXATTR_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_lremovexattr _____________________________________________________
@@ -86,14 +86,14 @@ probe nd_syscall.lremovexattr.return = nd1_syscall.lremovexattr.return!, nd2_sys
 probe nd1_syscall.lremovexattr.return = kprobe.function("sys_lremovexattr").return ?
 {
 	@_SYSCALL_LREMOVEXATTR_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 
 /* kernel 4.17+ */
 probe nd2_syscall.lremovexattr.return = kprobe.function(@arch_syscall_prefix "sys_lremovexattr").return ?
 {
 	@_SYSCALL_LREMOVEXATTR_NAME
-	retstr = returnstr(1) /* NB: not in the $regs */
+	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
@@ -102,5 +102,5 @@ probe tp_syscall.lremovexattr.return = kernel.trace("sys_exit")
 	__set_syscall_pt_regs($regs)
 	@__syscall_compat_gate(@const("__NR_lremovexattr"), @const("__NR_compat_lremovexattr"))
 	@_SYSCALL_LREMOVEXATTR_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }

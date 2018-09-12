@@ -31,7 +31,7 @@ probe dw_syscall.sigreturn.return = kernel.function("sys_sigreturn").return ?,
 %( arch == "mips" && CONFIG_TRAD_SIGNALS == "y" %?
 	retstr = "void"
 %:
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 %)
 }
 
@@ -47,5 +47,5 @@ probe nd_syscall.sigreturn.return = kprobe.function("sys_sigreturn").return ?,
                                     kprobe.function("sys32_sigreturn").return ?
 {
 	@_SYSCALL_SIGRETURN_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }

@@ -22,6 +22,12 @@
 
 probe syscall.exit = dw_syscall.exit !, nd_syscall.exit {}
 
+probe syscall.exit.return = never
+{
+	@_SYSCALL_EXIT_NAME
+	@SYSC_RETVALSTR(0)
+}
+
 # dw_exit _____________________________________________________
 
 probe dw_syscall.exit = kernel.function("sys_exit").call

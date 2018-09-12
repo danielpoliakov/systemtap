@@ -80,7 +80,7 @@ probe dw_syscall.sendmmsg.return = __syscall.sendmmsg.return ?,
 	__syscall.compat_sendmmsg.return ?
 {
 	@_SYSCALL_SENDMMSG_NAME
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 probe __syscall.sendmmsg.return = kernel.function("sys_sendmmsg").return ?
 {
@@ -206,7 +206,7 @@ probe nd1_syscall.sendmmsg.return = __nd1_syscall.sendmmsg.return ?,
 	__nd1_syscall.compat_sendmmsg.return ?
 {
 	@_SYSCALL_SENDMMSG_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd1_syscall.sendmmsg.return = kprobe.function("sys_sendmmsg").return ?
 {
@@ -233,7 +233,7 @@ probe nd2_syscall.sendmmsg.return = __nd2_syscall.sendmmsg.return ?,
 	__nd2_syscall.compat_sendmmsg.return ?
 {
 	@_SYSCALL_SENDMMSG_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
 probe __nd2_syscall.sendmmsg.return = kprobe.function(@arch_syscall_prefix "sys_sendmmsg").return ?
 {
@@ -260,7 +260,7 @@ probe tp_syscall.sendmmsg.return = __tp_syscall.sendmmsg.return ?,
 	__tp_syscall.compat_socketcall.sendmmsg.return ?
 {
 	@_SYSCALL_SENDMMSG_NAME
-	retstr = return_str(1,$ret)
+	@SYSC_RETVALSTR($ret)
 }
 probe __tp_syscall.sendmmsg.return = kernel.trace("sys_exit")
 {

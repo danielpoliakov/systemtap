@@ -54,7 +54,7 @@ probe dw_syscall.pipe32.return = kernel.function("sys32_pipe").return?
 		pipe0 = 0;
 		pipe1 = 0;
 	}
-	retstr = return_str(1, $return)
+	@SYSC_RETVALSTR($return)
 }
 
 # nd_pipe32 _____________________________________________________
@@ -68,5 +68,5 @@ probe nd_syscall.pipe32 = kprobe.function("sys32_pipe")?
 probe nd_syscall.pipe32.return = kprobe.function("sys32_pipe").return?
 {
 	@_SYSCALL_PIPE32_NAME
-	retstr = returnstr(1)
+	@SYSC_RETVALSTR(returnval())
 }
