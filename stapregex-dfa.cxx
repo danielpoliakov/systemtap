@@ -24,6 +24,7 @@
 #include <climits>
 
 #include "translator-output.h"
+#include "util.h"
 
 #include "stapregex-parse.h"
 #include "stapregex-tree.h"
@@ -142,14 +143,16 @@ stapregex_compile (regexp *re, const std::string& match_snippet,
 arc_priority
 refine_higher(const arc_priority& a)
 {
-  assert (a.first <= ULLONG_MAX/4); // XXX detect overflow
+  if (a.first > ULLONG_MAX/4) // detect overflow
+    throw regex_error(_("arc_priority overflow due to excessive branching factor"), 0);
   return make_pair(2 * a.first + 1, a.second + 1);
 }
 
 arc_priority
 refine_lower (const arc_priority& a)
 {
-  assert (a.first <= ULLONG_MAX/4); // XXX detect overflow
+  if (a.first > ULLONG_MAX/4) // detect overflow
+    throw regex_error(_("arc_priority overflow due to excessive branching factor"), 0);
   return make_pair(2 * a.first, a.second + 1);
 }
 
