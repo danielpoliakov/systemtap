@@ -67,7 +67,7 @@ installcheck: site.exp
 	  $(SHELL) $(srcdir)/dg-extract-results.sh -L `find . -name 'systemtap.temp[1,2].log' -print` > systemtap.log; \
 	  rm -f systemtap.temp1.log systemtap.temp1.sum systemtap.temp2.log systemtap.temp2.sum; \
 	fi
-	-sed -ne '/systemtap.Summary/,$ p' < systemtap.sum
+	-sed -ne '/systemtap.Summary/,$$ p' < systemtap.sum
 	if test `( expr "$(DEJAZILLA)" : '.*://.*' )` -ne 0; then \
 	  curl -F file=@systemtap.sum $(DEJAZILLA); \
 	elif test `( expr "$(DEJAZILLA)" : '.*@.*' )` -ne 0; then \
