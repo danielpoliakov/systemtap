@@ -128,8 +128,8 @@ proc run_one_test {filename flags bits suite} {
 	pass "$bits-bit $testname $suite"
     } else {
 	send_log "$testname FAILED. output of \"$cmd\" was:"
-	send_log "\n------------------------------------------\n"
-	send_log "$output"
+        # add $output at end, just in case it was empty somehow; send_log "" is not happy
+	send_log "\n------------------------------------------\n$output"
 	send_log "\n------------------------------------------\n"
 	send_log "RESULTS: (\'*\' = MATCHED EXPECTED)\n"
 	set i 0
