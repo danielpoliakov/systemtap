@@ -1,6 +1,10 @@
 /* Included once by translate.cxx c_unparser::emit_common_header ()
    Defines all common fields and probe flags for struct context.
-   Available to C-based probe handlers as fields of the CONTEXT ptr.  */
+   Available to C-based probe handlers as fields of the CONTEXT ptr.
+
+   NB: new fields may need manual initialization as a part of
+   tapsets.cxx common_probe_entryfn_prologue()!
+*/
 
 #ifdef __DYNINST__
 
@@ -106,6 +110,12 @@ struct stapregex_match {
   int tag_states[STAPREGEX_MAX_TAG][STAPREGEX_MAX_MAP];
   int tag_vals[STAPREGEX_MAX_TAG];
 } last_match;
+#endif
+
+/* Used in errno.stp for deprecated use of returnval() in syscall.*.return aliases */
+#ifdef STAP_NEED_CONTEXT_RETURNVAL
+  int64_t returnval_override;
+  int returnval_override_p;
 #endif
 
 /* NB: last_error is used as a health flag within a probe.

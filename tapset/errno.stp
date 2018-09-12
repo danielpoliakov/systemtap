@@ -1,5 +1,5 @@
 // errno tapset
-// Copyright (C) 2006 Red Hat Inc.
+// Copyright (C) 2006-2018 Red Hat Inc.
 //
 // This file is part of SystemTap, and is free software.  You can
 // redistribute it and/or modify it under the terms of the GNU General
@@ -396,12 +396,24 @@ static long _stp_returnval(struct pt_regs *regs) {
 		_stp_error("returnval() not defined for this architecture");
 		return 0;
 #endif
-	} else {
-		_stp_error("returnval() not defined in this context");
-		return 0;
-	}
-}
+      }
+        
+      _stp_error("_stp_returnval called with 0"); /* non-crashy assert */
+      return 0;}
 %}
+
+
+%( systemtap_v <= "4.0" %?
+%{
+#define STAP_NEED_CONTEXT_RETURNVAL 1
+%}
+
+function set_returnval(val:long) %{
+  CONTEXT->returnval_override = STAP_ARG_val;
+  CONTEXT->returnval_override_p = 1;
+%}
+%) /* compatible <= 4.0 */
+
 
 /**
  * sfunction returnval - Possible return value of probed function
@@ -411,10 +423,19 @@ static long _stp_returnval(struct pt_regs *regs) {
  * available. This is only a guess of the actual return value and can be
  * totally wrong. Normally only used in dwarfless probes.
  */
-function returnval:long () %{ /* pure */ /* stable */
+/* NB: this function is not STABLE because it depends on varying
+   state in the context. */
+function returnval:long () %{ /* pure */
 	struct pt_regs *regs;
+  #if STAP_COMPAT_VERSION <= STAP_VERSION(4,0)
+       if (CONTEXT->returnval_override_p)
+            STAP_RETURN(CONTEXT->returnval_override);
+  #endif
 	regs = (CONTEXT->user_mode_p ? CONTEXT->uregs : CONTEXT->kregs);
-	STAP_RETVALUE = _stp_returnval(regs);
+        if (regs)
+            STAP_RETURN(_stp_returnval(regs));
+        else
+            STAP_ERROR("returnval() not defined in this context %s", CONTEXT->probe_point);
 %}
 
 /**
@@ -445,7 +466,7 @@ function returnstr:string (format:long) %{ /* pure */
 			snprintf (STAP_RETVALUE, MAXSTRINGLEN, "%ld", ret);
 	} else {
 no_ret:
-		strlcpy(STAP_RETVALUE, "N/A", MAXSTRINGLEN);
+          strlcpy(STAP_RETVALUE, "N/A", MAXSTRINGLEN); // XXX: empty string better
 	}
 %}
 

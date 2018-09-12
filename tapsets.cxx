@@ -227,6 +227,11 @@ common_probe_entryfn_prologue (systemtap_session& s,
   s.op->newline() << "c->uwcache_user.state = uwcache_uninitialized;";
   s.op->newline() << "c->uwcache_kernel.state = uwcache_uninitialized;";
   s.op->newline() << "#endif";
+
+  s.op->newline() << "#if defined(STAP_NEED_CONTEXT_RETURNVAL)";
+  s.op->newline() << "c->returnval_override_p = 0;";
+  s.op->newline() << "c->returnval_override = 0;"; // unnecessary
+  s.op->newline() << "#endif";
 }
 
 
