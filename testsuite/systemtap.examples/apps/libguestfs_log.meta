@@ -1,0 +1,12 @@
+title: Trace libguestfs startup
+name: libguestfs_log.stp
+application: libguestfs
+requires: libguestfs
+keywords: application trace
+exit: user-controlled
+output: trace
+scope: system-wide
+description: The libguestfs_log.stp script prints a log of when various libgueststartup steps are encountered.   The first column is microseconds since the script started.  The second column is the time elapsed in microseconds between the previous and current events and the third column is the event name.
+test_support: stap -L 'process("/usr/lib*/libguestfs.so.0*").mark("*")'
+test_check: stap -p4 libguestfs_log.stp
+test_installcheck: stap libguestfs_log.stp -T 1

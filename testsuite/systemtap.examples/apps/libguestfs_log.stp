@@ -1,0 +1,23 @@
+#! /usr/bin/env stap
+
+global start_time, prev;
+
+function display_time () {
+  now = gettimeofday_us ()
+  delta = (prev > 0 ) ? now - prev : 0
+  printf ("%18d (+%10d): ", now - start_time, delta)
+  prev = now
+}
+
+probe begin {
+  start_time = gettimeofday_us ()
+  prev = 0
+  printf ("%-18s (+%10s): %s\n", "# time_usec",
+          "delta usec", "event")
+}
+
+probe process("/usr/lib*/libguestfs.so.0*").mark("*")
+{
+  display_time()
+  printf ("%s\n", $$name)
+}
