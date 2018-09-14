@@ -9,3 +9,5 @@ exit: user-controlled
 output: user-controlled 
 scope: system-wide
 description: This script prints the size of a type, based on dwarf debuginfo for any kernel or userspace module, or trial-compilation of a given header file name. Types and corresponding locations are provided to the script at runtime via keyboard input. The format of the input is identical to that of sizeof.stp (see script source for more information). Types and locations can be repeatedly given until the process is terminated. 
+test_check: stap -p4 sizeof_interactive.stp
+test_installcheck: echo "FILE '</usr/include/stdio.h>'" | stap sizeof_interactive.stp -T 1
