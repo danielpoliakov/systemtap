@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-# set -e  # exit on error
+set -e  # exit on error
 
 function determine_apply_diff() {
 
@@ -21,12 +21,13 @@ function determine_apply_diff() {
 
 ### Create the directory we'll be working in###
 
+SRCDIR=`dirname $0`/..; SRCDIR=`realpath $SRCDIR`
 DIR=`mktemp -d stapXXX -p /tmp/`; cd $DIR
 
 # We need to differenciate between upstream sources and the later used distro sources
 # hence the specific checkout to systemtap-git
 
-git clone git://sourceware.org/git/systemtap.git systemtap-git
+git clone --reference $SRCDIR git://sourceware.org/git/systemtap.git systemtap-git
 cd systemtap-git
 
 # We need to use --global for the NAME and USER vars as we're
@@ -58,7 +59,7 @@ fedpkg co systemtap
 # Diff and check the differences between the two spec files,
 cd systemtap
 
-git diff systemtap.spec ../systemtap-git/systemtap.spec > ../spec-diff
+git diff systemtap.spec ../systemtap-git/systemtap.spec > ../spec-diff || true
 
 if [ -s ../spec-diff ]; then
     CHANGELOG_PRESENT=`grep \%changelog ../spec-diff`
