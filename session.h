@@ -80,9 +80,10 @@ struct compile_server_cache;
 // a vardecl instead of out here at the systemtap_session level.
 struct statistic_decl
 {
-  statistic_decl()
+  statistic_decl(int _stat_ops = 0)
     : type(none),
-      linear_low(0), linear_high(0), linear_step(0), bit_shift(0), stat_ops(0)
+      linear_low(0), linear_high(0), linear_step(0), bit_shift(0),
+      stat_ops(_stat_ops)
   {}
   enum { none, linear, logarithmic } type;
   int64_t linear_low;

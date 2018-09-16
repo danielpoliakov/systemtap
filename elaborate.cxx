@@ -1337,6 +1337,39 @@ struct stat_decl_collector
       }
   }
 
+  void visit_foreach_loop (foreach_loop* s)
+  {
+    symbol *array;
+    hist_op *hist;
+
+    classify_indexable (s->base, array, hist);
+
+    if (array && array->type == pe_stats
+        && s->sort_direction
+        && s->sort_column == 0)
+      {
+        int stat_op = STAT_OP_NONE;
+
+        switch (s->sort_aggr) {
+        default: case sc_none: case sc_count: stat_op = STAT_OP_COUNT; break;
+        case sc_sum: stat_op = STAT_OP_SUM; break;
+        case sc_min: stat_op = STAT_OP_MIN; break;
+        case sc_max: stat_op = STAT_OP_MAX; break;
+        case sc_average: stat_op = STAT_OP_AVG; break;
+        }
+
+        map<interned_string, statistic_decl>::iterator i
+          = session.stat_decls.find(array->name);
+
+        if (i == session.stat_decls.end())
+          session.stat_decls[array->name] = statistic_decl(stat_op);
+        else
+          i->second.stat_ops |= stat_op;
+      }
+
+    traversing_visitor::visit_foreach_loop (s);
+  }
+
   void visit_assignment (assignment* e)
   {
     if (e->op == "<<<")

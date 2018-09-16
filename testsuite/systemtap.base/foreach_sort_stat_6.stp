@@ -1,0 +1,16 @@
+global a;
+
+probe oneshot {
+    a[1] <<< 32;
+
+    a[2] <<< 78;
+    a[2] <<< 0;
+    a[2] <<< 0;
+
+    a[3] <<< 96;
+    a[3] <<< 0;
+
+    foreach ([i] in a @sum+) {
+        printf("%d\n", i);
+    }
+}

@@ -1,0 +1,269 @@
+set test "foreach_sort_stat"
+set testpath "$srcdir/$subdir"
+
+if {! [installtest_p]} { untested "$test"; return }
+
+# --- TEST 1 ---
+
+set subtest1 "TEST 1: explicit @count- (without any @xxx in body)"
+foreach runtime [get_runtime_list] {
+    if {$runtime eq ""} {
+        set runtime "kernel"
+    }
+    set test_name "$test: $subtest1 ($runtime)"
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_1.stp'" out stderr]
+    set exp_out "2
+3
+1
+"
+    is "${test_name}: stdout" $out $exp_out
+    is "${test_name}: exit code" $exit_code 0
+    if {$stderr ne ""} {
+        send_log "stderr:\n$stderr"
+    }
+}
+
+# --- TEST 2 ---
+
+set subtest2 "TEST 2: explicit @count- (with @sum in body)"
+foreach runtime [get_runtime_list] {
+    if {$runtime eq ""} {
+        set runtime "kernel"
+    }
+    set test_name "$test: $subtest2 ($runtime)"
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_2.stp'" out stderr]
+    set exp_out "2: 78
+3: 96
+1: 32
+"
+    is "${test_name}: stdout" $out $exp_out
+    is "${test_name}: exit code" $exit_code 0
+    if {$stderr ne ""} {
+        send_log "stderr:\n$stderr"
+    }
+}
+
+# --- TEST 3 ---
+
+set subtest3 "TEST 3: explicit @count+ (with @sum in body)"
+foreach runtime [get_runtime_list] {
+    if {$runtime eq ""} {
+        set runtime "kernel"
+    }
+    set test_name "$test: $subtest3 ($runtime)"
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_3.stp'" out stderr]
+    set exp_out "1: 32
+3: 96
+2: 78
+"
+    is "${test_name}: stdout" $out $exp_out
+    is "${test_name}: exit code" $exit_code 0
+    if {$stderr ne ""} {
+        send_log "stderr:\n$stderr"
+    }
+}
+
+# --- TEST 4 ---
+
+set subtest4 "TEST 4: implicit @count, just - alone"
+foreach runtime [get_runtime_list] {
+    if {$runtime eq ""} {
+        set runtime "kernel"
+    }
+    set test_name "$test: $subtest4 ($runtime)"
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_4.stp'" out stderr]
+    set exp_out "2: 78
+3: 96
+1: 32
+"
+    is "${test_name}: stdout" $out $exp_out
+    is "${test_name}: exit code" $exit_code 0
+    if {$stderr ne ""} {
+        send_log "stderr:\n$stderr"
+    }
+}
+
+# --- TEST 5 ---
+
+set subtest5 "TEST 5: explicit @count- (nested)"
+foreach runtime [get_runtime_list] {
+    if {$runtime eq ""} {
+        set runtime "kernel"
+    }
+    set test_name "$test: $subtest5 ($runtime)"
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_5.stp'" out stderr]
+    set exp_out "i: 1: 4
+j: 2: 78
+j: 3: 96
+j: 1: 32
+i: 2: 3
+j: 2: 78
+j: 3: 96
+j: 1: 32
+"
+    is "${test_name}: stdout" $out $exp_out
+    is "${test_name}: exit code" $exit_code 0
+    if {$stderr ne ""} {
+        send_log "stderr:\n$stderr"
+    }
+}
+
+# --- TEST 6 ---
+
+set subtest6 "TEST 6: @sum+ alone"
+foreach runtime [get_runtime_list] {
+    if {$runtime eq ""} {
+        set runtime "kernel"
+    }
+    set test_name "$test: $subtest6 ($runtime)"
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_6.stp'" out stderr]
+    set exp_out "1
+2
+3
+"
+    is "${test_name}: stdout" $out $exp_out
+    is "${test_name}: exit code" $exit_code 0
+    if {$stderr ne ""} {
+        send_log "stderr:\n$stderr"
+    }
+}
+
+# --- TEST 7 ---
+
+set subtest7 "TEST 7: @sum- alone"
+foreach runtime [get_runtime_list] {
+    if {$runtime eq ""} {
+        set runtime "kernel"
+    }
+    set test_name "$test: $subtest7 ($runtime)"
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_7.stp'" out stderr]
+    set exp_out "3
+2
+1
+"
+    is "${test_name}: stdout" $out $exp_out
+    is "${test_name}: exit code" $exit_code 0
+    if {$stderr ne ""} {
+        send_log "stderr:\n$stderr"
+    }
+}
+
+# --- TEST 8 ---
+
+set subtest8 "TEST 8: @avg+ alone"
+foreach runtime [get_runtime_list] {
+    if {$runtime eq ""} {
+        set runtime "kernel"
+    }
+    set test_name "$test: $subtest8 ($runtime)"
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_8.stp'" out stderr]
+    set exp_out "2
+1
+3
+"
+    is "${test_name}: stdout" $out $exp_out
+    is "${test_name}: exit code" $exit_code 0
+    if {$stderr ne ""} {
+        send_log "stderr:\n$stderr"
+    }
+}
+
+# --- TEST 9 ---
+
+set subtest9 "TEST 9: @avg- alone"
+foreach runtime [get_runtime_list] {
+    if {$runtime eq ""} {
+        set runtime "kernel"
+    }
+    set test_name "$test: $subtest9 ($runtime)"
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_9.stp'" out stderr]
+    set exp_out "3
+1
+2
+"
+    is "${test_name}: stdout" $out $exp_out
+    is "${test_name}: exit code" $exit_code 0
+    if {$stderr ne ""} {
+        send_log "stderr:\n$stderr"
+    }
+}
+
+# --- TEST 10 ---
+
+set subtest10 "TEST 10: @min+ alone"
+foreach runtime [get_runtime_list] {
+    if {$runtime eq ""} {
+        set runtime "kernel"
+    }
+    set test_name "$test: $subtest10 ($runtime)"
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_10.stp'" out stderr]
+    set exp_out "2
+3
+1
+"
+    is "${test_name}: stdout" $out $exp_out
+    is "${test_name}: exit code" $exit_code 0
+    if {$stderr ne ""} {
+        send_log "stderr:\n$stderr"
+    }
+}
+
+# --- TEST 11 ---
+
+set subtest11 "TEST 11: @min- alone"
+foreach runtime [get_runtime_list] {
+    if {$runtime eq ""} {
+        set runtime "kernel"
+    }
+    set test_name "$test: $subtest11 ($runtime)"
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_11.stp'" out stderr]
+    set exp_out "1
+3
+2
+"
+    is "${test_name}: stdout" $out $exp_out
+    is "${test_name}: exit code" $exit_code 0
+    if {$stderr ne ""} {
+        send_log "stderr:\n$stderr"
+    }
+}
+
+# --- TEST 12 ---
+
+set subtest12 "TEST 12: @max+ alone"
+foreach runtime [get_runtime_list] {
+    if {$runtime eq ""} {
+        set runtime "kernel"
+    }
+    set test_name "$test: $subtest12 ($runtime)"
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_12.stp'" out stderr]
+    set exp_out "1
+2
+3
+"
+    is "${test_name}: stdout" $out $exp_out
+    is "${test_name}: exit code" $exit_code 0
+    if {$stderr ne ""} {
+        send_log "stderr:\n$stderr"
+    }
+}
+
+# --- TEST 13 ---
+
+set subtest13 "TEST 13: @max- alone"
+foreach runtime [get_runtime_list] {
+    if {$runtime eq ""} {
+        set runtime "kernel"
+    }
+    set test_name "$test: $subtest13 ($runtime)"
+    set exit_code [run_cmd_2way "stap --runtime=$runtime '$srcdir/$subdir/${test}_13.stp'" out stderr]
+    set exp_out "3
+2
+1
+"
+    is "${test_name}: stdout" $out $exp_out
+    is "${test_name}: exit code" $exit_code 0
+    if {$stderr ne ""} {
+        send_log "stderr:\n$stderr"
+    }
+}

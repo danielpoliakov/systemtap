@@ -1,0 +1,25 @@
+global a;
+global b;
+
+probe oneshot {
+    a[1] <<< 32;
+
+    a[2] <<< 78;
+    a[2] <<< 0;
+    a[2] <<< 0;
+
+    a[3] <<< 96;
+    a[3] <<< 0;
+
+    b[1] <<< 2;
+    b[1] <<<  2;
+
+    b[2] <<<  3;
+
+    foreach (i in b @count-) {
+        printf("i: %d: %d\n", i, @sum(b[i]));
+        foreach ([j] in a @count-) {
+            printf("j: %d: %d\n", j, @sum(a[j]));
+        }
+    }
+}
