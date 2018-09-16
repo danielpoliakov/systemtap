@@ -1736,6 +1736,10 @@ void embeddedcode_info_pass (systemtap_session& s)
   embeddedcode_info eci (s);
   for (unsigned i=0; i<s.probes.size(); i++)
     s.probes[i]->body->visit (& eci);
+
+  for (map<string,functiondecl*>::iterator it = s.functions.begin();
+       it != s.functions.end(); it++)
+    it->second->body->visit (& eci);
 }
 
 // ------------------------------------------------------------------------

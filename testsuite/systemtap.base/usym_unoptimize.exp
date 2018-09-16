@@ -1,0 +1,34 @@
+set test "usym_unoptimize"
+set testpath "$srcdir/$subdir"
+
+if {! [installtest_p]} { untested "$test"; return }
+
+# --- TEST 1 ---
+
+set subtest1 "TEST 1: PR23506: using usymname() alone breaks unoptimized stap translation"
+set test_name "$test: $subtest1"
+
+set exit_code [run_cmd_2way "stap -u '$srcdir/$subdir/${test}_1.stp'" out stderr]
+set exp_out "0xdeadbeef
+hey
+"
+is "${test_name}: stdout" $out $exp_out
+is "${test_name}: exit code" $exit_code 0
+if {$stderr ne ""} {
+    send_log "stderr:\n$stderr"
+}
+
+# --- TEST 2 ---
+
+set subtest2 "TEST 2: PR23506: using usymdata() alone breaks unoptimized stap translation"
+set test_name "$test: $subtest2"
+
+set exit_code [run_cmd_2way "stap -u '$srcdir/$subdir/${test}_2.stp'" out stderr]
+set exp_out "0xdeadbeef
+hey
+"
+is "${test_name}: stdout" $out $exp_out
+is "${test_name}: exit code" $exit_code 0
+if {$stderr ne ""} {
+    send_log "stderr:\n$stderr"
+}

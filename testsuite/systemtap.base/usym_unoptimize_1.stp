@@ -1,0 +1,8 @@
+function foo(a) {
+    println(usymname(a));
+}
+
+probe oneshot {
+    foo(0xdeadbeef);
+    println("hey");
+}
