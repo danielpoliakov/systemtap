@@ -5,7 +5,8 @@
 #endif
 %}
 
-@__private30 global _reg_offsets[34], _r32_offsets[10]
+@__private30 global _reg_offsets[21], _r32_offsets[10], _r16_offsets[13],
+		_r8_offsets[8]
 
 probe init {
 	/* Same order as pt_regs */
@@ -13,23 +14,23 @@ probe init {
 	_reg_offsets["r14"] = 8
 	_reg_offsets["r13"] = 16
 	_reg_offsets["r12"] = 24
-	_reg_offsets["rbp"] = 32	_reg_offsets["bp"] = 32
-	_reg_offsets["rbx"] = 40	_reg_offsets["bx"] = 40
+	_reg_offsets["rbp"] = 32
+	_reg_offsets["rbx"] = 40
 	_reg_offsets["r11"] = 48
 	_reg_offsets["r10"] = 56
 	_reg_offsets["r9"]  = 64
 	_reg_offsets["r8"]  = 72
-	_reg_offsets["rax"] = 80	_reg_offsets["ax"] = 80
-	_reg_offsets["rcx"] = 88	_reg_offsets["cx"] = 88
-	_reg_offsets["rdx"] = 96	_reg_offsets["dx"] = 96
-	_reg_offsets["rsi"] = 104	_reg_offsets["si"] = 104
-	_reg_offsets["rdi"] = 112	_reg_offsets["di"] = 112
-	_reg_offsets["orig_rax"] = 120	_reg_offsets["orig_ax"] = 120
-	_reg_offsets["rip"] = 128	_reg_offsets["ip"] = 128
-	_reg_offsets["xcs"] = 136	_reg_offsets["cs"] = 136
-	_reg_offsets["eflags"] = 144	_reg_offsets["flags"] = 144
-	_reg_offsets["rsp"] = 152	_reg_offsets["sp"] = 152
-	_reg_offsets["xss"] = 160	_reg_offsets["ss"] = 160
+	_reg_offsets["rax"] = 80
+	_reg_offsets["rcx"] = 88
+	_reg_offsets["rdx"] = 96
+	_reg_offsets["rsi"] = 104
+	_reg_offsets["rdi"] = 112
+	_reg_offsets["orig_rax"] = 120
+	_reg_offsets["rip"] = 128
+	_reg_offsets["xcs"] = 136
+	_reg_offsets["eflags"] = 144
+	_reg_offsets["rsp"] = 152
+	_reg_offsets["xss"] = 160
 
 	_r32_offsets["ebp"] = 32
 	_r32_offsets["ebx"] = 40
@@ -41,6 +42,29 @@ probe init {
 	_r32_offsets["orig_eax"] = 120
 	_r32_offsets["eip"] = 128
 	_r32_offsets["esp"] = 152
+
+	_r16_offsets["bp"] = 32
+	_r16_offsets["bx"] = 40
+	_r16_offsets["ax"] = 80
+	_r16_offsets["cx"] = 88
+	_r16_offsets["dx"] = 96
+	_r16_offsets["si"] = 104
+	_r16_offsets["di"] = 112
+	_r16_offsets["orig_ax"] = 120
+	_r16_offsets["ip"] = 128
+	_r16_offsets["cs"] = 136
+	_r16_offsets["flags"] = 144
+	_r16_offsets["sp"] = 152
+	_r16_offsets["ss"] = 160
+
+	_r8_offsets["al"] = 80
+	_r8_offsets["ah"] = 81
+	_r8_offsets["bl"] = 40
+	_r8_offsets["bh"] = 41
+	_r8_offsets["cl"] = 88
+	_r8_offsets["ch"] = 89
+	_r8_offsets["dl"] = 96
+	_r8_offsets["dh"] = 97
 }
 
 function _stp_get_register_by_offset:long (offset:long) %{ /* pure */
@@ -53,7 +77,7 @@ function _stp_get_register_by_offset:long (offset:long) %{ /* pure */
 	}
 	if (STAP_ARG_offset < 0 || STAP_ARG_offset > sizeof(struct pt_regs) - sizeof(long)) {
 		snprintf(CONTEXT->error_buffer, sizeof(CONTEXT->error_buffer),
-				"Bad register offset: %lld", STAP_ARG_offset);
+				"Bad register offset: %lld", (long long) STAP_ARG_offset);
 		CONTEXT->last_error = CONTEXT->error_buffer;
 		return;
 	}
@@ -69,14 +93,46 @@ function _stp_sign_extend32:long (value:long) %{ /* pure */
 	STAP_RETVALUE = __stp_sign_extend32(STAP_ARG_value);
 %}
 
+/*
+ * _stp_sign_extend16() is callable from a script function.
+ * __stp_sign_extend16() (in regs.c) is callable from a C function.
+ */
+function _stp_sign_extend16:long (value:long) %{ /* pure */
+	STAP_RETVALUE = __stp_sign_extend16(STAP_ARG_value);
+%}
+
+/*
+ * _stp_sign_extend8() is callable from a script function.
+ * __stp_sign_extend8() (in regs.c) is callable from a C function.
+ */
+function _stp_sign_extend8:long (value:long) %{ /* pure */
+	STAP_RETVALUE = __stp_sign_extend8(STAP_ARG_value);
+%}
+
 function _stp_register:long (name:string, sign_extend:long) {
 	reg32 = 0
-  assert(registers_valid(), "cannot access CPU registers in this context")
+	reg16 = 0
+	reg8 = 0
+	assert(registers_valid(), "cannot access CPU registers in this context")
 	offset = _reg_offsets[name]
 	if (offset == 0 && !(name in _reg_offsets)) {
 		offset = _r32_offsets[name]
-    assert(offset != 0 || (name in _r32_offsets), "Unknown register: " . name)
-		reg32 = 1
+		if (offset == 0 && !(name in _r32_offsets)) {
+			offset = _r16_offsets[name]
+			if (offset == 0 && !(name in _r16_offsets)) {
+				offset = _r8_offsets[name]
+				if (offset == 0 && !(name in _r8_offsets)) {
+					assert(0, "Unknown register: " . name)
+				} else {
+					reg8 = 1;
+				}
+			} else {
+				reg16 = 1;
+			}
+
+		} else {
+			reg32 = 1
+		}
 	}
 	value =  _stp_get_register_by_offset(offset)
 	if (reg32) {
@@ -84,6 +140,17 @@ function _stp_register:long (name:string, sign_extend:long) {
 			value = _stp_sign_extend32(value)
 		else
 			value &= 0xffffffff
+	} else if (reg16) {
+		if (sign_extend)
+			value = _stp_sign_extend16(value)
+		else
+			value &= 0xffff
+	} else {
+		assert (reg8);
+		if (sign_extend)
+			value = _stp_sign_extend8(value)
+		else
+			value &= 0xff
 	}
 	return value
 }

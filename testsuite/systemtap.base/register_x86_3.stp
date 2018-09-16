@@ -1,0 +1,14 @@
+probe process.function("foo").return {
+    printf("ecx = %#x\n", register("ecx"));
+    printf("u ecx = %#x\n\n", u_register("ecx"));
+
+    printf("cx = %#x\n", register("cx"));
+    printf("u cx = %#x\n\n", u_register("cx"));
+
+    printf("cl = %#x\n", register("cl"));
+    printf("u cl = %#x\n\n", u_register("cl"));
+
+    printf("ch = %#x\n", register("ch"));
+    printf("u ch = %#x\n", u_register("ch"));
+    exit()
+}

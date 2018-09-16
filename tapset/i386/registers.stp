@@ -5,7 +5,8 @@
 #endif
 %}
 
-@__private30 global _reg_offsets[34], _sp_offset, _ss_offset
+@__private30 global _reg_offsets[17], _r16_offsets[17], _r8_offsets[8],
+		_sp_offset, _ss_offset
 
 function test_x86_fs:long() %{ /* pure */
 #if defined(STAPCONF_X86_XFS) || defined (STAPCONF_X86_FS)
@@ -27,27 +28,39 @@ probe init {
 
 	/* Same order as pt_regs */
 	_offset = 0
-	_reg_offsets["ebx"] = _reg_offsets["bx"] = _offset
-	_reg_offsets["ecx"] = _reg_offsets["cx"] = (_offset += 4)
-	_reg_offsets["edx"] = _reg_offsets["dx"] = (_offset += 4)
-	_reg_offsets["esi"] = _reg_offsets["si"] = (_offset += 4)
-	_reg_offsets["edi"] = _reg_offsets["di"] = (_offset += 4)
-	_reg_offsets["ebp"] = _reg_offsets["bp"] = (_offset += 4)
-	_reg_offsets["eax"] = _reg_offsets["ax"] = (_offset += 4)
-	_reg_offsets["xds"] = _reg_offsets["ds"] = (_offset += 4)
-	_reg_offsets["xes"] = _reg_offsets["es"] = (_offset += 4)
+	_reg_offsets["ebx"] = _r16_offsets["bx"] = _r8_offsets["bl"] = _offset
+	_r8_offsets["bh"] = _offset + 1
+
+	_reg_offsets["ecx"] = _r16_offsets["cx"] = _r8_offsets["cl"]
+		= (_offset += 4)
+	_r8_offsets["ch"] = _offset + 1
+
+	_reg_offsets["edx"] = _r16_offsets["dx"] = _r8_offsets["dl"]
+		= (_offset += 4)
+	_r8_offsets["dh"] = _offset + 1
+
+	_reg_offsets["esi"] = _r16_offsets["si"] = (_offset += 4)
+	_reg_offsets["edi"] = _r16_offsets["di"] = (_offset += 4)
+	_reg_offsets["ebp"] = _r16_offsets["bp"] = (_offset += 4)
+
+	_reg_offsets["eax"] = _r16_offsets["ax"] = _r8_offsets["al"]
+		= (_offset += 4)
+	_r8_offsets["ah"] = _offset + 1
+
+	_reg_offsets["xds"] = _r16_offsets["ds"] = (_offset += 4)
+	_reg_offsets["xes"] = _r16_offsets["es"] = (_offset += 4)
 if (test_x86_fs()) {
-	_reg_offsets["xfs"] = _reg_offsets["fs"] = (_offset += 4)
+	_reg_offsets["xfs"] = _r16_offsets["fs"] = (_offset += 4)
 }
 if (test_x86_gs()) {
-	_reg_offsets["xgs"] = _reg_offsets["gs"] = (_offset += 4)
+	_reg_offsets["xgs"] = _r16_offsets["gs"] = (_offset += 4)
 }
-	_reg_offsets["orig_eax"] = _reg_offsets["orig_ax"] = (_offset += 4)
-	_reg_offsets["eip"] = _reg_offsets["ip"] = (_offset += 4)
-	_reg_offsets["xcs"] = _reg_offsets["cs"] = (_offset += 4)
-	_reg_offsets["eflags"] = _reg_offsets["flags"] = (_offset += 4)
-	_reg_offsets["esp"] = _reg_offsets["sp"] = _sp_offset = (_offset += 4)
-	_reg_offsets["xss"] = _reg_offsets["ss"] = _ss_offset = (_offset += 4)
+	_reg_offsets["orig_eax"] = _r16_offsets["orig_ax"] = (_offset += 4)
+	_reg_offsets["eip"] = _r16_offsets["ip"] = (_offset += 4)
+	_reg_offsets["xcs"] = _r16_offsets["cs"] = (_offset += 4)
+	_reg_offsets["eflags"] = _r16_offsets["flags"] = (_offset += 4)
+	_reg_offsets["esp"] = _r16_offsets["sp"] = _sp_offset = (_offset += 4)
+	_reg_offsets["xss"] = _r16_offsets["ss"] = _ss_offset = (_offset += 4)
 }
 
 function _stp_get_register_by_offset:long (offset:long) %{ /* pure */
@@ -104,18 +117,79 @@ function _stp_kernel_ss:long () %{ /* pure */
 	STAP_RETVALUE = ss;
 %}
 
-/* Return the named register value as a signed value. */
-function register:long (name:string) {
+/*
+ * _stp_sign_extend32() is callable from a script function.
+ * __stp_sign_extend32() (in regs.c) is callable from a C function.
+ */
+function _stp_sign_extend32:long (value:long) %{ /* pure */
+	STAP_RETVALUE = __stp_sign_extend32(STAP_ARG_value);
+%}
+
+/*
+ * _stp_sign_extend16() is callable from a script function.
+ * __stp_sign_extend16() (in regs.c) is callable from a C function.
+ */
+function _stp_sign_extend16:long (value:long) %{ /* pure */
+	STAP_RETVALUE = __stp_sign_extend16(STAP_ARG_value);
+%}
+
+/*
+ * _stp_sign_extend8() is callable from a script function.
+ * __stp_sign_extend8() (in regs.c) is callable from a C function.
+ */
+function _stp_sign_extend8:long (value:long) %{ /* pure */
+	STAP_RETVALUE = __stp_sign_extend8(STAP_ARG_value);
+%}
+
+function _stp_register:long (name:string, sign_extend:long) {
+	reg16 = 0
+	reg8 = 0
   assert(registers_valid(), "cannot access CPU registers in this context")
 	offset = _reg_offsets[name]
-  assert(offset != 0 || (name in _reg_offsets), "Unknown register: " . name)
+	if (offset == 0 && !(name in _reg_offsets)) {
+		offset = _r16_offsets[name]
+		if (offset == 0 && !(name in _r16_offsets)) {
+			offset = _r8_offsets[name]
+			if (offset == 0 && !(name in _r8_offsets)) {
+				assert(0, "Unknown register: " . name)
+			} else {
+				reg8 = 1;
+			}
+		} else {
+			reg16 = 1;
+		}
+	}
+
 	if (_stp_probing_kernel()) {
 		if (offset == _sp_offset)
 			return _stp_kernel_sp(_sp_offset)
 		else if (offset == _ss_offset)
 			return _stp_kernel_ss()
 	}
-	return _stp_get_register_by_offset(offset)
+
+	value = _stp_get_register_by_offset(offset)
+	if (reg16) {
+		if (sign_extend)
+			value = _stp_sign_extend16(value)
+		else
+			value &= 0xffff
+	} else if (reg8) {
+		if (sign_extend)
+			value = _stp_sign_extend8(value)
+		else
+			value &= 0xff
+	} else {
+		if (sign_extend)
+			value = _stp_sign_extend32(value)
+		else
+			value &= 0xffffffff
+	}
+	return value
+}
+
+/* Return the named register value as a signed value. */
+function register:long (name:string) {
+	return _stp_register (name, 1)
 }
 
 /*
@@ -123,7 +197,7 @@ function register:long (name:string) {
  * don't sign-extend the register value when promoting it to 64 bits.
  */
 function u_register:long (name:string) {
-	return register(name) & 0xffffffff;
+	return _stp_register(name, 0)
 }
 
 /* Return the value of function arg #argnum (1=first arg) as a signed value. */
