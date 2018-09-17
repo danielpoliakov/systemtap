@@ -24,7 +24,7 @@ probe init {
     __syscall_map["getresuid"] = ",getresuid32,"
     __syscall_map["getrlimit"] = ",ugetrlimit,"
     __syscall_map["getuid"] = ",getuid32,"
-    __syscall_map["ipc"] = ",msgctl,msgget,msgrcv,msgsnd,semctl,semget,semop,semtimedop,shmctl,shmdt,shmget,"
+    __syscall_map["ipc"] = ",msgctl,msgget,msgrcv,msgsnd,semctl,semget,semop,semtimedop,shmctl,shmat,shmdt,shmget,"
     __syscall_map["lchown"] = ",lchown32,lchown16,"
     __syscall_map["llseek"] = ",_llseek,"
     __syscall_map["lstat"] = ",lstat64,"

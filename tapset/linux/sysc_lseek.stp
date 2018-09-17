@@ -18,7 +18,7 @@
 @define _SYSCALL_LSEEK_REGARGS
 %(
 	fildes = int_arg(1)
-	offset = long_arg(2)
+	offset = @__compat_task ? int_arg(2) : long_arg(2)
 	whence = uint_arg(3)
 	whence_str = _seek_whence_str(whence)
 %)

@@ -13,6 +13,10 @@
 	argstr = ""
 %)
 
+@define _SYSCALL_SETSID_REGARGS
+%(
+%)
+
 probe syscall.setsid = dw_syscall.setsid !, nd_syscall.setsid {}
 probe syscall.setsid.return = dw_syscall.setsid.return !,
                               nd_syscall.setsid.return {}
@@ -32,13 +36,51 @@ probe dw_syscall.setsid.return = kernel.function("sys_setsid").return
 
 # nd_setsid _____________________________________________________
 
-probe nd_syscall.setsid = kprobe.function("sys_setsid")
+probe nd_syscall.setsid = nd1_syscall.setsid!, nd2_syscall.setsid!, tp_syscall.setsid
+  { }
+
+probe nd1_syscall.setsid = kprobe.function("sys_setsid")
 {
 	@_SYSCALL_SETSID_NAME
 	@_SYSCALL_SETSID_ARGSTR
 }
-probe nd_syscall.setsid.return = kprobe.function("sys_setsid").return
+
+/* kernel 4.17+ */
+probe nd2_syscall.setsid = kprobe.function(@arch_syscall0_prefix "sys_setsid") ?
+{
+	@_SYSCALL_SETSID_NAME
+	@_SYSCALL_SETSID_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.setsid = kernel.trace("sys_enter") ?
+{
+	@__syscall_compat_gate(@const("__NR_setsid"), @const("__NR_compat_setsid"))
+	@_SYSCALL_SETSID_NAME
+	@_SYSCALL_SETSID_ARGSTR
+}
+
+probe nd_syscall.setsid.return = nd1_syscall.setsid.return!, nd2_syscall.setsid.return!, tp_syscall.setsid.return
+  { }
+  
+probe nd1_syscall.setsid.return = kprobe.function("sys_setsid").return
 {
 	@_SYSCALL_SETSID_NAME
 	@SYSC_RETVALSTR(returnval())
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.setsid.return = kprobe.function(@arch_syscall0_prefix "sys_setsid").return ?
+{
+	@_SYSCALL_SETSID_NAME
+	@SYSC_RETVALSTR(returnval())
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.setsid.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_setsid"), @const("__NR_compat_setsid"))
+	@_SYSCALL_SETSID_NAME
+	@SYSC_RETVALSTR($ret)
 }

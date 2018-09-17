@@ -15,6 +15,24 @@
 	argstr = sprintf("%d, %d, %s, %p", semid, semnum, cmdstr, arg)
 %)
 
+@define _SYSCALL_SEMCTL_REGARGS
+%(
+	semid = int_arg(1)
+	semnum = int_arg(2)
+	cmd = int_arg(3)
+	cmdstr = _semctl_cmd(cmd)
+	arg = pointer_arg(4)
+%)
+
+@define _SYSCALL_IPC_SEMCTL_REGARGS
+%(
+	semid = int_arg(2)
+	semnum = int_arg(3)
+	cmd = int_arg(4)
+	cmdstr = _semctl_cmd(cmd)
+	arg = pointer_arg(5)
+%)
+
 probe syscall.semctl = dw_syscall.semctl !, nd_syscall.semctl ? {}
 probe syscall.semctl.return = dw_syscall.semctl.return !,
                               nd_syscall.semctl.return ? {}
@@ -41,23 +59,61 @@ probe dw_syscall.semctl.return = kernel.function("sys_semctl").return ?
 
 # nd_semctl _____________________________________________________
 
-probe nd_syscall.semctl = kprobe.function("sys_semctl") ?
+probe nd_syscall.semctl = nd1_syscall.semctl!, nd2_syscall.semctl!, tp_syscall.semctl
+  { }
+
+probe nd1_syscall.semctl = kprobe.function("sys_semctl") ?
 {
 	@__syscall_gate_compat_simple
 	@_SYSCALL_SEMCTL_NAME
 	asmlinkage()
-	semid = int_arg(1)
-	semnum = int_arg(2)
-	cmd = int_arg(3)
-	cmdstr = _semctl_cmd(cmd)
-	arg = pointer_arg(4)
+	@_SYSCALL_SEMCTL_REGARGS
 	@_SYSCALL_SEMCTL_ARGSTR
 }
-probe nd_syscall.semctl.return = kprobe.function("sys_semctl").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.semctl = kprobe.function(@arch_syscall_prefix "sys_semctl") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_SEMCTL_NAME
+	@_SYSCALL_SEMCTL_REGARGS
+	@_SYSCALL_SEMCTL_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.semctl = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_semctl"))
+	@_SYSCALL_SEMCTL_NAME
+	@_SYSCALL_SEMCTL_REGARGS
+	@_SYSCALL_SEMCTL_ARGSTR
+}
+
+probe nd_syscall.semctl.return = nd1_syscall.semctl.return!, nd2_syscall.semctl.return!, tp_syscall.semctl.return
+  { }
+  
+probe nd1_syscall.semctl.return = kprobe.function("sys_semctl").return ?
 {
 	@__syscall_gate_compat_simple
 	@_SYSCALL_SEMCTL_NAME
 	@SYSC_RETVALSTR(returnval())
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.semctl.return = kprobe.function(@arch_syscall_prefix "sys_semctl").return ?
+{
+	@_SYSCALL_SEMCTL_NAME
+	@SYSC_RETVALSTR(returnval())
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.semctl.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_semctl"))
+	@_SYSCALL_SEMCTL_NAME
+	@SYSC_RETVALSTR($ret)
 }
 
 # compat_sys_semctl ________________________________________
@@ -119,45 +175,87 @@ probe __syscall.compat_ipc.semctl.return =
 
 # nd_compat_sys_semctl _____________________________________________________
 
-probe nd_syscall.compat_sys_semctl = __nd_syscall.compat_semctl ?,
-	__nd_syscall.compat_ipc.semctl ?
+probe nd_syscall.compat_sys_semctl = nd1_syscall.compat_sys_semctl!, nd2_syscall.compat_sys_semctl!, tp_syscall.compat_sys_semctl
+  { }
+
+probe nd1_syscall.compat_sys_semctl = __nd1_syscall.compat_semctl ?,
+	__nd1_syscall.compat_ipc.semctl ?
 {
 	@_SYSCALL_SEMCTL_NAME
-	cmdstr = _semctl_cmd(cmd)
 	@_SYSCALL_SEMCTL_ARGSTR
 }
-probe __nd_syscall.compat_semctl = kprobe.function("compat_sys_semctl") ?
+probe __nd1_syscall.compat_semctl = kprobe.function("compat_sys_semctl") ?
 {
 	@__compat_syscall_gate_negative(@const("__NR_compat_ipc"))
-	semid = int_arg(1)
-	semnum = int_arg(2)
-	cmd =  int_arg(3)
-	arg = pointer_arg(4)
+	@_SYSCALL_SEMCTL_REGARGS
 }
-probe __nd_syscall.compat_ipc.semctl = kprobe.function("compat_sys_ipc") ?,
+probe __nd1_syscall.compat_ipc.semctl = kprobe.function("compat_sys_ipc") ?,
 	kprobe.function("sys32_ipc") ?
 {
 	if (int_arg(1) != @const("SEMCTL")) next;
-	semid = int_arg(2)
-	semnum = int_arg(3)
-	cmd = int_arg(4)
-	arg = pointer_arg(5)
+	@_SYSCALL_IPC_SEMCTL_REGARGS
 }
-probe nd_syscall.compat_sys_semctl.return =
-	__nd_syscall.compat_semctl.return ?,
-	__nd_syscall.compat_ipc.semctl.return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.compat_sys_semctl =
+	kprobe.function(@arch_syscall_prefix "compat_sys_ipc") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	if (int_arg(1) != @const("SEMCTL")) next;
+	@_SYSCALL_SEMCTL_NAME
+	@_SYSCALL_IPC_SEMCTL_REGARGS
+	@_SYSCALL_SEMCTL_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.compat_sys_semctl = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_compat_ipc"))
+	if (int_arg(1) != @const("SEMCTL")) next;
+	@_SYSCALL_SEMCTL_NAME
+	@_SYSCALL_IPC_SEMCTL_REGARGS
+	@_SYSCALL_SEMCTL_ARGSTR
+}
+
+probe nd_syscall.compat_sys_semctl.return = nd1_syscall.compat_sys_semctl.return!, nd2_syscall.compat_sys_semctl.return!, tp_syscall.compat_sys_semctl.return
+  { }
+  
+probe nd1_syscall.compat_sys_semctl.return =
+	__nd1_syscall.compat_semctl.return ?,
+	__nd1_syscall.compat_ipc.semctl.return ?
 {
 	@_SYSCALL_SEMCTL_NAME
 	@SYSC_RETVALSTR(returnval())
 }
-probe __nd_syscall.compat_semctl.return =
+probe __nd1_syscall.compat_semctl.return =
 	kprobe.function("compat_sys_semctl").return ?
 {
 	@__compat_syscall_gate_negative(@const("__NR_compat_ipc"))
 }
-probe __nd_syscall.compat_ipc.semctl.return =
+probe __nd1_syscall.compat_ipc.semctl.return =
 	kprobe.function("compat_sys_ipc").return ?,
 	kprobe.function("sys32_ipc").return ?
 {
 	if (@entry(int_arg(1)) != @const("SEMCTL")) next;
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.compat_sys_semctl.return =
+	kprobe.function(@arch_syscall_prefix "compat_sys_ipc").return ?
+{
+	__set_syscall_pt_regs(@entry(pointer_arg(1)))
+	if (int_arg(1) != @const("SEMCTL")) next;
+	@_SYSCALL_SEMCTL_NAME
+	@SYSC_RETVALSTR(returnval())
+}
+ 
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.compat_sys_semctl.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_compat_ipc"))
+	if (int_arg(1) != @const("SEMCTL")) next;
+	@_SYSCALL_SEMCTL_NAME
+	@SYSC_RETVALSTR($ret)
 }

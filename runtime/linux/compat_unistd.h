@@ -178,6 +178,9 @@
 #ifndef __NR_sendto
 #define __NR_sendto (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_setgroups32
+#define __NR_setgroups32 (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_setsockopt
 #define __NR_setsockopt (__NR_syscall_max + 1)
 #endif
@@ -799,6 +802,48 @@
 #ifndef __NR_ia32_rt_tgsigqueueinfo
 #define __NR_ia32_rt_tgsigqueueinfo 335
 #endif
+#ifndef __NR_ia32_sched_get_priority_min
+#define __NR_ia32_sched_get_priority_min 160
+#endif
+#ifndef __NR_ia32_sched_get_priority_max
+#define __NR_ia32_sched_get_priortiy_max 159
+#endif
+#ifndef __NR_ia32_sched_getaffinity
+#define __NR_ia32_sched_getaffinity 242
+#endif 
+#ifndef __NR_ia32_sched_getattr
+#define __NR_ia32_sched_getattr 352
+#endif
+#ifndef __NR_ia32_sched_getparam
+#define __NR_ia32_sched_getparam 155
+#endif
+#ifndef __NR_ia32_sched_getscheduler
+#define __NR_ia32_sched_getscheduler 157
+#endif
+#ifndef __NR_ia32_sched_rr_get_interval
+#define __NR_ia32_sched_rr_get_interval 161
+#endif
+#ifndef __NR_ia32_sched_setaffinity
+#define __NR_ia32_sched_setaffinity 241
+#endif
+#ifndef __NR_ia32_sched_setattr
+#define __NR_ia32_sched_setattr 351
+#endif
+#ifndef __NR_ia32_sched_setparam
+#define __NR_ia32_sched_setparam 154
+#endif
+#ifndef __NR_ia32_sched_setscheduler
+#define __NR_ia32_sched_setscheduler 156
+#endif
+#ifndef __NR_ia32_sched_yield
+#define __NR_ia32_sched_yield 158
+#endif
+#ifndef __NR_ia32_seccomp
+#define __NR_ia32_seccomp 354
+#endif
+#ifndef __NR_ia32_sendfile
+#define __NR_ia32_sendfile 187
+#endif
 #ifndef __NR_ia32_sendmmsg
 #define __NR_ia32_sendmmsg 345
 #endif
@@ -807,6 +852,9 @@
 #endif
 #ifndef __NR_ia32_set_robust_list
 #define __NR_ia32_set_robust_list 312
+#endif
+#ifndef __NR_ia32_set_tid_address
+#define __NR_ia32_set_tid_address 258
 #endif
 #ifndef __NR_ia32_setdomainname
 #define __NR_ia32_setdomainname 121
@@ -820,14 +868,26 @@
 #ifndef __NR_ia32_setgid32
 #define __NR_ia32_setgid32 214
 #endif
+#ifndef __NR_ia32_setgroups
+#define __NR_ia32_setgroups 81
+#endif
+#ifndef __NR_ia32_setgroups32
+#define __NR_ia32_setgroups32 206
+#endif
 #ifndef __NR_ia32_sethostname
 #define __NR_ia32_sethostname 74
 #endif
 #ifndef __NR_ia32_setitimer
 #define __NR_ia32_setitimer 104
 #endif
+#ifndef __NR_ia32_setns
+#define __NR_ia32_setns 346
+#endif
 #ifndef __NR_ia32_setpgid
 #define __NR_ia32_setpgid 57
+#endif
+#ifndef __NR_ia32_setpriority
+#define __NR_ia32_setpriority 97
 #endif
 #ifndef __NR_ia32_setresgid32
 #define __NR_ia32_setresgid32 210
@@ -843,6 +903,9 @@
 #endif
 #ifndef __NR_ia32_setrlimit
 #define __NR_ia32_setrlimit 75
+#endif
+#ifndef __NR_ia32_setsid
+#define __NR_ia32_setsid 66
 #endif
 #ifndef __NR_ia32_settimeofday
 #define __NR_ia32_settimeofday 79
@@ -1088,14 +1151,34 @@
 #define __NR_compat_rt_sigsuspend	__NR_ia32_rt_sigsuspend
 #define __NR_compat_rt_sigtimedwait	__NR_ia32_rt_sigtimedwait
 #define __NR_compat_rt_tgsigqueueinfo	__NR_ia32_rt_tgsigqueueinfo
+#define __NR_compat_sched_get_priority_min	__NR_ia32_sched_get_priority_min
+#define __NR_compat_sched_get_priority_max	__NR_ia32_sched_get_priority_max
+#define __NR_compat_sched_getaffinity	__NR_ia32_sched_getaffinity
+#define __NR_compat_sched_getattr	__NR_ia32_sched_getattr
+#define __NR_compat_sched_getparam	__NR_ia32_sched_getparam
+#define __NR_compat_sched_getscheduler	__NR_ia32_sched_getscheduler
+#define __NR_compat_sched_rr_get_interval	__NR_ia32_sched_rr_get_interval
+#define __NR_compat_sched_setaffinity	__NR_ia32_sched_setaffinity
+#define __NR_compat_sched_setattr	__NR_ia32_sched_setattr
+#define __NR_compat_sched_setparam	__NR_ia32_sched_setparam
+#define __NR_compat_sched_setscheduler	__NR_ia32_sched_setscheduler
+#define __NR_compat_sched_yield		__NR_ia32_sched_yield
+#define __NR_compat_seccomp		__NR_ia32_seccomp
+#define __NR_compat_sendfile		__NR_ia32_sendfile
 #define __NR_compat_sendmmsg		__NR_ia32_sendmmsg
 #define __NR_compat_set_mempolicy	__NR_ia32_set_mempolicy
 #define __NR_compat_set_robust_list	__NR_ia32_set_robust_list
+#define __NR_compat_set_tid_address	__NR_ia32_set_tid_address
 #define __NR_compat_setdomainname	__NR_ia32_setdomainname
+#define __NR_compat_setgroups		__NR_ia32_setgroups
+#define __NR_compat_setgroups32		__NR_ia32_setgroups32
 #define __NR_compat_sethostname		__NR_ia32_sethostname
 #define __NR_compat_setitimer		__NR_ia32_setitimer
+#define __NR_compat_setns		__NR_ia32_setns
 #define __NR_compat_setpgid		__NR_ia32_setpgid
+#define __NR_compat_setpriority		__NR_ia32_setpriority
 #define __NR_compat_setrlimit		__NR_ia32_setrlimit
+#define __NR_compat_setsid		__NR_ia32_setsid
 #define __NR_compat_settimeofday	__NR_ia32_settimeofday
 #define __NR_compat_shmctl		__NR_ia32_shmctl
 #define __NR_compat_socketcall		__NR_ia32_socketcall
@@ -1310,14 +1393,34 @@
 #define __NR_compat_rt_sigsuspend	__NR_rt_sigsuspend
 #define __NR_compat_rt_sigtimedwait	__NR_rt_sigtimedwait
 #define __NR_compat_rt_tgsigqueueinfo	__NR_rt_tgsigqueueinfo
+#define __NR_compat_sched_get_priority_min	__NR_sched_get_priority_min
+#define __NR_compat_sched_get_priority_max	__NR_sched_get_priority_max
+#define __NR_compat_sched_getaffinity	__NR_sched_getaffinity
+#define __NR_compat_sched_getattr	__NR_sched_getattr
+#define __NR_compat_sched_getparam	__NR_sched_getparam
+#define __NR_compat_sched_getscheduler	__NR_sched_getscheduler
+#define __NR_compat_sched_rr_get_interval	__NR_sched_rr_get_interval
+#define __NR_compat_sched_setaffinity	__NR_sched_setaffinity
+#define __NR_compat_sched_setattr	__NR_sched_setattr
+#define __NR_compat_sched_setparam	__NR_sched_setparam
+#define __NR_compat_sched_setscheduler	__NR_sched_setscheduler
+#define __NR_compat_sched_yield		__NR_sched_yield
+#define __NR_compat_seccomp		__NR_seccomp
+#define __NR_compat_sendfile		__NR_sendfile
 #define __NR_compat_sendmmsg		__NR_sendmmsg
 #define __NR_compat_set_mempolicy	__NR_set_mempolicy
 #define __NR_compat_set_robust_list	__NR_set_robust_list
+#define __NR_compat_set_tid_address	__NR_set_tid_address
 #define __NR_compat_setdomainname	__NR_setdomainname
+#define __NR_compat_setgroups		__NR_setgroups
+#define __NR_compat_setgroups32		__NR_setgroups32
 #define __NR_compat_sethostname		__NR_sethostname
 #define __NR_compat_setitimer		__NR_setitimer
+#define __NR_compat_setns		__NR_setns
 #define __NR_compat_setpgid		__NR_setpgid
+#define __NR_compat_setpriority		__NR_setpriority
 #define __NR_compat_setrlimit		__NR_setrlimit
+#define __NR_compat_setsid		__NR_setsid
 #define __NR_compat_settimeofday	__NR_settimeofday
 #define __NR_compat_shmctl		__NR_shmctl
 #define __NR_compat_socketcall		__NR_socketcall
