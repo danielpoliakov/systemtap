@@ -1,0 +1,131 @@
+set test "register_x64"
+set testpath "$srcdir/$subdir"
+
+if {! [installtest_p]} { untested $test; return }
+if {! [uretprobes_p]} { untested $test; return }
+set arch [exec uname -i]
+if {$arch ne "x86_64"} { untested $test; return }
+
+# --- TEST 1 ---
+
+set subtest1 "TEST 1: 64-bit rax"
+
+set res [target_compile ${testpath}/${test}_1.c ./a.out executable \
+    "additional_flags=-O additional_flags=-g additional_flags=-O0"]
+if {$res ne ""} {
+    verbose "target_compile failed: $res" 2
+    fail "$test: $subtest1: unable to compile ${test}_1.c"
+} else {
+    foreach runtime [get_runtime_list] {
+        if {$runtime eq ""} {
+            set runtime "kernel"
+        }
+        set test_name "$test: $subtest1 ($runtime)"
+        set cmd "stap --runtime=$runtime -c ./a.out '$srcdir/$subdir/${test}_1.stp'"
+        set exit_code [run_cmd_2way $cmd out stderr]
+        set exp_out "rax = 0x56781234beefdead
+u rax = 0x56781234beefdead
+
+eax = 0xffffffffbeefdead
+u eax = 0xbeefdead
+"
+        is "${test_name}: stdout" $out $exp_out
+        is "${test_name}: exit code" $exit_code 0
+        if {$stderr ne ""} {
+            send_log "stderr:\n$stderr"
+        }
+    }
+}
+
+# --- TEST 2 ---
+
+set subtest2 "TEST 2: 64-bit rbx"
+
+set res [target_compile ${testpath}/${test}_2.c ./a.out executable \
+    "additional_flags=-O additional_flags=-g additional_flags=-O0"]
+if {$res ne ""} {
+    verbose "target_compile failed: $res" 2
+    fail "$test: $subtest2: unable to compile ${test}_2.c"
+} else {
+    foreach runtime [get_runtime_list] {
+        if {$runtime eq ""} {
+            set runtime "kernel"
+        }
+        set test_name "$test: $subtest2 ($runtime)"
+        set cmd "stap --runtime=$runtime -c ./a.out '$srcdir/$subdir/${test}_2.stp'"
+        set exit_code [run_cmd_2way $cmd out stderr]
+        set exp_out "rbx = 0x56781234beefdead
+u rbx = 0x56781234beefdead
+
+ebx = 0xffffffffbeefdead
+u ebx = 0xbeefdead
+"
+        is "${test_name}: stdout" $out $exp_out
+        is "${test_name}: exit code" $exit_code 0
+        if {$stderr ne ""} {
+            send_log "stderr:\n$stderr"
+        }
+    }
+}
+
+# --- TEST 3 ---
+
+set subtest3 "TEST 3: 64-bit rcx"
+
+set res [target_compile ${testpath}/${test}_3.c ./a.out executable \
+    "additional_flags=-O additional_flags=-g additional_flags=-O0"]
+if {$res ne ""} {
+    verbose "target_compile failed: $res" 2
+    fail "$test: $subtest3: unable to compile ${test}_3.c"
+} else {
+    foreach runtime [get_runtime_list] {
+        if {$runtime eq ""} {
+            set runtime "kernel"
+        }
+        set test_name "$test: $subtest3 ($runtime)"
+        set cmd "stap --runtime=$runtime -c ./a.out '$srcdir/$subdir/${test}_3.stp'"
+        set exit_code [run_cmd_2way $cmd out stderr]
+        set exp_out "rcx = 0x56781234beefdead
+u rcx = 0x56781234beefdead
+
+ecx = 0xffffffffbeefdead
+u ecx = 0xbeefdead
+"
+        is "${test_name}: stdout" $out $exp_out
+        is "${test_name}: exit code" $exit_code 0
+        if {$stderr ne ""} {
+            send_log "stderr:\n$stderr"
+        }
+    }
+}
+
+# --- TEST 4 ---
+
+set subtest4 "TEST 4: 64-bit rdx"
+
+set res [target_compile ${testpath}/${test}_4.c ./a.out executable \
+    "additional_flags=-O additional_flags=-g additional_flags=-O0"]
+if {$res ne ""} {
+    verbose "target_compile failed: $res" 2
+    fail "$test: $subtest4: unable to compile ${test}_4.c"
+} else {
+    foreach runtime [get_runtime_list] {
+        if {$runtime eq ""} {
+            set runtime "kernel"
+        }
+        set test_name "$test: $subtest4 ($runtime)"
+        set cmd "stap --runtime=$runtime -c ./a.out '$srcdir/$subdir/${test}_4.stp'"
+        set exit_code [run_cmd_2way $cmd out stderr]
+        set exp_out "rdx = 0x56781234beefdead
+u rdx = 0x56781234beefdead
+
+edx = 0xffffffffbeefdead
+u edx = 0xbeefdead
+"
+        is "${test_name}: stdout" $out $exp_out
+        is "${test_name}: exit code" $exit_code 0
+        if {$stderr ne ""} {
+            send_log "stderr:\n$stderr"
+        }
+    }
+}

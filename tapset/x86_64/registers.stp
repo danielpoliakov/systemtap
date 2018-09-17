@@ -145,8 +145,7 @@ function _stp_register:long (name:string, sign_extend:long) {
 			value = _stp_sign_extend16(value)
 		else
 			value &= 0xffff
-	} else {
-		assert (reg8);
+	} else if (reg8) {
 		if (sign_extend)
 			value = _stp_sign_extend8(value)
 		else
