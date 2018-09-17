@@ -1,6 +1,6 @@
 #! /usr/bin/env stap
 #
-# Copyright (C) 2010 Red Hat, Inc.
+# Copyright (C) 2010, 2018 Red Hat, Inc.
 # By Dominic Duval, Red Hat Inc.
 # dduval@redhat.com
 #
@@ -11,8 +11,9 @@
 
 global execname, errors
 
-probe syscall.*.return {
-  errno = retval
+probe kernel.trace("sys_exit") {
+  name = syscall_name(_stp_syscall_nr())
+  errno = $ret
   if ( errno < 0 ) {
     p = pid()
     execname[p]=execname();

@@ -146,7 +146,8 @@ probe ns_capable !, capable
     cap_use[tid()] |= cap
 }
 
-probe nd_syscall.*.return {
+probe kernel.trace("sys_exit") {
+  name = syscall_name(_stp_syscall_nr())
   # note any problem capabilities use during syscall
   cap = cap_use[tid()]
   if (cap && child_of_target(task_current())) {
@@ -161,8 +162,8 @@ probe nd_syscall.*.return {
   }
 
   # note any syscalls returning errors
-  if (retval < 0 && child_of_target(task_current())) {
-    syscall_errno[execname(), name, retval] <<< 1
+  if ($ret < 0 && child_of_target(task_current())) {
+    syscall_errno[execname(), name, $ret] <<< 1
   }
 }
 

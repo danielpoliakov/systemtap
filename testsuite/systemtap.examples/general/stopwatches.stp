@@ -12,14 +12,14 @@ probe begin
   stop_stopwatch("system")
 }
 
-probe syscall.*
+probe kernel.trace("sys_enter")
 {
   if (pid() != target()) next
   stop_stopwatch("user")
   start_stopwatch("system")
 }
 
-probe syscall.*.return
+probe kernel.trace("sys_exit")
 {
   if (pid() != target()) next
   start_stopwatch("user")

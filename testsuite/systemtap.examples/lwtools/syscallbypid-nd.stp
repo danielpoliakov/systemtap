@@ -27,8 +27,9 @@ probe begin
 	printf("Tracing syscall completions... Hit Ctrl-C to end.\n");
 }
 
-probe nd_syscall.*.return
+probe kernel.trace("sys_exit")
 {
+	name = syscall_name(_stp_syscall_nr())
 	num[pid(), execname(), name] <<< 1;
 }
 
