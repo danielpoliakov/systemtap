@@ -337,7 +337,7 @@ void build_info::start_module_build()
 	lock_guard<mutex> lock(res_mutex);
 	if (builder_thread_running) {
 	    // This really shouldn't happen. Error out.
-	    server_error("Mulitple attempts to build module.");
+	    server_error("Multiple attempts to build module.");
 	    return;
 	}
 	builder_thread_running = true;
