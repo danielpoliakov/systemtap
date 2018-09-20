@@ -90,8 +90,11 @@ probe nd1_syscall.fstat = kprobe.function("sys_fstat") ?,
 }
 
 /* kernel 4.17+ */
-probe nd2_syscall.fstat = kprobe.function(@arch_syscall_prefix "sys_newfstat") ?,
-                          kprobe.function(@arch_syscall_prefix "compat_sys_x86_fstat64") ?
+probe nd2_syscall.fstat =
+	kprobe.function(@arch_syscall_prefix "sys_fstat") ?,
+	kprobe.function(@arch_syscall_prefix "sys_newfstat") ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_newfstat") ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_x86_fstat64") ?
 {
 	__set_syscall_pt_regs(pointer_arg(1))
 	@_SYSCALL_FSTAT_NAME
@@ -100,7 +103,9 @@ probe nd2_syscall.fstat = kprobe.function(@arch_syscall_prefix "sys_newfstat") ?
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
-probe tp_syscall.fstat = __tp_syscall.fstat, __tp_syscall.fstat64
+probe tp_syscall.fstat = __tp_syscall.fstat,
+                         __tp_syscall.fstat64,
+                         __tp_syscall.newfstat
 {
 	__set_syscall_pt_regs($regs)
 	@_SYSCALL_FSTAT_NAME
@@ -109,11 +114,15 @@ probe tp_syscall.fstat = __tp_syscall.fstat, __tp_syscall.fstat64
 }
 probe __tp_syscall.fstat = kernel.trace("sys_enter")
 {
-	@__syscall_compat_gate(@const("__NR_fstat"), @const("__NR_compat_fstat"))
+	@__syscall_compat_gate(@const("__NR_oldfstat"), @const("__NR_compat_oldfstat"))
 }
 probe __tp_syscall.fstat64 = kernel.trace("sys_enter")
 {
 	@__syscall_compat_gate(@const("__NR_fstat64"), @const("__NR_compat_fstat64"))
+}
+probe __tp_syscall.newfstat = kernel.trace("sys_enter")
+{
+	@__syscall_compat_gate(@const("__NR_fstat"), @const("__NR_compat_fstat"))
 }
 
 probe nd_syscall.fstat.return = nd1_syscall.fstat.return!, nd2_syscall.fstat.return!, tp_syscall.fstat.return
@@ -137,7 +146,10 @@ probe nd1_syscall.fstat.return = kprobe.function("sys_fstat").return ?,
 }
 
 /* kernel 4.17+ */
-probe nd2_syscall.fstat.return = kprobe.function(@arch_syscall_prefix "sys_newfstat").return ?,
+probe nd2_syscall.fstat.return =
+	kprobe.function(@arch_syscall_prefix "sys_fstat").return ?,
+	kprobe.function(@arch_syscall_prefix "sys_newfstat").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_newfstat").return ?,
 	kprobe.function(@arch_syscall_prefix "compat_sys_x86_fstat64").return ?
 {
 	@_SYSCALL_FSTAT_NAME
@@ -145,7 +157,9 @@ probe nd2_syscall.fstat.return = kprobe.function(@arch_syscall_prefix "sys_newfs
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
-probe tp_syscall.fstat.return = __tp_syscall.fstat.return, __tp_syscall.fstat64.return
+probe tp_syscall.fstat.return = __tp_syscall.fstat.return,
+                                __tp_syscall.fstat64.return,
+                                __tp_syscall.newfstat.return
 {
 	__set_syscall_pt_regs($regs)
 	@_SYSCALL_FSTAT_NAME
@@ -153,9 +167,13 @@ probe tp_syscall.fstat.return = __tp_syscall.fstat.return, __tp_syscall.fstat64.
 }
 probe __tp_syscall.fstat.return = kernel.trace("sys_exit")
 {
-	@__syscall_compat_gate(@const("__NR_fstat"), @const("__NR_compat_fstat"))
+	@__syscall_compat_gate(@const("__NR_oldfstat"), @const("__NR_compat_oldfstat"))
 }
 probe __tp_syscall.fstat64.return = kernel.trace("sys_exit")
 {
 	@__syscall_compat_gate(@const("__NR_fstat64"), @const("__NR_compat_fstat64"))
+}
+probe __tp_syscall.newfstat.return = kernel.trace("sys_exit")
+{
+	@__syscall_compat_gate(@const("__NR_fstat"), @const("__NR_compat_fstat"))
 }

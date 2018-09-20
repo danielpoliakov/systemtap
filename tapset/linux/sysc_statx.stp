@@ -21,6 +21,19 @@
 	                 mask_str, buf_uaddr)
 %)
 
+@define _SYSCALL_STATX_REGARGS
+%(
+	dfd = int_arg(1)
+	dfd_str = _dfd_str(dfd)
+	filename_uaddr = pointer_arg(2)
+	filename = user_string_quoted(filename_uaddr)
+	flags = uint_arg(3)
+	flags_str = _at_flag_str(flags)
+	mask = uint_arg(4)
+	mask_str = _statx_mask_str(mask)
+	buf_uaddr = pointer_arg(5)
+%)
+
 probe syscall.statx = dw_syscall.statx !, nd_syscall.statx ? {}
 probe syscall.statx.return = dw_syscall.statx.return !, nd_syscall.statx.return ? {}
 
@@ -50,25 +63,59 @@ probe dw_syscall.statx.return = kernel.function("sys_statx").return ?
 
 # nd_statx _____________________________________________________
 
-probe nd_syscall.statx = kprobe.function("sys_statx") ?
+probe nd_syscall.statx = nd1_syscall.statx!, nd2_syscall.statx!, tp_syscall.statx
+  { }
+
+probe nd1_syscall.statx = kprobe.function("sys_statx") ?
 {
 	@_SYSCALL_STATX_NAME
 	asmlinkage()
-	dfd = int_arg(1)
-	dfd_str = _dfd_str(dfd)
-	filename_uaddr = pointer_arg(2)
-	filename = user_string_quoted(filename_uaddr)
-	flags = uint_arg(3)
-	flags_str = _at_flag_str(flags)
-	mask = uint_arg(4)
-	mask_str = _statx_mask_str(mask)
-	buf_uaddr = pointer_arg(5)
+	@_SYSCALL_STATX_REGARGS
 	# Not pretty-printing struct statx, since it is just
 	# (maybe somehow initialized) *destination* buffer.
 	@_SYSCALL_STATX_ARGSTR
 }
-probe nd_syscall.statx.return = kprobe.function("sys_statx").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.statx = kprobe.function(@arch_syscall_prefix "sys_statx") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_STATX_NAME
+	@_SYSCALL_STATX_REGARGS
+	@_SYSCALL_STATX_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.statx = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_statx"), @const("__NR_compat_statx"))
+	@_SYSCALL_STATX_NAME
+	@_SYSCALL_STATX_REGARGS
+	@_SYSCALL_STATX_ARGSTR
+}
+
+probe nd_syscall.statx.return = nd1_syscall.statx.return!, nd2_syscall.statx.return!, tp_syscall.statx.return
+  { }
+
+probe nd1_syscall.statx.return = kprobe.function("sys_statx").return ?
 {
 	@_SYSCALL_STATX_NAME
 	@SYSC_RETVALSTR(returnval())
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.statx.return = kprobe.function(@arch_syscall_prefix "sys_statx").return ?
+{
+	@_SYSCALL_STATX_NAME
+	@SYSC_RETVALSTR(returnval())
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.statx.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_statx"), @const("__NR_compat_statx"))
+	@_SYSCALL_STATX_NAME
+	@SYSC_RETVALSTR($ret)
 }

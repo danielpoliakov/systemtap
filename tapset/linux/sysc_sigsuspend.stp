@@ -65,14 +65,17 @@ probe __syscall.sigsuspend.return = kernel.function("sys_sigsuspend").return ?
 
 # nd_sigsuspend _____________________________________________________
 
-probe nd_syscall.sigsuspend = __nd_syscall.sigsuspend ?,
-	__nd_syscall.sys32_sigsuspend ?
+probe nd_syscall.sigsuspend = nd1_syscall.sigsuspend!, nd2_syscall.sigsuspend!, tp_syscall.sigsuspend
+  { }
+
+probe nd1_syscall.sigsuspend = __nd1_syscall.sigsuspend ?,
+	__nd1_syscall.sys32_sigsuspend ?
 {
 	@_SYSCALL_SIGSUSPEND_NAME
 	mask_str = _stp_sigmask_str(mask)
 	@_SYSCALL_SIGSUSPEND_ARGSTR
 }
-probe __nd_syscall.sigsuspend = __nd_syscall.sys_sigsuspend ?,
+probe __nd1_syscall.sigsuspend = __nd1_syscall.sys_sigsuspend ?,
 	kprobe.function("compat_sys_sigsuspend") ?
 {
 	asmlinkage()
@@ -83,26 +86,73 @@ probe __nd_syscall.sigsuspend = __nd_syscall.sys_sigsuspend ?,
 	mask = ulong_arg(3)
 %)
 }
-probe __nd_syscall.sys_sigsuspend = kprobe.function("sys_sigsuspend") ?
+probe __nd1_syscall.sys_sigsuspend = kprobe.function("sys_sigsuspend") ?
 {
 	asmlinkage()
 	@_SYSCALL_GATE
 }
-probe __nd_syscall.sys32_sigsuspend = kprobe.function("sys32_sigsuspend") ?
+probe __nd1_syscall.sys32_sigsuspend = kprobe.function("sys32_sigsuspend") ?
 {
 	asmlinkage()
 	mask = ulong_arg(3)
 }
-probe nd_syscall.sigsuspend.return =
-	__nd_syscall.sigsuspend.return ?,
+
+/* kernel 4.17+ */
+probe nd2_syscall.sigsuspend =
+	kprobe.function(@arch_syscall_prefix "sys_sigsuspend") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_SIGSUSPEND_NAME
+	mask = ulong_arg(3)
+	mask_str = _stp_sigmask_str(mask)
+	@_SYSCALL_SIGSUSPEND_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.sigsuspend = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_sigsuspend"), @const("__NR_compat_sigsuspend"))
+	@_SYSCALL_SIGSUSPEND_NAME
+%( CONFIG_OLD_SIGSUSPEND == "y" %?
+	mask = ulong_arg(1)
+%:
+	# CONFIG_OLD_SIGSUSPEND3 has mask as the 3rd argument.
+	mask = ulong_arg(3)
+%)
+	mask_str = _stp_sigmask_str(mask)
+	@_SYSCALL_SIGSUSPEND_ARGSTR
+}
+
+probe nd_syscall.sigsuspend.return = nd1_syscall.sigsuspend.return!, nd2_syscall.sigsuspend.return!, tp_syscall.sigsuspend.return
+  { }
+
+probe nd1_syscall.sigsuspend.return =
+	__nd1_syscall.sigsuspend.return ?,
 	kprobe.function("sys32_sigsuspend").return ?,
 	kprobe.function("compat_sys_sigsuspend").return ?
 {
 	@_SYSCALL_SIGSUSPEND_NAME
 	@SYSC_RETVALSTR(returnval())
 }
-probe __nd_syscall.sigsuspend.return =
+probe __nd1_syscall.sigsuspend.return =
 	kprobe.function("sys_sigsuspend").return ?
 {
 	@_SYSCALL_GATE
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.sigsuspend.return = kprobe.function(@arch_syscall_prefix "sys_sigsuspend").return ?
+{
+	@_SYSCALL_SIGSUSPEND_NAME
+	@SYSC_RETVALSTR(returnval())
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.sigsuspend.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_sigsuspend"), @const("__NR_compat_sigsuspend"))
+	@_SYSCALL_SIGSUSPEND_NAME
+	@SYSC_RETVALSTR($ret)
 }

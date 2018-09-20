@@ -13,6 +13,13 @@
 	argstr = sprintf("%d, %u, %p", fd, sz, buf_uaddr)
 %)
 
+@define _SYSCALL_FSTATFS64_REGARGS
+%(
+	fd = int_arg(1)
+	sz = ulong_arg(2)
+	buf_uaddr = pointer_arg(3)
+%)
+
 probe syscall.fstatfs64 = dw_syscall.fstatfs64 !, nd_syscall.fstatfs64 ? {}
 probe syscall.fstatfs64.return = dw_syscall.fstatfs64.return !, nd_syscall.fstatfs64.return ? {}
 
@@ -36,20 +43,62 @@ probe dw_syscall.fstatfs64.return = kernel.function("sys_fstatfs64").return ?,
 
 # nd_fstatfs64 _____________________________________________________
 
-probe nd_syscall.fstatfs64 = kprobe.function("sys_fstatfs64") ?,
+probe nd_syscall.fstatfs64 = nd1_syscall.fstatfs64!, nd2_syscall.fstatfs64!, tp_syscall.fstatfs64
+  { }
+
+probe nd1_syscall.fstatfs64 = kprobe.function("sys_fstatfs64") ?,
 	kprobe.function("compat_sys_fstatfs64") ?
 {
 	@_SYSCALL_FSTATFS64_NAME
 	asmlinkage()
-	fd = int_arg(1)
-	sz = ulong_arg(2)
-	buf_uaddr = pointer_arg(3)
+	@_SYSCALL_FSTATFS64_REGARGS
 	@_SYSCALL_FSTATFS64_ARGSTR
 }
-probe nd_syscall.fstatfs64.return =
+
+/* kernel 4.17+ */
+probe nd2_syscall.fstatfs64 =
+	kprobe.function(@arch_syscall_prefix "compat_sys_fstatfs64") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_FSTATFS64_NAME
+	@_SYSCALL_FSTATFS64_REGARGS
+	@_SYSCALL_FSTATFS64_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.fstatfs64 = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_fstatfs64"), @const("__NR_compat_fstatfs64"))
+	@_SYSCALL_FSTATFS64_NAME
+	@_SYSCALL_FSTATFS64_REGARGS
+	@_SYSCALL_FSTATFS64_ARGSTR
+}
+
+probe nd_syscall.fstatfs64.return = nd1_syscall.fstatfs64.return!, nd2_syscall.fstatfs64.return!, tp_syscall.fstatfs64.return
+  { }
+
+probe nd1_syscall.fstatfs64.return =
 	kprobe.function("sys_fstatfs64").return ?,
 	kprobe.function("compat_sys_fstatfs64").return ?
 {
 	@_SYSCALL_FSTATFS64_NAME
 	@SYSC_RETVALSTR(returnval())
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.fstatfs64.return =
+	kprobe.function(@arch_syscall_prefix "compat_sys_fstatfs64").return ?
+{
+	@_SYSCALL_FSTATFS64_NAME
+	@SYSC_RETVALSTR(returnval())
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.fstatfs64.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_fstatfs64"), @const("__NR_compat_fstatfs64"))
+	@_SYSCALL_FSTATFS64_NAME
+	@SYSC_RETVALSTR($ret)
 }
