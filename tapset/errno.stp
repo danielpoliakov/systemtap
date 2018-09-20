@@ -415,6 +415,8 @@ function set_returnval(val:long) %{
 %) /* compatible <= 4.0 */
 
 
+/* NB: The following function is not STABLE because it depends on varying
+   state in the context. */
 /**
  * sfunction returnval - Possible return value of probed function
  *
@@ -423,8 +425,6 @@ function set_returnval(val:long) %{
  * available. This is only a guess of the actual return value and can be
  * totally wrong. Normally only used in dwarfless probes.
  */
-/* NB: this function is not STABLE because it depends on varying
-   state in the context. */
 function returnval:long () %{ /* pure */
 	struct pt_regs *regs;
   #if STAP_COMPAT_VERSION <= STAP_VERSION(4,0)
