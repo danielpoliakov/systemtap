@@ -10,4 +10,4 @@ output: batch on-exit
 scope: system-wide
 description: The script periodically prints a count of specified events and their related tid's over the course of execution. Numerous configuration options exist to control filtering / reporting, some of which can be modified at runtime. See the script source for more information.
 test_check: stap -p4 eventcount.stp
-test_installcheck: stap eventcount.stp 'kernel.trace("sys_enter")' -c 'sleep 3'
+test_installcheck: stap eventcount.stp 'syscall_any' -c 'sleep 3'

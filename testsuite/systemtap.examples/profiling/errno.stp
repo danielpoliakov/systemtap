@@ -11,9 +11,8 @@
 
 global execname, errors
 
-probe kernel.trace("sys_exit") {
-  name = syscall_name(_stp_syscall_nr())
-  errno = $ret
+probe syscall_any.return {
+  errno = retval
   if ( errno < 0 ) {
     p = pid()
     execname[p]=execname();

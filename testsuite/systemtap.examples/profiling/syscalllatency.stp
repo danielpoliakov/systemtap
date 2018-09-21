@@ -12,11 +12,11 @@
 
 global arr%[20000], sys%[20000], entry_time%[20000]
 
-probe kernel.trace("sys_enter") {
+probe syscall_any {
     entry_time[tid()] = gettimeofday_ns();
-    sys[tid()] = $id
+    sys[tid()] = syscall_nr
 }
-probe kernel.trace("sys_exit") {
+probe syscall_any.return {
     et = entry_time[tid()]
     id = sys[tid()]
     delete entry_time[tid()]

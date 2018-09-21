@@ -6,10 +6,10 @@ global activity2          // [execname,tid]->syscall-name-string-history
 global syscall_history_length = 50 // override with stap -Gsyscall_history_length=NNN
 global top_threads = 20
 
-probe kernel.trace("sys_enter") # use syscall tracepoint; we don't need context data
+probe syscall_any # use tracepoint based syscall_any; we don't need context data
 {
   activity[execname(),tid()]<<<1
-  history = syscall_name($id)." ".activity2[execname(),tid()]
+  history = name." ".activity2[execname(),tid()]
   activity2[execname(),tid()] = substr(history,0,syscall_history_length)
 }
 

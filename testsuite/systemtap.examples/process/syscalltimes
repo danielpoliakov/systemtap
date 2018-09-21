@@ -138,12 +138,11 @@ probe begin {
 	}
 }
 
-probe kernel.trace("sys_enter") {
-	starttime[syscall_name($id), tid()] = gettimeofday_ns()
+probe syscall_any {
+	starttime[name, tid()] = gettimeofday_ns()
 }
 
-probe kernel.trace("sys_exit") {
-	name = syscall_name(_stp_syscall_nr())
+probe syscall_any.return {
 	# Skip if we have not seen this before
 	if (!([name, tid()] in starttime)) next
 

@@ -13,12 +13,12 @@
 global arr%[20000], sys%[20000]
 global procname%
       
-probe kernel.trace("sys_enter") {
-  sys[tid()] = $id
+probe syscall_any {
+  sys[tid()] = syscall_nr
 }
-probe kernel.trace("sys_exit") {
-    if (tid() in sys && $ret < 0 ) {
-       arr[pid(), sys[tid()], $ret]++
+probe syscall_any.return {
+    if (tid() in sys && retval < 0 ) {
+       arr[pid(), sys[tid()], retval]++
        procname[pid()] = execname()
     }
     delete sys[tid()]

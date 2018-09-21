@@ -13,8 +13,8 @@
 global arr%[20000]
 global procname%
       
-probe kernel.trace("sys_enter") {
-  arr[pid(), $id]++
+probe syscall_any {
+  arr[pid(), syscall_nr]++
   procname[pid()] = execname()
 }
 

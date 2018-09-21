@@ -6,8 +6,7 @@
 
 global syscalls_count
 
-probe kernel.trace("sys_enter") {
-  name = syscall_name($id)
+probe syscall_any {
   syscalls_count[name] <<< 1
 }
 
