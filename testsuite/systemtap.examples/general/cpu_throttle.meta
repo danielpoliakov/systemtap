@@ -2,7 +2,7 @@ title: Monitor Intel processors for throttling due to power or thermal limits
 name: cpu_throttle.stp
 version: 1.0
 author: William Cohen
-keywords: prometheus limit
+keywords: prometheus limits
 subsystem: process
 status: experimental
 exit: user-controlled
