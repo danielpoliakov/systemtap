@@ -463,6 +463,18 @@
 !Itapset/switchfile.stp
   </chapter>
 
+  <chapter id="syscall_any.stp">
+    <title>Syscall Any Tapset</title>
+    <para>
+      This family of probe points is designed to provide low cost
+      instrumentation for cases where only the syscall name (or number)
+      and return value are required and there is no need for the detailed
+      syscall argument values. They are restricted versions of
+      syscall.* and syscall.*.return.
+    </para>
+!Itapset/linux/sysc_any.stp
+  </chapter>
+
 !Syscalls
 
 </book>
