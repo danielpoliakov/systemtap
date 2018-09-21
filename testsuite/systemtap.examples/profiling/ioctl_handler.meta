@@ -1,0 +1,13 @@
+title: Monitor which executables use ioctl syscalls and what kernel code is handling the ioctl
+name: ioctl_handler.stp
+version: 1.0
+author: William Cohen
+keywords: profiling
+subsystem: process
+status: production
+exit: user-controlled
+output: sorted-list
+scope: system-wide
+description: The ioctl systemcall is used to manipulate devices setting or special files.  The way that ioctl syscalls are handled depend greatly on the device the special file is associated with. Using strace to monitor the open and ioctl syscalls may not give a good indication of what kernel code is actually handling the ioctl operations.  The ioctl_handler.stp script is designed to provide more details. On exit the ioctl_handler.stp script provides a count of the ioctl syscalls for each executable run on the system. If there was some special device driver code used to handle to the ioctl, the output will have a tally of the times the function name and module was called for that executable.  The "--all-modules" option should be included on the command line so the script can provide function name information.
+test_check: stap -p4 ioctl_handler.stp --all-modules
+test_installcheck: stap ioctl_handler.stp --all-modules -T 1

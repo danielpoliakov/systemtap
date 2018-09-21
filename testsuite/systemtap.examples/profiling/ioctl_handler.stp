@@ -1,0 +1,30 @@
+#! /usr/bin/env stap
+# Copyright (C) 2018 Red Hat, Inc.
+# Written by William Cohen <wcohen@redhat.com>
+#
+
+global ioctl_requests, ioctl_func
+
+probe syscall.ioctl {
+  ioctl_requests[execname()] <<< 1
+  try {
+    # Dig down through the task struct to find the actual function handling ioctl.
+    ioctl_func_address = @cast(task_current(), "struct task_struct")->files->fdt->fd[fd]->f_op->unlocked_ioctl
+    if (ioctl_func_address)
+      ioctl_func[execname(), ioctl_func_address] <<< 1
+  } catch {
+    ioctl_func[execname(), 0] <<< 1
+  }
+}
+
+probe end {
+  printf("Per execname ioctl information\n")
+  foreach ([e+, f] in ioctl_func) {
+    if (current_exec != e){
+      printf("%s %d\n", e, @sum(ioctl_requests[e]))
+      current_exec = e
+    }
+    printf("  %s %d\n", symdata(f), @sum(ioctl_func[e,f]))
+  }
+}
+
