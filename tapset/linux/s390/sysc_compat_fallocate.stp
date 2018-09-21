@@ -62,7 +62,7 @@ probe dw_syscall.compat_fallocate.return =
 
 # nd_compat_fallocate _____________________________________________________
 
-probe nd_syscall.compat_fallocate = nd1_syscall.compat_fallocate!te!, tp_syscall.compat_fallocate
+probe nd_syscall.compat_fallocate = nd1_syscall.compat_fallocate!, tp_syscall.compat_fallocate
   { }
 
 probe nd1_syscall.compat_fallocate = kprobe.function("sys_fallocate") ?
