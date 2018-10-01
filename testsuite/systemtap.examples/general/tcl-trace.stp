@@ -1,0 +1,36 @@
+#! /usr/bin/env stap 
+# Copyright (C) 2018 Red Hat, Inc.
+# Written by William Cohen <wcohen@redhat.com>
+#
+#   Example usage of the tcl tracepoints to show a nested view of all
+#   tcl function calls (and returns) across the whole system.
+#
+#   Run this using
+#       stap tcl-trace.stp
+#   to instrument all tcl processes on the system, or (for example) using
+#       stap tcl-trace.stp -c COMMAND
+#   to instrument a specific program (implemented in tcl)
+
+probe process("/usr/lib*/libtcl*.so").mark("proc__entry")
+{
+  funcname = user_string($arg1)
+  printf("%s => %s\n", thread_indent(1), funcname);
+}
+
+probe process("/usr/lib*/libtcl*.so").mark("cmd__entry")
+{
+  cmdname = user_string($arg1)
+  printf("%s >  %s\n", thread_indent(1), cmdname);
+}
+
+probe process("/usr/lib*/libtcl*.so").mark("proc__return")
+{
+  funcname = user_string($arg1)
+  printf("%s <= %s\n", thread_indent(-1), funcname);
+}
+
+probe process("/usr/lib*/libtcl*.so").mark("cmd__return")
+{
+  cmdname = user_string($arg1)
+  printf("%s <  %s\n", thread_indent(-1), cmdname);
+}

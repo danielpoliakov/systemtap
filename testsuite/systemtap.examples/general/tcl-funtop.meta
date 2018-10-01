@@ -1,0 +1,14 @@
+title: Profile Tcl calls
+name: tcl-funtop.stp
+version: 1.0
+keywords: profiling
+author: William Cohen
+subsystem: none
+status: experimental
+exit: user-controlled
+output: sorted-list
+scope: system-wide
+description: The tcl-funtop.stp script displays a top-like view of most frequently used Tcl functions for the each five second interval.
+test_support: stap -l 'process("/usr/lib*/libtcl*").mark("*")'
+test_check: stap -p4 tcl-funtop.stp
+test_installcheck: stap tcl-funtop.stp -T 5

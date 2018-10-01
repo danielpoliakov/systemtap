@@ -1,0 +1,10 @@
+title: Callgraph Tracing of Tcl code
+name: tcl-trace.stp
+keywords: callgraph
+status: experimental
+exit: user-controlled
+output: trace
+description: Print a timed per-thread microsecond-timed callgraph of executing Tcl code.
+test_support: stap -l 'process("/usr/lib*/libtcl*").mark("*")'
+test_check: stap -p4 tcl-trace.stp
+test_installcheck: stap tcl-trace.stp -T 5

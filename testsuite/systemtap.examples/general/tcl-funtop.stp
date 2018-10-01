@@ -1,0 +1,30 @@
+#! /usr/bin/env stap
+# Copyright (C) 2018 Red Hat, Inc.
+# Written by William Cohen <wcohen@redhat.com>
+#
+# This script continuously lists the top 20 Tcl functions in the interval 
+# 5 seconds
+#
+
+global fn_calls
+
+probe process("/usr/lib*/libtcl*.so").mark("proc__info")
+{
+  funcname = user_string2($arg3, "<unavailable>")
+  filename = user_string2($arg4, "<unavailable>")
+  lineno = $arg5
+  fn_calls[pid(), filename, funcname, lineno] <<< 1
+}
+
+probe timer.ms(5000) {
+  ansi_clear_screen()
+  printf("%6s %-80s %6s %-30s %6s\n",
+         "PID", "FILENAME", "LINE", "FUNCTION", "CALLS")
+  foreach ([pid, filename, funcname, lineno] in fn_calls- limit 20) {
+    printf("%6d %-80s %6d %-30s %6d\n",
+           pid, filename, lineno, funcname,
+           @sum(fn_calls[pid, filename, funcname, lineno]))
+  }
+
+  delete fn_calls
+}
