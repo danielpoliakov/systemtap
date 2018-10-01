@@ -41,7 +41,7 @@ alloc_literal_str(program &p, insn_inserter &ins, std::string &str)
   int ofs = -tmp_space;
 
   value *frame = p.lookup_reg(BPF_REG_10);
-  value *out = emit_literal_str(p, ins, frame, ofs, str, false /* don't zero pad */);
+  value *out = emit_simple_literal_str(p, ins, frame, ofs, str, false /* don't zero pad */);
   return out;
 }
 

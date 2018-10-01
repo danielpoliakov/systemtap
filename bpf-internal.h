@@ -261,9 +261,10 @@ struct program
   void print(std::ostream &) const;
 };
 
-// ??? Properly belongs to bpf_unparser but must be accessible from bpf-opt.cxx:
-value *emit_literal_str(program &this_prog, insn_inserter &this_ins,
-                        value *dest, int ofs, std::string &src, bool zero_pad = false);
+// ??? Properly belongs to bpf_unparser but must be visible from bpf-opt.cxx:
+value *emit_simple_literal_str(program &this_prog, insn_inserter &this_ins,
+                               value *dest, int ofs, std::string &src,
+                               bool zero_pad = false);
 
 inline std::ostream&
 operator<< (std::ostream &o, const program &c)

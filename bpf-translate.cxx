@@ -8,6 +8,7 @@
 
 #include "config.h"
 #include "bpf-internal.h"
+#include "parse.h"
 #include "staptree.h"
 #include "elaborate.h"
 #include "session.h"
@@ -134,6 +135,9 @@ has_side_effects (expression *e)
   return t.side_effects;
 }
 
+/* forward declaration */
+struct asm_stmt;
+
 struct bpf_unparser : public throwing_visitor
 {
   // The visitor class isn't as helpful as it might be.  As a consequence,
@@ -233,10 +237,19 @@ struct bpf_unparser : public throwing_visitor
   value *emit_expr(expression *e);
   value *emit_bool(expression *e);
   value *emit_context_var(bpf_context_vardecl *v);
-  value *parse_reg(const std::string &str, embeddedcode *s);
 
-  // Used for copying string data:
-  value *emit_copied_str(value *dest, int ofs, value *src, bool zero_pad = false);
+  // Used for the embedded-code assembler:
+  size_t parse_asm_stmt (embeddedcode *s, size_t start,
+                           /*OUT*/asm_stmt &stmt);
+  value *emit_asm_arg(const asm_stmt &stmt, const std::string &reg,
+                      bool allow_imm = true);
+  value *emit_asm_reg(const asm_stmt &stmt, const std::string &reg);
+  void emit_asm_opcode(const asm_stmt &stmt,
+                       std::map<std::string, block *> label_map);
+
+  // Used for string data:
+  value *emit_literal_string(const std::string &str, const token *tok);
+  value *emit_string_copy(value *dest, int ofs, value *src, bool zero_pad = false);
 
   // Used for passing long and string arguments on the stack where an address is expected:
   void emit_long_arg(value *arg, int ofs, value *val);
@@ -552,172 +565,604 @@ bpf_unparser::visit_block (::block *s)
     emit_stmt (s->statements[i]);
 }
 
-value *
-bpf_unparser::parse_reg(const std::string &str, embeddedcode *s)
+/* WORK IN PROGRESS: A simple eBPF assembler.
+
+   In order to effectively write eBPF tapset functions, we want to use
+   embedded-code assembly rather than compile from SystemTap code. At
+   the same time, we want to hook into stapbpf functionality to
+   reserve stack memory, allocate virtual registers or signal errors.
+
+   The assembler syntax will probably take a couple of attempts to get
+   just right. This attempt keeps things as close as possible to the
+   first embedded-code assembler, with a few more features and a
+   disgustingly lenient parser that allows things like
+     $ this is        all one "**identifier**" believe-it!-or-not
+
+   Ahh for the days of 1960s FORTRAN.
+
+   TODO: It might make more sense to implement an assembler based on
+   the syntax used in official eBPF subsystem docs. */
+
+/* Possible assembly statement types include:
+
+   <stmt> ::= label, <dest=label>;
+   <stmt> ::= <code=integer opcode>, <dest=reg>, <src1=reg>,
+              <off/jmp_target=off>, <imm=imm>;
+
+   Possible argument types include:
+
+   <reg> ::= <register index> | r<register index> |
+             $<identifier> | $<integer constant> | $$ | <string constant>
+   <imm> ::= <integer constant> | BPF_MAXSTRINGLEN
+   <off> ::= <imm> | <jump label>
+
+*/
+
+struct asm_stmt {
+  std::string kind;
+
+  unsigned code;
+  std::string dest, src1;
+  int64_t off, imm;
+
+  // metadata for jmp instructions
+  bool has_fallthrough = false;
+  std::string jmp_target, fallthrough;
+
+  token *tok;
+  bool deallocate_tok = false;
+  ~asm_stmt() { if (deallocate_tok) delete tok; }
+};
+
+std::ostream&
+operator << (std::ostream& o, const asm_stmt& stmt)
 {
-  if (str == "$$")
+  if (stmt.kind == "label")
+    o << "label, " << stmt.dest << ";";
+  else if (stmt.kind == "opcode")
     {
-      if (func_return.empty ())
-	throw SEMANTIC_ERROR (_("no return value outside function"), s->tok);
+      o << std::hex << stmt.code << ", "
+        << stmt.dest << ", "
+        << stmt.src1 << ", ";
+      if (stmt.off != 0 || stmt.jmp_target == "")
+        o << stmt.off;
+      else if (stmt.off != 0) // && stmt.jmp_target != ""
+        o << stmt.off << "/";
+      if (stmt.jmp_target != "")
+        o << "label:" << stmt.jmp_target;
+      o << ", "
+        << stmt.imm << ";"
+        << (stmt.has_fallthrough ? " +FALLTHROUGH " + stmt.fallthrough : "");
+    }
+  else
+    o << "<unknown asm_stmt kind '" << stmt.kind << "'>";
+  return o;
+}
+
+bool
+is_numeric (const std::string &str)
+{
+  size_t pos = 0;
+  try {
+    stol(str, &pos, 0);
+  } catch (std::invalid_argument &e) {
+    return false;
+  }
+  return (pos == str.size());
+}
+
+/* Parse an assembly statement starting from position start in code,
+   then write the output in stmt. Returns a position immediately after
+   the parsed statement. */
+size_t
+bpf_unparser::parse_asm_stmt (embeddedcode *s, size_t start,
+                              /*OUT*/asm_stmt &stmt)
+{
+  const interned_string &code = s->code;
+
+ retry:
+  std::vector<std::string> args;
+  unsigned n = code.size();
+  bool in_comment = false;
+  bool in_string = false;
+
+  // compute token with adjusted source location for diagnostics
+  source_loc adjusted_loc; // TODO: ought to create a proper copy constructor for source_loc
+  adjusted_loc.file = s->tok->location.file;
+  adjusted_loc.line = s->tok->location.line;
+  adjusted_loc.column = s->tok->location.column;
+  for (size_t pos = 0; pos < start && pos < n; pos++)
+    {
+      // TODO: should save adjusted_loc state between parse_asm_stmt invocations; add field?
+      char c = code[pos];
+      if (c == '\n')
+        {
+          adjusted_loc.line++;
+          adjusted_loc.column = 1;
+        }
+      else
+        adjusted_loc.column++;
+    }
+
+  // TODO: As before, parser is extremely non-rigorous and could do
+  // with some tightening in terms of the inputs it accepts.
+  size_t pos;
+  std::string arg = "";
+  for (pos = start; pos < n; pos++)
+  {
+    char c = code[pos];
+    char c2 = pos + 1 < n ? code [pos + 1] : 0;
+    if (isspace(c))
+      continue; // skip
+    else if (in_comment)
+      {
+        if (c == '*' && c2 == '/')
+          ++pos, in_comment = false;
+        // else skip
+      }
+    else if (in_string)
+      {
+        // resulting string will be processed by translate_escapes()
+        if (c == '"')
+          arg.push_back(c), in_string = false; // include quote
+        else if (c == '\\' && c2 == '"')
+          ++pos, arg.push_back(c), arg.push_back(c2);
+        else // accept any char, including whitespace
+          arg.push_back(c);
+      }
+    else if (c == '/' && c2 == '*')
+      ++pos, in_comment = true;
+    else if (c == '"') // found a literal string
+      {
+        // XXX: This allows '"' inside an arg and will treat the
+        // string as a sequence of weird identifier characters.  A
+        // more rigorous parser would error on mixing strings and
+        // regular chars.
+        arg.push_back(c); // include quote
+        in_string = true;
+      }
+    else if (c == ',') // reached end of argument
+      {
+        // XXX: This strips out empty args. A more rigorous parser would error.
+        if (arg != "")
+          args.push_back(arg);
+        arg = "";
+      }
+    else if (c == ';') // reached end of statement
+      {
+        // XXX: This strips out empty args. A more rigorous parser would error.
+        if (arg != "")
+          args.push_back(arg);
+        arg = "";
+        pos++; break;
+      }
+    else // found (we assume) a regular char
+      {
+        // XXX: As before, this strips whitespace within args
+        // (so '$ab', '$ a b' and '$a b' are equivalent).
+        //
+        // A more rigorous parser would track in_arg
+        // and after_arg states and error on whitespace within args.
+        arg.push_back(c);
+      }
+  }
+  // final ';' is optional, so we watch for a trailing arg:
+  if (arg != "") args.push_back(arg);
+
+  // handle the case with no args
+  if (args.empty() && pos >= n)
+    return std::string::npos; // finished parsing
+  else if (args.empty())
+    {
+      // XXX: This skips an empty statement.
+      // A more rigorous parser would error.
+      start = pos;
+      goto retry;
+    }
+
+  // set token with adjusted source location
+  //stmt.tok = (token *)s->tok;
+  // TODO this segfaults for some reason, some data not copied?
+  stmt.tok = s->tok->adjust_location(adjusted_loc);
+  stmt.deallocate_tok = false; // TODO must avoid destroy-on-copy
+
+  std::cerr << "DEBUG GOT stmt "; // TODO
+  for (unsigned k = 0; k < args.size(); k++) std::cerr << args[k] << " / ";
+  std::cerr << std::endl; // TODO
+  if (args[0] == "label")
+    {
+      if (args.size() != 2)
+        throw SEMANTIC_ERROR (_("invalid bpf embeddedcode syntax"), stmt.tok);
+      stmt.kind = args[0];
+      stmt.dest = args[1];
+    }
+  else if (is_numeric(args[0]))
+    {
+      if (args.size() != 5) // TODO change to 4 to test err+tok
+        throw SEMANTIC_ERROR (_("invalid bpf embeddedcode syntax"), stmt.tok);
+      stmt.kind = "opcode";
+      stmt.code = stoul(args[0], 0, 0); // TODO signal error
+      stmt.dest = args[1];
+      stmt.src1 = args[2];
+
+      bool has_jmp_target =
+        BPF_CLASS(stmt.code) == BPF_JMP
+        && BPF_OP(stmt.code) != BPF_EXIT
+        && BPF_OP(stmt.code) != BPF_CALL;
+      stmt.has_fallthrough = // only for jcond
+        has_jmp_target
+        && BPF_OP(stmt.code) != BPF_JA;
+      // XXX: stmt.fallthrough is computed by visit_embeddedcode
+
+      if (has_jmp_target)
+        {
+          stmt.off = 0;
+          stmt.jmp_target = args[3];
+        }
+      else if (args[3] == "BPF_MAXSTRINGLEN")
+        stmt.off = BPF_MAXSTRINGLEN;
+      else if (args[3] == "-")
+        stmt.off = 0;
+      else
+        stmt.off = stol(args[3]); // TODO signal error
+
+      if (args[4] == "BPF_MAXSTRINGLEN")
+        stmt.imm = BPF_MAXSTRINGLEN;
+      else if (args[4] == "-")
+        stmt.imm = 0;
+      else
+        stmt.imm = stol(args[4]); // TODO signal error
+    }
+  else
+    throw SEMANTIC_ERROR (_F("unknown bpf embeddedcode operator '%s'",
+                             args[0].c_str()), stmt.tok);
+
+  // we returned a statement, so there's more parsing to be done
+  return pos;
+}
+
+/* forward declaration */
+std::string translate_escapes (const interned_string &str);
+
+/* Convert a <reg> or <imm> operand to a value.
+   May emit code to store a string constant on the stack. */
+value *
+bpf_unparser::emit_asm_arg (const asm_stmt &stmt, const std::string &arg,
+                            bool allow_imm)
+{
+  if (arg == "$$")
+    {
+      /* arg is a return value */
+      if (func_return.empty())
+        throw SEMANTIC_ERROR (_("no return value outside function"), stmt.tok);
       return func_return_val.back();
     }
-  else if (str[0] == '$')
+  else if (arg[0] == '$')
     {
-      std::string var = str.substr(1);
+      /* assume arg is a variable */
+      std::string var = arg.substr(1);
       for (auto i = this_locals->begin(); i != this_locals->end(); ++i)
 	{
 	  vardecl *v = i->first;
 	  if (var == v->unmangled_name)
 	    return i->second;
 	}
-      throw SEMANTIC_ERROR (_("unknown variable"), s->tok);
+
+      /* if it's an unknown variable, allocate a temporary */
+      struct vardecl *vd = new vardecl;
+      vd->name = "__bpfasm__local_" + var;
+      vd->unmangled_name = var;
+      vd->type = pe_long;
+      vd->arity = 0;
+      value *reg = this_prog.new_reg();
+      const locals_map::value_type v (vd, reg);
+      auto ok = this_locals->insert (v);
+      assert (ok.second);
+      return reg;
+      // TODO write a testcase
     }
+  else if (is_numeric(arg) && allow_imm)
+    {
+      /* arg is an immediate constant */
+      long imm = stol(arg, 0, 0);
+      return this_prog.new_imm(imm);
+    }
+  else if (is_numeric(arg) || arg[0] == 'r')
+    {
+      /* arg is a register number */
+      std::string reg = arg[0] == 'r' ? arg.substr(1) : arg;
+      unsigned long num = stoul(reg, 0, 0);
+      if (num > 10)
+	throw SEMANTIC_ERROR (_F("invalid bpf register '%s'",
+                                 arg.c_str()), stmt.tok);
+      return this_prog.lookup_reg(num);
+    }
+  else if (arg[0] == '"')
+    {
+      // TODO verify correctness
+      /* arg is a string constant */
+      if (arg[arg.size() - 1] != '"')
+        throw SEMANTIC_ERROR (_F("BUG: improper string %s",
+                                 arg.c_str()), stmt.tok);
+      std::string escaped_str = arg.substr(1,arg.size()-2); /* strip quotes */
+      std::string str = translate_escapes(escaped_str); // TODO interned_str?
+      return emit_literal_string(str, stmt.tok);
+    }
+  else if (arg == "BPF_MAXSTRINGLEN")
+    {
+      /* arg is BPF_MAXSTRINGLEN */
+      if (!allow_imm)
+        throw SEMANTIC_ERROR (_F("invalid bpf register '%s'",
+                                 arg.c_str()), stmt.tok);
+      return this_prog.new_imm(BPF_MAXSTRINGLEN);
+    }
+  else if (arg == "-")
+    {
+      /* arg is null a.k.a '0' */
+      if (!allow_imm)
+        throw SEMANTIC_ERROR (_F("invalid bpf register '%s'",
+                                 arg.c_str()), stmt.tok);
+      return this_prog.new_imm(0);
+    }
+  else if (allow_imm)
+    throw SEMANTIC_ERROR (_F("invalid bpf argument '%s'",
+                             arg.c_str()), stmt.tok);
+  else
+    throw SEMANTIC_ERROR (_F("invalid bpf register '%s'",
+                             arg.c_str()), stmt.tok);
+  
+}
+
+value *
+bpf_unparser::emit_asm_reg (const asm_stmt &stmt, const std::string &reg)
+{
+  return emit_asm_arg(stmt, reg, /*allow_imm=*/false);
+}
+
+void
+bpf_unparser::emit_asm_opcode (const asm_stmt &stmt,
+                               std::map<std::string, block *> label_map)
+{
+  if (stmt.code > 0xff && stmt.code != BPF_LD_MAP)
+    throw SEMANTIC_ERROR (_("invalid bpf code"), stmt.tok);
+
+  bool r_dest = false, r_src0 = false, r_src1 = false, i_src1 = false;
+  bool op_jmp = false, op_jcond = false; condition c;
+  switch (BPF_CLASS (stmt.code))
+    {
+    case BPF_LDX:
+      r_dest = r_src1 = true;
+      break;
+    case BPF_STX:
+      r_src0 = r_src1 = true;
+      break;
+    case BPF_ST:
+      r_src0 = i_src1 = true;
+      break;
+
+    case BPF_ALU:
+    case BPF_ALU64:
+      r_dest = true;
+      if (stmt.code & BPF_X)
+        r_src1 = true;
+      else
+        i_src1 = true;
+      switch (BPF_OP (stmt.code))
+        {
+        case BPF_NEG:
+        case BPF_MOV:
+          break;
+        case BPF_END:
+          /* X/K bit repurposed as LE/BE.  */
+          i_src1 = false, r_src1 = true;
+          break;
+        default:
+          r_src0 = true;
+        }
+      break;
+
+    case BPF_JMP:
+      switch (BPF_OP (stmt.code))
+        {
+        case BPF_EXIT:
+          // no special treatment needed
+          break;
+        case BPF_CALL:
+          i_src1 = true;
+          break;
+        case BPF_JA:
+          op_jmp = true;
+          break;
+        default:
+          // XXX: assume this is a jcond op
+          op_jcond = true;
+          r_src0 = true;
+          if (stmt.code & BPF_X)
+            r_src1 = true;
+          else
+            i_src1 = true;
+        }
+
+      // compute jump condition c
+      switch (BPF_OP (stmt.code))
+        {
+        case BPF_JEQ: c = EQ; break;
+        case BPF_JNE: c = NE; break;
+        case BPF_JGT: c = GTU; break;
+        case BPF_JGE: c = GEU; break;
+        case BPF_JLT: c = LTU; break;
+        case BPF_JLE: c = LEU; break;
+        case BPF_JSGT: c = GT; break;
+        case BPF_JSGE: c = GE; break;
+        case BPF_JSLT: c = LT; break;
+        case BPF_JSLE: c = LE; break;
+        case BPF_JSET: c = TEST; break;
+        default:
+          if (op_jcond)
+            throw SEMANTIC_ERROR (_("invalid branch in bpf code"), stmt.tok);
+        }
+      break;
+
+    default:
+      if (stmt.code == BPF_LD_MAP)
+        r_dest = true, i_src1 = true;
+      else
+        throw SEMANTIC_ERROR (_F("unknown opcode '%d' in bpf code",
+                                stmt.code), stmt.tok);
+    }
+
+  value *v_dest = NULL;
+  if (r_dest || r_src0)
+    v_dest = emit_asm_reg(stmt, stmt.dest);
+  else if (stmt.dest != "0" && stmt.dest != "-")
+    throw SEMANTIC_ERROR (_F("invalid register field '%s' in bpf code",
+                             stmt.dest.c_str()), stmt.tok);
+
+  value *v_src1 = NULL;
+  if (r_src1)
+    v_src1 = emit_asm_reg(stmt, stmt.src1);
   else
     {
-      unsigned long num = stoul(str, 0, 0);
-      if (num > 10)
-	throw SEMANTIC_ERROR (_("invalid bpf register"), s->tok);
-      return this_prog.lookup_reg(num);
+      if (stmt.src1 != "0" && stmt.src1 != "-")
+        throw SEMANTIC_ERROR (_F("invalid register field '%s' in bpf code",
+                                 stmt.src1.c_str()), stmt.tok);
+      if (i_src1)
+        v_src1 = this_prog.new_imm(stmt.imm);
+      else if (stmt.imm != 0)
+        throw SEMANTIC_ERROR (_("invalid immediate field in bpf code"), stmt.tok);
+    }
+
+  if (stmt.off != (int16_t)stmt.off)
+    throw SEMANTIC_ERROR (_F("offset field '%ld' out of range in bpf code", stmt.off), stmt.tok);
+
+  if (op_jmp)
+    {
+      block *target = label_map[stmt.jmp_target];
+      this_prog.mk_jmp(this_ins, target);
+    }
+  else if (op_jcond)
+    {
+      if (label_map.count(stmt.jmp_target) == 0)
+        throw SEMANTIC_ERROR(_F("undefined jump target '%s' in bpf code",
+                                stmt.jmp_target.c_str()), stmt.tok);
+      if (label_map.count(stmt.fallthrough) == 0)
+        throw SEMANTIC_ERROR(_F("BUG: undefined fallthrough target '%s'",
+                                stmt.fallthrough.c_str()), stmt.tok);
+      block *target = label_map[stmt.jmp_target];
+      block *fallthrough = label_map[stmt.fallthrough];
+      this_prog.mk_jcond(this_ins, c, v_dest, v_src1, target, fallthrough);
+    }
+  else // regular opcode
+    {
+      insn *i = this_ins.new_insn();
+      i->code = stmt.code;
+      i->dest = (r_dest ? v_dest : NULL);
+      i->src0 = (r_src0 ? v_dest : NULL);
+      i->src1 = v_src1;
+      i->off = stmt.off;
     }
 }
 
 void
 bpf_unparser::visit_embeddedcode (embeddedcode *s)
 {
-  std::string strip;
-  {
-    const interned_string &code = s->code;
-    unsigned n = code.size();
-    bool in_comment = false;
+  std::vector<asm_stmt> statements;
+  asm_stmt stmt;
 
-    for (unsigned i = 0; i < n; ++i)
-      {
-	char c = code[i];
-	if (isspace(c))
-	  continue;
-	if (in_comment)
-	  {
-	    if (c == '*' && code[i + 1] == '/')
-	      ++i, in_comment = false;
-	  }
-	else if (c == '/' && code[i + 1] == '*')
-	  ++i, in_comment = true;
-	else
-	  strip += c;
-      }
-  }
-
-  std::istringstream ii (strip);
-  ii >> std::setbase(0);
-
-  while (true)
+  size_t pos = 0;
+  while ((pos = parse_asm_stmt(s, pos, stmt)) != std::string::npos)
     {
-      unsigned code;
-      char s1, s2, s3, s4;
-      char dest_b[256], src1_b[256];
-      int64_t off, imm;
+      statements.push_back(stmt);
+    }
 
-      ii >> code >> s1;
-      ii.get(dest_b, sizeof(dest_b), ',') >> s2;
-      ii.get(src1_b, sizeof(src1_b), ',') >> s3;
-      ii >> off >> s4 >> imm;
+  // build basic block table
+  std::map<std::string, block *> label_map;
+  block *entry_block = this_ins.b;
+  label_map[";;entry"] = entry_block;
 
-      if (ii.fail() || s1 != ',' || s2 != ',' || s3 != ',' || s4 != ',')
-	throw SEMANTIC_ERROR (_("invalid bpf embeddedcode syntax"), s->tok);
+  bool after_label = true;
+  asm_stmt *after_jump = NULL;
+  unsigned fallthrough_count = 0;
+  for (std::vector<asm_stmt>::iterator it = statements.begin();
+       it != statements.end(); it++)
+    {
+      stmt = *it;
 
-      if (code > 0xff && code != BPF_LD_MAP)
-	throw SEMANTIC_ERROR (_("invalid bpf code"), s->tok);
+      if (after_jump != NULL && stmt.kind == "label")
+        {
+          after_jump->fallthrough = stmt.dest;
+        }
+      else if (after_jump != NULL)
+        {
+          block *b = this_prog.new_block();
 
-      bool r_dest = false, r_src0 = false, r_src1 = false, i_src1 = false;
-      switch (BPF_CLASS (code))
-	{
-	case BPF_LDX:
-	  r_dest = r_src1 = true;
-	  break;
-	case BPF_STX:
-	  r_src0 = r_src1 = true;
-	  break;
-	case BPF_ST:
-	  r_src0 = i_src1 = true;
-	  break;
+          // generate unique label for fallthrough edge
+          std::ostringstream oss;
+          oss << "fallthrough;;" << fallthrough_count++;
+          std::string fallthrough_label = oss.str();
+          // XXX: semicolons prevent collision with programmer-defined labels
 
-	case BPF_ALU:
-	case BPF_ALU64:
-	  r_dest = true;
-	  if (code & BPF_X)
-	    r_src1 = true;
-	  else
-	    i_src1 = true;
-	  switch (BPF_OP (code))
-	    {
-	    case BPF_NEG:
-	    case BPF_MOV:
-	      break;
-	    case BPF_END:
-	      /* X/K bit repurposed as LE/BE.  */
-	      i_src1 = false, r_src1 = true;
-	      break;
-	    default:
-	      r_src0 = true;
-	    }
-	  break;
+          label_map[fallthrough_label] = b;
+          set_block(b);
 
-	case BPF_JMP:
-	  switch (BPF_OP (code))
-	    {
-	    case BPF_EXIT:
-	      break;
-	    case BPF_CALL:
-	      i_src1 = true;
-	      break;
-	    default:
-	      throw SEMANTIC_ERROR (_("invalid branch in bpf code"), s->tok);
-	    }
-	  break;
+          after_jump->fallthrough = fallthrough_label;
+        }
 
-	default:
-          if (code == BPF_LD_MAP)
-            r_dest = true, i_src1 = true;
-          else
-	    throw SEMANTIC_ERROR (_("unknown opcode in bpf code"), s->tok);
-	}
-
-      std::string dest(dest_b);
-      value *v_dest = NULL;
-      if (r_dest || r_src0)
-	v_dest = parse_reg(dest, s);
-      else if (dest != "0")
-	throw SEMANTIC_ERROR (_("invalid register field in bpf code"), s->tok);
-
-      std::string src1(src1_b);
-      value *v_src1 = NULL;
-      if (r_src1)
-	v_src1 = parse_reg(src1, s);
+      if (stmt.kind == "label" && after_label)
+        {
+          // avoid creating multiple blocks for consecutive labels
+          label_map[stmt.dest] = this_ins.b;
+          after_jump = NULL;
+        }
+      else if (stmt.kind == "label")
+        {
+          block *b = this_prog.new_block();
+          label_map[stmt.dest] = b;
+          set_block(b);
+          after_label = true;
+          after_jump = NULL;
+        }
+      else if (stmt.has_fallthrough)
+        {
+          after_label = false;
+          after_jump = &*it; // be sure to refer to original, not copied stmt
+        }
       else
-	{
-	  if (src1 != "0")
-	    throw SEMANTIC_ERROR (_("invalid register field in bpf code"), s->tok);
-	  if (i_src1)
-	    v_src1 = this_prog.new_imm(imm);
-	  else if (imm != 0)
-	    throw SEMANTIC_ERROR (_("invalid immediate field in bpf code"), s->tok);
-	}
+        {
+          after_label = false;
+          after_jump = NULL;
+        }
+    }
+  if (after_jump != NULL) // TODO: should just fall through to exit
+    throw SEMANTIC_ERROR (_("BUG: bpf embeddedcode doesn't support "
+                            "fallthrough on final asm_stmt"), stmt.tok);
 
-      if (off != (int16_t)off)
-	throw SEMANTIC_ERROR (_("offset field out of range in bpf code"), s->tok);
-
-      insn *i = this_ins.new_insn();
-      i->code = code;
-      i->dest = (r_dest ? v_dest : NULL);
-      i->src0 = (r_src0 ? v_dest : NULL);
-      i->src1 = v_src1;
-      i->off = off;
-
-      ii >> s1;
-      if (ii.eof())
-	break;
-      if (s1 != ';')
-	throw SEMANTIC_ERROR (_("invalid bpf embeddedcode syntax"), s->tok);
+  // emit statements
+  bool jumped_already = true;
+  set_block(entry_block);
+  for (std::vector<asm_stmt>::iterator it = statements.begin();
+       it != statements.end(); it++)
+    {
+      stmt = *it;
+      std::cerr << "DEBUG processing " << stmt << std::endl; // TODO
+      if (stmt.kind == "label")
+        {
+          // TODO: be sure there's no gap in the edge
+          if (!jumped_already)
+            emit_jmp (label_map[stmt.dest]);
+          set_block(label_map[stmt.dest]);
+        }
+      else if (stmt.kind == "opcode")
+        {
+          emit_asm_opcode (stmt, label_map);
+        }
+      else
+        throw SEMANTIC_ERROR (_F("BUG: bpf embeddedcode contains unexpected "
+                                 "asm_stmt kind '%s'", stmt.kind.c_str()),
+                              stmt.tok);
+      jumped_already = stmt.has_fallthrough;
+      if (stmt.has_fallthrough)
+        set_block(label_map[stmt.fallthrough]);
     }
 }
 
@@ -1016,8 +1461,13 @@ bpf_unparser::visit_delete_statement (delete_statement *s)
 }
 
 // Translate string escape characters.
+// Accepts strings produced by parse.cxx lexer::scan and
+// by the eBPF embedded-code assembler.
+//
+// PR23559: This is currently an eBPF-only version of the function
+// that does not translate octal escapes.
 std::string
-translate_escapes (interned_string &str)
+translate_escapes (const interned_string &str)
 {
   std::string result;
   bool saw_esc = false;
@@ -1045,16 +1495,21 @@ translate_escapes (interned_string &str)
   return result;
 }
 
+value *
+bpf_unparser::emit_literal_string (const std::string &str, const token *tok)
+{
+  size_t str_bytes = str.size() + 1;
+  if (str_bytes > BPF_MAXSTRINGLEN)
+    throw SEMANTIC_ERROR(_("string literal too long"), tok);
+  return this_prog.new_str(str); // will be lowered to a pointer by bpf-opt.cxx
+}
+
 void
 bpf_unparser::visit_literal_string (literal_string* e)
 {
   interned_string v = e->value;
   std::string str = translate_escapes(v);
-
-  size_t str_bytes = str.size() + 1;
-  if (str_bytes > BPF_MAXSTRINGLEN)
-    throw SEMANTIC_ERROR(_("String literal too long"), e->tok);
-  result = this_prog.new_str(str); // will be lowered to a pointer by bpf-opt.cxx
+  result = emit_literal_string(str, e->tok);
 }
 
 void
@@ -1783,7 +2238,7 @@ bpf_unparser::visit_target_register (target_register* e)
 // ??? Could use 8-byte chunks if we're starved for instruction count.
 // ??? Endianness of the target comes into play here.
 value *
-emit_literal_str(program &this_prog, insn_inserter &this_ins,
+emit_simple_literal_str(program &this_prog, insn_inserter &this_ins,
                  value *dest, int ofs, std::string &src, bool zero_pad)
 {
   size_t str_bytes = src.size() + 1;
@@ -1835,15 +2290,15 @@ emit_literal_str(program &this_prog, insn_inserter &this_ins,
 // ??? Could use 8-byte chunks if we're starved for instruction count.
 // ??? Endianness of the target may come into play here.
 value *
-bpf_unparser::emit_copied_str(value *dest, int ofs, value *src, bool zero_pad)
+bpf_unparser::emit_string_copy(value *dest, int ofs, value *src, bool zero_pad)
 {
   if (src->is_str())
     {
       /* If src is a string literal, its exact length is known and
          we can emit simpler, unconditional string copying code. */
       std::string str = src->str();
-      return emit_literal_str(this_prog, this_ins,
-                              dest, ofs, str, zero_pad);
+      return emit_simple_literal_str(this_prog, this_ins,
+                                     dest, ofs, str, zero_pad);
     }
 
   size_t str_bytes = BPF_MAXSTRINGLEN;
@@ -1931,7 +2386,7 @@ bpf_unparser::emit_copied_str(value *dest, int ofs, value *src, bool zero_pad)
     }
 
   // XXX: Zero-padding is only used under specific circumstances;
-  // see the corresponding comment in emit_literal_str().
+  // see the corresponding comment in emit_simple_literal_str().
   if (zero_pad)
     {
       for (unsigned i = 0; i < str_words; ++i)
@@ -1977,7 +2432,7 @@ void
 bpf_unparser::emit_str_arg(value *arg, int ofs, value *str)
 {
   value *frame = this_prog.lookup_reg(BPF_REG_10);
-  value *out = emit_copied_str(frame, ofs, str, true /* zero pad */);
+  value *out = emit_string_copy(frame, ofs, str, true /* zero pad */);
   emit_mov(arg, out);
 }
 

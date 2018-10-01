@@ -65,11 +65,25 @@ struct token
   token_junk_type junk_type;
 
   std::string junk_message(systemtap_session& session) const;
+
+  // Creates a new token with the same content but different coordinates.
+  // Can be used for exact error reporting *within* a token e.g. embedded-code.
+  token *adjust_location(const source_loc &adjusted_loc) const
+  { // TODO split from header
+    token *new_tok = new token;
+    new_tok->location = adjusted_loc;
+    new_tok->content = content;
+    new_tok->chain = chain;
+    new_tok->type = type;
+    new_tok->junk_type = junk_type;
+    return new_tok;
+  }
   
   friend class parser;
   friend class lexer;
 private:
   void make_junk (token_junk_type);
+
   token(): chain(0), type(tok_junk), junk_type(tok_junk_unknown) {}
   token(const token& other):
     location(other.location), content(other.content),
