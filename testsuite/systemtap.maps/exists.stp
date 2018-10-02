@@ -10,7 +10,7 @@ probe begin {
 	if (1 in a) printf("1 is there\n")
 	if (50 in a) printf("ERROR: 50 is there\n")
 
-	printf("comlete list for a: ")
+	printf("complete list for a: ")
 	for (i=0;i<11;i++)
 		if (i in a) printf("%d ", i)
 	printf("\n")
@@ -23,7 +23,7 @@ probe begin {
 
 	for (i=0;i<11;i++)
 		b[i, 10*i] = i*i 	
-	printf("comlete list for b: ")
+	printf("complete list for b: ")
 	for (i=0;i<11;i++)
 		if ([i,10*i] in b) printf("[%d,%d] ", i, 10*i)
 	printf("\n")
@@ -35,12 +35,12 @@ probe begin {
 	
 	c[""] = "empty string"
 	c["hello"] = "HELLO"
-	if ([""] in c) printf ("emtpy string there\n")
+	if ([""] in c) printf ("empty string there\n")
 	if (["hello"] in c) printf ("hello there\n")
 	c[""] = ""
-	if ([""] in c) printf ("emtpy string still there\n")
+	if ([""] in c) printf ("empty string still there\n")
 	delete c[""]
-	if ([""] in c) printf ("ERROR: emtpy string still there after delete\n")
+	if ([""] in c) printf ("ERROR: empty string still there after delete\n")
 	exit()
 }
 
