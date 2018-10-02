@@ -21,6 +21,13 @@ probe timer.s(5), end {
   printf ("%16s %5s %7s %7s (of %d ticks)\n",
           "comm", "tid", "%user", "%kernel", allticks)
   foreach ([e,tid] in tids- limit 20) {
+    // SystemTap only performs integer arithmetic.
+    // To avoid losing precision the decimal point is shifted
+    // to the right four places (*100000). Think of this as
+    // the original result value x.xxyy becoming xxxyy.0.
+    // The integer percentage xxx is obtained
+    // by dividing by 100 and the fractional percentage
+    // is obtained with a modulo 100 operation.
     uscaled = @count(uticks[e,tid])*10000/allticks
     kscaled = @count(kticks[e,tid])*10000/allticks
     printf ("%16s %5d %3d.%02d%% %3d.%02d%%\n",
