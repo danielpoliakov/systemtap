@@ -13,6 +13,18 @@
 	argstr = sprintf("%d, %d", fd, length)
 %)
 
+@define _SYSCALL_FTRUNCATE_REGARGS
+%(
+	fd = int_arg(1)
+	length = @__compat_task ? int_arg(2) : long_arg(2)
+%)
+
+@define _SYSCALL_FTRUNCATE64_REGARGS
+%(
+	fd = int_arg(1)
+	length = longlong_arg(2)
+%)
+
 @define _SYSCALL_GATE
 %(
     %( arch == "x86_64" || arch == "s390" %?
@@ -56,29 +68,75 @@ probe __syscall.ftruncate.return = kernel.function("sys_ftruncate").return
 
 # nd_ftruncate _____________________________________________________
 
-probe nd_syscall.ftruncate = __nd_syscall.ftruncate,
+probe nd_syscall.ftruncate = nd1_syscall.ftruncate!, nd2_syscall.ftruncate!, tp_syscall.ftruncate
+  { }
+
+probe nd1_syscall.ftruncate = __nd1_syscall.ftruncate,
 	kprobe.function("compat_sys_ftruncate").call?
 {
 	@_SYSCALL_FTRUNCATE_NAME
 	asmlinkage()
-	fd = int_arg(1)
-	length = long_arg(2)
+	@_SYSCALL_FTRUNCATE_REGARGS
 	@_SYSCALL_FTRUNCATE_ARGSTR
 }
-probe __nd_syscall.ftruncate = kprobe.function("sys_ftruncate").call
+probe __nd1_syscall.ftruncate = kprobe.function("sys_ftruncate").call
 {
 	@_SYSCALL_GATE
 }
 
-probe nd_syscall.ftruncate.return = __nd_syscall.ftruncate.return,
+/* kernel 4.17+ */
+probe nd2_syscall.ftruncate =
+	kprobe.function(@arch_syscall_prefix "sys_ftruncate") ?,
+	kprobe.function(@arch_syscall_prefix "comapt_sys_ftruncate") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_FTRUNCATE_NAME
+	@_SYSCALL_FTRUNCATE_REGARGS
+	@_SYSCALL_FTRUNCATE_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.ftruncate = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_ftruncate"),
+			       @const("__NR_compat_ftruncate"))
+	@_SYSCALL_FTRUNCATE_NAME
+	@_SYSCALL_FTRUNCATE_REGARGS
+	@_SYSCALL_FTRUNCATE_ARGSTR
+}
+
+probe nd_syscall.ftruncate.return = nd1_syscall.ftruncate.return!, nd2_syscall.ftruncate.return!, tp_syscall.ftruncate.return
+  { }
+
+probe nd1_syscall.ftruncate.return = __nd1_syscall.ftruncate.return,
 	kprobe.function("compat_sys_ftruncate").return ?
 {
 	@_SYSCALL_FTRUNCATE_NAME
 	@SYSC_RETVALSTR(returnval())
 }
-probe __nd_syscall.ftruncate.return = kprobe.function("sys_ftruncate").return
+probe __nd1_syscall.ftruncate.return = kprobe.function("sys_ftruncate").return
 {
 	@_SYSCALL_GATE
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.ftruncate.return =
+	kprobe.function(@arch_syscall_prefix "sys_ftruncate").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_ftruncate").return ?
+{
+	@_SYSCALL_FTRUNCATE_NAME
+	@SYSC_RETVALSTR(returnval())
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.ftruncate.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_ftruncate"),
+			       @const("__NR_compat_ftruncate"))
+	@_SYSCALL_FTRUNCATE_NAME
+	@SYSC_RETVALSTR($ret)
 }
 
 # ftruncate64 ________________________________________________
@@ -104,17 +162,42 @@ probe dw_syscall.ftruncate64.return = kernel.function("sys_ftruncate64").return 
 
 # nd_ftruncate64 _____________________________________________________
 
-probe nd_syscall.ftruncate64 = kprobe.function("sys_ftruncate64") ?
+probe nd_syscall.ftruncate64 = nd1_syscall.ftruncate64!, nd2_syscall.ftruncate64!, tp_syscall.ftruncate64
+  { }
+
+probe nd1_syscall.ftruncate64 = kprobe.function("sys_ftruncate64") ?
 {
 	@_SYSCALL_FTRUNCATE_NAME
 	asmlinkage()
-	fd = int_arg(1)
-	length = longlong_arg(2)
+	@_SYSCALL_FTRUNCATE64_REGARGS
 	@_SYSCALL_FTRUNCATE_ARGSTR
 }
-probe nd_syscall.ftruncate64.return =
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.ftruncate64 = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_ftruncate64"))
+	@_SYSCALL_FTRUNCATE_NAME
+	@_SYSCALL_FTRUNCATE64_REGARGS
+	@_SYSCALL_FTRUNCATE_ARGSTR
+}
+
+probe nd_syscall.ftruncate64.return = nd1_syscall.ftruncate64.return!, nd2_syscall.ftruncate64.return!, tp_syscall.ftruncate64.return
+  { }
+
+probe nd1_syscall.ftruncate64.return =
 	kprobe.function("sys_ftruncate64").return ?
 {
 	@_SYSCALL_FTRUNCATE_NAME
 	@SYSC_RETVALSTR(returnval())
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.ftruncate64.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_ftruncate64"))
+	@_SYSCALL_FTRUNCATE_NAME
+	@SYSC_RETVALSTR($ret)
 }

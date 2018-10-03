@@ -72,7 +72,10 @@ probe nd1_syscall.uname = kprobe.function("sys_uname") ?,
 }
 
 /* kernel 4.17+ */
-probe nd2_syscall.uname = kprobe.function(@arch_syscall_prefix "sys_newuname") ?
+probe nd2_syscall.uname =
+	kprobe.function(@arch_syscall_prefix "sys_uname") ?,
+	kprobe.function(@arch_syscall_prefix "sys_olduname") ?,
+	kprobe.function(@arch_syscall_prefix "sys_newuname") ?
 {
 	__set_syscall_pt_regs(pointer_arg(1))
 	@_SYSCALL_UNAME_NAME
@@ -81,13 +84,26 @@ probe nd2_syscall.uname = kprobe.function(@arch_syscall_prefix "sys_newuname") ?
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
-probe tp_syscall.uname = kernel.trace("sys_enter")
+probe tp_syscall.uname = __tp_syscall.uname,
+                         __tp_syscall.olduname,
+			 __tp_syscall.newuname
 {
 	__set_syscall_pt_regs($regs)
-	@__syscall_compat_gate(@const("__NR_uname"), @const("__NR_compat_uname"))
 	@_SYSCALL_UNAME_NAME
 	@_SYSCALL_UNAME_REGARGS
 	@_SYSCALL_UNAME_ARGSTR
+}
+probe __tp_syscall.uname = kernel.trace("sys_enter")
+{
+	@__syscall_compat_gate(@const("__NR_olduname"), @const("__NR_compat_olduname"))
+}
+probe __tp_syscall.olduname = kernel.trace("sys_enter")
+{
+	@__syscall_compat_gate(@const("__NR_oldolduname"), @const("__NR_compat_oldolduname"))
+}
+probe __tp_syscall.newuname = kernel.trace("sys_enter")
+{
+	@__syscall_compat_gate(@const("__NR_uname"), @const("__NR_compat_uname"))
 }
 
 probe nd_syscall.uname.return = nd1_syscall.uname.return!, nd2_syscall.uname.return!, tp_syscall.uname.return
@@ -104,17 +120,33 @@ probe nd1_syscall.uname.return = kprobe.function("sys_uname").return ?,
 }
 
 /* kernel 4.17+ */
-probe nd2_syscall.uname.return = kprobe.function(@arch_syscall_prefix "sys_newuname").return ?
+probe nd2_syscall.uname.return =
+	kprobe.function(@arch_syscall_prefix "sys_uname").return ?,
+	kprobe.function(@arch_syscall_prefix "sys_olduname").return ?,
+	kprobe.function(@arch_syscall_prefix "sys_newuname").return ?
 {
 	@_SYSCALL_UNAME_NAME
 	@SYSC_RETVALSTR(returnval())
 }
  
 /* kernel 3.5+, but undesirable because it affects all syscalls */
-probe tp_syscall.uname.return = kernel.trace("sys_exit")
+probe tp_syscall.uname.return = __tp_syscall.uname.return,
+                                __tp_syscall.olduname.return,
+				__tp_syscall.newuname.return
 {
 	__set_syscall_pt_regs($regs)
-	@__syscall_compat_gate(@const("__NR_uname"), @const("__NR_compat_uname"))
 	@_SYSCALL_UNAME_NAME
 	@SYSC_RETVALSTR($ret)
+}
+probe __tp_syscall.uname.return = kernel.trace("sys_exit")
+{
+	@__syscall_compat_gate(@const("__NR_olduname"), @const("__NR_compat_olduname"))
+}
+probe __tp_syscall.olduname.return = kernel.trace("sys_exit")
+{
+	@__syscall_compat_gate(@const("__NR_oldolduname"), @const("__NR_compat_oldolduname"))
+}
+probe __tp_syscall.newuname.return = kernel.trace("sys_exit")
+{
+	@__syscall_compat_gate(@const("__NR_uname"), @const("__NR_compat_uname"))
 }

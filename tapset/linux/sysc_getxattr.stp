@@ -12,6 +12,18 @@
 	argstr = sprintf("%s, %s, %p, %u", path, name_str, value_uaddr, size)
 %)
 
+@define _SYSCALL_GETXATTR_REGARGS
+%(
+	path = user_string_quoted(pointer_arg(1))
+# 'name2' should have been 'name_str'.  Deprecate the old name.
+%(systemtap_v <= "1.4" %?
+	name2 = user_string_quoted(pointer_arg(2))
+%)
+	name_str = user_string_quoted(pointer_arg(2))
+	value_uaddr = pointer_arg(3)
+	size = ulong_arg(4)
+%)
+
 probe syscall.getxattr = dw_syscall.getxattr !,
                          nd_syscall.getxattr ? {}
 probe syscall.getxattr.return = dw_syscall.getxattr.return !,
@@ -40,22 +52,57 @@ probe dw_syscall.getxattr.return = kernel.function("sys_getxattr").return
 
 # nd_getxattr _____________________________________________________
 
-probe nd_syscall.getxattr = kprobe.function("sys_getxattr") ?
+probe nd_syscall.getxattr = nd1_syscall.getxattr!, nd2_syscall.getxattr!, tp_syscall.getxattr
+  { }
+
+probe nd1_syscall.getxattr = kprobe.function("sys_getxattr") ?
 {
 	@_SYSCALL_GETXATTR_NAME
 	asmlinkage()
-	path = user_string_quoted(pointer_arg(1))
-# 'name2' should have been 'name_str'.  Deprecate the old name.
-%(systemtap_v <= "1.4" %?
-	name2 = user_string_quoted(pointer_arg(2))
-%)
-	name_str = user_string_quoted(pointer_arg(2))
-	value_uaddr = pointer_arg(3)
-	size = ulong_arg(4)
+	@_SYSCALL_GETXATTR_REGARGS
 	@_SYSCALL_GETXATTR_ARGSTR
 }
-probe nd_syscall.getxattr.return = kprobe.function("sys_getxattr").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.getxattr = kprobe.function(@arch_syscall_prefix "sys_getxattr") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_GETXATTR_NAME
+	@_SYSCALL_GETXATTR_REGARGS
+	@_SYSCALL_GETXATTR_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.getxattr = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_getxattr"), @const("__NR_compat_getxattr"))
+	@_SYSCALL_GETXATTR_NAME
+	@_SYSCALL_GETXATTR_REGARGS
+	@_SYSCALL_GETXATTR_ARGSTR
+}
+
+probe nd_syscall.getxattr.return = nd1_syscall.getxattr.return!, nd2_syscall.getxattr.return!, tp_syscall.getxattr.return
+  { }
+
+probe nd1_syscall.getxattr.return = kprobe.function("sys_getxattr").return ?
 {
 	@_SYSCALL_GETXATTR_NAME
 	@SYSC_RETVALSTR(returnval())
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.getxattr.return = kprobe.function(@arch_syscall_prefix "sys_getxattr").return ?
+{
+	@_SYSCALL_GETXATTR_NAME
+	@SYSC_RETVALSTR(returnval())
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.getxattr.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_getxattr"), @const("__NR_compat_getxattr"))
+	@_SYSCALL_GETXATTR_NAME
+	@SYSC_RETVALSTR($ret)
 }

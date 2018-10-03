@@ -18,6 +18,14 @@
 	argstr = sprintf("%s, %p, %p", clockid_str, evp_uaddr, timerid_uaddr)
 %)
 
+@define _SYSCALL_TIMER_CREATE_REGARGS
+%(
+	clockid = int_arg(1)
+	clockid_str = _get_wc_str(clockid)
+	evp_uaddr = pointer_arg(2)
+	timerid_uaddr = pointer_arg(3)
+%)
+
 probe syscall.timer_create = dw_syscall.timer_create !, nd_syscall.timer_create ? {}
 probe syscall.timer_create.return = dw_syscall.timer_create.return !,
                                     nd_syscall.timer_create.return ? {}
@@ -52,38 +60,88 @@ probe __syscall.timer_create.return = kernel.function("sys_timer_create").return
 
 # nd_timer_create _____________________________________________________
 
-probe nd_syscall.timer_create = __nd_syscall.timer_create,
-                                __nd_syscall.compat_timer_create ?
+probe nd_syscall.timer_create = nd1_syscall.timer_create!, nd2_syscall.timer_create!, tp_syscall.timer_create
+  { }
+
+probe nd1_syscall.timer_create = __nd1_syscall.timer_create,
+                                 __nd1_syscall.compat_timer_create ?
 {
 	@_SYSCALL_TIMER_CREATE_NAME
 }
-probe __nd_syscall.timer_create = kprobe.function("sys_timer_create")
+probe __nd1_syscall.timer_create = kprobe.function("sys_timer_create")
 {
 	@__syscall_gate(@const("__NR_timer_create"))
 	asmlinkage()
-	clockid = int_arg(1)
-	clockid_str = _get_wc_str(clockid)
-	evp_uaddr = pointer_arg(2)
-	timerid_uaddr = pointer_arg(3)
+	@_SYSCALL_TIMER_CREATE_REGARGS
 	@_SYSCALL_TIMER_CREATE_ARGSTR
 }
-probe __nd_syscall.compat_timer_create = kprobe.function("compat_sys_timer_create") ?
+probe __nd1_syscall.compat_timer_create = kprobe.function("compat_sys_timer_create") ?
 {
 	asmlinkage()
-	clockid = int_arg(1)
-	clockid_str = _get_wc_str(clockid)
-	evp_uaddr = pointer_arg(2)
-	timerid_uaddr = pointer_arg(3)
+	@_SYSCALL_TIMER_CREATE_REGARGS
 	@_SYSCALL_TIMER_CREATE_ARGSTR
 }
-probe nd_syscall.timer_create.return =
-	__nd_syscall.timer_create.return,
+
+/* kernel 4.17+ */
+probe nd2_syscall.timer_create = __nd2_syscall.timer_create,
+                                 __nd2_syscall.compat_timer_create ?
+{
+	@_SYSCALL_TIMER_CREATE_NAME
+}
+probe __nd2_syscall.timer_create =
+	kprobe.function(@arch_syscall_prefix "sys_timer_create") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_TIMER_CREATE_REGARGS
+	@_SYSCALL_TIMER_CREATE_ARGSTR
+}
+probe __nd2_syscall.compat_timer_create =
+	kprobe.function(@arch_syscall_prefix "compat_sys_timer_create") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_TIMER_CREATE_REGARGS
+	@_SYSCALL_TIMER_CREATE_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.timer_create = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_timer_create"), @const("__NR_compat_timer_create"))
+	@_SYSCALL_TIMER_CREATE_NAME
+	@_SYSCALL_TIMER_CREATE_REGARGS
+	@_SYSCALL_TIMER_CREATE_ARGSTR
+}
+
+probe nd_syscall.timer_create.return = nd1_syscall.timer_create.return!, nd2_syscall.timer_create.return!, tp_syscall.timer_create.return
+  { }
+
+probe nd1_syscall.timer_create.return =
+	__nd1_syscall.timer_create.return,
 	kprobe.function("compat_sys_timer_create").return ?
 {
 	@_SYSCALL_TIMER_CREATE_NAME
 	@SYSC_RETVALSTR(returnval())
 }
-probe __nd_syscall.timer_create.return = kprobe.function("sys_timer_create").return
+probe __nd1_syscall.timer_create.return = kprobe.function("sys_timer_create").return
 {
 	@__syscall_gate(@const("__NR_timer_create"))
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.timer_create.return =
+	kprobe.function(@arch_syscall_prefix "sys_timer_create").return,
+	kprobe.function(@arch_syscall_prefix "compat_sys_timer_create").return ?
+{
+	@_SYSCALL_TIMER_CREATE_NAME
+	@SYSC_RETVALSTR(returnval())
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.timer_create.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_timer_create"), @const("__NR_compat_timer_create"))
+	@_SYSCALL_TIMER_CREATE_NAME
+	@SYSC_RETVALSTR($ret)
 }

@@ -70,9 +70,12 @@ probe __syscall.truncate.return = kernel.function("sys_truncate").return ?
 
 # nd_truncate _____________________________________________________
 
-probe nd_syscall.truncate = __nd_syscall.truncate ?,
-			    __nd_syscall.truncate64 ?,
-			    __nd_syscall.compat_truncate ?
+probe nd_syscall.truncate = nd1_syscall.truncate!, nd2_syscall.truncate!, tp_syscall.truncate
+  { }
+
+probe nd1_syscall.truncate = __nd1_syscall.truncate ?,
+			     __nd1_syscall.truncate64 ?,
+			     __nd1_syscall.compat_truncate ?
 {
 	@_SYSCALL_TRUNCATE_NAME
 	asmlinkage()
@@ -80,30 +83,109 @@ probe nd_syscall.truncate = __nd_syscall.truncate ?,
 	path = user_string_quoted(path_uaddr)
 	@_SYSCALL_TRUNCATE_ARGSTR
 }
-probe __nd_syscall.truncate = kprobe.function("sys_truncate") ?
+probe __nd1_syscall.truncate = kprobe.function("sys_truncate") ?
 {
 	@_SYSCALL_GATE
 	asmlinkage()
 	length = long_arg(2)
 }
-probe __nd_syscall.truncate64 = kprobe.function("sys_truncate64") ?
+probe __nd1_syscall.truncate64 = kprobe.function("sys_truncate64") ?
 {
 	asmlinkage()
 	length = longlong_arg(2)
 }
-probe __nd_syscall.compat_truncate = kprobe.function("compat_sys_truncate") ?
+probe __nd1_syscall.compat_truncate = kprobe.function("compat_sys_truncate") ?
 {
 	asmlinkage()
 	length = int_arg(2)
 }
-probe nd_syscall.truncate.return = __nd_syscall.truncate.return ?,
+
+/* kernel 4.17+ */
+probe nd2_syscall.truncate = __nd2_syscall.truncate ?,
+                             __nd2_syscall.compat_truncate ?
+{
+	@_SYSCALL_TRUNCATE_NAME
+	path_uaddr = pointer_arg(1)
+	path = user_string_quoted(path_uaddr)
+	@_SYSCALL_TRUNCATE_ARGSTR
+}
+probe __nd2_syscall.truncate = kprobe.function(@arch_syscall_prefix "sys_truncate") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	length = long_arg(2)
+}
+probe __nd2_syscall.compat_truncate = kprobe.function(@arch_syscall_prefix "compat_sys_truncate") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	length = int_arg(2)
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.tuncate = __tp_syscall.truncate ?,
+			   __tp_syscall.truncate64 ?,
+			   __tp_syscall.compat_truncate ?
+{
+	@_SYSCALL_TRUNCATE_NAME
+	path_uaddr = pointer_arg(1)
+	path = user_string_quoted(path_uaddr)
+	@_SYSCALL_TRUNCATE_ARGSTR
+}
+probe __tp_syscall.truncate = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_truncate"))
+	length = long_arg(2)
+}
+probe __tp_syscall.truncate64 = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_gate(@const("__NR_truncate64"))
+	length = longlong_arg(2)
+}
+probe __tp_syscall.compat_truncate = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__compat_syscall_gate(@const("__NR_compat_truncate"))
+	length = int_arg(2)
+}
+
+probe nd_syscall.truncate.return = nd1_syscall.truncate.return!, nd2_syscall.truncate.return!, tp_syscall.truncate.return
+  { }
+
+probe nd1_syscall.truncate.return = __nd1_syscall.truncate.return ?,
 	kprobe.function("sys_truncate64").return ?,
 	kprobe.function("compat_sys_truncate").return ?
 {
 	@_SYSCALL_TRUNCATE_NAME
 	@SYSC_RETVALSTR(returnval())
 }
-probe __nd_syscall.truncate.return = kprobe.function("sys_truncate").return ?
+probe __nd1_syscall.truncate.return = kprobe.function("sys_truncate").return ?
 {
 	@_SYSCALL_GATE
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.truncate.return =
+	kprobe.function(@arch_syscall_prefix "sys_truncate").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_truncate").return ?
+{
+	@_SYSCALL_TRUNCATE_NAME
+	@SYSC_RETVALSTR(returnval())
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.truncate.return = __tp_syscall.truncate.return,
+                                   __tp_syscall.truncate64.return
+{
+	__set_syscall_pt_regs($regs)
+	@_SYSCALL_TRUNCATE_NAME
+	@SYSC_RETVALSTR($ret)
+}
+probe __tp_syscall.truncate.return = kernel.trace("sys_exit")
+{
+	@__syscall_compat_gate(@const("__NR_truncate"), @const("__NR_compat_truncate"))
+}
+probe __tp_syscall.truncate64.return = kernel.trace("sys_exit")
+{
+	@__syscall_gate(@const("__NR_truncate64"))
 }
