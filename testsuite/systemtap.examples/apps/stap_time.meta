@@ -1,0 +1,11 @@
+title: Provide elapsed times for Passes of SystemTap script compilation
+name: stap_time.stp
+application: systemtap
+requires: systemtap
+keywords: application trace
+exit: user-controlled
+output: trace
+scope: system-wide
+description: SystemTap has multiple passes to convert the text of a SystemTap script into instrumentation that actually collect data on the system.  The stap_time.stp script uses the markers in SystemTap to note the amount of time that each of the passes requires.  When SystemTap completes pass 4 (compiling the instrumentation into a kernel module) the script print out the script name followed by the amount of time in milliseconds required for Pass 0 (command line option parsing), Pass 1 (script parsing), Pass 2 (elaboration), Pass 3 (code generation), and Pass 4 (module compilation).  The resulting data can be analyzed to determine if there are issues with the amount of time that systemtap takes to generate instrumentation.
+test_check: stap -p4 stap_time.stp
+test_installcheck: stap stap_time.stp -T 1

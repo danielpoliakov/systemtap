@@ -1,0 +1,50 @@
+#! /usr/bin/env stap 
+# Copyright (C) 2018 Red Hat, Inc.
+# Written by William Cohen <wcohen@redhat.com>
+#
+# Provide concise plottable information about phases 0-4 of systemtap
+
+global start, pass0, pass1, pass2, pass3, pass4
+
+function print_head() {printf("")}
+function print_tail() {printf("")}
+
+probe begin { print_head() }
+probe end { print_tail() }
+
+probe stap.pass0 { start[session] = gettimeofday_ms() }
+probe stap.pass0.end { pass0[session] = gettimeofday_ms() }
+probe stap.pass1.end { pass1[session] = gettimeofday_ms() }
+probe stap.pass2.end { pass2[session] = gettimeofday_ms() }
+probe stap.pass3.end { pass3[session] = gettimeofday_ms() }
+
+probe stap.pass4.end {
+  pass4[session] = gettimeofday_ms()
+  // Dig through C++ string private fields to find the systemtap script name
+  cmdline_script = @cast(session, "struct systemtap_session")->cmdline_script->_M_string_length
+  if (cmdline_script) {
+    script = "<cmdline_script>"
+  } else {
+    len = @cast(session, "struct systemtap_session")->script_file->_M_string_length
+    if (len <= 15) {
+      script_file = @cast(session, "struct systemtap_session")->script_file->_M_local_buf
+    } else {
+      script_file = @cast(session, "struct systemtap_session")->script_file->_M_dataplus->_M_p
+    }
+    script = user_string2(script_file, "<unavailable>")
+  }
+  // print out data
+  printf("%s %d %d %d %d %d\n",
+         script,
+	 pass0[session] - start[session],
+	 pass1[session] - pass0[session],
+	 pass2[session] - pass1[session],
+	 pass3[session] - pass2[session],
+	 pass4[session] - pass3[session])
+  // delete entries
+  delete pass0[session]
+  delete pass1[session]
+  delete pass2[session]
+  delete pass3[session]
+  delete pass4[session]
+}
