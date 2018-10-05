@@ -4,6 +4,36 @@ SYSTEMTAP EXAMPLES INDEX
 
 For systemtap version 4.0.
 
+apps/libguestfs_log.stp - Trace libguestfs startup
+keywords: application trace
+
+  The libguestfs_log.stp script prints a log of when various
+  libgueststartup steps are encountered.   The first column is
+  microseconds since the script started.  The second column is the time
+  elapsed in microseconds between the previous and current events and
+  the third column is the event name.
+
+  # stap libguestfs_log.stp -T 1
+
+
+apps/stap_time.stp - Provide elapsed times for Passes of SystemTap script compilation
+keywords: application trace
+
+  SystemTap has multiple passes to convert the text of a SystemTap
+  script into instrumentation that actually collect data on the system.
+   The stap_time.stp script uses the markers in SystemTap to note the
+  amount of time that each of the passes requires.  When SystemTap
+  completes pass 4 (compiling the instrumentation into a kernel module)
+  the script print out the script name followed by the amount of time
+  in milliseconds required for Pass 0 (command line option parsing),
+  Pass 1 (script parsing), Pass 2 (elaboration), Pass 3 (code
+  generation), and Pass 4 (module compilation).  The resulting data can
+  be analyzed to determine if there are issues with the amount of time
+  that systemtap takes to generate instrumentation.
+
+  # stap stap_time.stp -T 1
+
+
 general/alias_suffixes.stp - Count I/O Syscalls using Alias Suffixes
 keywords: io statistics
 
@@ -70,7 +100,7 @@ keywords: simple trace callgraph
 
 
 general/cpu_throttle.stp - Monitor Intel processors for throttling due to power or thermal limits
-keywords: prometheus limit
+keywords: prometheus limits
 
   Intel processors have hardware mechanisms that will reduce the
   effective processors speed to avoid exceeding set thermal or power
@@ -90,7 +120,7 @@ keywords: interactive statistics thread process
   options exist to control filtering / reporting, some of which can be
   modified at runtime. See the script source for more information.
 
-  # stap eventcount.stp 'syscall.*' -c 'sleep 3'
+  # stap eventcount.stp 'syscall_any' -c 'sleep 3'
 
 
 general/func_time_stats.stp - Function Time Statistics
@@ -142,6 +172,31 @@ keywords: simple guru
   friends!
 
   # stap -g keyhack.stp -c 'sleep 5'
+
+
+general/measureinterval.stp - Measure intervals between events
+keywords: monitoring
+
+  The measureinteval.stp script allows quick creation of
+  instrumentation to measure quantity between different probe points,
+  aggregate the measurements, and display the results. The first
+  argument to the script is the quantity to measure such as time in
+  microseconds via "gettimeofday_us()".   There could be multiple
+  intervals being measured concurrently and the second argument is the
+  means to match the start probe points listed in the fourth argument
+  with the end probes listed in the fifth argument.  The third argument
+  is how to display the aggregated data.  The data could be displayed
+  as a sum (@sum), an average (@avg), or a histogram (@hist_log).  The
+  fourth and fifth arguments are lists of probes marking the start and
+  end of an interval.  An optional sixth argument allows grouping of
+  the intervals. One could use "tid()" for the matching argument to
+  measure the intervals on a per-thread basis, but then use
+  "execname()" for the optional argument to group the measurements by
+  executable name.  If there is no sixth argument, all the intervals
+  are aggregated into a single entry.
+
+  # stap measureinterval.stp "gettimeofday_us()" "tid()" @sum vm.pagefault \
+  vm.pagefault.return "execname()" -c 'sleep 3'
 
 
 general/para-callgraph-verbose.stp - Callgraph Tracing with Verbose Arguments
@@ -221,6 +276,8 @@ keywords: statistics memory interactive
   information). Types and locations can be repeatedly given until the
   process is terminated. 
 
+  # echo "FILE '</usr/include/stdio.h>'" | stap sizeof_interactive.stp -T 1
+
 
 general/socket-events.stp - Trace Socket Activity of a Process
 keywords: socket syscall
@@ -246,6 +303,24 @@ keywords: time
   and user-space.
 
   # stap stopwatches.stp -T 1
+
+
+general/tcl-funtop.stp - Profile Tcl calls
+keywords: profiling
+
+  The tcl-funtop.stp script displays a top-like view of most frequently
+  used Tcl functions for the each five second interval.
+
+  # stap tcl-funtop.stp -T 5
+
+
+general/tcl-trace.stp - Callgraph Tracing of Tcl code
+keywords: callgraph
+
+  Print a timed per-thread microsecond-timed callgraph of executing Tcl
+  code.
+
+  # stap tcl-trace.stp -T 5
 
 
 general/varwatch.stp - Watch a Variable Changing Value in a Thread
@@ -283,7 +358,7 @@ keywords: speculation monitoring function trace _best
   given function, but only for those runs of the function that ended up
   with a (configurable) post-return condition.
 
-  # stap whythefail.stp kernel sys_open '$return < 0' -c 'cat \
+  # stap whythefail.stp kernel do_sys_open '$return < 0' -c 'cat \
   /root/no-such-file || true'
 
 
@@ -495,7 +570,7 @@ keywords: io simple
   takes longer than a configurable number of microseconds.  Highly
   contended or remote filesystems are likelier to hit this.
 
-  # stap slowvfs.stp -G sloth=10 -c 'find /proc >/dev/null'
+  # stap slowvfs.stp -G sloth=10 -c 'find /proc >/dev/null || true'
 
 
 io/switchfile.stp - Switch log files
@@ -1606,6 +1681,25 @@ keywords: profiling function
   # stap -w functioncallcount.stp "*@mm/*.c" -T 1
 
 
+profiling/ioctl_handler.stp - Monitor which executables use ioctl syscalls and what kernel code is handling the ioctl
+keywords: profiling
+
+  The ioctl systemcall is used to manipulate devices setting or special
+  files.  The way that ioctl syscalls are handled depend greatly on the
+  device the special file is associated with. Using strace to monitor
+  the open and ioctl syscalls may not give a good indication of what
+  kernel code is actually handling the ioctl operations.  The
+  ioctl_handler.stp script is designed to provide more details. On exit
+  the ioctl_handler.stp script provides a count of the ioctl syscalls
+  for each executable run on the system. If there was some special
+  device driver code used to handle to the ioctl, the output will have
+  a tally of the times the function name and module was called for that
+  executable.  The "--all-modules" option should be included on the
+  command line so the script can provide function name information.
+
+  # stap ioctl_handler.stp --all-modules -T 1
+
+
 profiling/latencytap.stp - Show Reasons and Durations for Processes Sleeping
 keywords: _best profiling
 
@@ -1630,7 +1724,7 @@ keywords: profiling _best
   function is called, a table with the average and maximum time each
   line takes, and control flow information when the script exits.
 
-  # stap linetimes.stp kernel sys_nanosleep -T 1
+  # stap linetimes.stp kernel do_nanosleep -T 1
 
 
 profiling/perf.stp - Show performance ratios using perf.counter to access performance counters
@@ -1702,6 +1796,42 @@ keywords: profiling function
   process being traced, and when it gets scheduled in again.
 
   # stap  sched_switch.stp -T 1
+
+
+profiling/syscallerrorsbypid.stp - Provide a per-process syscall error tally on the system
+keywords: prometheus process syscall tracepoint
+
+  The syscallerrorsbypid.stp script tallies syscall errors for each
+  running process.  This information can be useful to whether there are
+  excessive errors for various processes on the system.  The script
+  makes the information available via procfs in Prometheus readable
+  format.  When a process exits its data will be eliminated from the
+  prometheus output.  To avoid exceeding the storage limitations of
+  SystemTap older entries maybe overwritten by newer entries.  This can
+  lead to some active process syscall error counts disappearing and/or
+  later reappearing with a lower value.  Also note that the script does
+  not properly name syscalls for 32-bit applications running on 64-bit
+  machines.
+
+  # stap syscallerrorsbypid.stp -T 1
+
+
+profiling/syscalllatency.stp - Provide a per-process accumulation of syscall latency on the system
+keywords: prometheus process syscall tracepoint
+
+  The syscalllatency.stp script accumulates syscall latency for each
+  running process.  This information can be useful to whether excessive
+  time is being spent in particular syscalls on the system.  The script
+  makes the information available via procfs in Prometheus readable
+  format.  When a process exits its data will be eliminated from the
+  prometheus output.  To avoid exceeding the storage limitations of
+  SystemTap older entries maybe overwritten by newer entries.  This can
+  lead to some active process syscall error counts disappearing and/or
+  later reappearing with a lower value.  Also note that the script does
+  not properly name syscalls for 32-bit applications running on 64-bit
+  machines.
+
+  # stap syscalllatency.stp -T 1
 
 
 profiling/syscallsbypid.stp - Provide a per-process syscall tally on the system
@@ -1811,6 +1941,12 @@ keywords: security guru
 
 
 security-band-aids/cve-2017-6074.stp - cve-2017-6074 security band-aid
+keywords: security guru
+
+  historical emergency security band-aid, for reference/education only
+
+
+security-band-aids/cve-2018-14634.stp - cve-2018-14634 security band-aid
 keywords: security guru
 
   historical emergency security band-aid, for reference/education only
