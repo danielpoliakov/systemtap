@@ -1,0 +1,8 @@
+#! /usr/bin/env stap
+// From https://blog.verbum.org/2011/03/19/analyzing-memory-use-with-systemtap/
+// gmalloc_watch.stp: Print calls to g_malloc
+// Usage: stap ./gmalloc-watch.stp
+
+probe glib.mem_alloc {
+printf ("g_malloc: pid=%d n_bytes=%d\n", pid(), n_bytes);
+}

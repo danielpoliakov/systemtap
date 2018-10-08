@@ -1,0 +1,12 @@
+title: Tracing glib2 memory allocations
+name: gmalloc_watch.stp
+keywords: trace
+author: Colin Walters
+status: experimental
+exit: user-controlled
+requires: glib2-devel
+output: trace
+description: The gmalloc_watch.stp script from Colin Walters' blog (https://blog.verbum.org/2011/03/19/analyzing-memory-use-with-systemtap/) traces the allocation of glib2 memory using the markers in glib2.
+test_support: stap -l 'glib.mem_alloc'
+test_check: stap -p4 gmalloc_watch.stp
+test_installcheck: stap gmalloc_watch.stp -T 1
