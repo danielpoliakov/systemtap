@@ -1,0 +1,9 @@
+#! stap -wp4
+
+probe syscall_any {
+	printf("%s: %s (%d) = ", execname(), name, syscall_nr)
+}
+
+probe syscall_any.return {
+      printf("%d\n", retval)
+}
