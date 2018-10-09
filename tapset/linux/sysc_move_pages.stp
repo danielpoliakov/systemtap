@@ -23,6 +23,17 @@
 	                 nodes, status, flags_str)
 %)
 
+@define _SYSCALL_MOVE_PAGES_REGARGS
+%(
+	pid = int_arg(1)
+	nr_pages = ulong_arg(2)
+	pages = pointer_arg(3)
+	nodes = pointer_arg(4)
+	status = pointer_arg(5)
+	flags = int_arg(6)
+	flags_str = _mempolicy_flags_str(flags)
+%)
+
 probe syscall.move_pages = dw_syscall.move_pages !, nd_syscall.move_pages ? {}
 probe syscall.move_pages.return = dw_syscall.move_pages.return !, nd_syscall.move_pages.return ? {}
 
@@ -58,31 +69,71 @@ probe __syscall.move_pages.return = kernel.function("sys_move_pages").return
 
 # nd_move_pages _____________________________________________________
 
-probe nd_syscall.move_pages = __nd_syscall.move_pages ?,
-                              kprobe.function("compat_sys_move_pages") ?
+probe nd_syscall.move_pages = nd1_syscall.move_pages!, nd2_syscall.move_pages!, tp_syscall.move_pages
+  { }
+
+probe nd1_syscall.move_pages = __nd1_syscall.move_pages ?,
+                               kprobe.function("compat_sys_move_pages") ?
 {
 	@_SYSCALL_MOVE_PAGES_NAME
 	asmlinkage()
-	pid = int_arg(1)
-	nr_pages = ulong_arg(2)
-	pages = pointer_arg(3)
-	nodes = pointer_arg(4)
-	status = pointer_arg(5)
-	flags = int_arg(6)
-	flags_str = _mempolicy_flags_str(flags)
+	@_SYSCALL_MOVE_PAGES_REGARGS
 	@_SYSCALL_MOVE_PAGES_ARGSTR
 }
-probe __nd_syscall.move_pages = kprobe.function("sys_move_pages")
+probe __nd1_syscall.move_pages = kprobe.function("sys_move_pages")
 {
 	@__syscall_gate(@const("__NR_move_pages"))
 }
-probe nd_syscall.move_pages.return = __nd_syscall.move_pages.return ?,
-                                     kprobe.function("compat_sys_move_pages").return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.move_pages =
+	kprobe.function(@arch_syscall_prefix "sys_move_pages") ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_move_pages") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_MOVE_PAGES_NAME
+	@_SYSCALL_MOVE_PAGES_REGARGS
+	@_SYSCALL_MOVE_PAGES_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.move_pages = kernel.trace("sys_enter")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_move_pages"), @const("__NR_compat_move_pages"))
+	@_SYSCALL_MOVE_PAGES_NAME
+	@_SYSCALL_MOVE_PAGES_REGARGS
+	@_SYSCALL_MOVE_PAGES_ARGSTR
+}
+
+probe nd_syscall.move_pages.return = nd1_syscall.move_pages.return!, nd2_syscall.move_pages.return!, tp_syscall.move_pages.return
+  { }
+
+probe nd1_syscall.move_pages.return = __nd1_syscall.move_pages.return ?,
+                                      kprobe.function("compat_sys_move_pages").return ?
 {
 	@_SYSCALL_MOVE_PAGES_NAME
 	@SYSC_RETVALSTR(returnval())
 }
-probe __nd_syscall.move_pages.return = kprobe.function("sys_move_pages").return
+probe __nd1_syscall.move_pages.return = kprobe.function("sys_move_pages").return
 {
 	@__syscall_gate(@const("__NR_move_pages"))
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.move_pages.return =
+	kprobe.function(@arch_syscall_prefix "sys_move_pages").return ?,
+	kprobe.function(@arch_syscall_prefix "compat_sys_move_pages").return ?
+{
+	@_SYSCALL_MOVE_PAGES_NAME
+	@SYSC_RETVALSTR(returnval())
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.move_pages.return = kernel.trace("sys_exit")
+{
+	__set_syscall_pt_regs($regs)
+	@__syscall_compat_gate(@const("__NR_move_pages"), @const("__NR_compat_move_pages"))
+	@_SYSCALL_MOVE_PAGES_NAME
+	@SYSC_RETVALSTR($ret)
 }

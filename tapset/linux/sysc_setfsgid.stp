@@ -39,6 +39,11 @@
     %)
 %)
 
+@define _SYSCALL_SETFSGID_REGARGS
+%(
+	fsgid = int_arg(1)
+%)
+
 probe syscall.setfsgid = dw_syscall.setfsgid !, nd_syscall.setfsgid ? {}
 probe syscall.setfsgid.return = dw_syscall.setfsgid.return !,
                                 nd_syscall.setfsgid.return ? {}
@@ -69,25 +74,84 @@ probe __syscall.setfsgid.return = kernel.function("sys_setfsgid").return ?
 
 # nd_setfsgid _____________________________________________________
 
-probe nd_syscall.setfsgid = kprobe.function("sys_setfsgid16") ?,
-			    __nd_syscall.setfsgid ?
+probe nd_syscall.setfsgid = nd1_syscall.setfsgid!, nd2_syscall.setfsgid!, tp_syscall.setfsgid
+  { }
+
+probe nd1_syscall.setfsgid = kprobe.function("sys_setfsgid16") ?,
+			     __nd1_syscall.setfsgid ?
 {
 	@_SYSCALL_SETFSGID_NAME
 	asmlinkage()
-	fsgid = int_arg(1)
+	@_SYSCALL_SETFSGID_REGARGS
 	@_SYSCALL_SETFSGID_ARGSTR
 }
-probe __nd_syscall.setfsgid = kprobe.function("sys_setfsgid") ?
+probe __nd1_syscall.setfsgid = kprobe.function("sys_setfsgid") ?
 {
 	@_SYSCALL_GATE
 }
-probe nd_syscall.setfsgid.return = kprobe.function("sys_setfsgid16").return ?,
-				   __nd_syscall.setfsgid.return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.setfsgid = kprobe.function(@arch_syscall_prefix "sys_setfsgid") ?,
+                             kprobe.function(@arch_syscall_prefix "sys_setfsgid16") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_SETFSGID_NAME
+	@_SYSCALL_SETFSGID_REGARGS
+	@_SYSCALL_SETFSGID_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.setfsgid = __tp_syscall.setfsgid, __tp_syscall.setfsgid16
+{
+	__set_syscall_pt_regs($regs)
+	@_SYSCALL_SETFSGID_NAME
+	@_SYSCALL_SETFSGID_REGARGS
+	@_SYSCALL_SETFSGID_ARGSTR
+}
+probe __tp_syscall.setfsgid = kernel.trace("sys_enter")
+{
+	@__syscall_compat_gate(@const("__NR_setfsgid"), @const("__NR_compat_setfsgid32"))
+}
+probe __tp_syscall.setfsgid16 = kernel.trace("sys_enter")
+{
+	@__compat_syscall_gate(@const("__NR_compat_setfsgid"))
+}
+
+probe nd_syscall.setfsgid.return = nd1_syscall.setfsgid.return!, nd2_syscall.setfsgid.return!, tp_syscall.setfsgid.return
+  { }
+
+probe nd1_syscall.setfsgid.return = kprobe.function("sys_setfsgid16").return ?,
+				    __nd1_syscall.setfsgid.return ?
 {
 	@_SYSCALL_SETFSGID_NAME
 	@SYSC_RETVALSTR(returnval())
 }
-probe __nd_syscall.setfsgid.return = kprobe.function("sys_setfsgid").return ?
+probe __nd1_syscall.setfsgid.return = kprobe.function("sys_setfsgid").return ?
 {
 	@_SYSCALL_GATE
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.setfsgid.return =
+	kprobe.function(@arch_syscall_prefix "sys_setfsgid").return ?,
+	kprobe.function(@arch_syscall_prefix "sys_setfsgid16").return ?
+{
+	@_SYSCALL_SETFSGID_NAME
+	@SYSC_RETVALSTR(returnval())
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.setfsgid.return = __tp_syscall.setfsgid.return, __tp_syscall.setfsgid16.return
+{
+	__set_syscall_pt_regs($regs)
+	@_SYSCALL_SETFSGID_NAME
+	@SYSC_RETVALSTR($ret)
+}
+probe __tp_syscall.setfsgid.return = kernel.trace("sys_exit")
+{
+	@__syscall_compat_gate(@const("__NR_setfsgid"), @const("__NR_compat_setfsgid32"))
+}
+probe __tp_syscall.setfsgid16.return = kernel.trace("sys_exit")
+{
+	@__compat_syscall_gate(@const("__NR_compat_setfsgid"))
 }

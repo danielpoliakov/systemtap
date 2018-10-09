@@ -54,8 +54,8 @@ int main()
 #endif
 
 #ifdef __NR_migrate_pages
-    __migrate_pages(0, 1, &node0, &node0);
-    //staptest// [[[[migrate_pages (0, 1, XXXX, XXXX) = 0!!!!ni_syscall () = NNNN (ENOSYS)]]]]
+    __migrate_pages(0, 2, &node0, &node0);
+    //staptest// [[[[migrate_pages (0, 2, XXXX, XXXX) = 0!!!!ni_syscall () = NNNN (ENOSYS)]]]]
 #endif
 
 

@@ -40,6 +40,11 @@
     %)
 %)
 
+@define _SYSCALL_SETGID_REGARGS
+%(
+	gid = int_arg(1)
+%)
+
 probe syscall.setgid = dw_syscall.setgid !, nd_syscall.setgid ? {}
 probe syscall.setgid.return = dw_syscall.setgid.return !,
                               nd_syscall.setgid.return ? {}
@@ -70,25 +75,84 @@ probe __syscall.setgid.return = kernel.function("sys_setgid").return ?
 
 # nd_setgid _____________________________________________________
 
-probe nd_syscall.setgid = kprobe.function("sys_setgid16") ?,
-			  __nd_syscall.setgid ?
+probe nd_syscall.setgid = nd1_syscall.setgid!, nd2_syscall.setgid!, tp_syscall.setgid
+  { }
+
+probe nd1_syscall.setgid = kprobe.function("sys_setgid16") ?,
+			   __nd1_syscall.setgid ?
 {
 	@_SYSCALL_SETGID_NAME
 	asmlinkage()
-	gid = int_arg(1)
+	@_SYSCALL_SETGID_REGARGS
 	@_SYSCALL_SETGID_ARGSTR
 }
-probe __nd_syscall.setgid = kprobe.function("sys_setgid") ?
+probe __nd1_syscall.setgid = kprobe.function("sys_setgid") ?
 {
 	@_SYSCALL_GATE
 }
-probe nd_syscall.setgid.return = kprobe.function("sys_setgid16").return ?,
-				 __nd_syscall.setgid.return ?
+
+/* kernel 4.17+ */
+probe nd2_syscall.setgid = kprobe.function(@arch_syscall_prefix "sys_setgid") ?,
+                           kprobe.function(@arch_syscall_prefix "sys_setgid16") ?
+{
+	__set_syscall_pt_regs(pointer_arg(1))
+	@_SYSCALL_SETGID_NAME
+	@_SYSCALL_SETGID_REGARGS
+	@_SYSCALL_SETGID_ARGSTR
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.setgid = __tp_syscall.setgid, __tp_syscall.setgid16
+{
+	__set_syscall_pt_regs($regs)
+	@_SYSCALL_SETGID_NAME
+	@_SYSCALL_SETGID_REGARGS
+	@_SYSCALL_SETGID_ARGSTR
+}
+probe __tp_syscall.setgid = kernel.trace("sys_enter")
+{
+	@__syscall_compat_gate(@const("__NR_setgid"), @const("__NR_compat_setgid32"))
+}
+probe __tp_syscall.setgid16 = kernel.trace("sys_enter")
+{
+	@__compat_syscall_gate(@const("__NR_compat_setgid"))
+}
+
+probe nd_syscall.setgid.return = nd1_syscall.setgid.return!, nd2_syscall.setgid.return!, tp_syscall.setgid.return
+  { }
+
+probe nd1_syscall.setgid.return = kprobe.function("sys_setgid16").return ?,
+				  __nd1_syscall.setgid.return ?
 {
 	@_SYSCALL_SETGID_NAME
 	@SYSC_RETVALSTR(returnval())
 }
-probe __nd_syscall.setgid.return = kprobe.function("sys_setgid").return ?
+probe __nd1_syscall.setgid.return = kprobe.function("sys_setgid").return ?
 {
 	@_SYSCALL_GATE
+}
+
+/* kernel 4.17+ */
+probe nd2_syscall.setgid.return =
+	kprobe.function(@arch_syscall_prefix "sys_setgid").return ?,
+	kprobe.function(@arch_syscall_prefix "sys_setgid16").return ?
+{
+	@_SYSCALL_SETGID_NAME
+	@SYSC_RETVALSTR(returnval())
+}
+
+/* kernel 3.5+, but undesirable because it affects all syscalls */
+probe tp_syscall.setgid.return = __tp_syscall.setgid.return, __tp_syscall.setgid16.return
+{
+	__set_syscall_pt_regs($regs)
+	@_SYSCALL_SETGID_NAME
+	@SYSC_RETVALSTR($ret)
+}
+probe __tp_syscall.setgid.return = kernel.trace("sys_exit")
+{
+	@__syscall_compat_gate(@const("__NR_setgid"), @const("__NR_compat_setgid32"))
+}
+probe __tp_syscall.setgid16.return = kernel.trace("sys_exit")
+{
+	@__compat_syscall_gate(@const("__NR_compat_setgid"))
 }

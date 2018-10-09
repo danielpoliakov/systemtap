@@ -515,7 +515,25 @@
 #endif
 #ifndef __NR_ia32_getdents64
 #define __NR_ia32_getdents64 220
-#endif  
+#endif
+#ifndef __NR_ia32_getegid
+#define __NR_ia32_getegid 50
+#endif
+#ifndef __NR_ia32_getegid32
+#define __NR_ia32_getegid32 202
+#endif
+#ifndef __NR_ia32_geteuid
+#define __NR_ia32_geteuid 49
+#endif
+#ifndef __NR_ia32_geteuid32
+#define __NR_ia32_geteuid32 201
+#endif
+#ifndef __NR_ia32_getgid
+#define __NR_ia32_getgid 47
+#endif
+#ifndef __NR_ia32_getgid32
+#define __NR_ia32_getgid32 200
+#endif
 #ifndef __NR_ia32_getgroups
 #define __NR_ia32_getgroups 80
 #endif
@@ -543,6 +561,18 @@
 #ifndef __NR_ia32_getrandom
 #define __NR_ia32_getrandom 355
 #endif 
+#ifndef __NR_ia32_getresgid
+#define __NR_ia32_getresgid 171
+#endif
+#ifndef __NR_ia32_getresgid32
+#define __NR_ia32_getresgid32 211
+#endif
+#ifndef __NR_ia32_getresuid
+#define __NR_ia32_getresuid 165
+#endif
+#ifndef __NR_ia32_getresuid32
+#define __NR_ia32_getresuid32 209
+#endif
 #ifndef __NR_ia32_getrlimit
 #define __NR_ia32_getrlimit 76
 #endif
@@ -557,6 +587,12 @@
 #endif
 #ifndef __NR_ia32_gettimeofday
 #define __NR_ia32_gettimeofday 78
+#endif
+#ifndef __NR_ia32_getuid
+#define __NR_ia32_getuid 24
+#endif
+#ifndef __NR_ia32_getuid32
+#define __NR_ia32_getuid32 199
 #endif
 #ifndef __NR_ia32_getxattr
 #define __NR_ia32_getxattr 229
@@ -665,11 +701,17 @@
 #ifndef __NR_ia32_madvise
 #define __NR_ia32_madvise 219
 #endif
+#ifndef __NR_ia32_mbind
+#define __NR_ia32_mbind 274
+#endif
 #ifndef __NR_ia32_membarrier
 #define __NR_ia32_membarrier 375
 #endif
 #ifndef __NR_ia32_memfd_create
 #define __NR_ia32_memfd_create 356
+#endif
+#ifndef __NR_ia32_migrate_pages
+#define __NR_ia32_migrate_pages 294
 #endif
 #ifndef __NR_ia32_mincore
 #define __NR_ia32_mincore 218
@@ -703,6 +745,9 @@
 #endif
 #ifndef __NR_ia32_mount
 #define __NR_ia32_mount 21
+#endif
+#ifndef __NR_ia32_move_pages
+#define __NR_ia32_move_pages 317
 #endif
 #ifndef __NR_ia32_mprotect
 #define __NR_ia32_mprotect 125
@@ -967,11 +1012,20 @@
 #ifndef __NR_ia32_setdomainname
 #define __NR_ia32_setdomainname 121
 #endif
+#ifndef __NR_ia32_setfsgid
+#define __NR_ia32_setfsgid 139
+#endif
 #ifndef __NR_ia32_setfsgid32
 #define __NR_ia32_setfsgid32 216
 #endif
+#ifndef __NR_ia32_setfsuid
+#define __NR_ia32_setfsuid 138
+#endif
 #ifndef __NR_ia32_setfsuid32
 #define __NR_ia32_setfsuid32 215
+#endif
+#ifndef __NR_ia32_setgid
+#define __NR_ia32_setgid 46
 #endif
 #ifndef __NR_ia32_setgid32
 #define __NR_ia32_setgid32 214
@@ -997,14 +1051,26 @@
 #ifndef __NR_ia32_setpriority
 #define __NR_ia32_setpriority 97
 #endif
+#ifndef __NR_ia32_setresgid
+#define __NR_ia32_setresgid 170
+#endif
 #ifndef __NR_ia32_setresgid32
 #define __NR_ia32_setresgid32 210
+#endif
+#ifndef __NR_ia32_setresuid
+#define __NR_ia32_setresuid 164
 #endif
 #ifndef __NR_ia32_setresuid32
 #define __NR_ia32_setresuid32 208
 #endif
+#ifndef __NR_ia32_setregid
+#define __NR_ia32_setregid 71
+#endif
 #ifndef __NR_ia32_setregid32
 #define __NR_ia32_setregid32 204
+#endif
+#ifndef __NR_ia32_setreuid
+#define __NR_ia32_setreuid 70
 #endif
 #ifndef __NR_ia32_setreuid32
 #define __NR_ia32_setreuid32 203
@@ -1017,6 +1083,9 @@
 #endif
 #ifndef __NR_ia32_settimeofday
 #define __NR_ia32_settimeofday 79
+#endif
+#ifndef __NR_ia32_setuid
+#define __NR_ia32_setuid 23
 #endif
 #ifndef __NR_ia32_setuid32
 #define __NR_ia32_setuid32 213
@@ -1098,6 +1167,9 @@
 #ifndef __NR_ia32_sync
 #define __NR_ia32_sync 36
 #endif
+#ifndef __NR_ia32_sync_file_range
+#define __NR_ia32_sync_file_range 314
+#endif
 #ifndef __NR_ia32_syncfs
 #define __NR_ia32_syncfs 344
 #endif
@@ -1175,6 +1247,9 @@
 #endif
 #ifndef __NR_ia32_unshare
 #define __NR_ia32_unshare 310
+#endif
+#ifndef __NR_ia32_uselib
+#define __NR_ia32_uselib 86
 #endif
 #ifndef __NR_ia32_userfaultfd
 #define __NR_ia32_userfaultfd 374
@@ -1291,6 +1366,12 @@
 #define __NR_compat_getcwd		__NR_ia32_getcwd
 #define __NR_compat_getdents		__NR_ia32_getdents
 #define __NR_compat_getdents64		__NR_ia32_getdents64
+#define __NR_compat_getegid		__NR_ia32_getegid
+#define __NR_compat_getegid32		__NR_ia32_getegid32
+#define __NR_compat_geteuid		__NR_ia32_geteuid
+#define __NR_compat_geteuid32		__NR_ia32_geteuid32
+#define __NR_compat_getgid		__NR_ia32_getgid
+#define __NR_compat_getgid32		__NR_ia32_getgid32
 #define __NR_compat_getgroups		__NR_ia32_getgroups
 #define __NR_compat_getgroups32		__NR_ia32_getgroups32
 #define __NR_compat_getitimer		__NR_ia32_getitimer
@@ -1300,11 +1381,17 @@
 #define __NR_compat_getppid		__NR_ia32_getppid
 #define __NR_compat_getpriority		__NR_ia32_getpriority
 #define __NR_compat_getrandom		__NR_ia32_getrandom
+#define __NR_compat_getresgid		__NR_ia32_getresgid
+#define __NR_compat_getresgid32		__NR_ia32_getresgid32
+#define __NR_compat_getresuid		__NR_ia32_getresuid
+#define __NR_compat_getresuid32		__NR_ia32_getresuid32
 #define __NR_compat_getrlimit		__NR_ia32_getrlimit
 #define __NR_compat_getrusage		__NR_ia32_getrusage
 #define __NR_compat_getsid		__NR_ia32_getsid
 #define __NR_compat_gettid		__NR_ia32_gettid
 #define __NR_compat_gettimeofday	__NR_ia32_gettimeofday
+#define __NR_compat_getuid		__NR_ia32_getuid
+#define __NR_compat_getuid32		__NR_ia32_getuid32
 #define __NR_compat_getxattr		__NR_ia32_getxattr
 #define __NR_compat_init_module		__NR_ia32_init_module
 #define __NR_compat_inotify_add_watch	__NR_ia32_inotify_add_watch
@@ -1339,8 +1426,10 @@
 #define __NR_compat_lstat		__NR_ia32_lstat
 #define __NR_compat_lstat64		__NR_ia32_lstat64
 #define __NR_compat_madvise		__NR_ia32_madvise
+#define __NR_compat_mbind		__NR_ia32_mbind
 #define __NR_compat_membarrier		__NR_ia32_membarrier
 #define __NR_compat_memfd_create	__NR_ia32_memfd_create
+#define __NR_compat_migrate_pages	__NR_ia32_migrate_pages
 #define __NR_compat_mincore		__NR_ia32_mincore
 #define __NR_compat_mkdir		__NR_ia32_mkdir
 #define __NR_compat_mkdirat		__NR_ia32_mkdirat
@@ -1352,6 +1441,7 @@
 #define __NR_compat_mmap2		__NR_ia32_mmap2
 #define __NR_compat_modify_ldt		__NR_ia32_modify_ldt
 #define __NR_compat_mount		__NR_ia32_mount
+#define __NR_compat_move_pages		__NR_ia32_move_pages
 #define __NR_compat_mprotect		__NR_ia32_mprotect
 #define __NR_compat_mq_getsetattr	__NR_ia32_mq_getsetattr
 #define __NR_compat_mq_notify		__NR_ia32_mq_notify
@@ -1439,6 +1529,12 @@
 #define __NR_compat_set_robust_list	__NR_ia32_set_robust_list
 #define __NR_compat_set_tid_address	__NR_ia32_set_tid_address
 #define __NR_compat_setdomainname	__NR_ia32_setdomainname
+#define __NR_compat_setfsgid		__NR_ia32_setfsgid
+#define __NR_compat_setfsgid32		__NR_ia32_setfsgid32
+#define __NR_compat_setfsuid		__NR_ia32_setfsuid
+#define __NR_compat_setfsuid32		__NR_ia32_setfsuid32
+#define __NR_compat_setgid		__NR_ia32_setgid
+#define __NR_compat_setgid32		__NR_ia32_setgid32
 #define __NR_compat_setgroups		__NR_ia32_setgroups
 #define __NR_compat_setgroups32		__NR_ia32_setgroups32
 #define __NR_compat_sethostname		__NR_ia32_sethostname
@@ -1446,9 +1542,19 @@
 #define __NR_compat_setns		__NR_ia32_setns
 #define __NR_compat_setpgid		__NR_ia32_setpgid
 #define __NR_compat_setpriority		__NR_ia32_setpriority
+#define __NR_compat_setresgid		__NR_ia32_setresgid
+#define __NR_compat_setresgid32		__NR_ia32_setresgid32
+#define __NR_compat_setresuid		__NR_ia32_setresuid
+#define __NR_compat_setresuid32		__NR_ia32_setresuid32
+#define __NR_compat_setregid		__NR_ia32_setregid
+#define __NR_compat_setregid32		__NR_ia32_setregid32
+#define __NR_compat_setreuid		__NR_ia32_setreuid
+#define __NR_compat_setreuid32		__NR_ia32_setreuid32
 #define __NR_compat_setrlimit		__NR_ia32_setrlimit
 #define __NR_compat_setsid		__NR_ia32_setsid
 #define __NR_compat_settimeofday	__NR_ia32_settimeofday
+#define __NR_compat_setuid		__NR_ia32_setuid
+#define __NR_compat_setuid32		__NR_ia32_setuid32
 #define __NR_compat_setxattr		__NR_ia32_setxattr
 #define __NR_compat_sgetmask		__NR_ia32_sgetmask
 #define __NR_compat_shmctl		__NR_ia32_shmctl
@@ -1474,6 +1580,7 @@
 #define __NR_compat_symlink		__NR_ia32_symlink
 #define __NR_compat_symlinkat		__NR_ia32_symlinkat
 #define __NR_compat_sync		__NR_ia32_sync
+#define __NR_compat_sync_file_range	__NR_ia32_sync_file_range
 #define __NR_compat_syncfs		__NR_ia32_syncfs
 #define __NR_compat_sysfs		__NR_ia32_sysfs
 #define __NR_compat_sysinfo		__NR_ia32_sysinfo
@@ -1500,6 +1607,7 @@
 #define __NR_compat_unlink		__NR_ia32_unlink
 #define __NR_compat_unlinkat		__NR_ia32_unlinkat
 #define __NR_compat_unshare		__NR_ia32_unshare
+#define __NR_compat_uselib		__NR_ia32_uselib
 #define __NR_compat_userfaultfd		__NR_ia32_userfaultfd
 #define __NR_compat_ustat		__NR_ia32_ustat
 #define __NR_compat_utime		__NR_ia32_utime
@@ -1600,6 +1708,12 @@
 #define __NR_compat_getcwd		__NR_getcwd
 #define __NR_compat_getdents		__NR_getdents
 #define __NR_compat_getdents64		__NR_getdents64
+#define __NR_compat_getegid		__NR_getegid
+#define __NR_compat_getegid32		__NR_getegid32
+#define __NR_compat_geteuid		__NR_geteuid
+#define __NR_compat_geteuid32		__NR_geteuid32
+#define __NR_compat_getgid		__NR_getgid
+#define __NR_compat_getgid32		__NE_getgid32
 #define __NR_compat_getgroups		__NR_getgroups
 #define __NR_compat_getgroups32		__NR_getgroups32
 #define __NR_compat_getitimer		__NR_getitimer
@@ -1609,11 +1723,17 @@
 #define __NR_compat_getppid		__NR_getppid
 #define __NR_compat_getpriority		__NR_getpriority
 #define __NR_compat_getrandom		__NR_getrandom
+#define __NR_compat_getresgid		__NR_getresgid
+#define __NR_compat_getresgid32		__NR_getresgid32
+#define __NR_compat_getresuid		__NR_getresuid
+#define __NR_compat_getresuid32		__NR_getresuid32
 #define __NR_compat_getrlimit		__NR_getrlimit
 #define __NR_comapt_getrusage		__NR_getrusage
 #define __NR_compat_getsid		__NR_getsid
 #define __NR_compat_gettid		__NR_gettid
 #define __NR_compat_gettimeofday	__NR_gettimeofday
+#define __NR_compat_getuid		__NR_getuid
+#define __NR_compat_getuid32		__NR_getuid32
 #define __NR_compat_getxattr		__NR_getxattr
 #define __NR_compat_init_module		__NR_init_module
 #define __NR_compat_inotify_add_watch	__NR_inotify_add_watch
@@ -1646,8 +1766,10 @@
 #define __NR_compat_lstat		__NR_lstat
 #define __NR_compat_lstat64		__NR_lstat64
 #define __NR_compat_madvise		__NR_madvise
+#define __NR_compat_mbind		__NR_mbind
 #define __NR_compat_membarrier		__NR_membarrier
 #define __NR_compat_memfd_create	__NR_memfd_create
+#define __NR_compat_migrate_pages	__NR_migrate_pages
 #define __NR_compat_mincore		__NR_mincore
 #define __NR_compat_mkdir		__NR_mkdir
 #define __NR_compat_mkdirat		__NR_mkdirat
@@ -1659,6 +1781,7 @@
 #define __NR_compat_mmap2		__NR_mmap2
 #define __NR_compat_modify_ldt		__NR_modify_ldt
 #define __NR_compat_mount		__NR_mount
+#define __NR_compat_move_pages		__NR_move_pages
 #define __NR_compat_mprotect		__NR_mprotect
 #define __NR_compat_mq_getsetattr	__NR_mq_getsetattr
 #define __NR_compat_mq_notify		__NR_mq_notify
@@ -1743,6 +1866,12 @@
 #define __NR_compat_set_robust_list	__NR_set_robust_list
 #define __NR_compat_set_tid_address	__NR_set_tid_address
 #define __NR_compat_setdomainname	__NR_setdomainname
+#define __NR_compat_setfsgid		__NR_setfsgid
+#define __NR_compat_setfsgid32		__NR_setfsgid32
+#define __NR_compat_setfsuid		__NR_setfsuid
+#define __NR_compat_setfsuid32		__NR_setfsuid32
+#define __NR_compat_setgid		__NR_setgid
+#define __NR_compat_setgid32		__NR_setgid32
 #define __NR_compat_setgroups		__NR_setgroups
 #define __NR_compat_setgroups32		__NR_setgroups32
 #define __NR_compat_sethostname		__NR_sethostname
@@ -1750,9 +1879,19 @@
 #define __NR_compat_setns		__NR_setns
 #define __NR_compat_setpgid		__NR_setpgid
 #define __NR_compat_setpriority		__NR_setpriority
+#define __NR_compat_setresgid		__NR_setresgid
+#define __NR_compat_setresgid32		__NR_setresgid32
+#define __NR_compat_setresuid		__NR_setresuid
+#define __NR_compat_setresuid		__NR_setresuid32
+#define __NR_compat_setregid		__NR_setregid
+#define __NR_compat_setregid32		__NR_setregid32
+#define __NR_compat_setreuid		__NR_setreuid
+#define __NR_comapt_setreuid32		__NR_setreuid32
 #define __NR_compat_setrlimit		__NR_setrlimit
 #define __NR_compat_setsid		__NR_setsid
 #define __NR_compat_settimeofday	__NR_settimeofday
+#define __NR_compat_setuid		__NR_setuid
+#define __NR_compat_setuid16		__NR_setuid16
 #define __NR_compat_setxattr		__NR_setxattr
 #define __NR_compat_sgetmask		__NR_sgetmask
 #define __NR_compat_shmctl		__NR_shmctl
@@ -1778,6 +1917,7 @@
 #define __NR_compat_symlink		__NR_symlink
 #define __NR_compat_symlinkat		__NR_symlinkat
 #define __NR_compat_sync		__NR_sync
+#define __NR_compat_sync_file_range	__NR_sync_file_range
 #define __NR_compat_syncfs		__NR_syncfs
 #define __NR_compat_sysfs		__NR_sysfs
 #define __NR_compat_sysinfo		__NR_sysinfo
@@ -1804,6 +1944,7 @@
 #define __NR_compat_unlink		__NR_unlink
 #define __NR_compat_unlinkat		__NR_unlinkat
 #define __NR_compat_unshare		__NR_unshare
+#define __NR_compat_uselib		__NR_uselib
 #define __NR_compat_userfaultfd		__NR_userfaultfd
 #define __NR_compat_ustat		__NR_ustat
 #define __NR_compat_utime		__NR_utime
