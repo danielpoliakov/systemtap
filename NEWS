@@ -50,7 +50,7 @@
 
 - The script language now supports the use of bare 'return' statements
   (without any return values) inside functions which do not return any
-  values. A trailing semincolon is recommended for such return
+  values. A trailing semicolon is recommended for such return
   statements to avoid any potential ambiguity. The parser treats a
   following semicolon (';') or a closing curly bracket ('}') as a
   terminator for such bare return statements.
@@ -80,7 +80,7 @@
 - The eBPF backend has learned to perform loops - at least in the
   userspace "begin/end" probe contexts, so one can iterate across BPF
   arrays for reporting.  (The linux kernel eBPF interpreter precludes
-  loops and string processing.).  It can also handle much larger probe
+  loops and string processing.)  It can also handle much larger probe
   handler bodies, with a smarter register spiller/allocator.
 
 - The eBPF backend now supports uprobes, perf counter, timer, and
