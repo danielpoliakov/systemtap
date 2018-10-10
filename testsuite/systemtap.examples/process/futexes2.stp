@@ -35,17 +35,25 @@ probe kernel.function("futex_wait_setup").return {
   }
 }
 
+global entry_times%
+
+probe syscall.futex {
+  if ((op & ~(FUTEX_PRIVATE_FLAG|FUTEX_CLOCK_REALTIME)) != FUTEX_WAIT) next
+  entry_times[tid()] = gettimeofday_us()
+}
+
 probe syscall.futex.return {  
   if (!(tid() in wait_keys)) next
   key = wait_keys[tid()]
   delete wait_keys[tid()]
 
-  cmd = @entry($op) & ~(FUTEX_PRIVATE_FLAG|FUTEX_CLOCK_REALTIME);
-  if (cmd != FUTEX_WAIT) next
+  if (!(tid() in entry_times)) next
 
-  process_names[pid()] = execname()
-  elapsed = gettimeofday_us() - @entry(gettimeofday_us())
+  elapsed = gettimeofday_us() - entry_times[tid()]
   lock_waits[pid(), key] <<< elapsed
+  delete entry_times[tid()]
+  if (!(pid() in process_names))
+    process_names[pid()] = execname()
 }
 
 probe end {

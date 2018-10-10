@@ -92,14 +92,25 @@ probe process("/lib*/libpthread.so*").function("__pthread_rwlock_init")
     process_mutex_init($rwlock, ppfunc())
 }
 
+global entry_times%, uaddrs%
+
+probe syscall.futex {
+  if (pid() != target()) next		// skip irrelevant processes
+  if ((op & ~(FUTEX_PRIVATE_FLAG|FUTEX_CLOCK_REALTIME)) != FUTEX_WAIT) next
+  entry_times[tid()] = gettimeofday_us()
+  uaddrs[tid()] = futex_uaddr
+}
+
 probe syscall.futex.return
 {
-  op = @entry($op)
-  uaddr = @entry($uaddr)
-  if ((op & ~(FUTEX_PRIVATE_FLAG|FUTEX_CLOCK_REALTIME)) != FUTEX_WAIT) next
-  if (pid() != target()) next		// skip irrelevant processes
+  if (!(tid() in entry_times)) next
+  entry = entry_times[tid()]
+  delete entry_times[tid()]
 
-  elapsed = gettimeofday_us() - @entry(gettimeofday_us())
+  uaddr = uaddrs[tid()]
+  delete uaddrs[tid()]
+
+  elapsed = gettimeofday_us() - entry
   if (keep_stats) {
     mutex_contention[uaddr] <<< elapsed
     stack = sprint_ubacktrace()
