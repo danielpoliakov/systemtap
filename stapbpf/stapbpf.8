@@ -43,13 +43,17 @@ tool, when run with
 .PP
 Splitting the systemtap tool into a front-end and a back-end allows a
 user to compile a systemtap script on a development machine that has
-the debugging information (need to compile the script) and then
+the debugging information needed to compile the script and then
 transfer the resulting shared object to a production machine that
 doesn't have any development tools or debugging information installed.
 .PP
-Please refer to stappaths (7) for the version number, or run
-rpm \-q systemtap (fedora/red hat)
-apt\-get \-v systemtap (ubuntu)
+Please refer to
+.IR stappaths (7)
+for the version number, or run
+.PP
+\& $ rpm \-q systemtap # (for Fedora/RHEL)
+.br
+\& $ apt\-get \-v systemtap # (for Ubuntu)
 
 .SH OPTIONS
 The
@@ -80,8 +84,9 @@ tool, when run with
 .IR \-\-runtime=bpf .
 
 .SH EXAMPLES
-Here is a very basic example of how to use
-.IR stapbpf .
+Here is a very basic example of how to generate a
+.IR stapbpf
+module.
 First, use
 .I stap
 to compile a script.  The
@@ -100,19 +105,38 @@ with the pathname to the module as an argument.
 \& $ stapbpf ./stap_28784.bo
 .br
 \& Hello World!
+.PP
+If the
+.I \-p4
+option is omitted,
+.I stap
+will invoke
+.I stapbpf
+automatically.
 
 .SH LIMITATIONS
 This runtime is in an early stage of development and it currently lacks
-support for a number of features available in the default runtime. The only
-probes currently supported are:
+support for a number of features available in the default runtime.
+A subset of the following probe points is supported:
 
 .SAMPLE
 begin
 end
 kernel.*
+process.*
+timer.*
+perf.*
 .ESAMPLE
 
+In general, probes based on the kprobes, uprobes, tracepoint and perf
+infrastructures are supported. See
+.IR stapprobes (3stap)
+for more information on the probe points and which tracing infrastructures
+they are based on.
+
 .B for
+loops,
+.B foreach
 loops and
 .B while
 loops are usable only in 
@@ -121,12 +145,11 @@ and
 .B end
 probes. 
 .B try
-and
-.B foreach
-statements are not supported. Except for
+statements are not supported. There is limited support for string
+operations. String variables and literals are limited to
+64 characters, except for
 .B printf
-format strings,
-there is no support for string variables or string literals. Additionally,
+format strings, which are limited to 256 characters. Additionally,
 .B printf
 is limited to no more than 3 format specifiers and the name
 of the bpf-elf file produced by the front-end 
