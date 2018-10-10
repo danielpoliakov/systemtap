@@ -16,6 +16,10 @@
   tapset probes / functions, while still being invalid for normal call
   from an unprivileged user script.
 
+- The syscall tapset is now updated to work on kernel 4.17+. With the
+  changes, target variables for the syscall arguments and return value
+  (e.g. $fd, $return) are not necessarily going to work anymore.
+
 - The syscall tapset now includes an automatic fallback alias to the
   sys_enter / sys_exit kernel tracepoints, if no other kprobe-based
   mechanism is found.
