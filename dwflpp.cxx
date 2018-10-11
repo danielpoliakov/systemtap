@@ -1924,7 +1924,13 @@ dwflpp::iterate_over_srcfile_lines<void>(char const * srcfile,
       suggest_alternative_linenos(srcfile, lineno, current_funcs);
     }
   else if (lineno_type == WILDCARD)
-    throw SEMANTIC_ERROR(_F("no line records for %s [man error::dwarf]", srcfile));
+    {
+      // PR23760: It's not an error to come across a srcfile that has
+      // no line records, if we're just happening across it as a
+      // wildcard case.  Only best effort matches are expected here.
+      //
+      // throw SEMANTIC_ERROR(_F("no line records for %s [man error::dwarf]", srcfile));
+    }
 }
 
 
