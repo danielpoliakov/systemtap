@@ -16,21 +16,24 @@
   tapset probes / functions, while still being invalid for normal call
   from an unprivileged user script.
 
-- The syscall tapset is now updated to work on kernel 4.17+. With the
-  changes, target variables for the syscall arguments and return value
-  (e.g. $fd, $return) are not necessarily going to work anymore.
+- The syscall tapset is now updated to work on kernel 4.17+.
+  Additionally, the tapset now includes an automatic fallback alias to
+  the sys_enter / sys_exit kernel tracepoints, if no other
+  kprobe-based mechanism is found.  These changes have brought
+  unavoidable consequences.  Raw $target variables for the syscall
+  arguments and return probes (e.g. @entry($fd), $return, returnval())
+  may not longer be relied upon. Instead, use the variables defined by
+  the tapset aliases.  For example:
+  
+     % stap -L syscall.read
+     syscall.read name:string fd:long buf_uaddr:long count:long argstr:string
+     % stap -L syscall.read.return
+     syscall.read.return name:string retval:long retstr:string
+     
+  to see the available variables for that syscall.  See
+  [man stapprobes] for further details.  returnval() in particular is
+  being deprecated soon; use retval in syscall.*.return probes instead.
 
-- The syscall tapset now includes an automatic fallback alias to the
-  sys_enter / sys_exit kernel tracepoints, if no other kprobe-based
-  mechanism is found.
-
-- The syscall tapset now defines provision of a numeric "retval" value
-  for syscall.*.return aliases.  Use of the returnval() function for
-  this purpose will be deprecated soon.  So, out with:
-      probe syscall.*.return { println(returnval(), retstr) }
-  and in with:
-      probe syscall.*.return { println(retval, retstr) }
-      
 - New script language operators @kderef/@uderef and @kregister/@uregister
   were added.
   @kderef/@uderef (size,address) can be used to dereference integers and
