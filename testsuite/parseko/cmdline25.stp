@@ -3,4 +3,4 @@
 # -i (interactive mode) can't be specified with any of the "dump"
 # -options (-l/-L/--dump-*).
 
-stap $@ -i -l 'kernel.function("sys_open")'
+stap $@ -i -l 'kernel.function("do_sys_open")'
