@@ -70,6 +70,9 @@
   "dl" on both x86_64 and i386. And 16-bit x86 registers are now
   truly read as 16-bit integers instead of as 32-bit ones.
 
+- The experimental ftrace ring buffer mechanism (STP_USE_RING_BUFFER)
+  has been deprecated and may be removed in future versions.
+
 * What's new in version 3.3, 2018-06-08
 
 - A new "stap --example FOO.stp" mode searches the example scripts

@@ -65,6 +65,7 @@ static atomic_t _stp_transport_state = ATOMIC_INIT(_STP_TS_UNINITIALIZED);
 #include "relay_v2.c"
 #include "debugfs.c"
 #elif STP_TRANSPORT_VERSION == 3
+/* TODO: Ring buffer mechanism is deprecated and could be removed. */
 #include "ring_buffer.c"
 #include "debugfs.c"
 #else
