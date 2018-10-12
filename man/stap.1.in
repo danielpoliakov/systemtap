@@ -2280,6 +2280,10 @@ with a client system. See the following wiki page for more details:
 .hy
 .RE
 
+Some kernels do not let systemtap guess whether module module signing
+is in effect.  On such machines, set the SYSTEMTAP_SIGN environment
+variable to any value while running stap.
+
 .SS RESOURCE LIMITS
 Many resource use limits are set by macros in the generated C code.
 These may be overridden with 

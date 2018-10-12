@@ -2751,6 +2751,10 @@ systemtap_session::parse_stap_color(const std::string& type)
  *
  * On certain kernels (RHEL7), we also have to check
  * /sys/kernel/security/securelevel.
+ *
+ * On certain kernels (Fedora28+), efi-lockdown may be in effect, but
+ * we lack a way of telling.  RHBZ1638874.  So check an environment
+ * variable "SYSTEMTAP_SIGN" instead for now.
  */
 bool
 systemtap_session::modules_must_be_signed()
@@ -2759,6 +2763,9 @@ systemtap_session::modules_must_be_signed()
   ifstream securelevel("/sys/kernel/security/securelevel");
   char status = 'N';
 
+  if (getenv("SYSTEMTAP_SIGN"))
+    return true;
+
   statm >> status;
   if (status == 'Y')
     return true;
@@ -2766,6 +2773,7 @@ systemtap_session::modules_must_be_signed()
   securelevel >> status;
   if (status == '1')
     return true;
+
   return false;
 }
 

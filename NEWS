@@ -12,6 +12,11 @@
 - When a systemtap module is loaded, the name of the original stap script
   is now printed to dmesg by the kernel runtime.
 
+- On some Fedora kernels, the information necessary to automatically
+  engage in SecureBoot module signing is hidden from systemtap.
+  Setting the $SYSTEMTAP_SIGN environment variable forces it on.
+  A running stap-server instance will also be needed.
+
 - Embedded-C functions marked /* guru */ may now be invoked from other
   tapset probes / functions, while still being invalid for normal call
   from an unprivileged user script.
