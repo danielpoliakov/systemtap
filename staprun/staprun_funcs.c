@@ -276,8 +276,9 @@ rename_module(void* module_file, const __off_t st_size)
   	pid = getpid();
   	length_to_replace = (int)strlen(modname)-((int)log10(pid)+1) - 1;
   	if(length_to_replace < 0 || length_to_replace > (int)strlen(modname)) {
-  		_err("Error getting length of oldname to replace in newname.\n");
-  		return -1;
+                // don't treat this is as an error condition
+  		warn("Old module name '%s' is too short for renaming, ignoring -R.\n", modname);
+  		return -0;
   	}
   	if (snprintf(newname, sizeof(newname), "%.*s_%d", length_to_replace, modname, pid) < 0) {
   	    	_err("Creating newname failed./n");

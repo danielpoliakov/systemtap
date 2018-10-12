@@ -160,3 +160,39 @@ if {$failed1 || $failed2} {
 } else {
 	pass "$test"
 }
+
+
+# Now again, with a very short name
+
+set test "short named test module"
+if {[catch { exec stap -m x -e $script -p4 } module]} {
+    verbose -log "$module"
+    fail "$test - compile problem"
+    return
+} elseif {![file exists $module]} {
+    verbose -log "$module"
+    fail "$test - file exist problem"
+    return
+} else {
+    pass "$test compiles"
+}
+
+set module x.ko
+spawn staprun -R $module
+set firstid $spawn_id
+
+# Make sure it does run.
+set ok 0
+expect {
+    -re {^WARNING: Old module name[^\r\n]*\r\n} { incr ok; exp_continue }
+    -re {Hello} { incr ok }
+}
+
+catch {kill -INT -[exp_pid -i $firstid] 2}
+catch {close -i $firstid}; catch {wait -i $firstid}
+
+if { $ok == 2 } then {
+    pass "$test execution"
+} else {
+    fail "$test execution $ok"
+}
