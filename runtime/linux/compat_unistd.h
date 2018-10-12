@@ -61,6 +61,9 @@
 #ifndef __NR_fcntl64
 #define __NR_fcntl64 (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_fork
+#define __NR_fork (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_fstat64
 #define __NR_fstat64 (__NR_syscall_max + 1)
 #endif
