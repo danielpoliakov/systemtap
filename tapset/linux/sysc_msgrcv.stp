@@ -310,7 +310,7 @@ probe nd2_syscall.compat_sys_msgrcv.return =
 }
 
 /* kernel 3.5+, but undesirable because it affects all syscalls */
-probe tp_syscall.msgrcv.return = kernel.trace("sys_exit")
+probe tp_syscall.compat_sys_msgrcv.return = kernel.trace("sys_exit")
 {
 	__set_syscall_pt_regs($regs)
 	@__compat_syscall_gate(@const("__NR_compat_ipc"))
