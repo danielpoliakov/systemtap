@@ -9,7 +9,7 @@
 #    make installcheck RUNTESTFLAGS=nd_syscall.exp CHECK_ONLY="readwrite accept"
 
 set test_script "nd_sys.stp"
-set test_module_name "nd_syscall"
+set test_module_name "nd_syscall_longlonglong"
 set wd [pwd]
 set test_module "${wd}/${test_module_name}.ko"
 
