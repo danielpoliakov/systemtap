@@ -1,6 +1,6 @@
 #! /usr/bin/env stap
 # traceio.stp
-# Copyright (C) 2007 Red Hat, Inc., Eugene Teo <eteo@redhat.com>
+# Copyright (C) 2007-2018 Red Hat, Inc., Eugene Teo <eteo@redhat.com>
 # Copyright (C) 2009 Kai Meyer <kai@unixlords.com>
 #   Fixed a bug that allows this to run longer
 #   And added the humanreadable function

@@ -7,7 +7,7 @@
  * Public License (GPL); either version 2, or (at your option) any
  * later version.
  *
- * Copyright (C) 2005-2010 Red Hat Inc.
+ * Copyright (C) 2005-2018 Red Hat Inc.
  */
 
 #include "staprun.h"

@@ -1,6 +1,6 @@
 /*
  Compile server client functions
- Copyright (C) 2010-2017 Red Hat Inc.
+ Copyright (C) 2010-2018 Red Hat Inc.
 
  This file is part of systemtap, and is free software.  You can
  redistribute it and/or modify it under the terms of the GNU General
