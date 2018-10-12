@@ -136,7 +136,7 @@ probe nd1_syscall.compat_fadvise64_64 = kprobe.function("ppc_fadvise64_64") ?
 {
 	asmlinkage()
 	@_SYSCALL_COMPAT_FADVISE64_NAME
-	@_SYSCALL_COPMAT_FADVISE64_64_REGARGS
+	@_SYSCALL_COMPAT_FADVISE64_64_REGARGS
 	@_SYSCALL_COMPAT_FADVISE64_ARGSTR
 }
 

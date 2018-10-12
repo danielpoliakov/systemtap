@@ -55,7 +55,7 @@ probe nd1_syscall.compat_fallocate = kprobe.function("compat_sys_fallocate") ?
 {
 	asmlinkage()
 	@_SYSCALL_COMPAT_FALLOCATE_NAME
-	@_SSYCALL_COMPAT_FALLOCATE_REGARGS
+	@_SYSCALL_COMPAT_FALLOCATE_REGARGS
 	@_SYSCALL_COMPAT_FALLOCATE_ARGSTR
 }
 

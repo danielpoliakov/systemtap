@@ -1758,6 +1758,8 @@
 #define __NR_compat_kexec_load		__NR_kexec_load
 #define __NR_compat_keyctl		__NT_keyctl
 #define __NR_compat_kill		__NR_kill
+#define __NR_compat_lchown		__NR_lchown
+#define __NR_compat_lchown32		__NR_lchown32
 #define __NR_compat_lgetxattr		__NR_lgetxattr
 #define __NR_compat_link		__NR_link
 #define __NR_compat_linkat		__NR_linkat
