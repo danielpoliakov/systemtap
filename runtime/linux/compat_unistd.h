@@ -1882,7 +1882,7 @@
 #define __NR_compat_setresgid		__NR_setresgid
 #define __NR_compat_setresgid32		__NR_setresgid32
 #define __NR_compat_setresuid		__NR_setresuid
-#define __NR_compat_setresuid		__NR_setresuid32
+#define __NR_compat_setresuid32		__NR_setresuid32
 #define __NR_compat_setregid		__NR_setregid
 #define __NR_compat_setregid32		__NR_setregid32
 #define __NR_compat_setreuid		__NR_setreuid
