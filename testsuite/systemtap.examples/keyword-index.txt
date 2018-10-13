@@ -3747,6 +3747,17 @@ keywords: process scheduler time tracepoint
 
 = TRACE =
 
+apps/gmalloc_watch.stp - Tracing glib2 memory allocations
+keywords: trace
+
+  The gmalloc_watch.stp script from Colin Walters' blog
+  (https://blog.verbum.org/2011/03/19/analyzing-memory-use-with-systemt
+  ap/) traces the allocation of glib2 memory using the markers in
+  glib2.
+
+  # stap gmalloc_watch.stp -T 1
+
+
 apps/libguestfs_log.stp - Trace libguestfs startup
 keywords: application trace
 
@@ -3757,6 +3768,14 @@ keywords: application trace
   the third column is the event name.
 
   # stap libguestfs_log.stp -T 1
+
+
+apps/php-trace.stp - Tracing of PHP code execution
+keywords: trace
+
+  Trace of executing PHP code using the enabled markers.
+
+  # stap php-trace.stp -c 'php -f hello.php'
 
 
 apps/stap_time.stp - Provide elapsed times for Passes of SystemTap script compilation

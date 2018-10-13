@@ -59,11 +59,17 @@
 <li><a href="#virtualization/kvm_service_time.stp">virtualization/kvm_service_time.stp - Time Statistics on KVM Exit Reasons</a></li>
 </ul>
 
-<h2>All 182 Examples</h2>
+<h2>All 184 Examples</h2>
 <ul>
-<li><a name="apps/libguestfs_log.stp"></a><a href="#apps/libguestfs_log.stp">&para;</a> <a href="apps/libguestfs_log.stp">apps/libguestfs_log.stp</a> - Trace libguestfs startup<br>
+<li><a name="apps/gmalloc_watch.stp"></a><a href="#apps/gmalloc_watch.stp">&para;</a> <a href="apps/gmalloc_watch.stp">apps/gmalloc_watch.stp</a> - Tracing glib2 memory allocations<br>
+keywords: <a href="keyword-index.html#TRACE">TRACE</a> <br>
+<p>The gmalloc_watch.stp script from Colin Walters&#39; blog (https://blog.verbum.org/2011/03/19/analyzing-memory-use-with-systemtap/) traces the allocation of glib2 memory using the markers in glib2.</p><p><font size="-2"><pre># stap gmalloc_watch.stp -T 1</pre></font></p>
+</li><li><a name="apps/libguestfs_log.stp"></a><a href="#apps/libguestfs_log.stp">&para;</a> <a href="apps/libguestfs_log.stp">apps/libguestfs_log.stp</a> - Trace libguestfs startup<br>
 keywords: <a href="keyword-index.html#APPLICATION">APPLICATION</a> <a href="keyword-index.html#TRACE">TRACE</a> <br>
 <p>The libguestfs_log.stp script prints a log of when various libgueststartup steps are encountered.   The first column is microseconds since the script started.  The second column is the time elapsed in microseconds between the previous and current events and the third column is the event name.</p><p><font size="-2"><pre># stap libguestfs_log.stp -T 1</pre></font></p>
+</li><li><a name="apps/php-trace.stp"></a><a href="#apps/php-trace.stp">&para;</a> <a href="apps/php-trace.stp">apps/php-trace.stp</a> - Tracing of PHP code execution<br>
+keywords: <a href="keyword-index.html#TRACE">TRACE</a> <br>
+<p>Trace of executing PHP code using the enabled markers.</p><p><font size="-2"><pre># stap php-trace.stp -c &#39;php -f hello.php&#39;</pre></font></p>
 </li><li><a name="apps/stap_time.stp"></a><a href="#apps/stap_time.stp">&para;</a> <a href="apps/stap_time.stp">apps/stap_time.stp</a> - Provide elapsed times for Passes of SystemTap script compilation<br>
 keywords: <a href="keyword-index.html#APPLICATION">APPLICATION</a> <a href="keyword-index.html#TRACE">TRACE</a> <br>
 <p>SystemTap has multiple passes to convert the text of a SystemTap script into instrumentation that actually collect data on the system.  The stap_time.stp script uses the markers in SystemTap to note the amount of time that each of the passes requires.  When SystemTap completes pass 4 (compiling the instrumentation into a kernel module) the script print out the script name followed by the amount of time in milliseconds required for Pass 0 (command line option parsing), Pass 1 (script parsing), Pass 2 (elaboration), Pass 3 (code generation), and Pass 4 (module compilation).  The resulting data can be analyzed to determine if there are issues with the amount of time that systemtap takes to generate instrumentation.</p><p><font size="-2"><pre># stap stap_time.stp -T 1</pre></font></p>
