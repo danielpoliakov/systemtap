@@ -1,3 +1,9 @@
+* What's new in version 4.1
+
+- Runtime/tapsets were ported to include up to kernel version PRERELEASE
+
+
+
 * What's new in version 4.0, 2018-10-13
 
 - Runtime/tapsets were ported to include up to kernel version 4.19-rc
