@@ -2,12 +2,12 @@
 .\"     Title: probe::signal.pending
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: June 2018
+.\"      Date: October 2018
 .\"    Manual: Signal Tapset
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "PROBE::SIGNAL\&.PEND" "3stap" "June 2018" "SystemTap Tapset Reference" "Signal Tapset"
+.TH "PROBE::SIGNAL\&.PEND" "3stap" "October 2018" "SystemTap Tapset Reference" "Signal Tapset"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,14 +41,14 @@ signal\&.pending
 The address of the user\-space signal set (sigset_t)
 .RE
 .PP
-\fIsigset_size\fR
-.RS 4
-The size of the user\-space signal set
-.RE
-.PP
 \fIname\fR
 .RS 4
 Name of the probe point
+.RE
+.PP
+\fIsigset_size\fR
+.RS 4
+The size of the user\-space signal set
 .RE
 .SH "DESCRIPTION"
 .PP

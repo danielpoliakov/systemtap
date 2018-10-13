@@ -2,12 +2,12 @@
 .\"     Title: probe::sunrpc.sched.delay
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: June 2018
+.\"      Date: October 2018
 .\"    Manual: Networking Tapset
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "PROBE::SUNRPC\&.SCHE" "3stap" "June 2018" "SystemTap Tapset Reference" "Networking Tapset"
+.TH "PROBE::SUNRPC\&.SCHE" "3stap" "October 2018" "SystemTap Tapset Reference" "Networking Tapset"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,6 +36,11 @@ sunrpc\&.sched\&.delay
 .fi
 .SH "VALUES"
 .PP
+\fIprot\fR
+.RS 4
+the IP protocol in the RPC call
+.RE
+.PP
 \fIvers\fR
 .RS 4
 the program version in the RPC call
@@ -46,21 +51,6 @@ the program version in the RPC call
 the program number in the RPC call
 .RE
 .PP
-\fIxid\fR
-.RS 4
-the transmission id in the RPC call
-.RE
-.PP
-\fIprot\fR
-.RS 4
-the IP protocol in the RPC call
-.RE
-.PP
-\fItk_pid\fR
-.RS 4
-the debugging id of the task
-.RE
-.PP
 \fIdelay\fR
 .RS 4
 the time delayed
@@ -69,6 +59,16 @@ the time delayed
 \fItk_flags\fR
 .RS 4
 the flags of the task
+.RE
+.PP
+\fItk_pid\fR
+.RS 4
+the debugging id of the task
+.RE
+.PP
+\fIxid\fR
+.RS 4
+the transmission id in the RPC call
 .RE
 .SH SEE ALSO\n 
 .IR tapset::rpc (3stap)

@@ -2,12 +2,12 @@
 .\"     Title: probe::vm.munmap
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: June 2018
+.\"      Date: October 2018
 .\"    Manual: Memory Tapset
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "PROBE::VM\&.MUNMAP" "3stap" "June 2018" "SystemTap Tapset Reference" "Memory Tapset"
+.TH "PROBE::VM\&.MUNMAP" "3stap" "October 2018" "SystemTap Tapset Reference" "Memory Tapset"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,9 +36,9 @@ vm\&.munmap
 .fi
 .SH "VALUES"
 .PP
-\fIlength\fR
+\fIname\fR
 .RS 4
-the length of the memory segment
+name of the probe point
 .RE
 .PP
 \fIaddress\fR
@@ -46,9 +46,9 @@ the length of the memory segment
 the requested address
 .RE
 .PP
-\fIname\fR
+\fIlength\fR
 .RS 4
-name of the probe point
+the length of the memory segment
 .RE
 .SH "CONTEXT"
 .PP

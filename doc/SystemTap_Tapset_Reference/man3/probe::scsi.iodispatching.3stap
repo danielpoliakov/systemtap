@@ -2,12 +2,12 @@
 .\"     Title: probe::scsi.iodispatching
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: June 2018
+.\"      Date: October 2018
 .\"    Manual: SCSI Tapset
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "PROBE::SCSI\&.IODISP" "3stap" "June 2018" "SystemTap Tapset Reference" "SCSI Tapset"
+.TH "PROBE::SCSI\&.IODISP" "3stap" "October 2018" "SystemTap Tapset Reference" "SCSI Tapset"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,39 +36,9 @@ scsi\&.iodispatching
 .fi
 .SH "VALUES"
 .PP
-\fIrequest_bufflen\fR
+\fIdevice_state\fR
 .RS 4
-The request buffer length
-.RE
-.PP
-\fIrequest_buffer\fR
-.RS 4
-The request buffer address
-.RE
-.PP
-\fIdata_direction_str\fR
-.RS 4
-Data direction, as a string
-.RE
-.PP
-\fIdata_direction\fR
-.RS 4
-The data_direction specifies whether this command is from/to the device 0 (DMA_BIDIRECTIONAL), 1 (DMA_TO_DEVICE), 2 (DMA_FROM_DEVICE), 3 (DMA_NONE)
-.RE
-.PP
-\fIreq_addr\fR
-.RS 4
-The current struct request pointer, as a number
-.RE
-.PP
-\fIhost_no\fR
-.RS 4
-The host number
-.RE
-.PP
-\fIdevice_state_str\fR
-.RS 4
-The current state of the device, as a string
+The current state of the device
 .RE
 .PP
 \fIdev_id\fR
@@ -76,9 +46,39 @@ The current state of the device, as a string
 The scsi device id
 .RE
 .PP
-\fIdevice_state\fR
+\fIlun\fR
 .RS 4
-The current state of the device
+The lun number
+.RE
+.PP
+\fIreq_addr\fR
+.RS 4
+The current struct request pointer, as a number
+.RE
+.PP
+\fIdata_direction\fR
+.RS 4
+The data_direction specifies whether this command is from/to the device 0 (DMA_BIDIRECTIONAL), 1 (DMA_TO_DEVICE), 2 (DMA_FROM_DEVICE), 3 (DMA_NONE)
+.RE
+.PP
+\fIhost_no\fR
+.RS 4
+The host number
+.RE
+.PP
+\fIrequest_buffer\fR
+.RS 4
+The request buffer address
+.RE
+.PP
+\fIdevice_state_str\fR
+.RS 4
+The current state of the device, as a string
+.RE
+.PP
+\fIrequest_bufflen\fR
+.RS 4
+The request buffer length
 .RE
 .PP
 \fIchannel\fR
@@ -86,9 +86,9 @@ The current state of the device
 The channel number
 .RE
 .PP
-\fIlun\fR
+\fIdata_direction_str\fR
 .RS 4
-The lun number
+Data direction, as a string
 .RE
 .SH SEE ALSO\n 
 .IR tapset::scsi (3stap)

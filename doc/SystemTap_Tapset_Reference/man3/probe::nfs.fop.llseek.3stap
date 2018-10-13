@@ -2,12 +2,12 @@
 .\"     Title: probe::nfs.fop.llseek
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: June 2018
+.\"      Date: October 2018
 .\"    Manual: Network File Storage Tapsets
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "PROBE::NFS\&.FOP\&.L" "3stap" "June 2018" "SystemTap Tapset Reference" "Network File Storage Tapsets"
+.TH "PROBE::NFS\&.FOP\&.L" "3stap" "October 2018" "SystemTap Tapset Reference" "Network File Storage Tapsets"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,14 +41,14 @@ nfs\&.fop\&.llseek
 the position to seek from
 .RE
 .PP
-\fIwhence_str\fR
-.RS 4
-symbolic string representation of the position to seek from
-.RE
-.PP
 \fIdev\fR
 .RS 4
 device identifier
+.RE
+.PP
+\fIoffset\fR
+.RS 4
+the offset of the file will be repositioned
 .RE
 .PP
 \fIino\fR
@@ -56,9 +56,9 @@ device identifier
 inode number
 .RE
 .PP
-\fIoffset\fR
+\fIwhence_str\fR
 .RS 4
-the offset of the file will be repositioned
+symbolic string representation of the position to seek from
 .RE
 .SH SEE ALSO\n 
 .IR tapset::nfs (3stap)

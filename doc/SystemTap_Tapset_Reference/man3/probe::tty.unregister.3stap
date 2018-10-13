@@ -2,12 +2,12 @@
 .\"     Title: probe::tty.unregister
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: June 2018
+.\"      Date: October 2018
 .\"    Manual: TTY Tapset
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "PROBE::TTY\&.UNREGIS" "3stap" "June 2018" "SystemTap Tapset Reference" "TTY Tapset"
+.TH "PROBE::TTY\&.UNREGIS" "3stap" "October 2018" "SystemTap Tapset Reference" "TTY Tapset"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,11 +36,6 @@ tty\&.unregister
 .fi
 .SH "VALUES"
 .PP
-\fImodule\fR
-.RS 4
-the module name
-.RE
-.PP
 \fIdriver_name\fR
 .RS 4
 the driver name
@@ -49,6 +44,11 @@ the driver name
 \fIindex\fR
 .RS 4
 the tty index requested
+.RE
+.PP
+\fImodule\fR
+.RS 4
+the module name
 .RE
 .PP
 \fIname\fR

@@ -2,12 +2,12 @@
 .\"     Title: probe::sunrpc.clnt.shutdown_client
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: June 2018
+.\"      Date: October 2018
 .\"    Manual: Networking Tapset
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "PROBE::SUNRPC\&.CLNT" "3stap" "June 2018" "SystemTap Tapset Reference" "Networking Tapset"
+.TH "PROBE::SUNRPC\&.CLNT" "3stap" "October 2018" "SystemTap Tapset Reference" "Networking Tapset"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,19 +41,24 @@ sunrpc\&.clnt\&.shutdown_client
 the RPC RTT jiffies
 .RE
 .PP
-\fIauthflavor\fR
+\fIclones\fR
 .RS 4
-the authentication flavor
+the number of clones
 .RE
 .PP
-\fIport\fR
+\fIprot\fR
 .RS 4
-the port number
+the IP protocol number
 .RE
 .PP
-\fIom_execute\fR
+\fInetreconn\fR
 .RS 4
-the RPC execution jiffies
+the count of reconnections
+.RE
+.PP
+\fIom_bytes_sent\fR
+.RS 4
+the count of bytes out
 .RE
 .PP
 \fIvers\fR
@@ -66,16 +71,6 @@ the RPC program version number
 the RPC program number
 .RE
 .PP
-\fIom_queue\fR
-.RS 4
-the jiffies queued for xmit
-.RE
-.PP
-\fIprogname\fR
-.RS 4
-the RPC program name
-.RE
-.PP
 \fIom_ops\fR
 .RS 4
 the count of operations
@@ -86,24 +81,19 @@ the count of operations
 the count of RPC calls
 .RE
 .PP
-\fIprot\fR
+\fIom_execute\fR
 .RS 4
-the IP protocol number
+the RPC execution jiffies
 .RE
 .PP
-\fIservername\fR
+\fIom_queue\fR
 .RS 4
-the server machine name
+the jiffies queued for xmit
 .RE
 .PP
-\fIclones\fR
+\fItasks\fR
 .RS 4
-the number of clones
-.RE
-.PP
-\fInetreconn\fR
-.RS 4
-the count of reconnections
+the number of references
 .RE
 .PP
 \fIom_ntrans\fR
@@ -116,14 +106,24 @@ the count of RPC transmissions
 the count of bytes in
 .RE
 .PP
-\fItasks\fR
+\fIservername\fR
 .RS 4
-the number of references
+the server machine name
 .RE
 .PP
-\fIom_bytes_sent\fR
+\fIprogname\fR
 .RS 4
-the count of bytes out
+the RPC program name
+.RE
+.PP
+\fIport\fR
+.RS 4
+the port number
+.RE
+.PP
+\fIauthflavor\fR
+.RS 4
+the authentication flavor
 .RE
 .SH SEE ALSO\n 
 .IR tapset::rpc (3stap)

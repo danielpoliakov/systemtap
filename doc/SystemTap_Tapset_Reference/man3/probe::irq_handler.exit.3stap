@@ -2,12 +2,12 @@
 .\"     Title: probe::irq_handler.exit
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: June 2018
+.\"      Date: October 2018
 .\"    Manual: Interrupt Request (IRQ) Tapset
 .\"    Source: SystemTap Tapset Reference
 .\"  Language: English
 .\"
-.TH "PROBE::IRQ_HANDLER\&" "3stap" "June 2018" "SystemTap Tapset Reference" "Interrupt Request (IRQ) Tapset"
+.TH "PROBE::IRQ_HANDLER\&" "3stap" "October 2018" "SystemTap Tapset Reference" "Interrupt Request (IRQ) Tapset"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,31 +36,6 @@ irq_handler\&.exit
 .fi
 .SH "VALUES"
 .PP
-\fIthread_fn\fR
-.RS 4
-interrupt handler function for threaded interrupts
-.RE
-.PP
-\fIthread_flags\fR
-.RS 4
-Flags related to thread
-.RE
-.PP
-\fIaction\fR
-.RS 4
-struct irqaction*
-.RE
-.PP
-\fIret\fR
-.RS 4
-return value of the handler
-.RE
-.PP
-\fIdev_name\fR
-.RS 4
-name of device
-.RE
-.PP
 \fIthread\fR
 .RS 4
 thread pointer for threaded interrupts
@@ -71,24 +46,19 @@ thread pointer for threaded interrupts
 pointer to the proc/irq/NN/name entry
 .RE
 .PP
-\fIflags\fR
-.RS 4
-flags for IRQ handler
-.RE
-.PP
-\fIflags_str\fR
-.RS 4
-symbolic string representation of IRQ flags
-.RE
-.PP
-\fInext_irqaction\fR
-.RS 4
-pointer to next irqaction for shared interrupts
-.RE
-.PP
 \fIdev_id\fR
 .RS 4
 Cookie to identify device
+.RE
+.PP
+\fIaction\fR
+.RS 4
+struct irqaction*
+.RE
+.PP
+\fIirq\fR
+.RS 4
+interrupt number
 .RE
 .PP
 \fIhandler\fR
@@ -96,9 +66,39 @@ Cookie to identify device
 interrupt handler function that was executed
 .RE
 .PP
-\fIirq\fR
+\fIdev_name\fR
 .RS 4
-interrupt number
+name of device
+.RE
+.PP
+\fIflags_str\fR
+.RS 4
+symbolic string representation of IRQ flags
+.RE
+.PP
+\fIflags\fR
+.RS 4
+flags for IRQ handler
+.RE
+.PP
+\fIthread_flags\fR
+.RS 4
+Flags related to thread
+.RE
+.PP
+\fInext_irqaction\fR
+.RS 4
+pointer to next irqaction for shared interrupts
+.RE
+.PP
+\fIret\fR
+.RS 4
+return value of the handler
+.RE
+.PP
+\fIthread_fn\fR
+.RS 4
+interrupt handler function for threaded interrupts
 .RE
 .SH SEE ALSO\n 
 .IR tapset::irq (3stap)

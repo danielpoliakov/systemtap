@@ -1,0 +1,32 @@
+.\" -*- nroff -*-
+.TH TAPSET::SYSCALL_ANY 3stap "October 2018" "SystemTap Tapset Reference"
+.SH NAME
+tapset::syscall_any \- systemtap syscall_any tapset
+ 
+.SH DESCRIPTION
+.TP
+.P
+.TP
+.B syscall_any 
+Record entry into a syscall
+.IP
+ See 
+.IR probe::syscall_any (3stap)
+ for details.
+.P
+.TP
+.B syscall_any.return 
+Record exit from a syscall
+.IP
+ See 
+.IR probe::syscall_any.return (3stap)
+ for details.
+
+.SH SEE ALSO
+.BR
+.IR \%probe::syscall_any (3stap),
+.BR
+.IR \%probe::syscall_any.return (3stap),
+.BR
+.IR \%stap (1),
+.IR \%stapprobes (3stap)
