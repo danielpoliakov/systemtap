@@ -1,11 +1,11 @@
 function foo:long (x:long) %{ /* bpf */ /* pure */
   /* compute 100-x */
-  0xb7, $$, -, -, 100; /* mov $$, ee */
+  0xb7, $$, -, -, 100; /* mov $$, 100 */
   0x1f, $$, $x, -, -; /* sub $$, $x */
 %}
 
 probe begin {
-  printf("foo(1)=%d\n", foo(1))
-  printf("foo(15)=%d\n", foo(15))
+  printf("foo(1)=%d, should be 99\n", foo(1))
+  printf("foo(15)=%d, should be 85\n", foo(15))
   exit()
 }

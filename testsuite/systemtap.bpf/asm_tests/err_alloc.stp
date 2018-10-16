@@ -1,0 +1,10 @@
+function foo:long (x:long) %{ /* bpf */ /* pure */
+  alloc "not a register", BPF_MAXSTRINGLEN; /* SHOULD ERROR */
+  0xbf, $$, "fifty", -, -; /* mov $$, "fifty" */
+%}
+
+
+probe begin {
+  printf("foo(1)=%d should be fifty\n", foo(1))
+  exit()
+}
