@@ -96,14 +96,20 @@ bool is_move(opcode c);
 bool is_ldst(opcode c);
 bool is_binary(opcode c);
 bool is_commutative(opcode c);
+
+void init_bpf_helper_tables();
 const char *bpf_function_name (unsigned id);
+bpf_func_id bpf_function_id (const std::string &name);
 unsigned bpf_function_nargs (unsigned id);
 
 const opcode BPF_LD_MAP = BPF_LD | BPF_IMM | BPF_DW | (BPF_PSEUDO_MAP_FD << 8);
 
-// Not actual BPF helpers, but treating them like one simplifies some of the
+// Not actual BPF helpers, but treating them as such simplifies some of the
 // interpreter logic. We give them IDs that shouldn't conflict with IDs of
 // real BPF helpers.
+#define __STAPBPF_FUNC_MAPPER(FN) \
+  FN(map_get_next_key),           \
+  FN(sprintf),
 const bpf_func_id BPF_FUNC_map_get_next_key    = (bpf_func_id) -1;
 const bpf_func_id BPF_FUNC_sprintf             = (bpf_func_id) -2;
 

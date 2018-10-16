@@ -128,6 +128,8 @@ function error (msg:string)
      exit() // TODO: should support MAXERRORS, probe error {}
    }
 %)
+// NOTE: The 'error' statement in the eBPF assembler in bpf-translate.cxx
+// should be kept up-to-date with the behaviour of this function.
 
 /**
  * sfunction assert - evaluate assertion

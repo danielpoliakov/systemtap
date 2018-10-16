@@ -179,7 +179,7 @@ struct bpf_unparser : public throwing_visitor
   // TODO General triage of bpf-possible functionality:
   virtual void visit_block (::block *s);
   // TODO visit_try_block -> UNHANDLED
-  virtual void visit_embeddedcode (embeddedcode *s); // TODO need to find testcase/example for this
+  virtual void visit_embeddedcode (embeddedcode *s);
   virtual void visit_null_statement (null_statement *s);
   virtual void visit_expr_statement (expr_statement *s);
   virtual void visit_if_statement (if_statement* s);
@@ -192,7 +192,7 @@ struct bpf_unparser : public throwing_visitor
   virtual void visit_continue_statement (continue_statement* s);
   virtual void visit_literal_string (literal_string *e);
   virtual void visit_literal_number (literal_number* e);
-  // TODO visit_embedded_expr -> UNHANDLED, could be handled like embedded_code with a return value?
+  // TODO visit_embedded_expr -> UNHANDLED, could treat as embedded_code
   virtual void visit_binary_expression (binary_expression* e);
   virtual void visit_unary_expression (unary_expression* e);
   virtual void visit_pre_crement (pre_crement* e);
@@ -200,7 +200,7 @@ struct bpf_unparser : public throwing_visitor
   virtual void visit_logical_or_expr (logical_or_expr* e);
   virtual void visit_logical_and_expr (logical_and_expr* e);
   virtual void visit_array_in (array_in* e);
-  // ??? visit_regex_query is UNHANDLED, requires adding new kernel functionality.
+  // ??? visit_regex_query -> UNHANDLED, requires new kernel functionality
   virtual void visit_compound_expression (compound_expression *e);
   virtual void visit_comparison (comparison* e);
   // TODO visit_concatenation -> (2) pseudo-LOOP: copy the strings while concatenating
@@ -239,13 +239,20 @@ struct bpf_unparser : public throwing_visitor
   value *emit_context_var(bpf_context_vardecl *v);
 
   // Used for the embedded-code assembler:
+  int64_t parse_imm (const asm_stmt &stmt, const std::string &str);
   size_t parse_asm_stmt (embeddedcode *s, size_t start,
                            /*OUT*/asm_stmt &stmt);
-  value *emit_asm_arg(const asm_stmt &stmt, const std::string &reg,
-                      bool allow_imm = true);
+  value *emit_asm_arg(const asm_stmt &stmt, const std::string &arg,
+                      bool allow_imm = true, bool allow_emit = true);
   value *emit_asm_reg(const asm_stmt &stmt, const std::string &reg);
+  value *get_asm_reg(const asm_stmt &stmt, const std::string &reg);
   void emit_asm_opcode(const asm_stmt &stmt,
                        std::map<std::string, block *> label_map);
+
+  // Used for the embedded-code assembler's diagnostics:
+  source_loc adjusted_loc;
+  size_t adjust_pos;
+  std::vector<token *> adjusted_toks; // track for deallocation
 
   // Used for string data:
   value *emit_literal_string(const std::string &str, const token *tok);
@@ -580,23 +587,31 @@ bpf_unparser::visit_block (::block *s)
 
    Ahh for the days of 1960s FORTRAN.
 
-   TODO: It might make more sense to implement an assembler based on
+   ??? It might make more sense to implement an assembler based on
    the syntax used in official eBPF subsystem docs. */
 
-/* Possible assembly statement types include:
+/* Supported assembly statement types include:
 
    <stmt> ::= label, <dest=label>;
+   <stmt> ::= alloc, <dest=reg>, <imm=imm>;
+   <stmt> ::= call, <dest=reg>, <param[0]=function name>, <param[1]=arg>, ...;
+   <stmt> ::= printf, <param[0]=string constant>, <param[1]=arg>, ...;
+   <stmt> ::= error, <param[0]=string constant>, <param[1]=arg>, ...;
    <stmt> ::= <code=integer opcode>, <dest=reg>, <src1=reg>,
               <off/jmp_target=off>, <imm=imm>;
 
-   Possible argument types include:
+   Supported argument types include:
 
+   <arg> ::= <reg> | <imm>
    <reg> ::= <register index> | r<register index> |
              $<identifier> | $<integer constant> | $$ | <string constant>
    <imm> ::= <integer constant> | BPF_MAXSTRINGLEN
    <off> ::= <imm> | <jump label>
 
 */
+
+// TODO
+#define BPF_ASM_DEBUG
 
 struct asm_stmt {
   std::string kind;
@@ -609,9 +624,10 @@ struct asm_stmt {
   bool has_fallthrough = false;
   std::string jmp_target, fallthrough;
 
+  // metadata for call, error instructions
+  std::vector<std::string> params;
+
   token *tok;
-  bool deallocate_tok = false;
-  ~asm_stmt() { if (deallocate_tok) delete tok; }
 };
 
 std::ostream&
@@ -647,8 +663,28 @@ is_numeric (const std::string &str)
     stol(str, &pos, 0);
   } catch (std::invalid_argument &e) {
     return false;
+  } catch (std::out_of_range &e) {
+    /* XXX: probably numeric but not valid; give up */
+    return false;
   }
   return (pos == str.size());
+}
+
+int64_t
+bpf_unparser::parse_imm (const asm_stmt &stmt, const std::string &str)
+{
+  int64_t val;
+  if (str == "BPF_MAXSTRINGLEN")
+    val = BPF_MAXSTRINGLEN;
+  else if (str == "-")
+    val = 0;
+  else try {
+      val = stol(str);
+    } catch (std::exception &e) { // XXX: invalid_argument, out_of_range
+      throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode operand '%s'",
+                               str.c_str()), stmt.tok);
+    }
+  return val;
 }
 
 /* Parse an assembly statement starting from position start in code,
@@ -663,31 +699,14 @@ bpf_unparser::parse_asm_stmt (embeddedcode *s, size_t start,
  retry:
   std::vector<std::string> args;
   unsigned n = code.size();
+  size_t pos;
   bool in_comment = false;
   bool in_string = false;
 
-  // compute token with adjusted source location for diagnostics
-  source_loc adjusted_loc; // TODO: ought to create a proper copy constructor for source_loc
-  adjusted_loc.file = s->tok->location.file;
-  adjusted_loc.line = s->tok->location.line;
-  adjusted_loc.column = s->tok->location.column;
-  for (size_t pos = 0; pos < start && pos < n; pos++)
-    {
-      // TODO: should save adjusted_loc state between parse_asm_stmt invocations; add field?
-      char c = code[pos];
-      if (c == '\n')
-        {
-          adjusted_loc.line++;
-          adjusted_loc.column = 1;
-        }
-      else
-        adjusted_loc.column++;
-    }
-
-  // TODO: As before, parser is extremely non-rigorous and could do
+  // ??? As before, parser is extremely non-rigorous and could do
   // with some tightening in terms of the inputs it accepts.
-  size_t pos;
   std::string arg = "";
+  size_t save_start = start; // -- position for diagnostics
   for (pos = start; pos < n; pos++)
   {
     char c = code[pos];
@@ -714,6 +733,9 @@ bpf_unparser::parse_asm_stmt (embeddedcode *s, size_t start,
       ++pos, in_comment = true;
     else if (c == '"') // found a literal string
       {
+        if (arg.empty() && args.empty())
+          save_start = pos; // start of first argument
+
         // XXX: This allows '"' inside an arg and will treat the
         // string as a sequence of weird identifier characters.  A
         // more rigorous parser would error on mixing strings and
@@ -738,6 +760,9 @@ bpf_unparser::parse_asm_stmt (embeddedcode *s, size_t start,
       }
     else // found (we assume) a regular char
       {
+        if (arg.empty() && args.empty())
+          save_start = pos; // start of first argument
+
         // XXX: As before, this strips whitespace within args
         // (so '$ab', '$ a b' and '$a b' are equivalent).
         //
@@ -760,28 +785,73 @@ bpf_unparser::parse_asm_stmt (embeddedcode *s, size_t start,
       goto retry;
     }
 
-  // set token with adjusted source location
-  //stmt.tok = (token *)s->tok;
-  // TODO this segfaults for some reason, some data not copied?
-  stmt.tok = s->tok->adjust_location(adjusted_loc);
-  stmt.deallocate_tok = false; // TODO must avoid destroy-on-copy
+  // compute token with adjusted source location for diagnostics
+  // TODO: needs some attention to how multiline tokens are printed in error reporting -- with this code, caret aligns incorrectly
+  for (/* use saved adjust_pos */; adjust_pos < save_start && adjust_pos < n; adjust_pos++)
+    {
+      char c = code[adjust_pos];
+      if (c == '\n')
+        {
+          adjusted_loc.line++;
+          adjusted_loc.column = 1;
+        }
+      else
+        adjusted_loc.column++;
+    }
 
-  std::cerr << "DEBUG GOT stmt "; // TODO
-  for (unsigned k = 0; k < args.size(); k++) std::cerr << args[k] << " / ";
-  std::cerr << std::endl; // TODO
+  // set token with adjusted source location
+  stmt.tok = s->tok->adjust_location(adjusted_loc);
+  adjusted_toks.push_back(stmt.tok);
+
+#ifdef BPF_ASM_DEBUG
+  std::cerr << "bpf_asm parse_asm_stmt: tokenizer got ";
+  for (unsigned k = 0; k < args.size(); k++)
+    std::cerr << args[k] << ", ";
+  std::cerr << std::endl;
+#endif
   if (args[0] == "label")
     {
       if (args.size() != 2)
-        throw SEMANTIC_ERROR (_("invalid bpf embeddedcode syntax"), stmt.tok);
+        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (label expects 1 arg, found %lu)", args.size()-1), stmt.tok);
       stmt.kind = args[0];
       stmt.dest = args[1];
     }
+  else if (args[0] == "alloc")
+    {
+      if (args.size() != 3)
+        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (alloc expects 2 args, found %lu)", args.size()-1), stmt.tok);
+      stmt.kind = args[0];
+      stmt.dest = args[1];
+      stmt.imm = parse_imm(stmt, args[2]);
+    }
+  else if (args[0] == "call")
+    {
+      if (args.size() < 3)
+        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (call expects at least 2 args, found %lu)", args.size()-1), stmt.tok);
+      stmt.kind = args[0];
+      stmt.dest = args[1];
+      for (unsigned k = 2; k < args.size(); k++)
+        stmt.params.push_back(args[k]);
+    }
+  else if (args[0] == "printf" || args[0] == "error")
+    {
+      if (args.size() < 2)
+        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (%s expects at least 2 args, found %lu)", args[0].c_str(), args.size()-1), stmt.tok);
+      stmt.kind = args[0];
+      for (unsigned k = 2; k < args.size(); k++)
+        stmt.params.push_back(args[k]);
+    }
   else if (is_numeric(args[0]))
     {
-      if (args.size() != 5) // TODO change to 4 to test err+tok
-        throw SEMANTIC_ERROR (_("invalid bpf embeddedcode syntax"), stmt.tok);
+      if (args.size() != 5)
+        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (opcode expects 4 args, found %lu)", args.size()-1), stmt.tok);
       stmt.kind = "opcode";
-      stmt.code = stoul(args[0], 0, 0); // TODO signal error
+      try {
+        stmt.code = stoul(args[0], 0, 0);
+      } catch (std::exception &e) { // XXX: invalid_argument, out_of_range
+        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode opcode '%s'",
+                                 args[0].c_str()), stmt.tok);
+      }
       stmt.dest = args[1];
       stmt.src1 = args[2];
 
@@ -799,25 +869,16 @@ bpf_unparser::parse_asm_stmt (embeddedcode *s, size_t start,
           stmt.off = 0;
           stmt.jmp_target = args[3];
         }
-      else if (args[3] == "BPF_MAXSTRINGLEN")
-        stmt.off = BPF_MAXSTRINGLEN;
-      else if (args[3] == "-")
-        stmt.off = 0;
       else
-        stmt.off = stol(args[3]); // TODO signal error
+        stmt.off = parse_imm(stmt, args[3]);
 
-      if (args[4] == "BPF_MAXSTRINGLEN")
-        stmt.imm = BPF_MAXSTRINGLEN;
-      else if (args[4] == "-")
-        stmt.imm = 0;
-      else
-        stmt.imm = stol(args[4]); // TODO signal error
+      stmt.imm = parse_imm(stmt, args[4]);
     }
   else
     throw SEMANTIC_ERROR (_F("unknown bpf embeddedcode operator '%s'",
                              args[0].c_str()), stmt.tok);
 
-  // we returned a statement, so there's more parsing to be done
+  // we returned one statement, there may be more parsing to be done
   return pos;
 }
 
@@ -828,7 +889,7 @@ std::string translate_escapes (const interned_string &str);
    May emit code to store a string constant on the stack. */
 value *
 bpf_unparser::emit_asm_arg (const asm_stmt &stmt, const std::string &arg,
-                            bool allow_imm)
+                            bool allow_imm, bool allow_emit)
 {
   if (arg == "$$")
     {
@@ -859,7 +920,6 @@ bpf_unparser::emit_asm_arg (const asm_stmt &stmt, const std::string &arg,
       auto ok = this_locals->insert (v);
       assert (ok.second);
       return reg;
-      // TODO write a testcase
     }
   else if (is_numeric(arg) && allow_imm)
     {
@@ -879,13 +939,17 @@ bpf_unparser::emit_asm_arg (const asm_stmt &stmt, const std::string &arg,
     }
   else if (arg[0] == '"')
     {
-      // TODO verify correctness
+      if (!allow_emit)
+        throw SEMANTIC_ERROR (_F("invalid bpf argument %s "
+                                 "(string literal not allowed here)",
+                                 arg.c_str()), stmt.tok);
+
       /* arg is a string constant */
       if (arg[arg.size() - 1] != '"')
         throw SEMANTIC_ERROR (_F("BUG: improper string %s",
                                  arg.c_str()), stmt.tok);
       std::string escaped_str = arg.substr(1,arg.size()-2); /* strip quotes */
-      std::string str = translate_escapes(escaped_str); // TODO interned_str?
+      std::string str = translate_escapes(escaped_str);
       return emit_literal_string(str, stmt.tok);
     }
   else if (arg == "BPF_MAXSTRINGLEN")
@@ -913,10 +977,20 @@ bpf_unparser::emit_asm_arg (const asm_stmt &stmt, const std::string &arg,
   
 }
 
+/* As above, but don't accept immediate values.
+   Do accept string constants (since they're stored in a register). */
 value *
 bpf_unparser::emit_asm_reg (const asm_stmt &stmt, const std::string &reg)
 {
   return emit_asm_arg(stmt, reg, /*allow_imm=*/false);
+}
+
+/* As above, but don't allow string constants or anything that emits code.
+   Useful if the context requires an lvalue. */
+value *
+bpf_unparser::get_asm_reg (const asm_stmt &stmt, const std::string &reg)
+{
+  return emit_asm_arg(stmt, reg, /*allow_imm=*/false, /*allow_emit=*/false);
 }
 
 void
@@ -1013,7 +1087,7 @@ bpf_unparser::emit_asm_opcode (const asm_stmt &stmt,
 
   value *v_dest = NULL;
   if (r_dest || r_src0)
-    v_dest = emit_asm_reg(stmt, stmt.dest);
+    v_dest = get_asm_reg(stmt, stmt.dest);
   else if (stmt.dest != "0" && stmt.dest != "-")
     throw SEMANTIC_ERROR (_F("invalid register field '%s' in bpf code",
                              stmt.dest.c_str()), stmt.tok);
@@ -1068,6 +1142,10 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
 {
   std::vector<asm_stmt> statements;
   asm_stmt stmt;
+
+  // track adjusted source location for each stmt
+  adjusted_loc = s->tok->location;
+  adjust_pos = 0;
 
   size_t pos = 0;
   while ((pos = parse_asm_stmt(s, pos, stmt)) != std::string::npos)
@@ -1133,7 +1211,7 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
           after_jump = NULL;
         }
     }
-  if (after_jump != NULL) // TODO: should just fall through to exit
+  if (after_jump != NULL) // ??? should just fall through to exit
     throw SEMANTIC_ERROR (_("BUG: bpf embeddedcode doesn't support "
                             "fallthrough on final asm_stmt"), stmt.tok);
 
@@ -1144,13 +1222,66 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
        it != statements.end(); it++)
     {
       stmt = *it;
-      std::cerr << "DEBUG processing " << stmt << std::endl; // TODO
+#ifdef BPF_ASM_DEBUG
+      std::cerr << "bpf_asm visit_embeddedcode: " << stmt << std::endl;
+#endif
       if (stmt.kind == "label")
         {
-          // TODO: be sure there's no gap in the edge
           if (!jumped_already)
             emit_jmp (label_map[stmt.dest]);
           set_block(label_map[stmt.dest]);
+        }
+      else if (stmt.kind == "alloc")
+        {
+          /* Reserve stack space and store its address in dest. */
+          int ofs = this_prog.max_tmp_space + stmt.imm;
+          value *dest = get_asm_reg(stmt, stmt.dest);
+          this_prog.use_tmp_space(-ofs);
+          this_prog.mk_binary(this_ins, BPF_ADD, dest,
+                              this_prog.lookup_reg(BPF_REG_10) /*frame*/,
+                              this_prog.new_imm(ofs));
+        }
+      else if (stmt.kind == "call")
+        {
+          std::string func_name = stmt.params[0];
+          bpf_func_id hid = bpf_function_id(func_name);
+          if (hid != __BPF_FUNC_MAX_ID)
+            {
+              // TODO diagnostic: check if the number of arguments is correct
+              regno r = BPF_REG_1; unsigned nargs = 0;
+              for (unsigned k = 1; k < stmt.params.size(); k++)
+                {
+                  // ??? Could make params optional to avoid this part,
+                  // ??? since the calling convention is well-known.
+                  value *from_reg = emit_asm_arg(stmt, stmt.params[k]);
+                  value *to_reg = this_prog.lookup_reg(r);
+                  this_prog.mk_mov(this_ins, to_reg, from_reg);
+                  nargs++; r++;
+                }
+              this_prog.mk_call(this_ins, hid, nargs);
+              this_prog.mk_mov(this_ins, get_asm_reg(stmt, stmt.dest),
+                               this_prog.lookup_reg(BPF_REG_0) /* returnval */);
+              // ??? Could make stmt.dest optional to avoid this extra mov,
+              // ??? since the BPF_REG_0 convention is well-known.
+            }
+          else
+            {
+              // TODO function_name = params[0];
+              // TODO args = parse_reg(params[1]), parse_reg(params[2]), ...
+              // TODO emit_functioncall() with good bits from visit_functioncall()
+              throw SEMANTIC_ERROR (_("BUG: bpf embeddedcode non-helper 'call' not yet supported"),
+                                    stmt.tok);
+            }
+        }
+      else if (stmt.kind == "printf" || stmt.kind == "error")
+        {
+          // TODO Note that error() should be modeled on the tapset function in tapset/logging.stp
+          // TODO format = params[0];
+          // TODO args = parse_reg(params[1]), parse_reg(params[2]), ...
+          // TODO emit_print_format() with good bits from visit_print_format()
+          // TODO if (stmt.kind == "error") emit functioncall to exit() 
+          throw SEMANTIC_ERROR (_("BUG: bpf embeddedcode 'printf/error' not yet supported"),
+                                stmt.tok);
         }
       else if (stmt.kind == "opcode")
         {
@@ -1164,6 +1295,12 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
       if (stmt.has_fallthrough)
         set_block(label_map[stmt.fallthrough]);
     }
+
+  // housekeeping -- deallocate adjusted_toks along with statements
+  for (std::vector<token *>::iterator it = adjusted_toks.begin();
+       it != adjusted_toks.end(); it++)
+    delete *it;
+  adjusted_toks.clear();
 }
 
 void
@@ -3259,6 +3396,8 @@ int
 translate_bpf_pass (systemtap_session& s)
 {
   using namespace bpf;
+
+  init_bpf_helper_tables();
 
   if (elf_version(EV_CURRENT) == EV_NONE)
     return 1;
