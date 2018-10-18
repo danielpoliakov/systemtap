@@ -130,6 +130,7 @@ foreach file [lsort [glob -nocomplain $srcdir/$self/*.stp]] {
 	buildok/socket-embedded.stp -
 	buildok/stopwatches.stp -
 	buildok/syscall.stp -
+	buildok/syscall_any.stp -
 	buildok/syscalls-arch-detailed.stp -
 	buildok/syscalls-detailed.stp -
 	buildok/syscalls2-detailed.stp -
