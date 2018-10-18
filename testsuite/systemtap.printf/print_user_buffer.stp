@@ -12,24 +12,24 @@ probe syscall.write
 {
     if (!target_set_pid(pid())) next;
     
-    value = sprintf("%#.*M",$count, $buf)       
+    value = sprintf("%#.*M", count, buf_uaddr)
     if (value != "666f6f6261720a"&& value!= "000a")
          errors++		    
     
-    value = sprintf("%#.*m",$count, $buf)
+    value = sprintf("%#.*m", count, buf_uaddr)
     if (value != "foobar\n" && value !="\0\n")
          errors++
 
     try {
 	errors++
-	value = sprintf("%#.*M",$count, $fd)
+	value = sprintf("%#.*M", count, fd)
     } 
     catch {
          errors--
     }
     try {
 	errors++
-        value = sprintf("%#.*m", $count, $fd)
+        value = sprintf("%#.*m", count, fd)
     }
     catch {
 	    errors--
