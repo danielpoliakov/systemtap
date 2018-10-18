@@ -106,11 +106,11 @@ probe kprocess.exec_complete =
 probe kprocess.exec_complete = syscall.execve.return
 %)
 {
-    errno = $return
+    errno = retval
     success = (errno >= 0)
     /*
     name = "execve"
-    retstr = return_str(1, $return)
+    retstr = return_str(1, retval)
     */
 }
 
