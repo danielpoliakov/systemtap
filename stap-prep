@@ -100,7 +100,10 @@ esac
 		echo " Follow https://wiki.debian.org/AutomaticDebugPackages to add this repository"
 	    fi
 	else
-	    echo "Please install $package"
+	    echo "Need to install $package"
+            if [ `id -u` = "0" ]; then #attempt to install
+                apt-get -y install $NEEDED
+            fi
 	fi
     elif ! dpkg --compare-versions $installedversion $relation $requiredversion; then
 	echo "Package $package version $installedversion does not match version of currently running kernel: $requiredversion"
