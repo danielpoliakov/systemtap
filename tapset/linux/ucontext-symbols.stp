@@ -137,7 +137,7 @@ function print_usyms (callers:string) {
  *
  * NOTE: it is recommended to use sprint_usyms() instead of this function.
  */
-function sprint_ustack:string(stk:string) { sprint_usyms(stk) }
+function sprint_ustack:string(stk:string) { return sprint_usyms(stk) }
 
 /**
  * sfunction sprint_usyms - Return stack for user addresses from string

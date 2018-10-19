@@ -1,0 +1,49 @@
+set test "ustack"
+set testpath "$srcdir/$subdir"
+
+if {! [installtest_p]} { untested $test; return }
+if {! [uretprobes_p]} { untested $test; return }
+
+# --- TEST 1 ---
+
+set subtest1 "TEST 1: PR23799: sprint_ustack() returns empty strings"
+
+set res [target_compile ${testpath}/${test}_1.c ./a.out executable \
+    "additional_flags=-O additional_flags=-g additional_flags=-O0"]
+if {$res ne ""} {
+    verbose "target_compile failed: $res" 2
+    fail "$test: $subtest1: unable to compile ${test}_1.c"
+} else {
+    set test_name "$test: $subtest1"
+
+    set cmd "stap --ldd -c ./a.out '$srcdir/$subdir/${test}_1.stp'"
+    set exit_code [run_cmd_2way $cmd out stderr]
+    set out_pat " : foo\\+.*? : bar\\+.*? : main\\+"
+    like "${test_name}: stdout" $out $out_pat ""
+    is "${test_name}: exit code" $exit_code 0
+    if {$stderr ne ""} {
+        send_log "stderr:\n$stderr"
+    }
+}
+
+# --- TEST 2 ---
+
+set subtest2 "TEST 2: print_ustack()"
+
+set res [target_compile ${testpath}/${test}_1.c ./a.out executable \
+    "additional_flags=-O additional_flags=-g additional_flags=-O0"]
+if {$res ne ""} {
+    verbose "target_compile failed: $res" 2
+    fail "$test: $subtest2: unable to compile ${test}_1.c"
+} else {
+    set test_name "$test: $subtest2"
+
+    set cmd "stap --ldd -c ./a.out '$srcdir/$subdir/${test}_2.stp'"
+    set exit_code [run_cmd_2way $cmd out stderr]
+    set out_pat " : foo\\+.*? : bar\\+.*? : main\\+"
+    like "${test_name}: stdout" $out $out_pat ""
+    is "${test_name}: exit code" $exit_code 0
+    if {$stderr ne ""} {
+        send_log "stderr:\n$stderr"
+    }
+}
