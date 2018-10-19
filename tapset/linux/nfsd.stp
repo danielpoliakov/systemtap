@@ -852,8 +852,13 @@ probe nfsd.proc4.commit = kernel.function("nfsd4_commit").call !,
 	proto = $rqstp->rq_prot
 	version = 4
 	fh = & @nfsd4_compound_state($cstate)->current_fh
-	count = $commit->co_count 
-	offset = $commit->co_offset 
+        if (@defined($u)) {
+	    count = $u->commit->co_count 
+	    offset = $u->commit->co_offset
+        } else {
+   	    count = $commit->co_count 
+	    offset = $commit->co_offset
+        }
 
 	uid = __rqstp_uid($rqstp)
 	gid = __rqstp_gid($rqstp)
