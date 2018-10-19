@@ -567,10 +567,17 @@ probe nfsd.proc4.read = kernel.function("nfsd4_read").call !,
 	version = 4
 	fh = & @nfsd4_compound_state($cstate)->current_fh
 
-	count = $read->rd_length
-	offset = $read->rd_offset
-	vec = $rqstp->rq_vec
-	vlen = $read->rd_vlen
+        if (@defined($u)) {
+             count = $u->read->rd_length
+             offset = $u->read->rd_offset
+             vec = $rqstp->rq_vec
+             vlen = $u->read->rd_vlen
+        } else {
+             count = $read->rd_length
+             offset = $read->rd_offset
+             vec = $rqstp->rq_vec
+             vlen = $read->rd_vlen
+        }
 
 	uid = __rqstp_uid($rqstp)
 	gid = __rqstp_gid($rqstp)
