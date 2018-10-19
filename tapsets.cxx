@@ -301,7 +301,8 @@ common_probe_entryfn_epilogue (systemtap_session& s,
       // unprivileged users to override.
       s.op->newline() << "if (interval > STP_OVERLOAD_INTERVAL) {";
       s.op->newline(1) << "if (c->cycles_sum > STP_OVERLOAD_THRESHOLD) {";
-      s.op->newline(1) << "_stp_error (\"probe overhead exceeded threshold\");";
+      s.op->newline(1) << "_stp_error (\"probe overhead (%lld cycles) exceeded threshold (%lld cycles) in last"
+                          " %lld cycles\", c->cycles_sum, STP_OVERLOAD_THRESHOLD, STP_OVERLOAD_INTERVAL);";
       s.op->newline() << "atomic_set (session_state(), STAP_SESSION_ERROR);";
       s.op->newline() << "atomic_inc (error_count());";
       s.op->newline(-1) << "}";
