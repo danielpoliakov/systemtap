@@ -27,5 +27,5 @@ probe process("/usr/lib*/ld-*.so").function("_dl_map_object_from_fd")?
 }
 
 probe prometheus {
-    @prometheus_dump_array1(arr, "count", "path")
+    @prometheus_dump_array1_map_unquoted(arr, "count", "path", sprint, sprint)
 }
