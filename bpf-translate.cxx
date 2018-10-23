@@ -135,8 +135,10 @@ has_side_effects (expression *e)
   return t.side_effects;
 }
 
-/* forward declaration */
+/* forward declarations */
 struct asm_stmt;
+static void print_format_add_tag(std::string&);
+static void print_format_add_tag(print_format*);
 
 struct bpf_unparser : public throwing_visitor
 {
@@ -237,6 +239,11 @@ struct bpf_unparser : public throwing_visitor
   value *emit_expr(expression *e);
   value *emit_bool(expression *e);
   value *emit_context_var(bpf_context_vardecl *v);
+
+  value *emit_functioncall(functiondecl *f, const std::vector<value *> &args);
+  value *emit_print_format(const std::string &format,
+                           const std::vector<value *> &actual,
+                           bool print_to_stream = true);
 
   // Used for the embedded-code assembler:
   int64_t parse_imm (const asm_stmt &stmt, const std::string &str);
@@ -594,24 +601,22 @@ bpf_unparser::visit_block (::block *s)
 
    <stmt> ::= label, <dest=label>;
    <stmt> ::= alloc, <dest=reg>, <imm=imm>;
-   <stmt> ::= call, <dest=reg>, <param[0]=function name>, <param[1]=arg>, ...;
-   <stmt> ::= printf, <param[0]=string constant>, <param[1]=arg>, ...;
-   <stmt> ::= error, <param[0]=string constant>, <param[1]=arg>, ...;
+   <stmt> ::= call, <dest=optreg>, <param[0]=function name>, <param[1]=arg>, ...;
    <stmt> ::= <code=integer opcode>, <dest=reg>, <src1=reg>,
               <off/jmp_target=off>, <imm=imm>;
 
    Supported argument types include:
 
-   <arg> ::= <reg> | <imm>
-   <reg> ::= <register index> | r<register index> |
-             $<identifier> | $<integer constant> | $$ | <string constant>
-   <imm> ::= <integer constant> | BPF_MAXSTRINGLEN
-   <off> ::= <imm> | <jump label>
+   <arg>    ::= <reg> | <imm>
+   <optreg> ::= <reg> | -
+   <reg>    ::= <register index> | r<register index> |
+                $<identifier> | $<integer constant> | $$ | <string constant>
+   <imm>    ::= <integer constant> | BPF_MAXSTRINGLEN | -
+   <off>    ::= <imm> | <jump label>
 
 */
 
-// TODO
-#define BPF_ASM_DEBUG
+// #define BPF_ASM_DEBUG
 
 struct asm_stmt {
   std::string kind;
@@ -621,6 +626,8 @@ struct asm_stmt {
   int64_t off, imm;
 
   // metadata for jmp instructions
+  // ??? The logic around these flags could be pruned a bit.
+  bool has_jmp_target = false;
   bool has_fallthrough = false;
   std::string jmp_target, fallthrough;
 
@@ -649,6 +656,19 @@ operator << (std::ostream& o, const asm_stmt& stmt)
       o << ", "
         << stmt.imm << ";"
         << (stmt.has_fallthrough ? " +FALLTHROUGH " + stmt.fallthrough : "");
+    }
+  else if (stmt.kind == "alloc")
+    {
+      o << "alloc, " << stmt.dest << ", " << stmt.imm << ";";
+    }
+  else if (stmt.kind == "call")
+    {
+      o << "call, " << stmt.dest << ", ";
+      for (unsigned k = 0; k < stmt.params.size(); k++)
+        {
+          o << stmt.params[k];
+          o << (k >= stmt.params.size() - 1 ? ";" : ", ");
+        }
     }
   else
     o << "<unknown asm_stmt kind '" << stmt.kind << "'>";
@@ -711,7 +731,7 @@ bpf_unparser::parse_asm_stmt (embeddedcode *s, size_t start,
   {
     char c = code[pos];
     char c2 = pos + 1 < n ? code [pos + 1] : 0;
-    if (isspace(c))
+    if (isspace(c) && !in_string)
       continue; // skip
     else if (in_comment)
       {
@@ -799,6 +819,10 @@ bpf_unparser::parse_asm_stmt (embeddedcode *s, size_t start,
         adjusted_loc.column++;
     }
 
+  // Now populate the statement data.
+
+  stmt = asm_stmt(); // clear pre-existing data
+
   // set token with adjusted source location
   stmt.tok = s->tok->adjust_location(adjusted_loc);
   adjusted_toks.push_back(stmt.tok);
@@ -830,14 +854,7 @@ bpf_unparser::parse_asm_stmt (embeddedcode *s, size_t start,
         throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (call expects at least 2 args, found %lu)", args.size()-1), stmt.tok);
       stmt.kind = args[0];
       stmt.dest = args[1];
-      for (unsigned k = 2; k < args.size(); k++)
-        stmt.params.push_back(args[k]);
-    }
-  else if (args[0] == "printf" || args[0] == "error")
-    {
-      if (args.size() < 2)
-        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (%s expects at least 2 args, found %lu)", args[0].c_str(), args.size()-1), stmt.tok);
-      stmt.kind = args[0];
+      assert(stmt.params.empty());
       for (unsigned k = 2; k < args.size(); k++)
         stmt.params.push_back(args[k]);
     }
@@ -855,16 +872,16 @@ bpf_unparser::parse_asm_stmt (embeddedcode *s, size_t start,
       stmt.dest = args[1];
       stmt.src1 = args[2];
 
-      bool has_jmp_target =
+      stmt.has_jmp_target =
         BPF_CLASS(stmt.code) == BPF_JMP
         && BPF_OP(stmt.code) != BPF_EXIT
         && BPF_OP(stmt.code) != BPF_CALL;
       stmt.has_fallthrough = // only for jcond
-        has_jmp_target
+        stmt.has_jmp_target
         && BPF_OP(stmt.code) != BPF_JA;
       // XXX: stmt.fallthrough is computed by visit_embeddedcode
 
-      if (has_jmp_target)
+      if (stmt.has_jmp_target)
         {
           stmt.off = 0;
           stmt.jmp_target = args[3];
@@ -1168,6 +1185,7 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
 
       if (after_jump != NULL && stmt.kind == "label")
         {
+          after_jump->has_fallthrough = true;
           after_jump->fallthrough = stmt.dest;
         }
       else if (after_jump != NULL)
@@ -1183,6 +1201,7 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
           label_map[fallthrough_label] = b;
           set_block(b);
 
+          after_jump->has_fallthrough = true;
           after_jump->fallthrough = fallthrough_label;
         }
 
@@ -1205,6 +1224,12 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
           after_label = false;
           after_jump = &*it; // be sure to refer to original, not copied stmt
         }
+      else if (stmt.kind == "opcode" && BPF_CLASS(stmt.code) == BPF_JMP
+               && BPF_OP(stmt.code) != BPF_CALL /* CALL stays in the same block */)
+        {
+          after_label = false;
+          after_jump = &*it; // be sure to refer to original, not copied stmt
+        }
       else
         {
           after_label = false;
@@ -1216,7 +1241,7 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
                             "fallthrough on final asm_stmt"), stmt.tok);
 
   // emit statements
-  bool jumped_already = true;
+  bool jumped_already = false;
   set_block(entry_block);
   for (std::vector<asm_stmt>::iterator it = statements.begin();
        it != statements.end(); it++)
@@ -1234,24 +1259,27 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
       else if (stmt.kind == "alloc")
         {
           /* Reserve stack space and store its address in dest. */
-          int ofs = this_prog.max_tmp_space + stmt.imm;
-          value *dest = get_asm_reg(stmt, stmt.dest);
+          int ofs = -this_prog.max_tmp_space - stmt.imm;
           this_prog.use_tmp_space(-ofs);
+          // ??? Consider using a storage allocator and this_prog.new_obj().
+
+          value *dest = get_asm_reg(stmt, stmt.dest);
           this_prog.mk_binary(this_ins, BPF_ADD, dest,
                               this_prog.lookup_reg(BPF_REG_10) /*frame*/,
                               this_prog.new_imm(ofs));
         }
       else if (stmt.kind == "call")
         {
+          assert (!stmt.params.empty());
           std::string func_name = stmt.params[0];
           bpf_func_id hid = bpf_function_id(func_name);
           if (hid != __BPF_FUNC_MAX_ID)
             {
-              // TODO diagnostic: check if the number of arguments is correct
+              // ??? For diagnostics: check if the number of arguments is correct.
               regno r = BPF_REG_1; unsigned nargs = 0;
               for (unsigned k = 1; k < stmt.params.size(); k++)
                 {
-                  // ??? Could make params optional to avoid this part,
+                  // ??? Could make params optional to avoid the MOVs,
                   // ??? since the calling convention is well-known.
                   value *from_reg = emit_asm_arg(stmt, stmt.params[k]);
                   value *to_reg = this_prog.lookup_reg(r);
@@ -1259,29 +1287,116 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
                   nargs++; r++;
                 }
               this_prog.mk_call(this_ins, hid, nargs);
-              this_prog.mk_mov(this_ins, get_asm_reg(stmt, stmt.dest),
-                               this_prog.lookup_reg(BPF_REG_0) /* returnval */);
-              // ??? Could make stmt.dest optional to avoid this extra mov,
-              // ??? since the BPF_REG_0 convention is well-known.
+              if (stmt.dest != "-")
+                {
+                  value *dest = get_asm_reg(stmt, stmt.dest);
+                  this_prog.mk_mov(this_ins, dest,
+                                   this_prog.lookup_reg(BPF_REG_0) /* returnval */);
+                }
+              // ??? For diagnostics: check other cases with stmt.dest.
+            }
+          else if (func_name == "printf" || func_name == "sprintf")
+            {
+              if (stmt.params.size() < 2)
+                throw SEMANTIC_ERROR (_F("bpf embeddedcode '%s' expects format string, "
+                                         "none provided", func_name.c_str()),
+                                      stmt.tok);
+              std::string format = stmt.params[1];
+              if (format.size() < 2 || format[0] != '"'
+                  || format[format.size()-1] != '"')
+                throw SEMANTIC_ERROR (_F("bpf embeddedcode '%s' expects format string, "
+                                         "but first parameter is not a string literal",
+                                         func_name.c_str()), stmt.tok);
+              format = format.substr(1,format.size()-2); /* strip quotes */
+              format = translate_escapes(format);
+
+              bool print_to_stream = (func_name == "printf");
+              if (print_to_stream)
+                print_format_add_tag(format);
+
+              size_t format_bytes = format.size() + 1;
+              if (format_bytes > BPF_MAXFORMATLEN)
+                throw SEMANTIC_ERROR(_("Format string for print too long"), stmt.tok);
+
+              std::vector<value *> args;
+              for (unsigned k = 2; k < stmt.params.size(); k++)
+                args.push_back(emit_asm_arg(stmt, stmt.params[k]));
+              if (args.size() > 3)
+                throw SEMANTIC_ERROR(_NF("additional argument to print",
+                                         "too many arguments to print (%zu)",
+                                         args.size(), args.size()), stmt.tok);
+
+              value *retval = emit_print_format(format, args, print_to_stream);
+              if (retval != NULL && stmt.dest != "-")
+                {
+                  value *dest = get_asm_reg(stmt, stmt.dest);
+                  this_prog.mk_mov(this_ins, dest, retval);
+
+                }
+              // ??? For diagnostics: check other cases with retval and stmt.dest.
             }
           else
             {
-              // TODO function_name = params[0];
-              // TODO args = parse_reg(params[1]), parse_reg(params[2]), ...
-              // TODO emit_functioncall() with good bits from visit_functioncall()
-              throw SEMANTIC_ERROR (_("BUG: bpf embeddedcode non-helper 'call' not yet supported"),
-                                    stmt.tok);
+              // TODO: Experimental code for supporting basic functioncalls.
+              // Needs improvement and simplification to work with full generality.
+              // But thus far, it is sufficient for calling exit().
+#if 1
+              if (func_name != "exit")
+                throw SEMANTIC_ERROR(_("BUG: bpf embeddedcode non-helper 'call' operation only supports printf(),sprintf(),exit() for now"), stmt.tok);
+#elif 1
+              throw SEMANTIC_ERROR(_("BUG: bpf embeddedcode non-helper 'call' operation only supports printf(),sprintf() for now"), stmt.tok);
+#endif
+#if 1
+              // ???: Passing systemtap_session through all the way to here
+              // seems intrusive, but less intrusive than moving
+              // embedded-code assembly to the translate_globals() pass.
+              symresolution_info sym (*glob.session);
+              functioncall *call = new functioncall;
+              call->tok = stmt.tok;
+              unsigned nargs = stmt.params.size() - 1;
+              std::vector<functiondecl*> fds
+                = sym.find_functions (call, func_name, nargs, stmt.tok);
+              delete call;
+
+              if (fds.empty())
+                // ??? Could call levenshtein_suggest() as in
+                // symresolution_info::visit_functioncall().
+                throw SEMANTIC_ERROR(_("bpf embeddedcode unresolved function call"), stmt.tok);
+              if (fds.size() > 1)
+                throw SEMANTIC_ERROR(_("bpf embeddedcode unhandled function overloading"), stmt.tok);
+              functiondecl *f = fds[0];
+              // TODO: Imitation of semantic_pass_symbols, does not
+              // cover full generality of the lookup process.
+              update_visitor_loop (*glob.session, glob.session->code_filters, f->body);
+              sym.current_function = f; sym.current_probe = 0;
+              f->body->visit (&sym);
+
+              // ??? For now, always inline the function call.
+              for (auto i = func_calls.begin(); i != func_calls.end(); ++i)
+                if (f == *i)
+                  throw SEMANTIC_ERROR (_("unhandled function recursion"), stmt.tok);
+
+              // Collect the function arguments.
+              std::vector<value *> args;
+              for (unsigned k = 1; k < stmt.params.size(); k++)
+                args.push_back(emit_asm_arg(stmt, stmt.params[k]));
+
+              if (args.size () != f->formal_args.size())
+                throw SEMANTIC_ERROR(_F("bpf embeddedcode call to function '%s' "
+                                        "expected %zu arguments, got %zu",
+                                        func_name.c_str(),
+                                        f->formal_args.size(), args.size()),
+                                     stmt.tok);
+
+              value *retval = emit_functioncall(f, args);
+              if (stmt.dest != "-")
+                {
+                  value *dest = get_asm_reg(stmt, stmt.dest);
+                  this_prog.mk_mov(this_ins, dest, retval);
+                }
+              // ??? For diagnostics: check other cases with retval and stmt.dest.
+#endif
             }
-        }
-      else if (stmt.kind == "printf" || stmt.kind == "error")
-        {
-          // TODO Note that error() should be modeled on the tapset function in tapset/logging.stp
-          // TODO format = params[0];
-          // TODO args = parse_reg(params[1]), parse_reg(params[2]), ...
-          // TODO emit_print_format() with good bits from visit_print_format()
-          // TODO if (stmt.kind == "error") emit functioncall to exit() 
-          throw SEMANTIC_ERROR (_("BUG: bpf embeddedcode 'printf/error' not yet supported"),
-                                stmt.tok);
         }
       else if (stmt.kind == "opcode")
         {
@@ -1291,9 +1406,13 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
         throw SEMANTIC_ERROR (_F("BUG: bpf embeddedcode contains unexpected "
                                  "asm_stmt kind '%s'", stmt.kind.c_str()),
                               stmt.tok);
-      jumped_already = stmt.has_fallthrough;
       if (stmt.has_fallthrough)
-        set_block(label_map[stmt.fallthrough]);
+        {
+          jumped_already = true;
+          set_block(label_map[stmt.fallthrough]);
+        }
+      else
+        jumped_already = false;
     }
 
   // housekeeping -- deallocate adjusted_toks along with statements
@@ -1779,7 +1898,8 @@ bpf_unparser::visit_logical_and_expr (logical_and_expr* e)
   result = emit_bool (e);
 }
 
-// TODO: This matches translate.cxx, but it looks like the functionality is disabled in the parser.
+// ??? This matches the code in translate.cxx, but it looks like the
+// functionality has been disabled in the SystemTap parser.
 void
 bpf_unparser::visit_compound_expression (compound_expression* e)
 {
@@ -2573,30 +2693,17 @@ bpf_unparser::emit_str_arg(value *arg, int ofs, value *str)
   emit_mov(arg, out);
 }
 
-void
-bpf_unparser::visit_functioncall (functioncall *e)
+value *
+bpf_unparser::emit_functioncall (functiondecl *f, const std::vector<value *>& args)
 {
-  // ??? For now, always inline the function call.
-  // ??? Function overloading isn't handled.
-  if (e->referents.size () != 1)
-    throw SEMANTIC_ERROR (_("unhandled function overloading"), e->tok);
-  functiondecl *f = e->referents[0];
-
-  for (auto i = func_calls.begin(); i != func_calls.end(); ++i)
-    if (f == *i)
-      throw SEMANTIC_ERROR (_("unhandled function recursion"), e->tok);
-
-  assert (e->args.size () == f->formal_args.size ());
-
   // Create a new map for the function's local variables.
   locals_map *locals = new_locals(f->locals);
 
-  // Evaluate the function arguments and install in the map.
-  for (unsigned n = e->args.size (), i = 0; i < n; ++i)
+  // Install locals in the map.
+  unsigned n = args.size();
+  for (unsigned i = 0; i < n; ++i)
     {
-      value *r = this_prog.new_reg ();
-      emit_mov (r, emit_expr (e->args[i]));
-      const locals_map::value_type v (f->formal_args[i], r);
+      const locals_map::value_type v (f->formal_args[i], args[i]);
       auto ok = locals->insert (v);
       assert (ok.second);
     }
@@ -2622,7 +2729,47 @@ bpf_unparser::visit_functioncall (functioncall *e)
   this_locals = old_locals;
   delete locals;
 
-  result = retval;
+  return retval;
+}
+
+void
+bpf_unparser::visit_functioncall (functioncall *e)
+{
+  // ??? Function overloading isn't handled.
+  if (e->referents.size () != 1)
+    throw SEMANTIC_ERROR (_("unhandled function overloading"), e->tok);
+  functiondecl *f = e->referents[0];
+
+  // ??? For now, always inline the function call.
+  for (auto i = func_calls.begin(); i != func_calls.end(); ++i)
+    if (f == *i)
+      throw SEMANTIC_ERROR (_("unhandled function recursion"), e->tok);
+
+  // XXX: Should have been checked in earlier pass.
+  assert (e->args.size () == f->formal_args.size ());
+
+  // Evaluate and collect the function arguments.
+  std::vector<value *> args;
+  for (unsigned n = e->args.size (), i = 0; i < n; ++i)
+    {
+      value *r = this_prog.new_reg ();
+      emit_mov (r, emit_expr (e->args[i]));
+      args.push_back(r);
+    }
+
+  result = emit_functioncall(f, args);
+}
+
+static void
+print_format_add_tag(std::string& format)
+{
+  // surround the string with <MODNAME>...</MODNAME> to facilitate
+  // stapbpf recovering it from debugfs.
+  std::string start_tag = module_name;
+  start_tag = "<" + start_tag.erase(4,1) + ">";
+  std::string end_tag = start_tag + "\n";
+  end_tag.insert(1, "/");
+  format = start_tag + format + end_tag;
 }
 
 static void
@@ -2677,6 +2824,32 @@ print_format_add_tag(print_format *e)
     }
 }
 
+value *
+bpf_unparser::emit_print_format (const std::string& format,
+                                 const std::vector<value *>& actual,
+                                 bool print_to_stream)
+{
+  size_t nargs = actual.size();
+
+  // The bpf verifier requires that the format string be stored on the
+  // bpf program stack.  This is handled by bpf-opt.cxx lowering STR values.
+  size_t format_bytes = format.size() + 1;
+  this_prog.mk_mov(this_ins, this_prog.lookup_reg(BPF_REG_1),
+                   this_prog.new_str(format));
+  emit_mov(this_prog.lookup_reg(BPF_REG_2), this_prog.new_imm(format_bytes));
+  for (size_t i = 0; i < nargs; ++i)
+    emit_mov(this_prog.lookup_reg(BPF_REG_3 + i), actual[i]);
+
+  if (print_to_stream)
+    this_prog.mk_call(this_ins, BPF_FUNC_trace_printk, nargs + 2);
+  else
+    {
+      this_prog.mk_call(this_ins, BPF_FUNC_sprintf, nargs + 2);
+      return this_prog.lookup_reg(BPF_REG_0);
+    }
+  return NULL;
+}
+
 void
 bpf_unparser::visit_print_format (print_format *e)
 {
@@ -2696,9 +2869,9 @@ bpf_unparser::visit_print_format (print_format *e)
 			     "too many arguments to print (%zu)",
 			     e->args.size(), e->args.size()), e->tok);
 
-  value *actual[3] = { NULL, NULL, NULL };
+  std::vector<value *> actual;
   for (i = 0; i < nargs; ++i)
-    actual[i] = emit_expr(e->args[i]);
+    actual.push_back(emit_expr(e->args[i]));
 
   std::string format;
   if (e->print_with_format)
@@ -2750,36 +2923,17 @@ bpf_unparser::visit_print_format (print_format *e)
       if (e->print_with_newline)
 	format += '\n';
 
-      // surround the string with <MODNAME>...</MODNAME> to facilitate
-      // stapbpf recovering it from debugfs.
       if (e->print_to_stream)
-        {
-          std::string start_tag = module_name;
-          start_tag = "<" + start_tag.erase(4,1) + ">";
-          std::string end_tag = start_tag + "\n";
-          end_tag.insert(1, "/");
-          format = start_tag + format + end_tag;
-        }
+        print_format_add_tag(format);
     }
 
-  // The bpf verifier requires that the format string be stored on the
-  // bpf program stack.  This is handled by bpf-opt.cxx lowering STR values.
   size_t format_bytes = format.size() + 1;
   if (format_bytes > BPF_MAXFORMATLEN)
     throw SEMANTIC_ERROR(_("Format string for print too long"), e->tok);
-  this_prog.mk_mov(this_ins, this_prog.lookup_reg(BPF_REG_1),
-                   this_prog.new_str(format));
-  emit_mov(this_prog.lookup_reg(BPF_REG_2), this_prog.new_imm(format_bytes));
-  for (i = 0; i < nargs; ++i)
-    emit_mov(this_prog.lookup_reg(BPF_REG_3 + i), actual[i]);
 
-  if (e->print_to_stream)
-    this_prog.mk_call(this_ins, BPF_FUNC_trace_printk, nargs + 2);
-  else
-    {
-      this_prog.mk_call(this_ins, BPF_FUNC_sprintf, nargs + 2);
-      result = this_prog.lookup_reg(BPF_REG_0);
-    }
+  value *retval = emit_print_format(format, actual, e->print_to_stream);
+  if (retval != NULL)
+    result = retval;
 }
 
 // } // anon namespace
@@ -3409,7 +3563,7 @@ translate_bpf_pass (systemtap_session& s)
     return 1;
 
   BPF_Output eo(fd);
-  globals glob;
+  globals glob; glob.session = &s;
   int ret = 0;
   const token* t = 0;
   try

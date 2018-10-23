@@ -30,6 +30,7 @@ namespace bpf {
 #define MAX_BPF_STACK 512
 #define BPF_REG_SIZE 8
 #define BPF_MAXSTRINGLEN 64
+// #define BPF_MAXSTRINGLEN 128 // TODO: Longer strings require storage allocator & better printf().
 #define BPF_MAXFORMATLEN 256
 #define BPF_MAXMAPENTRIES 2048
 // TODO: add BPF_MAXSPRINTFLEN
@@ -245,6 +246,7 @@ struct program
   {
     if (max_tmp_space < bytes)
       max_tmp_space = bytes;
+    assert(max_tmp_space <= MAX_BPF_STACK);
   }
 
   void mk_ld(insn_inserter &ins, int sz, value *dest, value *base, int off);
@@ -318,6 +320,9 @@ struct globals
     EXIT = 0,
     NUM_INTERNALS, // non-ABI
   };
+
+  // Used to resolve function symbols in embedded code.
+  systemtap_session *session;
 };
 } // namespace bpf
 
