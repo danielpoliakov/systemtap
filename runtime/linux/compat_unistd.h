@@ -842,6 +842,15 @@
 #ifndef __NR_ia32_pivot_root
 #define __NR_ia32_pivot_root 217
 #endif
+#ifndef __NR_ia32_pkey_alloc
+#define __NR_ia32_pkey_alloc 381
+#endif
+#ifndef __NR_ia32_pkey_free
+#define __NR_ia32_pkey_free 382
+#endif
+#ifndef __NR_ia32_pkey_mprotect
+#define __NR_ia32_pkey_mprotect 380
+#endif
 #ifndef __NR_ia32_poll
 #define __NR_ia32_poll 168
 #endif
@@ -1475,6 +1484,9 @@
 #define __NR_compat_pipe		__NR_ia32_pipe
 #define __NR_compat_pipe2		__NR_ia32_pipe2
 #define __NR_compat_pivot_root		__NR_ia32_pivot_root
+#define __NR_compat_pkey_alloc		__NR_ia32_pkey_alloc
+#define __NR_compat_pkey_free		__NR_ia32_pkey_free
+#define __NR_compat_pkey_mprotect	__NR_ia32_pkey_mprotect
 #define __NR_compat_poll		__NR_ia32_poll
 #define __NR_compat_ppoll		__NR_ia32_ppoll
 #define __NR_compat_prctl		__NR_ia32_prctl
@@ -1814,6 +1826,9 @@
 #define __NR_compat_pipe		__NR_pipe
 #define __NR_compat_pipe2		__NR_pipe2
 #define __NR_compat_pivot_root		__NR_pivot_root
+#define __NR_compat_pkey_alloc		__NR_pkey_alloc
+#define __NR_compat_pkey_free		__NR_pkey_free
+#define __NR_compat_pkey_mprotect	__NR_pkey_mprotect
 #define __NR_compat_poll		__NR_poll
 #define __NR_compat_ppoll		__NR_ppoll
 #define __NR_compat_prctl		__NR_prctl

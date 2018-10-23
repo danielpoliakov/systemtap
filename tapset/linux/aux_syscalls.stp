@@ -6133,6 +6133,17 @@ function _statx_mask_str:string(cmd:long)
                         STAP_RETVALUE, MAXSTRINGLEN);
 %}
 
+function _pkey_alloc_init_val_str:string(init_val:long)
+%{ /* pure */ /* unprivileged */
+        static const _stp_val_array pkey_alloc_init_val_list[] = {
+                V(PKEY_DISABLE_ACCESS),
+                V(PKEY_DISABLE_WRITE),
+                {0, NULL}
+        };
+        _stp_lookup_or_str(pkey_alloc_init_val_list, (unsigned int)STAP_ARG_init_val,
+                           STAP_RETVALUE, MAXSTRINGLEN);
+%}
+
 /* Some syscall interjection mechanisms give us a pt_regs* structure
    for the syscall parameters/context. */
 function __set_syscall_pt_regs(r)

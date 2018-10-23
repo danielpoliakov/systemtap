@@ -9,7 +9,7 @@
 
 @define _SYSCALL_MPROTECT_ARGSTR
 %(
-	argstr = sprintf("%p, %d, %s", addr, len, prot_str)
+	argstr = sprintf("%p, %u, %s", addr, len, prot_str)
 %)
 
 @define _SYSCALL_MPROTECT_REGARGS
