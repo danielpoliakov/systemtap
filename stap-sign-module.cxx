@@ -3,7 +3,7 @@
   key in the given certificate database and places the signature in the named
   output file.
 
-  Copyright (C) 2009-2011 Red Hat Inc.
+  Copyright (C) 2009-2011, 2018 Red Hat Inc.
 
   This file is part of systemtap, and is free software.  You can
   redistribute it and/or modify it under the terms of the GNU General Public
@@ -43,6 +43,7 @@ nsscommon_error (const char *msg, int logit __attribute ((unused)))
 int
 main (int argc, char **argv)
 {
+  NSSInitContext *context;
 #if ENABLE_NLS
   setlocale (LC_ALL, "");
   bindtextdomain (PACKAGE, LOCALEDIR);
@@ -72,8 +73,8 @@ main (int argc, char **argv)
   PK11_SetPasswordFunc (nssPasswordCallback);
 
   /* Initialize NSS. */
-  SECStatus secStatus = nssInit (cert_db_path.c_str());
-  if (secStatus != SECSuccess)
+  context = nssInitContext (cert_db_path.c_str());
+  if (context == NULL)
     {
       // Message already issued.
       return 1;
@@ -82,7 +83,7 @@ main (int argc, char **argv)
   sign_file (cert_db_path, nickName, module_name, module_name + ".sgn");
 
   /* Shutdown NSS and exit NSPR gracefully. */
-  nssCleanup (cert_db_path.c_str ());
+  nssCleanup (cert_db_path.c_str (), context);
   PR_Cleanup ();
 
   return 0;

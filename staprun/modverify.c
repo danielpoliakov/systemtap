@@ -2,7 +2,7 @@
   This program verifies the given file using the given signature, the named
   certificate and public key in the given certificate database.
 
-  Copyright (C) 2009-2013 Red Hat Inc.
+  Copyright (C) 2009-2013, 2018 Red Hat Inc.
 
   This file is part of systemtap, and is free software.  You can
   redistribute it and/or modify it under the terms of the GNU General Public
@@ -275,7 +275,6 @@ int verify_module (const char *signatureName, const char* module_name,
 {
   const char *dbdir  = SYSCONFDIR "/systemtap/staprun";
   SECKEYPublicKey *pubKey;
-  SECStatus secStatus;
   CERTCertList *certList;
   CERTCertListNode *certListNode;
   CERTCertificate *cert;
@@ -285,6 +284,7 @@ int verify_module (const char *signatureName, const char* module_name,
   PRFileDesc *local_file_fd;
   SECItem signature;
   int rc = 0;
+  NSSInitContext *context;
 
   /* Call the NSPR initialization routines. */
   /* XXX: We shouldn't be using NSPR for a lot of this. */
@@ -353,8 +353,8 @@ int verify_module (const char *signatureName, const char* module_name,
     }
 
   /* Initialize NSS. */
-  secStatus = nssInit (dbdir, 0/*readwrite*/, 1/*issueMessage*/);
-  if (secStatus != SECSuccess)
+  context = nssInitContext (dbdir, 0/*readwrite*/, 1/*issueMessage*/);
+  if (context == NULL)
     {
       // Message already issued.
       return MODULE_CHECK_ERROR;
@@ -366,7 +366,7 @@ int verify_module (const char *signatureName, const char* module_name,
       fprintf (stderr, "Unable to find certificates in the certificate database in %s.\n",
 	       dbdir);
       nssError ();
-      nssCleanup (dbdir);
+      nssCleanup (dbdir, context);
       return MODULE_UNTRUSTED;
     }
 
@@ -397,7 +397,7 @@ int verify_module (const char *signatureName, const char* module_name,
   CERT_DestroyCertList (certList);
 
   /* Shutdown NSS and exit NSPR gracefully. */
-  nssCleanup (dbdir);
+  nssCleanup (dbdir, context);
   PR_Cleanup ();
 
   return rc;

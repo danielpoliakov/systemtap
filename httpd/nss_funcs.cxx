@@ -108,9 +108,9 @@ nss_get_server_cert_info(string &cert_serial, string &cert_pem)
 void
 nss_shutdown(string &cert_db_path)
 {
-    /* Shutdown NSS and exit NSPR gracefully. */
-    nssCleanup(cert_db_path.c_str());
-    PR_Cleanup();
+  /* Shutdown NSS and exit NSPR gracefully. */
+  nssCleanup(cert_db_path.c_str(), NULL);
+  PR_Cleanup();
 }
 
 

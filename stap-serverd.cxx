@@ -2529,13 +2529,15 @@ server_main (PRFileDesc *listenSocket)
 {
   int idle_threads;
   int timeout = 0;
+  NSSInitContext *context;
+  SECStatus secStatus;
 
   // Initialize NSS.
-  SECStatus secStatus = nssInit (cert_db_path.c_str ());
-  if (secStatus != SECSuccess)
+  context = nssInitContext (cert_db_path.c_str ());
+  if (context == NULL)
     {
       // Message already issued.
-      return secStatus;
+      return SECFailure;
     }
 
   // Preinitialized here due to jumps to the label 'done'.
@@ -2617,7 +2619,7 @@ server_main (PRFileDesc *listenSocket)
       server_error (_("Unable to shut down server session ID cache"));
       nssError ();
     }
-  nssCleanup (cert_db_path.c_str ());
+  nssCleanup (cert_db_path.c_str (), context);
 
   return secStatus;
 }

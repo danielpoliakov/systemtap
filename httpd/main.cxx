@@ -153,7 +153,7 @@ int
 main(int argc, char *const argv[])
 {
     pthread_t tid;
-
+    
     // Get rid of a few standard environment variables (which might
     // cause us to do unintended things).
     if (unsetenv("IFS") || unsetenv("CDPATH") || unsetenv("ENV")
@@ -176,7 +176,7 @@ main(int argc, char *const argv[])
 
     // Initialize NSS.
     if (nss_init(cert_db_path) != 0)
-	return 1;
+      return 1;
 
     // Create the server and ask the api to register its handlers.
     httpd = new server(port, cert_db_path);

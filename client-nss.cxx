@@ -823,6 +823,8 @@ nss_client_backend::compile_using_server (
   vector<compile_server_info> &servers
 )
 {
+  NSSInitContext *context;
+
   // Make sure NSPR is initialized. Must be done before NSS is initialized
   s.NSPR_init ();
 
@@ -848,8 +850,8 @@ nss_client_backend::compile_using_server (
 
       // Initialize the NSS libraries.
       const char *cert_dir = i->c_str ();
-      SECStatus secStatus = nssInit (cert_dir);
-      if (secStatus != SECSuccess)
+      context = nssInitContext (cert_dir);
+      if (context == NULL)
 	{
 	  // Message already issued.
 	  continue; // try next database
@@ -917,7 +919,7 @@ nss_client_backend::compile_using_server (
 
       // SSL_ClearSessionCache is required before shutdown for client applications.
       SSL_ClearSessionCache ();
-      nssCleanup (cert_dir);
+      nssCleanup (cert_dir, context);
 
       if (rc == SECSuccess)
 	break; // Success!

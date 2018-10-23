@@ -185,12 +185,39 @@ nssError (void)
 }
 
 extern "C"
+NSSInitContext*
+nssInitContext (const char *db_path, int readWrite, int issueMessage)
+{
+  NSSInitContext *context;
+  PRUint32 flags = (readWrite ? NSS_INIT_READONLY : 0) | NSS_INIT_OPTIMIZESPACE;
+
+  string full_db_path = add_cert_db_prefix (db_path);
+  db_path = full_db_path.c_str();
+  // DEBUG
+  char *sd = getenv("SYSTEMTAP_DIR");
+  string nssil_tmp = "/tmp/nssinit.log";
+  std::ofstream nssil_out(nssil_tmp, std::ofstream::app);
+  nssil_out << "NI db=" << db_path << " env=" << (sd ? sd : "") << (readWrite ? " rw" : " r") << endl;
+  nssil_out.close();
+  // DEBUG
+
+  context = NSS_InitContext (db_path, "", "", SECMOD_DB, NULL, flags);
+  if (context == NULL && issueMessage)
+    {
+      nsscommon_error (_F("Error initializing NSS for %s", db_path));
+      nssError ();
+    }
+  return context;
+}
+
+extern "C"
 SECStatus
 nssInit (const char *db_path, int readWrite, int issueMessage)
 {
   SECStatus secStatus;
   string full_db_path = add_cert_db_prefix (db_path);
   db_path = full_db_path.c_str();
+  
   if (readWrite)
     secStatus = NSS_InitReadWrite (db_path);
   else
@@ -205,7 +232,7 @@ nssInit (const char *db_path, int readWrite, int issueMessage)
 
 extern "C"
 void
-nssCleanup (const char *db_path)
+nssCleanup (const char *db_path, NSSInitContext *context)
 {
   // Make sure that NSS has been initialized. Some early versions of NSS do not check this
   // within NSS_Shutdown().
@@ -228,7 +255,13 @@ nssCleanup (const char *db_path)
 
   // Shutdown NSS and ensure that it went down successfully. This is because we can not
   // initialize NSS again if it does not.
-  if (NSS_Shutdown () != SECSuccess)
+
+  SECStatus secStatus;
+  if (context != NULL)
+    secStatus = NSS_ShutdownContext (context);
+  else
+    secStatus = NSS_Shutdown ();
+  if (secStatus != SECSuccess)
     {
       if (db_path)
 	{
@@ -804,14 +837,14 @@ add_client_cert (const string &inFileName, const string &db_path, bool init_db)
       return SECFailure;
     }
 
-  SECStatus secStatus;
+  NSSInitContext *context = NULL;
   if (init_db)
     {
       // The http client adds a cert by calling us via add_server_trust which
       // first has already called nssInit; we don't want to call nssInit twice
       // See if the database already exists and can be initialized.
-      secStatus = nssInit (db_path.c_str (), 1/*readwrite*/, 0/*issueMessage*/);
-      if (secStatus != SECSuccess)
+      context= nssInitContext (db_path.c_str (), 1/*readwrite*/, 0/*issueMessage*/);
+      if (context == NULL)
         {
           // Try again with a fresh database.
           if (clean_cert_db (db_path.c_str ()) != 0)
@@ -829,8 +862,8 @@ add_client_cert (const string &inFileName, const string &db_path, bool init_db)
             }
 
           // Initialize the new database.
-          secStatus = nssInit (db_path.c_str (), 1/*readwrite*/);
-          if (secStatus != SECSuccess)
+          context = nssInitContext (db_path.c_str (), 1/*readwrite*/);
+          if (context == NULL)
             {
               // Message already issued.
               return SECFailure;
@@ -843,6 +876,7 @@ add_client_cert (const string &inFileName, const string &db_path, bool init_db)
   CERTCertDBHandle *handle = 0;
   CERTCertTrust *trust = 0;
   PK11SlotInfo *slot = 0;
+  SECStatus secStatus;
 
   // Add the cert to the database
   // Decode the cert.
@@ -910,7 +944,7 @@ add_client_cert (const string &inFileName, const string &db_path, bool init_db)
   if (certDER.data)
     PORT_Free (certDER.data);
   if (init_db)
-    nssCleanup (db_path.c_str ());
+    nssCleanup (db_path.c_str (), context);
 
   // Make sure that the cert database files are read/write by the owner and
   // readable by all.
@@ -978,6 +1012,7 @@ gen_cert_db (const string &db_path, const string &extraDnsNames, bool use_passwo
   int rc;
   string outFileName;
   FILE *outFile = 0;
+  secStatus = SECFailure;
 
   // We need the internal slot for this database.
   PK11SlotInfo *slot = PK11_GetInternalKeySlot ();
@@ -1101,7 +1136,7 @@ gen_cert_db (const string &db_path, const string &extraDnsNames, bool use_passwo
     CERT_DestroyCertificate (cert); // Also destroys certDER.
 
  done:
-  nssCleanup (db_path.c_str ());
+  nssCleanup (db_path.c_str (), NULL);
   return secStatus != SECSuccess;
 }
 
@@ -1232,6 +1267,8 @@ static bool
 cert_db_is_valid (const string &db_path, const string &nss_cert_name, 
 		  CERTCertificate *this_cert)
 {
+  NSSInitContext *context;
+
   // Make sure the given path exists.
   if (! file_exists (db_path))
     {
@@ -1247,8 +1284,8 @@ cert_db_is_valid (const string &db_path, const string &nss_cert_name,
     }
 
   // Initialize the NSS libraries -- readonly
-  SECStatus secStatus = nssInit (db_path.c_str ());
-  if (secStatus != SECSuccess)
+  context = nssInitContext (db_path.c_str ());
+  if (context == NULL)
     {
       // Message already issued.
       return false;
@@ -1296,7 +1333,7 @@ cert_db_is_valid (const string &db_path, const string &nss_cert_name,
   CERT_DestroyCertList (certs);
 
  done:
-  nssCleanup (db_path.c_str ());
+  nssCleanup (db_path.c_str (), context);
   return valid_p;
 }
 
@@ -1309,6 +1346,7 @@ static bool
 get_pem_cert_is_valid (const string &db_path, const string &nss_cert_name,
                        const string &host_name, CERTCertificate *this_cert)
 {
+  NSSInitContext *context;
   bool nss_already_init_p = false;
   bool found_match = false;
 
@@ -1321,13 +1359,14 @@ get_pem_cert_is_valid (const string &db_path, const string &nss_cert_name,
   if (NSS_IsInitialized ())
     nss_already_init_p = true;
 
-  if (nssInit (db_path.c_str ()) != SECSuccess)
+  context = nssInitContext (db_path.c_str (), 0 /* readWrite */, 0 /* issueMessage */);
+  if (context == NULL)
     return false;
 
   CERTCertList *certs = get_cert_list_from_db (nss_cert_name);
   if (! certs)
     {
-      nssCleanup (db_path.c_str ());
+      nssCleanup (db_path.c_str (), context);
       return false;
     }
 
@@ -1365,7 +1404,7 @@ get_pem_cert_is_valid (const string &db_path, const string &nss_cert_name,
 
   // NSS shutdown is global and is forceful
   if (!nss_already_init_p)
-    nssCleanup (db_path.c_str ());
+    nssCleanup (db_path.c_str (), context);
   return found_match;
 }
 
@@ -1408,8 +1447,8 @@ get_pem_cert (const string &db_path, const string &nss_cert_name, const string &
   if (get_pem_cert_is_valid (db_path, nss_cert_name, host, c))
     {
       // If we do, then convert to PEM form
-      cvt_nss_to_pem (c, cert);
-      return true;
+      if (cvt_nss_to_pem (c, cert))
+        return true;
     }
   return false;
 }

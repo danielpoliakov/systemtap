@@ -14,6 +14,7 @@ extern "C" {
 #endif
 
 #include <pk11func.h>
+#include <nss.h>
 #include "config.h"
 #if ENABLE_NLS
 #include <libintl.h>
@@ -38,7 +39,8 @@ char *nssPasswordCallback (PK11SlotInfo *info __attribute ((unused)),
 			   void *arg __attribute ((unused)));
 
 SECStatus nssInit (const char *db_path, INIT (int readWrite, 0), INIT (int issueMessage, 1));
-void nssCleanup (const char *db_path);
+NSSInitContext * nssInitContext (const char *db_path, INIT (int readWrite, 0), INIT (int issueMessage, 1));
+void nssCleanup (const char *db_path, NSSInitContext *context);
 
 void nsscommon_error (const char *msg, INIT(int logit, 1));
 void nssError (void);

@@ -64,7 +64,7 @@ public:
   enum cert_type {signer_trust, ssl_trust};
 
 
-  bool download (const std::string & url, enum download_type type, bool report_errors);
+  bool download (const std::string & url, enum download_type type, bool report_errors, bool cleanup);
   bool download_pem_cert (const std::string & url, std::string & certs);
   bool post (const string & url, vector<tuple<string, string>> & request_parameters);
   void add_file (std::string filename);
@@ -241,15 +241,6 @@ http_client::trace(CURL *, curl_infotype type, unsigned char *data, size_t size,
 }
 
 
-static size_t
-null_writefunction (void *ptr,  size_t  size,  size_t  nmemb,  void *stream)
-{
-  (void)stream;
-  (void)ptr;
-  return size * nmemb;
-}
-
-
 // Read the certificate bundle corresponding to 'url into 'certs'
 
 bool
@@ -259,16 +250,32 @@ http_client::download_pem_cert (const std::string & url, string & certs)
   CURLcode res;
   bool have_certs = false;
   struct curl_certinfo *certinfo;
+  struct curl_slist *headers = NULL;
 
   // Get the certificate info for the url
-  curl_global_init (CURL_GLOBAL_DEFAULT);
   dpc_curl = curl_easy_init ();
 
   curl_easy_setopt(dpc_curl, CURLOPT_URL, url.c_str());
-  curl_easy_setopt(dpc_curl, CURLOPT_WRITEFUNCTION, null_writefunction);
   curl_easy_setopt(dpc_curl, CURLOPT_SSL_VERIFYPEER, 0L);
   curl_easy_setopt(dpc_curl, CURLOPT_SSL_VERIFYHOST, 0L);
   curl_easy_setopt(dpc_curl, CURLOPT_VERBOSE, 0L);
+
+  curl_easy_setopt (dpc_curl, CURLOPT_ACCEPT_ENCODING, "deflate");
+  headers = curl_slist_append (headers, "Accept: */*");
+  headers = curl_slist_append (headers, "Content-Type: text/html");
+  curl_easy_setopt (dpc_curl, CURLOPT_HTTPHEADER, headers);
+  curl_easy_setopt (dpc_curl, CURLOPT_HTTPGET, 1);
+  // older versions of curl don't support CURLINFO_CERTINFO reliably
+  // so use server return cert info as a backup
+  curl_easy_setopt (dpc_curl, CURLOPT_WRITEDATA, http);
+  curl_easy_setopt (dpc_curl, CURLOPT_WRITEFUNCTION,
+                    http_client::get_data_shim);
+
+  if (s.verbose > 2)
+    {
+      curl_easy_setopt (dpc_curl, CURLOPT_VERBOSE, 1L);
+      curl_easy_setopt (dpc_curl, CURLOPT_DEBUGFUNCTION, trace);
+    }
   curl_easy_setopt(dpc_curl, CURLOPT_CERTINFO, 1L);
 
   res = curl_easy_perform (dpc_curl);
@@ -279,7 +286,7 @@ http_client::download_pem_cert (const std::string & url, string & certs)
   res = curl_easy_getinfo (dpc_curl, CURLINFO_CERTINFO, &certinfo);
 
   // Create a certificate bundle from the certificate info
-  if (!res && certinfo)
+  if (!res && certinfo->num_of_certs > 0)
     {
       for (int i = 0; i < certinfo->num_of_certs; i++)
         {
@@ -299,6 +306,17 @@ http_client::download_pem_cert (const std::string & url, string & certs)
             }
         }
     }
+  else if (!res && certinfo->num_of_certs == 0)
+    {
+      json_object *cert_obj;
+      // Get the certificate returned by the server
+      if  (json_object_object_get_ex (root, "certificate", &cert_obj))
+        {
+          certs = string (json_object_get_string(cert_obj));
+          have_certs = true;
+        }
+    }
+
 
   if (s.verbose >= 2)
     clog << "Server returned certificate chain with: " << certinfo->num_of_certs << " members" << endl;
@@ -311,14 +329,15 @@ http_client::download_pem_cert (const std::string & url, string & certs)
 
 
 bool
-http_client::download (const std::string & url, http_client::download_type type, bool report_errors)
+http_client::download (const std::string & url, http_client::download_type type, bool report_errors, bool cleanup)
 {
   struct curl_slist *headers = NULL;
 
   if (curl)
     curl_easy_reset (curl);
-  curl = curl_easy_init ();
-  curl_global_init (CURL_GLOBAL_ALL);
+  else
+    curl = curl_easy_init ();
+
   if (s.verbose > 2)
     {
       curl_easy_setopt (curl, CURLOPT_VERBOSE, 1L);
@@ -363,6 +382,13 @@ http_client::download (const std::string & url, http_client::download_type type,
   curl_easy_setopt (curl, CURLOPT_HEADERFUNCTION, http_client::get_header_shim);
 
   CURLcode res = curl_easy_perform (curl);
+
+  if (cleanup)
+    {
+      curl_easy_cleanup(curl);
+      curl_global_cleanup();
+      curl = 0;
+    }
 
   if (res != CURLE_OK && res != CURLE_GOT_NOTHING)
     {
@@ -446,6 +472,8 @@ http_client::get_rpmname (std::string &search_file)
 	if (found)
 	  break;
       }
+
+    rpmFreeCrypto ();
     rpmdbFreeIterator (mi);
     rpmtsFree (ts);
     rpmtdFree (td);
@@ -864,10 +892,7 @@ http_client::add_server_cert_to_client (string &tmpdir, bool init_db)
 bool
 http_client::delete_op (const std::string & url)
 {
-  if (curl)
-    curl_easy_reset (curl);
   curl = curl_easy_init ();
-  curl_global_init (CURL_GLOBAL_ALL);
   if (s.verbose > 2)
     {
       curl_easy_setopt (curl, CURLOPT_VERBOSE, 1L);
@@ -933,7 +958,10 @@ http_client::check_trust (enum cert_type this_cert_type, vector<compile_server_i
     }
   if (specified_servers.size() == 0)
     {
-      clog << "No matching " << cert_string << " server; the " << cert_string << " servers are\n" << server_list << endl;
+      clog << "No matching " << cert_string << " server";
+      if (server_list.size() > 0)
+        clog << "; the " << cert_string << " servers are\n" << server_list;
+      clog << endl;
       return false;
     }
   else
@@ -1117,6 +1145,9 @@ http_client_backend::find_and_connect_to_server ()
   const string cert_db = local_client_cert_db_path ();
   const string nick = server_cert_nickname ();
 
+  if (s.verbose >= 2)
+    clog << "connecting to server using cert db " + cert_db << endl;
+
   vector<compile_server_info> specified_servers;
   nss_get_specified_server_info (s, specified_servers);
 
@@ -1134,48 +1165,59 @@ http_client_backend::find_and_connect_to_server ()
       // Try to connect to the server. We'll try to grab the base
       // directory of the server just to see if we can make a
       // connection.
+      __label__ TRY_NEXT_SERVER;
       string pem_cert;
       bool add_cert = false;
       string url = "https://" + i->host_specification();
       http->host = i->unresolved_host_name;
 
-      // We don't have a suitable certificate so download the server certificate bundle
-      if (get_pem_cert(cert_db, nick, http->host, pem_cert) == false)
+      int download_tries;
+      if (get_pem_cert(cert_db, nick, http->host, pem_cert) == true)
+        download_tries = 2; // 1st try cert db 2nd download cert from server
+      else
+        download_tries = 1; // download cert from server
+
+      while (download_tries)
         {
-          if (http->download_pem_cert (url, pem_cert) == false)
-            continue;
-          else
-            add_cert = true;
+          if (download_tries == 1)
+            {
+              pem_cert = "";
+              if (http->download_pem_cert (url, pem_cert) == false)
+                goto TRY_NEXT_SERVER;
+              else
+                add_cert = true;
+            }
+          string pem_tmp = client_tmpdir + "/pemXXXXXX";
+          int fd = mkstemp ((char*)pem_tmp.c_str());
+          close(fd);
+          std::ofstream pem_out(pem_tmp);
+          pem_out << pem_cert;
+          pem_out.close();
+          http->pem_cert_file = pem_tmp;
+          // Similar to CURLOPT_VERIFYHOST: compare source alternate names to hostname
+          if (have_san_match (url, pem_cert) == false)
+            goto TRY_NEXT_SERVER;
+
+          // curl invocation for a download must be the same as the preceding post
+          if (http->download (url + "/", http->json_type, false, false) == true)
+            break;
+          remove_file_or_dir (pem_tmp.c_str());
+          download_tries -= 1;
         }
-      string pem_tmp = client_tmpdir + "/pemXXXXXX";
-      int fd = mkstemp ((char*)pem_tmp.c_str());
-      close(fd);
-      std::ofstream pem_out(pem_tmp);
-      pem_out << pem_cert;
-      pem_out.close();
-      http->pem_cert_file = pem_tmp;
-      // Similar to CURLOPT_VERIFYHOST: compare source alternate names to hostname
-      if (have_san_match (url, pem_cert) == false)
-        continue;
 
-      if (http->download (url + "/", http->json_type, true))
+      // FIXME: The server returns its version number. We might
+      // need to check it for compatibility.
+
+      // Send our build request.
+      if (http->post (url + "/builds", request_parameters))
         {
-	  // FIXME: The server returns its version number. We might
-	  // need to check it for compatibility.
-	  //
-	  // FIXME 2: When the server starts signing modules, we'll
-	  // need to check and see if it is trusted.
-
-	  // Send our build request.
-	  if (http->post (url + "/builds", request_parameters))
-	    {
-	      s.winning_server = url;
-	      http->host = url;
-	      if (add_cert)
-	        http->add_server_cert_to_client (client_tmpdir, true);
-	      return 0;
-	    }
-	}
+          s.winning_server = url;
+          http->host = url;
+          if (add_cert)
+            http->add_server_cert_to_client (client_tmpdir, true);
+          return 0;
+        }
+      TRY_NEXT_SERVER:;
     }
 
   return 1;
@@ -1209,7 +1251,7 @@ http_client_backend::unpack_response ()
 	clog << "Waiting " << retry << " seconds" << endl;
       sleep (retry);
       if (http->download (http->host + http->header_values["Location"],
-			  http->json_type, true))
+			  http->json_type, true, false))
         {
 	  // We need to wait until we get a 303 (See Other)
 	  long response_code = http->get_response_code();
@@ -1231,7 +1273,7 @@ http_client_backend::unpack_response ()
   // If we're here, we got a '303' (See Other). Read the "other"
   // location, which should contain our results.
   if (! http->download (http->host + http->header_values["Location"],
-			http->json_type, true))
+			http->json_type, true, false))
     {
       clog << "Couldn't read result information" << endl;
       return 1;
@@ -1278,7 +1320,7 @@ http_client_backend::unpack_response ()
 	  json_object *loc;
 	  jfound = json_object_object_get_ex (files_element, "location", &loc);
 	  string location = json_object_get_string (loc);
-	  http->download (http->host + location, http->file_type, true);
+	  http->download (http->host + location, http->file_type, true, false);
 	}
     }
 
@@ -1288,7 +1330,7 @@ http_client_backend::unpack_response ()
   if (jfound)
     {
       string loc_str = json_object_get_string (loc_obj);
-      http->download (http->host + loc_str, http->file_type, true);
+      http->download (http->host + loc_str, http->file_type, true, false);
     }
   else
     {
@@ -1300,7 +1342,7 @@ http_client_backend::unpack_response ()
   if (jfound)
     {
       string loc_str = json_object_get_string (loc_obj);
-      http->download (http->host + loc_str, http->file_type, true);
+      http->download (http->host + loc_str, http->file_type, true, false);
     }
   else
     {
@@ -1380,50 +1422,73 @@ http_client_backend::fill_in_server_info (compile_server_info &info)
   string url = "https://" + host + ":" + std::to_string(info.port);
   string pem_cert;
 
+  if (s.verbose >= 2)
+    {
+      char hostname[NI_MAXHOST];
+      memset (&hostname, '\0', NI_MAXHOST);
+      PR_NetAddrToString(&info.address, hostname, NI_MAXHOST);
+      clog << "getting server info for " + url + " " + hostname + " using cert db " + cert_db << endl;
+    }
+
   // Try to get the server certificate and the base
   // directory of the server just to see if we can make a
   // connection.
   if (host.empty())
     return;
 
-  if (file_exists (cert_db) == false
-      || get_pem_cert(cert_db, nick, info.unresolved_host_name, pem_cert) == false)
-     {
-       if (http->download_pem_cert (url, pem_cert) == false)
-         return;
-     }
-  string pem_tmp = s.tmpdir + "/pemXXXXXX";
-  int fd = mkstemp ((char*)pem_tmp.c_str());
-  close(fd);
-  std::ofstream pem_out(pem_tmp);
-  pem_out << pem_cert;
-  pem_out.close();
-  http->pem_cert_file = pem_tmp;
+  int download_tries;
+  // Obtain server info based on network address instead of host name?
+  if (file_exists (cert_db) == true && get_pem_cert(cert_db, nick, http->host, pem_cert) == true)
+    download_tries = 2; // 1st try cert db 2nd download cert from server
+  else
+    download_tries = 1; // download cert from server
 
-
-  if (http->download (url, http->json_type, false))
+  while (download_tries)
     {
-      json_object *ver_obj;
-      json_bool jfound;
+      if (download_tries == 1)
+        {
+          pem_cert = "";
+          if (http->download_pem_cert (url, pem_cert) == false)
+            return;
+        }
+      string pem_tmp = s.tmpdir + "/pemXXXXXX";
+      int fd = mkstemp ((char*)pem_tmp.c_str());
+      close(fd);
+      std::ofstream pem_out(pem_tmp);
+      pem_out << pem_cert;
+      pem_out.close();
+      http->pem_cert_file = pem_tmp;
+      // Similar to CURLOPT_VERIFYHOST: compare source alternate names to hostname
+      if (have_san_match (url, pem_cert) == false)
+        return;
 
-      // Get the server version number.
-      jfound = json_object_object_get_ex (http->root, "version", &ver_obj);
-      if (jfound)
-	info.version = json_object_get_string(ver_obj);
+      // curl invocation for a download must be the same as the preceding post
+      if (http->download (url + "/", http->json_type, false, true) == true)
+        break;
+      remove_file_or_dir (pem_tmp.c_str());
+      download_tries -= 1;
+    }
 
-      // Get the server arch.
-      jfound = json_object_object_get_ex (http->root, "arch", &ver_obj);
-      if (jfound)
-	info.sysinfo = json_object_get_string(ver_obj);
+  json_object *ver_obj;
+  json_bool jfound;
 
-      // Get the server certificate info.
-      jfound = json_object_object_get_ex (http->root, "cert_info", &ver_obj);
-      if (jfound)
-	info.certinfo = json_object_get_string(ver_obj);
+  // Get the server version number.
+  jfound = json_object_object_get_ex (http->root, "version", &ver_obj);
+  if (jfound)
+    info.version = json_object_get_string(ver_obj);
 
-      // If the download worked, this server is obviously online.
-      nss_add_online_server_info (s, info);
-  }
+  // Get the server arch.
+  jfound = json_object_object_get_ex (http->root, "arch", &ver_obj);
+  if (jfound)
+    info.sysinfo = json_object_get_string(ver_obj);
+
+  // Get the server certificate info.
+  jfound = json_object_object_get_ex (http->root, "cert_info", &ver_obj);
+  if (jfound)
+    info.certinfo = json_object_get_string(ver_obj);
+
+  // If the download worked, this server is obviously online.
+  nss_add_online_server_info (s, info);
 }
 
 int
@@ -1434,6 +1499,9 @@ http_client_backend::trust_server_info (const compile_server_info &info)
   string pem_cert;
   string host = info.unresolved_host_name;
   string url = "https://" + host + ":" + std::to_string(info.port);
+
+  if (s.verbose >= 2)
+    clog << "getting server trust for " + url + " using cert db " + cert_db << endl;
 
   if (http->download_pem_cert (url, pem_cert) == false)
     return 1;
@@ -1449,7 +1517,7 @@ http_client_backend::trust_server_info (const compile_server_info &info)
   if (have_san_match (url, pem_cert) == false)
     return 1;
 
-  if (http->download (url + "/", http->json_type, false))
+  if (http->download (url + "/", http->json_type, false, true))
     http->add_server_cert_to_client (s.tmpdir, false);
 
   return 0;

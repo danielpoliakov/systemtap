@@ -503,7 +503,7 @@ add_server_trust (
   // Shutdown NSS.
   // SSL_ClearSessionCache is required before shutdown for client applications.
   SSL_ClearSessionCache ();
-  nssCleanup (cert_db_path.c_str ());
+  nssCleanup (cert_db_path.c_str (), NULL);
 
   // Make sure the database files are readable.
   glob_t globbuf;
@@ -559,12 +559,13 @@ revoke_server_trust (
   CERTCertificate *db_cert;
   vector<string> processed_certs;
   const char *nickname;
-
+  SECStatus secStatus;
+  
   // Make sure NSPR is initialized. Must be done before NSS is initialized
   s.NSPR_init ();
 
   // Initialize the NSS libraries -- read/write
-  SECStatus secStatus = nssInit (cert_db_path.c_str (), 1/*readwrite*/);
+  secStatus = nssInit (cert_db_path.c_str (), 1/*readwrite*/);
   if (secStatus != SECSuccess)
     {
       // Message already issued
@@ -672,7 +673,7 @@ revoke_server_trust (
   if (tmpArena)
     PORT_FreeArena (tmpArena, PR_FALSE);
 
-  nssCleanup (cert_db_path.c_str ());
+  nssCleanup (cert_db_path.c_str (), NULL);
 }
 
 // Obtain information about servers from the certificates in the given database.
@@ -683,6 +684,8 @@ get_server_info_from_db (
     const string &cert_db_path
   )
 {
+  NSSInitContext *context;
+
   // Make sure the given path exists.
   if (! file_exists (cert_db_path))
     {
@@ -696,8 +699,8 @@ get_server_info_from_db (
   s.NSPR_init ();
 
   // Initialize the NSS libraries -- readonly
-  SECStatus secStatus = nssInit (cert_db_path.c_str ());
-  if (secStatus != SECSuccess)
+  context = nssInitContext (cert_db_path.c_str (), 0 /* readWrite */, 0 /* issueMessage */);
+  if (context == NULL)
     {
       // Message already issued.
       return;
@@ -741,7 +744,7 @@ get_server_info_from_db (
   if (certs)
     CERT_DestroyCertList (certs);
 
-  nssCleanup (cert_db_path.c_str ());
+  nssCleanup (cert_db_path.c_str (), context);
 }
 
 // Utility Functions.
