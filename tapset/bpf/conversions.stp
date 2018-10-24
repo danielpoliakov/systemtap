@@ -44,8 +44,10 @@ function kernel_string:string (addr:long, err_msg:string)
   0xa5, rc, 0, _err, -; /* jlt $rc, 0, _err */
   0xbf, $$, $buf, -, -; /* mov $$, $buf */
   0x05, -, -, _done, -; /* ja _done; */
+
   label, _err;
   0xbf, $$, $err_msg, -, -; /* mov $$, $err_msg */
+
   label, _done;
 %}
 function kernel_string2:string (addr:long, err_msg:string) {
@@ -67,21 +69,21 @@ function kernel_string_n:string (addr:long, n:long)
   /* if (n > BPF_MAXSTRINGLEN) n = BPF_MAXSTRINGLEN; */
   0xb5, $n, -, _skip, BPF_MAXSTRINGLEN; /* jle n, BPF_MAXSTRINGLEN, _skip */
   0xb7, $n, -, -, BPF_MAXSTRINGLEN; /* mov $n, BPF_MAXSTRINGLEN */
-  label, _skip;
 
+  label, _skip;
   /* buf = bpf_stk_alloc(BPF_MAXSTRINGLEN);
      buf[0] = 0x0; // guarantee NUL byte
      rc = bpf_probe_read_str(buf, n, addr); */
   alloc, $buf, BPF_MAXSTRINGLEN;
   0x62, $buf, -, -, 0x0; /* stw [buf+0], 0 -- guarantee NUL byte */
-  call, $rc, probe_read_str, $buf, $n, $addr; /* TODO: should work with bpf_probe_read_str too */
+  call, $rc, probe_read_str, $buf, $n, $addr; /* TODO: should work if the helper is named bpf_probe_read_str() too */
 
-  /* TODO pending implementation of error */
   /* if (rc < 0) error("...", addr); */
-  /*0x35, $rc, 0, _done, -; /* jge rc, 0, _done */
-  /*error, "kernel string copy fault at 0x%p [man error::fault]", $addr; /* TODO document bpf version of error::fault */
-  /*label, _done;*/
+  0x35, $rc, 0, _done, -; /* jge rc, 0, _done */
+  call, -, printf, "ERROR: kernel string copy fault at 0x%p [man error::fault]", $addr; /* TODO document stapbpf version of error::fault */
+  call, -, exit;
 
+  label, _done;
   /* return buf; */
   0xbf, $$, $buf, -, -; /* mov $$, buf */
 %}
