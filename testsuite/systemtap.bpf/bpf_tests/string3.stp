@@ -1,0 +1,44 @@
+// stapbpf string manipulation -- store string in global from kernel space
+// XXX: the 'locking' scheme here is kind of dumb but it seems to work
+
+global counter = 0
+global var
+global tab1
+global tab2
+
+@define test_print
+%(
+  /* Test multiple %s in one printf */
+  printf("[")
+  printf("%s%s%s", "str0", var, tab1[17])
+  printf("%s]", tab2["key"])
+%)
+
+probe begin {
+  printf("BEGIN")
+}
+
+probe kernel.function("vfs_read") {
+  if (counter == 0) {
+    var = "str1"
+    tab1[17] = "str2"
+    tab2["key"] = "str3"
+    printf("probe0")
+    @test_print
+    counter = 1
+  }
+}
+
+probe kernel.function("vfs_read") {
+  if (counter == 1) {
+    printf("probe1")
+    @test_print
+    exit()
+  }
+}
+
+probe end {
+  printf("end")
+  @test_print
+  printf("END\n")
+}

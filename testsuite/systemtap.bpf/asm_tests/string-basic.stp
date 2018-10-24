@@ -1,0 +1,19 @@
+/* narrowing down a bug that turned out unrelated to assembly */
+function foo:string() %{ /* bpf */ /* pure */
+  0xbf, $$, "test", -, -;
+%}
+
+probe begin {
+  printf("U %s %s\n", foo(), "test"/*bar (5)*/)
+}
+
+probe kernel.function("vfs_read") {
+  printf("K 1 %s\n", foo()) // <- this worked
+  printf("K 2 %s\n", "test") // <- this worked
+  printf("K 3 %s %s\n", foo(), "test") // <- this didn't
+  printf("K 4 %s %s\n", "test", "test") // <- this didn't
+  printf("K 5 %s %s\n", foo(), foo()) // <- this didn't
+  printf("K 6 %s", "test") printf(" %s\n", "test") // <- this did
+  printf("K %d %s\n", 7, "test") // <- this did
+  exit()
+}
