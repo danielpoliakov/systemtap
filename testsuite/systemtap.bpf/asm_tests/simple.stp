@@ -1,0 +1,16 @@
+function foo:long (x:long) %{ /* bpf */ /* pure */
+  /* compute 100-x */
+  0xb7, $$, -, -, 100; /* mov $$, 100 */
+  0x1f, $$, $x, -, -; /* sub $$, $x */
+%}
+
+probe begin {
+  printf("U foo(1)=%d, should be 99\n", foo(1))
+  printf("U foo(15)=%d, should be 85\n", foo(15))
+}
+
+probe kernel.function("vfs_read") {
+  printf("K foo(1)=%d, should be 99\n", foo(1))
+  printf("K foo(15)=%d, should be 85\n", foo(15))
+  exit()
+}

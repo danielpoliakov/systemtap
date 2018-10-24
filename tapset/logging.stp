@@ -95,8 +95,8 @@ function abort ()
 %:
   { /* unprivileged */ /* bpf */
     _set_exit_status()
-    printf("ERROR: abort() not supported yet\n")
-    exit()  /* TODO: need to abort the execution flow immediately */
+    printf("ERROR: abort() not supported in eBPF backend\n")
+    exit()  /* TODO: need to abort the execution flow immediately -- could be handled with a special assembly operation */
   }
 %)
 %)

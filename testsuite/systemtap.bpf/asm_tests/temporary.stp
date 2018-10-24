@@ -1,0 +1,19 @@
+function foo:long (x:long) %{ /* bpf */ /* pure */
+  /* compute (100-x)*(x+2) */
+  0xb7, $$, -, -, 100; /* mov $$, 100 */
+  0x1f, $$, $x, -, -; /* sub $$, $x */
+  0xbf, $tmp, $x, -, -; /* mov $tmp, $x */
+  0x07, $tmp, -, -, 2; /* add $tmp, 2 */
+  0x2f, $$, $tmp, -, -; /* mul $$, $tmp */
+%}
+
+probe begin {
+  printf("U foo(1)=%d, should be 99*3=297\n", foo(1))
+  printf("U foo(15)=%d, should be 85*18=1530\n", foo(15))
+}
+
+probe kernel.function("vfs_read") {
+  printf("K foo(1)=%d, should be 99*3=297\n", foo(1))
+  printf("K foo(15)=%d, should be 85*18=1530\n", foo(15))
+  exit()
+}

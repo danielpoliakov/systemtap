@@ -135,31 +135,43 @@ is_commutative(opcode code)
     }
 }
 
+/* Various functions for eBPF helper lookup: */
+
+std::map<unsigned, const char *> bpf_func_name_map;
+std::map<std::string, bpf_func_id> bpf_func_id_map;
+
+void
+init_bpf_helper_tables ()
+{
+#define __BPF_SET_FUNC_NAME(x) bpf_func_name_map[BPF_FUNC_ ## x] = #x
+#define __BPF_SET_FUNC_ID(x) bpf_func_id_map[#x] = BPF_FUNC_ ## x
+  __BPF_FUNC_MAPPER(__BPF_SET_FUNC_NAME)
+  __STAPBPF_FUNC_MAPPER(__BPF_SET_FUNC_NAME)
+  __BPF_FUNC_MAPPER(__BPF_SET_FUNC_ID)
+  __STAPBPF_FUNC_MAPPER(__BPF_SET_FUNC_ID)
+  (void)0;
+}
+
 const char *
 bpf_function_name (unsigned id)
 {
-  switch (id)
-    {
-    case BPF_FUNC_map_lookup_elem:	return "map_lookup_elem";
-    case BPF_FUNC_map_update_elem:	return "map_update_elem";
-    case BPF_FUNC_map_delete_elem:	return "map_delete_elem";
-    case BPF_FUNC_probe_read:		return "probe_read";
-    case BPF_FUNC_ktime_get_ns:		return "ktime_get_ns";
-    case BPF_FUNC_trace_printk:		return "trace_printk";
-    case BPF_FUNC_get_prandom_u32:	return "get_prandom_u32";
-    case BPF_FUNC_get_smp_processor_id:	return "get_smp_processor_id";
-    case BPF_FUNC_get_current_pid_tgid:	return "get_current_pid_tgid";
-    case BPF_FUNC_get_current_uid_gid:	return "get_current_uid_gid";
-    case BPF_FUNC_get_current_comm:	return "get_current_comm";
-    case BPF_FUNC_perf_event_read:	return "perf_event_read";
-    case BPF_FUNC_perf_event_output:	return "perf_event_output";
-    default:				return NULL;
-    }
+  if (bpf_func_name_map.count(id) != 0)
+    return bpf_func_name_map[id];
+  return NULL;
+}
+
+bpf_func_id
+bpf_function_id (const std::string& name)
+{
+  if (bpf_func_id_map.count(name) != 0)
+    return bpf_func_id_map[name];
+  return __BPF_FUNC_MAX_ID;
 }
 
 unsigned
 bpf_function_nargs (unsigned id)
 {
+  // ??? generalize to all bpf functions
   switch (id)
     {
     case BPF_FUNC_map_lookup_elem:	return 2;

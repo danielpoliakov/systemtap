@@ -1,0 +1,9 @@
+function foo:long (x:long) %{ /* bpf */
+  call, -, printf, "x = 0x%p causing exit\n", $x, $x, $x, $x;
+  0xb7, $$, -, -, 0x0; /* mov $$, 0 */
+%}
+
+probe begin {
+  printf("U x = 10 should print:\n"); foo(10)
+  exit()
+}

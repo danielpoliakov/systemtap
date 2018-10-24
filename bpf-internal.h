@@ -30,6 +30,7 @@ namespace bpf {
 #define MAX_BPF_STACK 512
 #define BPF_REG_SIZE 8
 #define BPF_MAXSTRINGLEN 64
+// #define BPF_MAXSTRINGLEN 128 // TODO: Longer strings require storage allocator & better printf().
 #define BPF_MAXFORMATLEN 256
 #define BPF_MAXMAPENTRIES 2048
 // TODO: add BPF_MAXSPRINTFLEN
@@ -96,14 +97,20 @@ bool is_move(opcode c);
 bool is_ldst(opcode c);
 bool is_binary(opcode c);
 bool is_commutative(opcode c);
+
+void init_bpf_helper_tables();
 const char *bpf_function_name (unsigned id);
+bpf_func_id bpf_function_id (const std::string &name);
 unsigned bpf_function_nargs (unsigned id);
 
 const opcode BPF_LD_MAP = BPF_LD | BPF_IMM | BPF_DW | (BPF_PSEUDO_MAP_FD << 8);
 
-// Not actual BPF helpers, but treating them like one simplifies some of the
+// Not actual BPF helpers, but treating them as such simplifies some of the
 // interpreter logic. We give them IDs that shouldn't conflict with IDs of
 // real BPF helpers.
+#define __STAPBPF_FUNC_MAPPER(FN) \
+  FN(map_get_next_key),           \
+  FN(sprintf),
 const bpf_func_id BPF_FUNC_map_get_next_key    = (bpf_func_id) -1;
 const bpf_func_id BPF_FUNC_sprintf             = (bpf_func_id) -2;
 
@@ -239,6 +246,7 @@ struct program
   {
     if (max_tmp_space < bytes)
       max_tmp_space = bytes;
+    assert(max_tmp_space <= MAX_BPF_STACK);
   }
 
   void mk_ld(insn_inserter &ins, int sz, value *dest, value *base, int off);
@@ -261,9 +269,10 @@ struct program
   void print(std::ostream &) const;
 };
 
-// ??? Properly belongs to bpf_unparser but must be accessible from bpf-opt.cxx:
-value *emit_literal_str(program &this_prog, insn_inserter &this_ins,
-                        value *dest, int ofs, std::string &src, bool zero_pad = false);
+// ??? Properly belongs to bpf_unparser but must be visible from bpf-opt.cxx:
+value *emit_simple_literal_str(program &this_prog, insn_inserter &this_ins,
+                               value *dest, int ofs, std::string &src,
+                               bool zero_pad = false);
 
 inline std::ostream&
 operator<< (std::ostream &o, const program &c)
@@ -311,6 +320,9 @@ struct globals
     EXIT = 0,
     NUM_INTERNALS, // non-ABI
   };
+
+  // Used to resolve function symbols in embedded code.
+  systemtap_session *session;
 };
 } // namespace bpf
 

@@ -1,0 +1,25 @@
+function foo:long (x:long) %{ /* bpf */ /* pure */
+  /* if x < 10 then 17 else 16 */
+  0xa5, $x, -, _bar, 10; /* jlt $x, 10, _bar */
+  0xb7, $this is an "!!ide\nt!!"   believe it or not, -, -, 16; /* mov $t, 0 */
+  0xbf, $$, $thisisan"!!ide\nt!!"believeitornot, -, -; /* mov $$, $t */
+  0x05, -, -, _done, -; /* ja _done; */
+  label, _bar;
+  0xb7, $$, -, -, 17; /* mov $$, 1 */
+  label, _done;
+%}
+
+function bar:long (x:long) {
+  if (x < 10) return 17 else return 16
+}
+
+probe begin {
+  printf("U foo(1)=%d should be %d\n", foo(1), bar(1))
+  printf("U foo(15)=%d should be %d\n", foo(15), bar(15))
+}
+
+probe kernel.function("vfs_read") {
+  printf("K foo(1)=%d should be %d\n", foo(1), bar(1))
+  printf("K foo(15)=%d should be %d\n", foo(15), bar(15))
+  exit()
+}

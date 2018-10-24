@@ -1,0 +1,26 @@
+function foo:long (x:long) %{ /* bpf */ /* pure */
+  /* if x <= 10 then 50 else 100 */
+  0xd5, $x, -, _bar, 10; /* jsle $x, 10, _bar */
+  0xb7, $$, -, -, 100; /* mov $$, 100 */
+  0x05, -, -, _done, -; /* ja _done; */
+  label, _bar;
+  0xb7, $$, -, -, 50; /* mov $$, 50 */
+  label, _done;
+%}
+
+function bar:long (x:long) {
+  if (x <= 10) return 50 else return 100
+}
+
+probe begin {
+  printf("U foo(1)=%d should be %d\n", foo(1), bar(1))
+  printf("U foo(8)=%d should be %d\n", foo(8), bar(8))
+  printf("U foo(15)=%d should be %d\n", foo(15), bar(15))
+}
+
+probe kernel.function("vfs_read") {
+  printf("K foo(1)=%d should be %d\n", foo(1), bar(1))
+  printf("K foo(8)=%d should be %d\n", foo(8), bar(8))
+  printf("K foo(15)=%d should be %d\n", foo(15), bar(15))
+  exit()
+}

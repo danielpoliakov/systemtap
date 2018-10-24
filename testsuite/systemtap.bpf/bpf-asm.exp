@@ -1,0 +1,105 @@
+# bpf-asm.exp
+#
+# TODO: Very basic test driver. Need to work out a way of signaling correctness.
+
+set testdir "$srcdir/$subdir/asm_tests"
+
+proc stapbpf_run { TEST_NAME args } {
+    global rc
+    set rc -1
+
+    # return codes
+    set pass 0
+    #set fail 1
+    #set bad_output 2
+    set eof_start 3
+    set eof_end 4
+    set timeout_start 5
+    set timeout_end 6
+    set invalid_prog 7
+    set comp_err 8
+
+    set cmd [concat stap -vg --runtime=bpf $args]
+    send_log "executing: $cmd\n"
+    eval spawn $cmd
+    set mypid [exp_pid -i $spawn_id]
+    expect {
+        -timeout 30
+        -re {Pass 5: starting run} {
+            expect {
+                -timeout 20
+                -re {Pass 5: run completed} {
+                    set rc $pass
+                }
+                -re "bpf program load failed:" { set rc $invalid_prog }
+                default {
+                    set rc $bad_output
+                }
+                timeout {
+                    set rc $timeout_end
+                    kill -INT -$mypid
+                }
+                eof {
+                    set rc $eof_end
+                }
+            }
+        }
+        -re "semantic error:" { set rc $comp_err }
+        -re "bpf program load failed:" { set rc $invalid_prog }
+        timeout {
+            set rc $timeout_start
+            kill -INT -$mypid
+        }
+        eof {
+            set rc $eof_start
+        }
+    }
+    # again for good measure with KILL after 3s
+    kill -INT -$mypid 3
+    catch close
+    wait
+    return $rc
+}
+
+set stap_files [lsort [glob -nocomplain $testdir/*.stp]]
+
+foreach file $stap_files {
+    global mypid
+    set mypid 0
+    set test [file tail $file]
+    if {! [installtest_p]} { untested $test; continue }
+    if {! [bpf_p]} { untested $test; continue }
+
+    set errtest_p [regexp {^err} [file tail $file]]
+    verbose -log "Running $file"
+    switch [stapbpf_run $test $file] {
+        0 {
+            if $errtest_p {
+                fail "$test unexpected success"
+            } else {
+                pass $test
+            }
+        }
+        1 { fail "$test incorrect result" }
+        2 { fail "$test unexpected output" }
+        3 { fail "$test eof (startup)" }
+        4 { fail "$test eof (shutdown)" }
+        5 { fail "$test timeout (startup)" }
+        6 { fail "$test timeout (startup)" }
+        7 { fail "$test invalid bpf program" }
+        8 {
+            if $errtest_p {
+                pass $test
+            } else {
+                fail "$test compilation"
+            }
+        }
+        default { fail "$test unknown return value" }
+    }
+
+    if { $mypid > 0 } {
+        kill -INT -$mypid 3
+        catch close
+        wait
+    }
+}

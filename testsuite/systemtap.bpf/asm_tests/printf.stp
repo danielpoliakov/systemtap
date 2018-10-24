@@ -1,0 +1,16 @@
+function foo:long (x:long) %{ /* bpf */ /* calls:exit */
+  0xb5, $x, -, _skip, 20; /* jle n, 20, _skip */
+  call, -, printf, "x = %d causing exit\n", $x; /* like error() */
+  call, -, exit;
+  label, _skip;
+  call, -, printf, "x = %d not causing exit\n", $x;
+  0xb7, $$, -, -, 0x0; /* mov $$, 0 */
+%}
+
+probe begin {
+  printf("U 'x = 10' should print:\n"); foo(10)
+}
+
+probe kernel.function("vfs_read") {
+  printf("K 'x = 25' should print:\n"); foo(25)
+}

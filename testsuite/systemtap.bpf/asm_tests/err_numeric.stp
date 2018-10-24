@@ -1,0 +1,17 @@
+function foo:long (x:long) %{ /* bpf */ /* pure */
+  /* verify refusal to accept gibberish */
+  0xd33333333333333333333333333333333333333333333333333333333333333333333333333334db33f, $x, -, _bar, 10; /* XTREAM opcode */
+  /* 0xb7, $$, -, huirgishvirguwishgiburg, 100; /* XTREAM 3rd arg */
+  /* 0xb7, $$, -, -, borkborkborkborkbork; /* XTREAM 4th arg */
+%}
+
+function bar:long (x:long) {
+  if (x <= 10) return 50 else return 100
+}
+
+probe begin {
+  printf("foo(1)=%d should be %d\n", foo(1), bar(1))
+  printf("foo(8)=%d should be %d\n", foo(8), bar(8))
+  printf("foo(15)=%d should be %d\n", foo(15), bar(15))
+  exit()
+}
