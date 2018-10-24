@@ -15,4 +15,3 @@ probe begin {
   printf("foo(15)=%d should be %d\n", foo(15), bar(15))
   exit()
 }
-

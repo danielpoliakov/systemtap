@@ -1,0 +1,17 @@
+/* testcase for an early bug that would generate duplicate jump */
+function foo:long (x:long) %{ /* bpf */
+  /* the code in the middle is unreachable */
+  0xd5, $x, -, _bar, 20; /* jsle $x, 20, _done */
+  0xb7, $$, -, -, 100; /* mov $$, 100 */
+  0x05, -, -, _done, -;
+  label, _bar;
+  0xb7, $$, -, -, 50; /* mov $$, 50 */
+  label, _done;
+%}
+
+probe kernel.function("vfs_read") {
+  x = 10
+  if (x > 12) printf("unreachable\n")
+  printf ("got %d (should be 50)\n", foo(x))
+  exit()
+}

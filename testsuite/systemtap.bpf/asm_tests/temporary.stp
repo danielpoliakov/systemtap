@@ -8,7 +8,12 @@ function foo:long (x:long) %{ /* bpf */ /* pure */
 %}
 
 probe begin {
-  printf("foo(1)=%d, should be 99*3=297\n", foo(1))
-  printf("foo(15)=%d, should be 85*18=1530\n", foo(15))
+  printf("U foo(1)=%d, should be 99*3=297\n", foo(1))
+  printf("U foo(15)=%d, should be 85*18=1530\n", foo(15))
+}
+
+probe kernel.function("vfs_read") {
+  printf("K foo(1)=%d, should be 99*3=297\n", foo(1))
+  printf("K foo(15)=%d, should be 85*18=1530\n", foo(15))
   exit()
 }

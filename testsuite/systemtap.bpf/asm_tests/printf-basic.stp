@@ -1,0 +1,9 @@
+function foo:long (x:long) %{ /* bpf */
+  call, -, printf, "x = %p \n", $x;
+  0xb7, $$, -, -, 0x0; /* mov $$, 0 */
+%}
+
+probe begin {
+  printf("U 'x = 0xa' should print:\n"); foo(10)
+  exit()
+}
