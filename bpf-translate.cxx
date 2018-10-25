@@ -681,10 +681,14 @@ is_numeric (const std::string &str)
   size_t pos = 0;
   try {
     stol(str, &pos, 0);
-  } catch (std::invalid_argument &e) {
+  } catch (const std::invalid_argument &e) {
     return false;
-  } catch (std::out_of_range &e) {
+  } catch (const std::out_of_range &e) {
     /* XXX: probably numeric but not valid; give up */
+    return false;
+  } catch (...) {
+    /* XXX: handle other errors the same way */
+    std::cerr << "BUG: bpf assembler -- is_numeric() saw unexpected exception" << std::endl;
     return false;
   }
   return (pos == str.size());
