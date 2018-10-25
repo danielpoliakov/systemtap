@@ -1,9 +1,0 @@
-global arr
-
-probe syscall.read {
-    arr[tid(), cpu()]++
-}
-
-probe prometheus {
-    @prometheus_dump_array2(arr, "count", "tid", "cpu")
-}
