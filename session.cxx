@@ -1701,7 +1701,7 @@ systemtap_session::parse_cmdline_runtime (const string& opt_runtime)
       return false;
 #else
       runtime_mode = bpf_runtime;
-      use_cache = use_script_cache = false;
+      // use_cache = use_script_cache = false; // XXX: From early BPF development. Delete after making sure the cache doesn't break anything.
 #endif
     }
   else if (opt_runtime == string("dyninst"))
