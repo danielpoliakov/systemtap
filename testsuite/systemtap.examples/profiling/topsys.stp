@@ -29,6 +29,6 @@ probe prometheus {
   foreach (syscall in syscalls_count- limit 20)
     prom_arr[syscall] = @count(syscalls_count[syscall])
 
-  @prometheus_dump_array1(prom_arr, "count", "syscall")
+  @prometheus_dump_array1(prom_arr, "top_syscall_count", "name")
   delete prom_arr
 }

@@ -32,6 +32,6 @@ function ns2sec:string(v:long) {
 }
 
 probe prometheus {
-    @prometheus_dump_array2_map(arr, "time", "pid", "syscall",
+    @prometheus_dump_array2_map(arr, "syscall_time", "pid", "syscall",
                                 ns2sec, sprint, syscall_name)
 }

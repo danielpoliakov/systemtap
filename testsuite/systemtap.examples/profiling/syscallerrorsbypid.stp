@@ -34,6 +34,6 @@ function process_name(pid) {
 }
 
 probe prometheus {
-    @prometheus_dump_array3_map(arr, "count", "pid", "syscall", "error",
+    @prometheus_dump_array3_map(arr, "syscall_error_count", "pid", "syscall", "error",
 				sprint, process_name, syscall_name, errno_str)
 }

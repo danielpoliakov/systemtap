@@ -42,6 +42,6 @@ probe prometheus {
     prom_arr[p, errno, name] = @count(errors[p, errno, name])
   }
 
-  @prometheus_dump_array3(prom_arr, "count", "pid", "errno", "name")
+  @prometheus_dump_array3(prom_arr, "syscall_error_count", "pid", "errno", "name")
   delete prom_arr
 }

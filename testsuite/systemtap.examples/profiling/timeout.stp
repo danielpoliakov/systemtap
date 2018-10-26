@@ -103,7 +103,7 @@ probe prometheus {
 	     signal_timeout[p]] = process[p]
   }
 
-  @prometheus_dump_array7(prom_arr, "process", "poll_timeout", "select_timeout",
+  @prometheus_dump_array7(prom_arr, "process_timeouts", "poll_timeout", "select_timeout",
 		          "epoll_timeout", "itimer_timeout",
 			  "futex_timeout", "nanosleep_timeout",
 			  "signal_timeout")
