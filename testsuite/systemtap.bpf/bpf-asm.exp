@@ -11,7 +11,7 @@ proc stapbpf_run { TEST_NAME args } {
     # return codes
     set pass 0
     #set fail 1
-    #set bad_output 2
+    set bad_output 2
     set eof_start 3
     set eof_end 4
     set timeout_start 5
