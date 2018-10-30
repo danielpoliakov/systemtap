@@ -840,14 +840,14 @@ bpf_unparser::parse_asm_stmt (embeddedcode *s, size_t start,
   if (args[0] == "label")
     {
       if (args.size() != 2)
-        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (label expects 1 arg, found %lu)", args.size()-1), stmt.tok);
+        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (label expects 1 arg, found %llu)", (long long) args.size()-1), stmt.tok);
       stmt.kind = args[0];
       stmt.dest = args[1];
     }
   else if (args[0] == "alloc")
     {
       if (args.size() != 3)
-        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (alloc expects 2 args, found %lu)", args.size()-1), stmt.tok);
+        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (alloc expects 2 args, found %llu)", (long long) args.size()-1), stmt.tok);
       stmt.kind = args[0];
       stmt.dest = args[1];
       stmt.imm = parse_imm(stmt, args[2]);
@@ -855,7 +855,7 @@ bpf_unparser::parse_asm_stmt (embeddedcode *s, size_t start,
   else if (args[0] == "call")
     {
       if (args.size() < 3)
-        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (call expects at least 2 args, found %lu)", args.size()-1), stmt.tok);
+        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (call expects at least 2 args, found %llu)", (long long) args.size()-1), stmt.tok);
       stmt.kind = args[0];
       stmt.dest = args[1];
       assert(stmt.params.empty());
@@ -865,7 +865,7 @@ bpf_unparser::parse_asm_stmt (embeddedcode *s, size_t start,
   else if (is_numeric(args[0]))
     {
       if (args.size() != 5)
-        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (opcode expects 4 args, found %lu)", args.size()-1), stmt.tok);
+        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (opcode expects 4 args, found %llu)", (long long) args.size()-1), stmt.tok);
       stmt.kind = "opcode";
       try {
         stmt.code = stoul(args[0], 0, 0);
@@ -1128,7 +1128,7 @@ bpf_unparser::emit_asm_opcode (const asm_stmt &stmt,
     }
 
   if (stmt.off != (int16_t)stmt.off)
-    throw SEMANTIC_ERROR (_F("offset field '%ld' out of range in bpf code", stmt.off), stmt.tok);
+    throw SEMANTIC_ERROR (_F("offset field '%lld' out of range in bpf code", (long long) stmt.off), stmt.tok);
 
   if (op_jmp)
     {
