@@ -28,11 +28,11 @@ probe syscall.pkey_mprotect.return = dw_syscall.pkey_mprotect.return !, nd_sysca
 probe dw_syscall.pkey_mprotect = kernel.function("sys_pkey_mprotect").call
 {
 	@_SYSCALL_PKEY_MPROTECT_NAME
-	addr = $start
-	len = $len
-	prot = $prot
+	addr = __ulong($start)
+	len = __ulong($len)
+	prot = __ulong($prot)
 	prot_str = _mprotect_prot_str(prot)
-	pkey = $pkey
+	pkey = __int32($pkey)
 	@_SYSCALL_PKEY_MPROTECT_ARGSTR
 }
 probe dw_syscall.pkey_mprotect.return = kernel.function("sys_pkey_mprotect").return

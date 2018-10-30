@@ -1,4 +1,3 @@
-
 /* COVERAGE: pkey_alloc pkey_mprotect pkey_free */
 
 #define _GNU_SOURCE

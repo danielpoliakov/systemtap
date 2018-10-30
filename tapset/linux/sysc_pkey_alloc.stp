@@ -26,8 +26,9 @@ probe syscall.pkey_alloc.return = dw_syscall.pkey_alloc.return !, nd_syscall.pke
 probe dw_syscall.pkey_alloc = kernel.function("sys_pkey_alloc").call
 {
 	@_SYSCALL_PKEY_ALLOC_NAME
-	flags = $flags
-	init_val = $init_val
+	flags = __ulong($flags)
+	init_val = __ulong($init_val)
+	init_val_str = _pkey_alloc_init_val_str(init_val)
 	@_SYSCALL_PKEY_ALLOC_ARGSTR
 }
 probe dw_syscall.pkey_alloc.return = kernel.function("sys_pkey_alloc").return

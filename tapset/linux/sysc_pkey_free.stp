@@ -24,7 +24,7 @@ probe syscall.pkey_free.return = dw_syscall.pkey_free.return !, nd_syscall.pkey_
 probe dw_syscall.pkey_free = kernel.function("sys_pkey_free").call
 {
 	@_SYSCALL_PKEY_FREE_NAME
-	pkey = $pkey
+	pkey = __int32($pkey)
 	@_SYSCALL_PKEY_FREE_ARGSTR
 }
 probe dw_syscall.pkey_free.return = kernel.function("sys_pkey_free").return
