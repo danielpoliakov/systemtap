@@ -1687,7 +1687,9 @@
 #define __NR_compat_eventfd2		__NR_eventfd2
 #define __NR_compat_execve		__NR_execve
 #define __NR_compat_execveat		__NR_execveat
+#if !(defined(__aarch64__) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0))
 #define __NR_compat_exit		__NR_exit
+#endif
 #define __NR_compat_exit_group		__NR_exit_group
 #define __NR_compat_faccessat		__NR_faccessat
 #define __NR_compat_fanotify_init	__NR_fanotify_init
@@ -1845,7 +1847,9 @@
 #define __NR_compat_pwritev		__NR_pwritev
 #define __NR_compat_pwritev2		__NR_pwritev2
 #define __NR_compat_quotactl		__NR_quoactl
+#if !(defined(__aarch64__) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0))
 #define __NR_compat_read		__NR_read
+#endif
 #define __NR_compat_readdir		__NR_readdir
 #define __NR_compat_readlink		__NR_readlink
 #define __NR_compat_readlinkat		__NR_readlinkat
@@ -1858,7 +1862,9 @@
 #define __NR_compat_renameat		__NR_renameat
 #define __NR_compat_renameat2		__NR_renameat2
 #define __NR_compat_request_key		__NR_request_key
+#if !(defined(__aarch64__) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0))
 #define __NR_compat_restart_syscall	__NR_restart_syscall
+#endif
 #define __NR_compat_rmdir		__NR_rmdir
 #define __NR_compat_rt_sigaction	__NR_rt_sigaction
 #define __NR_compat_rt_sigpending	__NR_rt_sigpending
@@ -1976,7 +1982,9 @@
 #define __NR_compat_wait4		__NR_wait4
 #define __NR_compat_waitid		__NR_waitid
 #define __NR_compat_waitpid		__NR_waitpid
+#if !(defined(__aarch64__) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0))
 #define __NR_compat_write		__NR_write
+#endif
 #define __NR_compat_writev		__NR_writev
 
 #endif	/* __powerpc64__ || __s390x__ || __aarch64__ */
