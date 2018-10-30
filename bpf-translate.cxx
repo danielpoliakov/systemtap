@@ -952,8 +952,13 @@ bpf_unparser::emit_asm_arg (const asm_stmt &stmt, const std::string &arg,
     {
       /* arg is a register number */
       std::string reg = arg[0] == 'r' ? arg.substr(1) : arg;
-      unsigned long num = stoul(reg, 0, 0);
-      if (num > 10)
+      unsigned long num;
+      bool parsed = false;
+      try {
+        num = stoul(reg, 0, 0);
+        parsed = true;
+      } catch (std::exception &e) {} // XXX: invalid_argument, out_of_range
+      if (!parsed || num > 10)
 	throw SEMANTIC_ERROR (_F("invalid bpf register '%s'",
                                  arg.c_str()), stmt.tok);
       return this_prog.lookup_reg(num);

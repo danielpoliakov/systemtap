@@ -1,0 +1,9 @@
+function foo:long () %{ /* bpf */ /* pure */
+  0xb7, $rc, -, -, 50; /* mov $rc, 50 */
+  0xbf, $$, rc, -, -; /* mov $$, $rc -- TYPO */
+%}
+
+probe begin {
+  printf("foo()=%d should be fifty\n", foo())
+  exit()
+}
