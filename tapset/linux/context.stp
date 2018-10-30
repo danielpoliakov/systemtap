@@ -20,6 +20,21 @@ function execname:string ()
 %}
 
 /**
+ * sfunction pexecname - Returns the execname of a target process's parent process
+ *
+ * Description: This function returns the execname of a target
+ * process's parent procces.
+ */
+function pexecname:string ()
+%{ /* pure */ /* unprivileged */ /* stable */
+#if defined(STAPCONF_REAL_PARENT)
+	strlcpy (STAP_RETVALUE, current->real_parent->comm, MAXSTRINGLEN);
+#else
+	strlcpy (STAP_RETVALUE, current->parent->comm, MAXSTRINGLEN);
+#endif
+%}
+
+/**
  * sfunction pid - Returns the ID of a target process
  *
  * Description: This function returns the ID of a target process.
@@ -151,21 +166,6 @@ function ns_sid:long ()
   int64_t rc = from_target_pid_ns(current, SID);
   if (rc < 0) STAP_ERROR ("cannot resolve id in namespace");
   else STAP_RETURN (rc);
-%}
-
-/**
- * sfunction pexecname - Returns the execname of a target process's parent process
- *
- * Description: This function returns the execname of a target
- * process's parent procces.
- */
-function pexecname:string ()
-%{ /* pure */ /* unprivileged */ /* stable */
-#if defined(STAPCONF_REAL_PARENT)
-	strlcpy (STAP_RETVALUE, current->real_parent->comm, MAXSTRINGLEN);
-#else
-	strlcpy (STAP_RETVALUE, current->parent->comm, MAXSTRINGLEN);
-#endif
 %}
 
 /**
