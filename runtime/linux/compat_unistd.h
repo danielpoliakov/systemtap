@@ -364,6 +364,15 @@
 #ifndef __NR_utime
 #define __NR_utime (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_pkey_alloc
+#define __NR_pkey_alloc (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_pkey_free
+#define __NR_pkey_free (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_pkey_mprotect
+#define __NR_pkey_mprotect (__NR_syscall_max + 1)
+#endif
 
 #if defined(__x86_64__)
 
