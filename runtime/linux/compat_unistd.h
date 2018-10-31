@@ -349,6 +349,21 @@
 #ifndef __NR_waitpid
 #define __NR_waitpid (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_alarm
+#define __NR_alarm (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_ioperm
+#define __NR_ioperm (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_modify_ldt
+#define __NR_modify_ldt (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_time
+#define __NR_time (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_utime
+#define __NR_utime (__NR_syscall_max + 1)
+#endif
 
 #if defined(__x86_64__)
 
