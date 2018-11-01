@@ -1701,7 +1701,13 @@ systemtap_session::parse_cmdline_runtime (const string& opt_runtime)
       return false;
 #else
       runtime_mode = bpf_runtime;
-      // use_cache = use_script_cache = false; // XXX: From early BPF development. Delete after making sure the cache doesn't break anything.
+
+      // TODO: From early BPF development. Remove after making sure the
+      // cache doesn't break anything. Currently removal is blocked
+      // by PR22330 (module name encoded in trace_printk() calls,
+      // using up a lot of stack space for the cacheable script
+      // names).
+      use_cache = use_script_cache = false;
 #endif
     }
   else if (opt_runtime == string("dyninst"))
