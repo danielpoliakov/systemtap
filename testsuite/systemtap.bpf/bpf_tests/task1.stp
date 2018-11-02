@@ -1,0 +1,15 @@
+probe begin {
+	printf("BEGIN\n")
+}
+
+probe kernel.function("vfs_read") {
+	// TODO: PR23816, task.stp tapset
+	printf("vfs_read by %s", execname())
+	printf("/%s", kernel_string(@cast(task_current(), "task_struct")->comm))
+	printf(" PID %d/%d\n", pid(), @cast(task_current(), "task_struct")->tgid)
+	exit()
+}
+
+probe end {
+	printf("END PASS\n")
+}
