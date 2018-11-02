@@ -21,6 +21,17 @@ extern "C" {
 #include <linux/bpf.h>
 }
 
+/* PR23829: These eBPF opcodes were added in recent kernels, and the
+   following 'ad hoc' defines are only used by the embedded-code
+   assembler.  The code generator will convert these opcodes to
+   equivalent operations valid for earlier eBPF. */
+#ifndef BPF_JLT
+#define BPF_JLT		0xa0	/* LT is unsigned, '<' */
+#define BPF_JLE		0xb0	/* LE is unsigned, '<=' */
+#define BPF_JSLT	0xc0	/* SLT is signed, '<' */
+#define BPF_JSLE	0xd0	/* SLE is signed, '<=' */
+#endif
+
 struct systemtap_session;
 struct derived_probe;
 struct vardecl;
