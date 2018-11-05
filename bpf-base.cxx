@@ -32,7 +32,7 @@ value::print(std::ostream &o) const
     case TMPREG:
       return o << "t" << reg_val;
     default:
-      abort();
+      return o << "<BUG:unknown operand>";
     }
 }
 
@@ -359,7 +359,7 @@ opcode_name(opcode op)
     case BPF_JMP | BPF_JSET | BPF_K:	opn = "jsetk"; break;
 
     default:
-      abort();
+      opn = "<BUG:unknown opcode>";
     }
 
   return opn;
@@ -457,7 +457,7 @@ insn::print(std::ostream &o) const
       return o << opn << "\t" << *src0 << "," << *src1;
 
     default:
-      abort ();
+      return o << "<BUG:unknown instruction format>";
     }
 }
 
@@ -705,10 +705,15 @@ program::mk_binary(insn_inserter &ins, opcode op, value *dest,
 void
 program::mk_unary(insn_inserter &ins, opcode op, value *dest, value *src)
 {
+  assert (op == BPF_NEG); // XXX: BPF_NEG is the only unary operator so far.
+
+  if (dest != src) // src is not used for BPF_NEG. BPF negates in-place.
+    mk_mov(ins, dest, src);
+
   insn *i = ins.new_insn();
-  i->code = BPF_ALU64 | BPF_X | op;
+  i->code = BPF_ALU64 | op; // BPF_X is not used for BPF_NEG.
   i->dest = dest;
-  i->src0 = src;
+  i->src0 = dest; // XXX: dest as an ersatz 'source'.
 }
 
 void
