@@ -368,6 +368,10 @@ opcode_name(opcode op)
 std::ostream &
 insn::print(std::ostream &o) const
 {
+#ifdef DEBUG_CODEGEN
+  if (note != "")
+    o << "{" << note << "} ";
+#endif
   const char *opn = opcode_name (code);
 
   switch (code)
@@ -541,6 +545,12 @@ insn *
 insn_inserter::new_insn()
 {
   insn *n = new insn;
+#ifdef DEBUG_CODEGEN
+  if (!notes.empty())
+    n->note = notes.top();
+  else
+    n->note = "";
+#endif
   insert(n);
   return n;
 }

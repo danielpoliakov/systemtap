@@ -59,7 +59,7 @@ lower_str_values(program &p)
           value *s0 = j->src0;
           if (s0 && s0->is_str())
             {
-              insn_before_inserter ins(b, j);
+              insn_before_inserter ins(b, j, "str");
               std::string str0 = s0->str();
               value *new_s0 = alloc_literal_str(p, ins, str0);
               j->src0 = new_s0;
@@ -68,7 +68,7 @@ lower_str_values(program &p)
           value *s1 = j->src1;
           if (s1 && s1->is_str())
             {
-              insn_before_inserter ins(b, j);
+              insn_before_inserter ins(b, j, "str");
               std::string str1 = s1->str();
               value *new_s1 = alloc_literal_str(p, ins, str1);
               j->src1 = new_s1;
@@ -97,7 +97,7 @@ fixup_operands(program &p)
 	  if (s1 && s1->is_imm() && s1->imm() != (int32_t)s1->imm())
 	    {
 	      value *n = p.new_reg();
-	      insn_before_inserter ins(b, j);
+	      insn_before_inserter ins(b, j, "opt");
 	      p.mk_mov(ins, n, s1);
 	      j->src1 = s1 = n;
 	    }
@@ -121,13 +121,13 @@ fixup_operands(program &p)
 			  // Special care for x = y - x
 			  value *n = p.new_reg();
 			  {
-			    insn_before_inserter ins(b, j);
+			    insn_before_inserter ins(b, j, "opt");
 			    p.mk_mov(ins, n, s0);
 			  }
 			  j->src0 = n;
 			  j->dest = n;
 			  {
-			    insn_after_inserter ins(b, j);
+			    insn_after_inserter ins(b, j, "opt");
 			    p.mk_mov(ins, d, n);
 			  }
 			}
@@ -135,7 +135,7 @@ fixup_operands(program &p)
 		  else
 		    {
 		      // Transform { x = y - z } to { x = y; x -= z; }
-		      insn_before_inserter ins(b, j);
+		      insn_before_inserter ins(b, j, "opt");
 		      p.mk_mov(ins, d, s0);
 		      j->src0 = d;
 		    }
@@ -144,7 +144,7 @@ fixup_operands(program &p)
 		{
 		  // Comparisons can't have src0 constant.
 		  value *n = p.new_reg();
-		  insn_before_inserter ins(b, j);
+		  insn_before_inserter ins(b, j, "opt");
 		  p.mk_mov(ins, n, s0);
 		  j->src0 = n;
 		}
@@ -293,7 +293,7 @@ reorder_blocks(program &p)
 	      if (t)
 		{
 		  block *n = p.new_block ();
-		  insn_append_inserter ins(n);
+		  insn_append_inserter ins(n, "opt");
 		  p.mk_jmp (ins, o);
 		  ordered.push_back (n);
 		  f->redirect_next (n);
@@ -301,7 +301,7 @@ reorder_blocks(program &p)
 	      else
 		{
 		  delete f;
-		  insn_after_inserter ins(b, b->last);
+		  insn_after_inserter ins(b, b->last, "opt");
 		  p.mk_jmp (ins, o);
 		}
 	    }
@@ -780,7 +780,7 @@ spill(unsigned reg, unsigned num_spills, program &p)
           // If reg is a source, insert a load before j
           if ((src0 && src0->reg_val == reg) || (src1 && src1->reg_val == reg))
             {
-              insn_before_inserter ins(b, j);
+              insn_before_inserter ins(b, j, "regalloc");
               new_tmp = p.new_reg();
 
               p.mk_ld (ins, BPF_DW, new_tmp, frame, -off);
@@ -795,7 +795,7 @@ spill(unsigned reg, unsigned num_spills, program &p)
           // If reg is the destination, insert a store after j
           if (dest && dest->reg_val == reg)
             {
-              insn_after_inserter ins(b, j);
+              insn_after_inserter ins(b, j, "regalloc");
               new_tmp = new_tmp ?: p.new_reg();
 
               p.mk_st (ins, BPF_DW, frame, -off, new_tmp);
@@ -935,6 +935,9 @@ post_alloc_cleanup (program &p)
 void
 program::generate()
 {
+#ifdef DEBUG_CODEGEN
+  std::cerr << "DEBUG BEFORE OPT " << *this << std::endl;
+#endif
   lower_str_values(*this);
   fixup_operands(*this);
   thread_jumps(*this);
@@ -942,6 +945,9 @@ program::generate()
   reorder_blocks(*this);
   reg_alloc(*this);
   post_alloc_cleanup(*this);
+#ifdef DEBUG_CODEGEN
+  std::cerr << "DEBUG AFTER OPT " << *this << std::endl;
+#endif
 }
 
 } // namespace bpf

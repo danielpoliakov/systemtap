@@ -48,6 +48,8 @@ namespace bpf {
 // TODO: BPF_MAX{STRING,FORMAT}LEN,BPF_MAXMAPENTRIES,BPF_MAXSPRINTFLEN should be user-configurable.
 // XXX: BPF_MAXMAPENTRIES may depend on kernel version. May need to experiment with rlimit in instantiate_maps().
 
+// #define DEBUG_CODEGEN
+
 typedef unsigned short regno;
 static const regno max_regno = BPF_MAXINSNS;
 static const regno noreg = -1;
@@ -135,6 +137,9 @@ struct insn
   value *src0;			// The destination input, pre-allocation
   value *src1;			// The usual source register operand
   insn *prev, *next;		// Linked list of insns in the block
+#ifdef DEBUG_CODEGEN
+  std::string note;             // For additional diagnostics.
+#endif
 
   insn();
 
@@ -198,8 +203,18 @@ private:
 public:
   block *b;
   insn *i;
+#ifdef DEBUG_CODEGEN
+  std::stack<std::string> notes;
+#endif
 
   insn_inserter(block *bb, insn *ii) : b(bb), i(ii) { }
+  insn_inserter(block *bb, insn *ii, const std::string& note) : b(bb), i(ii) {
+#ifdef DEBUG_CODEGEN
+    notes.push(note);
+#else
+    (void)note; // unused
+#endif
+  }
   virtual ~insn_inserter() { }
   virtual void insert(insn *i) = 0;
 
@@ -214,6 +229,8 @@ struct insn_before_inserter : public insn_inserter
 {
   insn_before_inserter() : insn_inserter(NULL, NULL) { }
   insn_before_inserter(block *b, insn *i) : insn_inserter(b,i) { }
+  insn_before_inserter(block *b, insn *i, const std::string& note)
+    : insn_inserter(b,i,note) { }
   virtual void insert(insn *i);
 };
 
@@ -221,6 +238,8 @@ struct insn_after_inserter : public insn_inserter
 {
   insn_after_inserter() : insn_inserter(NULL, NULL) { }
   insn_after_inserter(block *b, insn *i) : insn_inserter(b,i) { }
+  insn_after_inserter(block *b, insn *i, const std::string& note)
+    : insn_inserter(b,i,note) { }
   virtual void insert(insn *i);
 };
 
@@ -228,6 +247,8 @@ struct insn_append_inserter : public insn_after_inserter
 {
   insn_append_inserter() : insn_after_inserter(NULL, NULL) { }
   insn_append_inserter(block *b) : insn_after_inserter(b, NULL) { }
+  insn_append_inserter(block *b, const std::string& note)
+    : insn_after_inserter(b, NULL, note) { }
 };
 
 struct program

@@ -310,7 +310,7 @@ bpf_unparser::get_exit_block()
     return exit_block;
 
   block *b = this_prog.new_block();
-  insn_append_inserter ins(b);
+  insn_append_inserter ins(b, "exit_block");
 
   this_prog.mk_exit(ins);
 
@@ -325,7 +325,7 @@ bpf_unparser::get_ret0_block()
     return ret0_block;
 
   block *b = this_prog.new_block();
-  insn_append_inserter ins(b);
+  insn_append_inserter ins(b, "ret0_block");
 
   this_prog.mk_mov(ins, this_prog.lookup_reg(BPF_REG_0), this_prog.new_imm(0));
   b->fallthru = new edge(b, get_exit_block());
@@ -1166,6 +1166,9 @@ bpf_unparser::emit_asm_opcode (const asm_stmt &stmt,
 void
 bpf_unparser::visit_embeddedcode (embeddedcode *s)
 {
+#ifdef DEBUG_CODEGEN
+  this_ins.notes.push("asm");
+#endif
   std::vector<asm_stmt> statements;
   asm_stmt stmt;
 
@@ -1429,6 +1432,10 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
        it != adjusted_toks.end(); it++)
     delete *it;
   adjusted_toks.clear();
+
+#ifdef DEBUG_CODEGEN
+  this_ins.notes.pop(); // asm
+#endif
 }
 
 void
@@ -2507,6 +2514,10 @@ value *
 emit_simple_literal_str(program &this_prog, insn_inserter &this_ins,
                  value *dest, int ofs, std::string &src, bool zero_pad)
 {
+#ifdef DEBUG_CODEGEN
+  this_ins.notes.push("str");
+#endif
+
   size_t str_bytes = src.size() + 1;
   size_t str_words = (str_bytes + 3) / 4;
 
@@ -2546,6 +2557,10 @@ emit_simple_literal_str(program &this_prog, insn_inserter &this_ins,
   value *out = this_prog.new_reg();
   this_prog.mk_binary(this_ins, BPF_ADD, out,
                       dest, this_prog.new_imm(ofs));
+
+#ifdef DEBUG_CODEGEN
+  this_ins.notes.pop(); // str
+#endif
   return out;
 }
 
@@ -2566,6 +2581,10 @@ bpf_unparser::emit_string_copy(value *dest, int ofs, value *src, bool zero_pad)
       return emit_simple_literal_str(this_prog, this_ins,
                                      dest, ofs, str, zero_pad);
     }
+
+#ifdef DEBUG_CODEGEN
+  this_ins.notes.push("strcpy");
+#endif
 
   size_t str_bytes = BPF_MAXSTRINGLEN;
   size_t str_words = (str_bytes + 3) / 4;
@@ -2674,6 +2693,9 @@ bpf_unparser::emit_string_copy(value *dest, int ofs, value *src, bool zero_pad)
   value *out = this_prog.new_reg();
   this_prog.mk_binary(this_ins, BPF_ADD, out,
                       dest, this_prog.new_imm(ofs));
+#ifdef DEBUG_CODEGEN
+  this_ins.notes.pop(); // strcpy
+#endif
   return out;
 }
 
