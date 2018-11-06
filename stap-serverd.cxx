@@ -2757,7 +2757,7 @@ listen ()
       // Ensure that our certificate is trusted by our local client.
       // Construct the client database path relative to the server database path.
       SECStatus secStatus = add_client_cert (server_cert_file (),
-					     local_client_cert_db_path (), true);
+					     local_client_cert_db_path (), db_nssinit);
       if (secStatus != SECSuccess)
 	{
 	  // Not fatal. Other clients may trust the server and trust can be added

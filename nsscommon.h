@@ -76,7 +76,8 @@ bool have_san_match (std::string & hostname, std::string & server_cert);
 
 int check_cert (const std::string &db_path, const std::string &nss_cert_name, bool use_db_password = false);
 int gen_cert_db (const std::string &db_path, const std::string &extraDnsNames, bool use_password);
-SECStatus add_client_cert (const std::string &inFileName, const std::string &db_path, bool init_db);
+typedef enum {db_no_nssinit, db_nssinitcontext, db_nssinit} db_init_types;
+SECStatus add_client_cert (const std::string &inFileName, const std::string &db_path, db_init_types db_init_type);
 void sign_file (
   const std::string &db_path,
   const std::string &nss_cert_name,

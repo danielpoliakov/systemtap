@@ -77,7 +77,7 @@ public:
   void get_buildid (string fname);
   void get_kernel_buildid (void);
   long get_response_code (void);
-  bool add_server_cert_to_client (std::string & tmpdir, bool init_db);
+  bool add_server_cert_to_client (std::string & tmpdir, db_init_types db_init_type);
   static int trace (CURL *, curl_infotype type, unsigned char *data, size_t size, void *);
   bool delete_op (const std::string & url);
   bool check_trust (enum cert_type, vector<compile_server_info> &specified_servers);
@@ -393,7 +393,7 @@ http_client::download (const std::string & url, http_client::download_type type,
   if (res != CURLE_OK && res != CURLE_GOT_NOTHING)
     {
       if (report_errors)
-        clog << "curl_easy_perform() failed: " << curl_easy_strerror (res) << endl;
+        clog << curl_easy_strerror (res) << ' ' << url << endl;
       return false;
     }
   else
@@ -861,7 +861,7 @@ http_client::add_module (std::string module)
 // Add the server certificate to the client certificate database
 
 bool
-http_client::add_server_cert_to_client (string &tmpdir, bool init_db)
+http_client::add_server_cert_to_client (string &tmpdir, db_init_types db_init_type)
 {
   const char *certificate;
   json_object *cert_obj;
@@ -879,7 +879,7 @@ http_client::add_server_cert_to_client (string &tmpdir, bool init_db)
   pem_out.close();
 
   // Add the certificate to the client nss certificate database
-  if (add_client_cert(pem_tmp, local_client_cert_db_path(), init_db) == SECSuccess)
+  if (add_client_cert(pem_tmp, local_client_cert_db_path(), db_init_type) == SECSuccess)
     {
       remove_file_or_dir (pem_tmp.c_str());
       return true;
@@ -1158,7 +1158,7 @@ http_client_backend::find_and_connect_to_server ()
   if (! http->check_trust (http->ssl_trust, specified_servers))
     return 1;
 
-  for (vector<compile_server_info>::const_iterator i = specified_servers.begin ();
+  for (vector<compile_server_info>::iterator i = specified_servers.begin ();
        i != specified_servers.end ();
        ++i)
     {
@@ -1199,7 +1199,7 @@ http_client_backend::find_and_connect_to_server ()
             goto TRY_NEXT_SERVER;
 
           // curl invocation for a download must be the same as the preceding post
-          if (http->download (url + "/", http->json_type, false, false) == true)
+          if (http->download (url + "/", http->json_type, true, false) == true)
             break;
           remove_file_or_dir (pem_tmp.c_str());
           download_tries -= 1;
@@ -1214,7 +1214,7 @@ http_client_backend::find_and_connect_to_server ()
           s.winning_server = url;
           http->host = url;
           if (add_cert)
-            http->add_server_cert_to_client (client_tmpdir, true);
+            http->add_server_cert_to_client (client_tmpdir, db_nssinitcontext);
           return 0;
         }
       TRY_NEXT_SERVER:;
@@ -1419,8 +1419,14 @@ http_client_backend::fill_in_server_info (compile_server_info &info)
   const string cert_db = local_client_cert_db_path ();
   const string nick = server_cert_nickname ();
   string host = info.unresolved_host_name;
+  if (info.port == 0)
+    // Sync with httpd/main.cxx
+    info.port = 1234;
   string url = "https://" + host + ":" + std::to_string(info.port);
   string pem_cert;
+
+  if (host.empty())
+    return;
 
   if (s.verbose >= 2)
     {
@@ -1433,9 +1439,6 @@ http_client_backend::fill_in_server_info (compile_server_info &info)
   // Try to get the server certificate and the base
   // directory of the server just to see if we can make a
   // connection.
-  if (host.empty())
-    return;
-
   int download_tries;
   // Obtain server info based on network address instead of host name?
   if (file_exists (cert_db) == true && get_pem_cert(cert_db, nick, http->host, pem_cert) == true)
@@ -1518,7 +1521,7 @@ http_client_backend::trust_server_info (const compile_server_info &info)
     return 1;
 
   if (http->download (url + "/", http->json_type, false, true))
-    http->add_server_cert_to_client (s.tmpdir, false);
+    http->add_server_cert_to_client (s.tmpdir, db_no_nssinit);
 
   return 0;
 }

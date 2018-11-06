@@ -797,7 +797,7 @@ done:
 }
 
 SECStatus
-add_client_cert (const string &inFileName, const string &db_path, bool init_db)
+add_client_cert (const string &inFileName, const string &db_path, db_init_types db_init_type)
 {
   FILE *inFile = fopen (inFileName.c_str (), "rb");
   if (! inFile)
@@ -838,13 +838,21 @@ add_client_cert (const string &inFileName, const string &db_path, bool init_db)
     }
 
   NSSInitContext *context = NULL;
-  if (init_db)
+  if (db_init_type != db_no_nssinit)
     {
       // The http client adds a cert by calling us via add_server_trust which
       // first has already called nssInit; we don't want to call nssInit twice
       // See if the database already exists and can be initialized.
-      context= nssInitContext (db_path.c_str (), 1/*readwrite*/, 0/*issueMessage*/);
-      if (context == NULL)
+      SECStatus secStatus = SECFailure;
+      if (db_init_type == db_nssinitcontext)
+        {
+          context= nssInitContext (db_path.c_str (), 1/*readwrite*/, 0/*issueMessage*/);
+          if (context == NULL)
+            secStatus = SECFailure;
+        }
+      else
+        secStatus = nssInit (db_path.c_str (), 1/*readwrite*/);
+      if (secStatus != SECSuccess)
         {
           // Try again with a fresh database.
           if (clean_cert_db (db_path.c_str ()) != 0)
@@ -862,12 +870,16 @@ add_client_cert (const string &inFileName, const string &db_path, bool init_db)
             }
 
           // Initialize the new database.
-          context = nssInitContext (db_path.c_str (), 1/*readwrite*/);
-          if (context == NULL)
+          if (db_init_type == db_nssinitcontext)
             {
-              // Message already issued.
-              return SECFailure;
+              context= nssInitContext (db_path.c_str (), 1/*readwrite*/);
+              if (context == NULL)
+                secStatus = SECFailure;
             }
+          else
+              secStatus = nssInit (db_path.c_str (), 1/*readwrite*/);
+          if (secStatus != SECSuccess)
+            return SECFailure;
         }
     }
 
@@ -943,7 +955,7 @@ add_client_cert (const string &inFileName, const string &db_path, bool init_db)
     CERT_DestroyCertificate (cert);
   if (certDER.data)
     PORT_Free (certDER.data);
-  if (init_db)
+  if (db_init_type != db_no_nssinit)
     nssCleanup (db_path.c_str (), context);
 
   // Make sure that the cert database files are read/write by the owner and
