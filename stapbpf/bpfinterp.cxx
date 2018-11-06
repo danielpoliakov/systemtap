@@ -163,6 +163,16 @@ bpf_sprintf(std::vector<std::string> &strings, char *fstr,
 }
 
 uint64_t
+bpf_ktime_get_ns()
+{
+  struct timespec t;
+  clock_gettime (CLOCK_BOOTTIME, &t);
+  return (t.tv_sec * 1000000000) + t.tv_nsec;
+}
+
+
+
+uint64_t
 bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
               std::vector<int> &map_fds, FILE *output_f)
 {
@@ -374,6 +384,9 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
 	    case BPF_FUNC_map_delete_elem:
 	      dr = bpf_delete_elem(map_fds[regs[1]], as_ptr(regs[2]));
 	      break;
+	    case BPF_FUNC_ktime_get_ns:
+              dr = bpf_ktime_get_ns();
+              break;
 	    case BPF_FUNC_trace_printk:
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"

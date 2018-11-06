@@ -12,7 +12,7 @@
  * Description: This function returns the system ktime.
  */
 function ktime_get_ns:long ()
-%{ /* bpf */ /* pure */ /* unprivileged */ /* stable */
+%{ /* bpf */ /* pure */ /* unprivileged */
    0x85, 0, 0, 0, 5;	/* call BPF_FUNC_ktime_get_ns */
    0xbf, $$, 0, 0, 0	/* movx $$, r0 */
 %}

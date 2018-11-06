@@ -148,3 +148,14 @@ function local_clock_ms:long () {
 function local_clock_s:long () {
   return local_clock_ns() / 1000000000;
 }
+
+
+/**
+ * sfunction ktime_get_ns - Number of nanoseconds since boot
+ *
+ * Description: This function returns the system ktime.
+ */
+function ktime_get_ns:long () %{
+  /* pure */ /* unprivileged */
+  STAP_RETURN ((int64_t) ktime_get_ns());
+%}

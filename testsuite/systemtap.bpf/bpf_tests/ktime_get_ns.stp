@@ -1,0 +1,33 @@
+global t1, t2, t3
+
+probe begin {
+  printf("BEGIN\n")
+  t1 = ktime_get_ns() // bpfinterp.cxx
+}
+
+probe timer.s(1) {
+  t2 = ktime_get_ns() // kernel bpf - XXX watch if timer.s() moves to userspace
+}
+
+probe perf.type(1).config(0).hz(1) {
+  t3 = ktime_get_ns() // kernel bpf
+}
+
+
+/*
+probe kernel.function("SOMETHING") { # to trigger kernel side bpf func
+  t3 = ktime.get.ns()
+}
+*/
+
+
+probe timer.s(5) {
+	exit()
+}
+
+probe end {
+  if (t1 > 0 && t2 > 0 && t3 > 0)
+    printf("END PASS\n")
+  else
+    printf("END FAIL\n")    
+}
