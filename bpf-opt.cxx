@@ -909,7 +909,7 @@ post_alloc_cleanup (program &p)
 	  n = j->next;
 	  if (j->is_move()
 	      && j->src1->is_reg()
-	      && j->dest->reg() == j->src1->reg() && n)
+	      && j->dest->reg() == j->src1->reg())
 	    {
 	      // Delete no-op moves created by partition merging.
 	      insn *p = j->prev;
