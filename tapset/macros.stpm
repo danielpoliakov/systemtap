@@ -8,3 +8,12 @@
 %(
 	%{ /* pure */ _stp_is_compat_task() %}
 %)
+
+@define this1 %( this_var1[tid()] %)
+@define this2 %( this_var2[tid()] %)
+@define this3 %( this_var3[tid()] %)
+@define this4 %( this_var4[tid()] %)
+@define this5 %( this_var5[tid()] %)
+@define this6 %( this_var6[tid()] %)
+@define this7 %( this_var7[tid()] %)
+@define this8 %( this_var8[tid()] %)

@@ -34,17 +34,21 @@ function printshorthistory (fd:long) {
 probe syscall.socket.return {
   if (!target_set_pid(pid()))
          next
-  eventnumber[$return] = 0
-  socketstart[$return] = gettimeofday_us()
-  eventname[$return, eventnumber[$return]] = "connect"
-  eventend[$return, eventnumber[$return]] = gettimeofday_us()
-  lastevent[$return] = "connect"
+  eventnumber[retval] = 0
+  socketstart[retval] = gettimeofday_us()
+  eventname[retval, eventnumber[retval]] = "connect"
+  eventend[retval, eventnumber[retval]] = gettimeofday_us()
+  lastevent[retval] = "connect"
+}
+
+probe syscall.close {
+  @this1 = fd
 }
 
 probe syscall.close.return {
   if (!target_set_pid(pid()))
          next
-  fd = @entry($fd)
+  fd = @this1
   if (socketstart[fd] != 0 && eventnumber[fd] >= 1)
          printf("Socket %d close\n", fd)
   delete socketstart[fd]
@@ -61,6 +65,7 @@ probe syscall.send, syscall.sendmsg {
 	  eventname[s, ++eventnumber[s]] = "send"
           eventstart[s, eventnumber[s]] = sendstart[s]
   }
+  @this2 = s
 }
 
 probe syscall.sendto {
@@ -77,12 +82,12 @@ probe syscall.sendto {
   }
 }
 
-probe __syscall.send.return, __syscall.sendmsg.return {
+probe syscall.send.return, syscall.sendmsg.return {
   if (!target_set_pid(pid()))
          next
-  fd = @entry($fd)
-  if (socketstart[fd] != 0 && $return > 0) {
-         eventbytes[fd, eventnumber[fd]] += $return
+  fd = @this2
+  if (socketstart[fd] != 0 && retval > 0) {
+         eventbytes[fd, eventnumber[fd]] += retval
 	 eventlength[fd, eventnumber[fd]] += gettimeofday_us() - sendstart[fd]
 	 eventend[fd, eventnumber[fd]] = gettimeofday_us()
   }
@@ -94,8 +99,8 @@ probe syscall.sendto.return {
   if (!target_set_pid(pid()))
          next
   fd = sendtofd[tid()]
-  if (socketstart[fd] != 0 && $return > 0) {
-         eventbytes[fd, eventnumber[fd]] += $return
+  if (socketstart[fd] != 0 && retval > 0) {
+         eventbytes[fd, eventnumber[fd]] += retval
 	 eventlength[fd, eventnumber[fd]] += gettimeofday_us() - sendstart[fd]
 	 eventend[fd, eventnumber[fd]] = gettimeofday_us()
   }
@@ -114,14 +119,15 @@ probe syscall.recv, syscall.recvfrom, syscall.recvmsg {
 	  eventname[s, ++eventnumber[s]] = "recv"
 	  eventstart[s, eventnumber[s]] = recvstart[s]
   }
+  @this3 = s
 }
 
-probe __syscall.recv.return, __syscall.recvfrom.return, __syscall.recvmsg.return {
+probe syscall.recv.return, syscall.recvfrom.return, syscall.recvmsg.return {
   if (!target_set_pid(pid()))
 	  next
-  fd = @entry($fd)
-  if (socketstart[fd] != 0 && $return > 0) {
-	  eventbytes[fd, eventnumber[fd]] += $return
+  fd = @this3
+  if (socketstart[fd] != 0 && retval > 0) {
+	  eventbytes[fd, eventnumber[fd]] += retval
 	  eventlength[fd, eventnumber[fd]] += gettimeofday_us() - recvstart[fd]
 	  eventend[fd, eventnumber[fd]] = gettimeofday_us()
   }
@@ -140,14 +146,15 @@ probe syscall.write, syscall.writev {
 	  eventname[fd, ++eventnumber[fd]] = "write"
 	  eventstart[fd, eventnumber[fd]] = writestart[fd]
   }
+  @this4 = fd
 }
 
 probe syscall.write.return, syscall.writev.return {
   if (!target_set_pid(pid()))
 	  next
-  fd = @entry($fd)
-  if (socketstart[fd] != 0 && $return > 0) {
-          eventbytes[fd, eventnumber[fd]] += $return
+  fd = @this4
+  if (socketstart[fd] != 0 && retval > 0) {
+          eventbytes[fd, eventnumber[fd]] += retval
 	  eventlength[fd, eventnumber[fd]] += gettimeofday_us() - writestart[fd]
 	  eventend[fd, eventnumber[fd]] = gettimeofday_us()
   }
@@ -166,14 +173,15 @@ probe syscall.read, syscall.readv {
 	  eventname[fd, ++eventnumber[fd]] = "read"
 	  eventstart[fd, eventnumber[fd]] = readstart[fd]
   }
+  @this5 = fd
 }
 
 probe syscall.read.return, syscall.readv.return {
   if (!target_set_pid(pid()))
 	  next
-  fd = @entry($fd)
-  if (socketstart[fd] != 0 && $return > 0) {
-          eventbytes[fd, eventnumber[fd]] += $return
+  fd = @this5
+  if (socketstart[fd] != 0 && retval > 0) {
+          eventbytes[fd, eventnumber[fd]] += retval
 	  eventlength[fd, eventnumber[fd]] += gettimeofday_us() - readstart[fd]
 	  eventend[fd, eventnumber[fd]] = gettimeofday_us()
   }

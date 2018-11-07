@@ -2,6 +2,19 @@
 
 - Runtime/tapsets were ported to include up to kernel version PRERELEASE
 
+- New macors @this1, ..., @this8 have been added to the script language.
+  The macros can be used to save values in entry probes and later retrieve
+  them in return probes. This can be used in instances where @entry does
+  not work. For example:
+
+     probe tp_syscall.read {
+         @this1 = buf_uaddr
+     }
+
+     probe tp_syscall.read.return {
+         buf_uaddr = @this1
+         printf("%s", user_string(buf_uaddr))
+     }
 
 
 * What's new in version 4.0, 2018-10-13
