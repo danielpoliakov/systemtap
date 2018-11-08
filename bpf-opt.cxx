@@ -36,7 +36,19 @@ alloc_literal_str(program &p, insn_inserter &ins, std::string &str)
   if (tmp_space + str_bytes > MAX_BPF_STACK)
     throw std::runtime_error("string allocation failed due to lack of room on stack");
 
-  tmp_space += str_bytes; // TODO: round up for safety?
+  tmp_space += str_bytes;
+
+#if 1
+  // XXX PR23860: Passing a short (non-padded) string constant can fail
+  // the verifier, which is not smart enough to determine that accesses
+  // past the end of the string will never occur. To fix this, make sure
+  // the string offset is at least -BPF_MAXSTRINGLEN.
+  //
+  // Not ideal because an unlucky ordering of allocations may waste space.
+  if (tmp_space < BPF_MAXSTRINGLEN)
+    tmp_space = BPF_MAXSTRINGLEN;
+#endif
+
   p.use_tmp_space(tmp_space);
   int ofs = -tmp_space;
 
@@ -932,19 +944,37 @@ post_alloc_cleanup (program &p)
     }
 }
 
+// XXX PR23860: Passing a short (non-padded) string constant can fail
+// the verifier, which is not smart enough to determine that accesses
+// past the end of the string will never occur. To fix this, start the
+// program with some code to zero out the temporary stack space.
+void
+zero_stack(program &p)
+{
+  block *entry_block = p.blocks[0];
+  insn_before_inserter ins(entry_block, entry_block->first, "zero_stack");
+  value *frame = p.lookup_reg(BPF_REG_10);
+  for (int32_t ofs = -(int32_t)p.max_tmp_space; ofs < 0; ofs += 4)
+    p.mk_st(ins, BPF_W, frame, (int32_t)ofs, p.new_imm(0));
+}
+
 void
 program::generate()
 {
 #ifdef DEBUG_CODEGEN
   std::cerr << "DEBUG BEFORE OPT " << *this << std::endl;
 #endif
+
   lower_str_values(*this);
+  zero_stack(*this);
+
   fixup_operands(*this);
   thread_jumps(*this);
   fold_jumps(*this);
   reorder_blocks(*this);
   reg_alloc(*this);
   post_alloc_cleanup(*this);
+
 #ifdef DEBUG_CODEGEN
   std::cerr << "DEBUG AFTER OPT " << *this << std::endl;
 #endif

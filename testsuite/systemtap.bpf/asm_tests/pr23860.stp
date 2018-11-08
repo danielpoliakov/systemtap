@@ -1,0 +1,24 @@
+function foo:string ()
+%{ /* bpf */ /* pure */ /* unprivileged */ /* stable */
+  0xbf, $$, "key", -, -; /* mov $$, "key" */
+%}
+
+function bar:string ()
+{
+  return "kez"
+}
+
+global t
+
+probe begin {
+  t[foo()] = 4
+  t[bar()] = 6
+  printf("U t[key]=%d, t[kez]=%d should be 4,6\n", t["key"], t["kez"])
+}
+
+probe kernel.function("vfs_read") {
+  t[foo()] = 5
+  t[bar()] = 7
+  printf("K t[key]=%d, t[kez]=%d should be 5,7\n", t["key"], t["kez"])
+  exit()
+}
