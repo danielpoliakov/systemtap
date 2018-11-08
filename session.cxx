@@ -183,6 +183,7 @@ systemtap_session::systemtap_session ():
     && strcmp(getenv("TERM") ?: "notdumb", "dumb"); // on auto
   interactive_mode = false;
   run_example = false;
+  no_global_var_display = false;
   pass_1a_complete = false;
   timeout = 0;
 
@@ -370,6 +371,7 @@ systemtap_session::systemtap_session (const systemtap_session& other,
   color_mode = other.color_mode;
   interactive_mode = other.interactive_mode;
   run_example = other.run_example;
+  no_global_var_display = other.no_global_var_display;
   pass_1a_complete = other.pass_1a_complete;
   timeout = other.timeout;
 
@@ -1646,6 +1648,10 @@ systemtap_session::parse_cmdline (int argc, char * const argv [])
                 }
             }
           break;
+
+	case LONG_OPT_NO_GLOBAL_VAR_DISPLAY:
+	  no_global_var_display = true;
+	  break;
 
 	case '?':
 	  // Invalid/unrecognized option given or argument required, but

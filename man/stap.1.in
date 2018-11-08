@@ -852,6 +852,11 @@ specified in the
 .IR stappaths (7)
 manual page.
 
+.TP
+.BI \-\-no-global-var-display
+This option is used to disable the automatic logging of unused global
+variables at the end of a stap session.
+
 .SH ARGUMENTS
 
 Any additional arguments on the command line are passed to the script

@@ -2012,6 +2012,9 @@ void add_global_var_display (systemtap_session& s)
   // this function might generate.
   if (s.runtime_mode == systemtap_session::bpf_runtime) return;
 
+  // User has specified not to display unread global variables.
+  if (s.no_global_var_display) return;
+
   varuse_collecting_visitor vut(s);
 
   for (unsigned i=0; i<s.probes.size(); i++)

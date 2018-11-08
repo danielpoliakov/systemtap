@@ -255,6 +255,7 @@ public:
   bool color_errors;
   bool interactive_mode;
   bool run_example;
+  bool no_global_var_display;
   bool pass_1a_complete;
 
   enum { color_never, color_auto, color_always } color_mode;
