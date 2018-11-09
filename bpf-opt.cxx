@@ -27,6 +27,16 @@ alloc_literal_str(program &p, insn_inserter &ins, value *s)
   str_bytes += 4 - str_bytes % 4; // write aligned words to avoid garbage data
 
   int ofs; size_t tmp_space;
+  if (s->is_format() && str_bytes <= BPF_MAXSTRINGLEN * 2)
+    {
+      // PR23068 workaround mitigation to reduce stack pressure:
+      //
+      // Store format strings in the top of the stack, since at most
+      // one printf() operation is prepared at a time and other string
+      // values will not be stored in that area now.
+      ofs = -str_bytes;
+      goto write_string;
+    }
 
   // Append the string to existing temporary data.
   //
@@ -65,6 +75,7 @@ alloc_literal_str(program &p, insn_inserter &ins, value *s)
   p.use_tmp_space(tmp_space);
   ofs = -tmp_space;
 
+ write_string:
   value *frame = p.lookup_reg(BPF_REG_10);
   value *out = emit_simple_literal_str(p, ins, frame, ofs, str, false /* don't zero pad */);
   return out;
