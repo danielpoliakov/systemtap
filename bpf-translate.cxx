@@ -2667,7 +2667,7 @@ bpf_unparser::emit_string_copy(value *dest, int ofs, value *src, bool zero_pad)
         }
 
       this_prog.mk_jcond(this_ins, EQ, all_nz, this_prog.new_imm(0),
-                         next_block, zero_pad ? block_B[i+1] : join_block);
+                         zero_pad ? block_B[i+1] : join_block, next_block);
     }
 
   // XXX: Zero-padding is only used under specific circumstances;
