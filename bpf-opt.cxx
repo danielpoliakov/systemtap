@@ -19,38 +19,51 @@ namespace bpf {
 
 // Allocate space on the stack and store a string literal in that space:
 static value *
-alloc_literal_str(program &p, insn_inserter &ins, std::string &str)
+alloc_literal_str(program &p, insn_inserter &ins, value *s)
 {
+  std::string str = s->str();
+
+  size_t str_bytes = str.size() + 1;
+  str_bytes += 4 - str_bytes % 4; // write aligned words to avoid garbage data
+
+  int ofs; size_t tmp_space;
+
   // Append the string to existing temporary data.
   //
   // TODO: This could produce significant space limitations.
   // A better solution would be to integrate with the
   // register allocator and reclaim the space after
   // the string literal is no longer live.
-  size_t tmp_space = p.max_tmp_space;
+  tmp_space = p.max_tmp_space;
   tmp_space += 4 - tmp_space % 4; // write aligned words to avoid verifier error
   p.use_tmp_space(tmp_space);
 
-  size_t str_bytes = str.size() + 1;
-  str_bytes += 4 - str_bytes % 4; // write aligned words to avoid garbage data
   if (tmp_space + str_bytes > MAX_BPF_STACK)
     throw std::runtime_error("string allocation failed due to lack of room on stack");
 
   tmp_space += str_bytes;
 
 #if 1
+  // The following aren't ideal because an unlucky ordering of
+  // allocation requests will waste additional space.
+
   // XXX PR23860: Passing a short (non-padded) string constant can fail
   // the verifier, which is not smart enough to determine that accesses
   // past the end of the string will never occur. To fix this, make sure
   // the string offset is at least -BPF_MAXSTRINGLEN.
-  //
-  // Not ideal because an unlucky ordering of allocations may waste space.
-  if (tmp_space < BPF_MAXSTRINGLEN)
-    tmp_space = BPF_MAXSTRINGLEN;
+  //if (!s->is_format() && tmp_space < BPF_MAXSTRINGLEN)
+  //  tmp_space = BPF_MAXSTRINGLEN;
+
+  // TODO PR23860: An even uglier workaround for emit_string_copy()
+  // overlapping source and destination regions. Only do this for
+  // non-format strings, as format strings are not manipulated by the
+  // eBPF program.
+  if (!s->is_format() && tmp_space < BPF_MAXSTRINGLEN * 2 + str_bytes)
+    tmp_space = BPF_MAXSTRINGLEN * 2 + str_bytes;
 #endif
 
   p.use_tmp_space(tmp_space);
-  int ofs = -tmp_space;
+  ofs = -tmp_space;
 
   value *frame = p.lookup_reg(BPF_REG_10);
   value *out = emit_simple_literal_str(p, ins, frame, ofs, str, false /* don't zero pad */);
@@ -73,7 +86,7 @@ lower_str_values(program &p)
             {
               insn_before_inserter ins(b, j, "str");
               std::string str0 = s0->str();
-              value *new_s0 = alloc_literal_str(p, ins, str0);
+              value *new_s0 = alloc_literal_str(p, ins, s0);
               j->src0 = new_s0;
             }
 
@@ -82,7 +95,7 @@ lower_str_values(program &p)
             {
               insn_before_inserter ins(b, j, "str");
               std::string str1 = s1->str();
-              value *new_s1 = alloc_literal_str(p, ins, str1);
+              value *new_s1 = alloc_literal_str(p, ins, s1);
               j->src1 = new_s1;
             }
         }

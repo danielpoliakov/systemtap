@@ -2568,6 +2568,9 @@ emit_simple_literal_str(program &this_prog, insn_inserter &this_ins,
 // dest[+ofs] in 4-byte chunks, with optional zero-padding up to
 // BPF_MAXSTRINGLEN.
 //
+// TODO (PR23860): This code does not work when the source and target
+// regions overlap.
+//
 // ??? Could use 8-byte chunks if we're starved for instruction count.
 // ??? Endianness of the target may come into play here.
 value *
@@ -2583,7 +2586,7 @@ bpf_unparser::emit_string_copy(value *dest, int ofs, value *src, bool zero_pad)
     }
 
 #ifdef DEBUG_CODEGEN
-  this_ins.notes.push("strcpy");
+  this_ins.notes.push(zero_pad ? "strcpy_zero_pad" : "strcpy");
 #endif
 
   size_t str_bytes = BPF_MAXSTRINGLEN;
@@ -2866,7 +2869,7 @@ bpf_unparser::emit_print_format (const std::string& format,
   // bpf program stack.  This is handled by bpf-opt.cxx lowering STR values.
   size_t format_bytes = format.size() + 1;
   this_prog.mk_mov(this_ins, this_prog.lookup_reg(BPF_REG_1),
-                   this_prog.new_str(format));
+                   this_prog.new_str(format, true /*format_str*/));
   emit_mov(this_prog.lookup_reg(BPF_REG_2), this_prog.new_imm(format_bytes));
   for (size_t i = 0; i < nargs; ++i)
     emit_mov(this_prog.lookup_reg(BPF_REG_3 + i), actual[i]);

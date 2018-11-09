@@ -657,14 +657,17 @@ program::new_imm(int64_t i)
 }
 
 value *
-program::new_str(std::string str)
+program::new_str(std::string str, bool format_str)
 {
-  auto old = str_map.find(str);
-  if (old != str_map.end())
+  std::unordered_map<std::string, value *>& m = str_map;
+  if (format_str) m = format_map;
+
+  auto old = m.find(str);
+  if (old != m.end())
     return old->second;
 
-  value *v = new value(value::mk_str(str));
-  auto ok = str_map.insert(std::pair<std::string, value *>(str, v));
+  value *v = new value(value::mk_str(str, format_str));
+  auto ok = m.insert(std::pair<std::string, value *>(str, v));
   assert(ok.second);
   return v;
 }
