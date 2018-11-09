@@ -1,0 +1,18 @@
+global t
+
+probe begin {
+  printf("BEGIN\n")
+}
+
+probe kernel.function("vfs_read") {
+  t["key"] = 6
+  exit()
+}
+
+probe end {
+  c = 0
+  foreach (k in t)
+    c++
+  printf("%d\n", c)
+  printf("END PASS\n")
+}
