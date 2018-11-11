@@ -1391,6 +1391,9 @@ main (int argc, char * const argv [])
             if (ss.verbose > 1)
 	      clog << _F("Session arch: %s release: %s",
 			 ss.architecture.c_str(), ss.kernel_release.c_str())
+		   << endl
+                   << _F("Build tree: \"%s\"",
+			 ss.kernel_build_tree.c_str())
 		   << endl;
 
 #if HAVE_NSS
