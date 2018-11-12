@@ -7,7 +7,7 @@
 #
 # stap --all-modules periodic.stp
 
-global last_expire, period, funct, data
+global last_expire, period, funct, data, proc_info, delayed_work_info
 
 probe kernel.trace("timer_expire_entry")
 {
@@ -17,7 +17,9 @@ probe kernel.trace("timer_expire_entry")
     elapsed = new_expire - old_expire
     period[$timer] <<< elapsed
     funct[$timer] = $timer->function
-    data[$timer] = $timer->data
+    data[$timer] = @defined($timer->data) ? $timer->data : 0
+    proc_info[$timer] = @defined($timer->data) ? 0 : @container_of($timer, "struct process_timer", timer)->task
+    delayed_work_info[$timer] = @defined($timer->data) ? 0 : & @container_of($timer, "struct delayed_work", timer)
   }
   last_expire[$timer] = new_expire
 }
@@ -29,14 +31,16 @@ function output()
   foreach([timer] in period-) {
     fname = symname(funct[timer])
     if (fname == "process_timeout") {
+      ptr = (data[timer] ? data[timer] : proc_info[timer])
       fname = sprintf("%s(%d)",
-                      kernel_string_n(@cast(data[timer], "struct task_struct", "kernel<linux/sched.h>")->comm, 16),
-                      @cast(data[timer], "struct task_struct", "kernel<linux/sched.h>")->pid)
+                      kernel_string_n(@cast(ptr, "struct task_struct", "kernel<linux/sched.h>")->comm, 16),
+                      @cast(ptr, "struct task_struct", "kernel<linux/sched.h>")->pid)
       type="process"
     } else if (fname == "delayed_work_timer_fn") {
-      faddr = @defined(@cast(data[timer], "struct delayed_work", "kernel<linux/workqueue.h>")->work->func)
-      ? @cast(data[timer], "struct delayed_work", "kernel<linux/workqueue.h>")->work->func
-      : @cast(data[timer], "struct work_struct", "kernel<linux/workqueue.h>")->func
+      ptr = (data[timer] ? data[timer] : delayed_work_info[timer])
+      faddr = @defined(@cast(ptr, "struct delayed_work", "kernel<linux/workqueue.h>")->work->func)
+      ? @cast(ptr, "struct delayed_work", "kernel<linux/workqueue.h>")->work->func
+      : @cast(ptr, "struct work_struct", "kernel<linux/workqueue.h>")->func
       fname = sprintf("%s", symname(faddr))
       type="work_q"
     } else {
@@ -68,5 +72,7 @@ probe timer.s($1)
   delete period
   delete funct
   delete data
+  delete proc_info
+  delete delayed_work_info
 }
 %)
