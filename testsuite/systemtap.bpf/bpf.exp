@@ -58,6 +58,9 @@ proc stapbpf_run { TEST_NAME OUTPUT_STR args } {
 
             expect {
                 -timeout 20
+                -re "stack smashing detected" {
+                    set rc $bad_output
+                }
                 -re $pass_str  {
                     set rc $pass
                 }
