@@ -254,18 +254,23 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
 	case BPF_ALU64 | BPF_MOV | BPF_K:  dr = s1; break;
 	case BPF_ALU64 | BPF_ARSH | BPF_X:
 	case BPF_ALU64 | BPF_ARSH | BPF_K: dr = (int64_t)dr >> s1; break;
-	case BPF_ALU64 | BPF_NEG:	   dr = -sr;
-					   /* Fallthrough */
+	case BPF_ALU64 | BPF_NEG:	   dr = -sr; break;
 	case BPF_ALU64 | BPF_DIV | BPF_X:
 	case BPF_ALU64 | BPF_DIV | BPF_K:
 	  if (s1 == 0)
-	    return 0;
+            {
+              // TODO: Signal a proper error.
+              return 0;
+            }
 	  dr /= s1;
 	  break;
 	case BPF_ALU64 | BPF_MOD | BPF_X:
 	case BPF_ALU64 | BPF_MOD | BPF_K:
 	  if (s1 == 0)
-	    return 0;
+            {
+              // TODO: Signal a proper error.
+              return 0;
+            }
 	  dr %= s1;
 	  break;
 
@@ -289,18 +294,23 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
 	case BPF_ALU | BPF_MOV | BPF_K:  dr = (uint32_t)s1; break;
 	case BPF_ALU | BPF_ARSH | BPF_X:
 	case BPF_ALU | BPF_ARSH | BPF_K: dr = (int32_t)dr >> s1; break;
-	case BPF_ALU | BPF_NEG:		 dr = -(uint32_t)sr;
-					 /* Fallthrough */
+	case BPF_ALU | BPF_NEG:		 dr = -(uint32_t)sr; break;
 	case BPF_ALU | BPF_DIV | BPF_X:
 	case BPF_ALU | BPF_DIV | BPF_K:
 	  if ((uint32_t)s1 == 0)
-	    return 0;
+            {
+              // TODO: Signal a proper error.
+              return 0;
+            }
 	  dr = (uint32_t)dr / (uint32_t)s1;
 	  break;
 	case BPF_ALU | BPF_MOD | BPF_X:
 	case BPF_ALU | BPF_MOD | BPF_K:
 	  if ((uint32_t)s1 == 0)
-	    return 0;
+            {
+              // TODO: Signal a proper error.
+              return 0;
+            }
 	  dr = (uint32_t)dr % (uint32_t)s1;
 	  break;
 
