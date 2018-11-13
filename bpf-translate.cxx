@@ -1532,6 +1532,10 @@ bpf_unparser::visit_foreach_loop(foreach_loop* s)
     throw SEMANTIC_ERROR(_("unknown type"), s->base->tok);
   vardecl *arraydecl = a->referent;
 
+  // TODO PR23875: foreach should handle string keys
+  if (arraydecl->index_types[0] != pe_long)
+    throw SEMANTIC_ERROR(_("unhandled string index type"), s->tok);
+
   auto g = glob.globals.find(arraydecl);
   if (g == glob.globals.end())
     throw SEMANTIC_ERROR(_("unknown array"), arraydecl->tok);
