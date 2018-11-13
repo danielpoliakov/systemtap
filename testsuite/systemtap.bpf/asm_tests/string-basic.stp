@@ -1,4 +1,4 @@
-/* narrowing down a bug that turned out unrelated to assembly */
+/* PR23816: narrowing down a bug that turned out unrelated to assembly */
 function foo:string() %{ /* bpf */ /* pure */
   0xbf, $$, "test", -, -;
 %}
