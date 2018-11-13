@@ -1,0 +1,11 @@
+global t
+
+probe begin {
+  println("BEGIN")
+  t["key"] = 6
+}
+
+probe end {
+  foreach (k in t) printf("%s -> %d\n", k, t[k])
+  println("END PASS")
+}
