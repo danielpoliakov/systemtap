@@ -6945,11 +6945,9 @@ dump_symbol_tables (Dwfl_Module *m,
 			if (c->seclist[secidx].first==secname)
 			  break;
 
-		      if (secidx == c->seclist.size()) // whoa! We messed up...
+		      if (secidx == c->seclist.size()) // PR23747 not an error
 			{
-			  string m = _F("%s has unknown section %s for sym %s",
-					modname, secname, name);
-			  throw runtime_error(m);
+                          continue; // way back to the next symbol
 			}
 		    }
                 }
