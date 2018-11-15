@@ -563,9 +563,11 @@ stapiu_change_plus(struct stapiu_target* target, struct task_struct *task,
 			return rc;
 		}
 
-		/* Actually do the check. */
+		/* Actually do the check.  NB: on F29+, offset may not equal 0
+                   for LOADable "R E" segments, because the read-only .note.*
+                   stuff may have been loaded earlier, separately.  PR23890. */
 		if ((rc = _stp_usermodule_check(task, target->filename,
-						relocation))) {
+						relocation - offset))) {
 			/* Be sure to release the inode on failure. */
 			iput(target->inode);
 			target->inode = NULL;
