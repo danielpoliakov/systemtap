@@ -1150,6 +1150,7 @@ bpf_unparser::emit_asm_opcode (const asm_stmt &stmt,
                                 stmt.fallthrough.c_str()), stmt.tok);
       block *target = label_map[stmt.jmp_target];
       block *fallthrough = label_map[stmt.fallthrough];
+      c = EQ; // defeat compiler warning about uninitialized c
       this_prog.mk_jcond(this_ins, c, v_dest, v_src1, target, fallthrough);
     }
   else // regular opcode
