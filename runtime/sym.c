@@ -636,30 +636,46 @@ unsigned long _stp_linenumber_lookup(unsigned long addr, struct task_struct *tas
   return 0;
 }
 
+
+// Compare two build-id hex strings, each of length m->build_id_len bytes.
+// Since mismatches can mystify, produce a hex-textual version of both
+// expected and actual strings, and compare textually.  Failure messages
+// are more intelligible this way.
 static int _stp_build_id_check (struct _stp_module *m,
 				unsigned long notes_addr,
 				struct task_struct *tsk)
 {
-  int j;
+  enum { max_buildid_hexstring = 65 };
+  static const char hexnibble[16]="0123456789abcdef";
+  char hexstring_theory[max_buildid_hexstring], hexstring_practice[max_buildid_hexstring];
+  int buildid_len = min((max_buildid_hexstring-1)/2, m->build_id_len);
 
-  for (j = 0; j < m->build_id_len; j++) {
+  int i, j;
+  
+  memset(hexstring_theory, '\0', max_buildid_hexstring);
+  for (i=0, j=0; j<buildid_len; j++) {
+     unsigned char theory = m->build_id_bits[j];
+     hexstring_theory[i++] = hexnibble[theory >> 4];
+     hexstring_theory[i++] = hexnibble[theory & 15];
+  }
+
+  memset(hexstring_practice, '\0', max_buildid_hexstring);
+  for (i=0, j=0; j<buildid_len; j++) {
     /* Use set_fs / get_user to access conceivably invalid addresses.
      * If loc2c-runtime.h were more easily usable, a deref() loop
      * could do it too. */
     mm_segment_t oldfs = get_fs();
     int rc;
-    unsigned char theory, practice = 0;
+    unsigned char practice = 0;
 
 #ifdef STAPCONF_PROBE_KERNEL
     if (!tsk) {
-      theory = m->build_id_bits[j];
       set_fs(KERNEL_DS);
       rc = probe_kernel_read(&practice, (void*)(notes_addr + j), 1);
     }
     else
 #endif
     {
-      theory = m->build_id_bits[j];
       set_fs (tsk ? USER_DS : KERNEL_DS);
 
       /*
@@ -685,21 +701,19 @@ static int _stp_build_id_check (struct _stp_module *m,
     }
     set_fs(oldfs);
 
-    if (rc || (theory != practice)) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
-      _stp_error ("Build-id mismatch [man error::buildid]: \"%s\" byte %d (0x%02x vs 0x%02x) address %#lx rc %d\n",
-		  m->path, j, theory, practice, notes_addr, rc);
+    if (rc == 0) { // got actual data byte
+            hexstring_practice[i++] = hexnibble[practice >> 4];
+            hexstring_practice[i++] = hexnibble[practice & 15];
+    }
+  }
+
+  // have two strings, will travel
+  if (strcmp (hexstring_practice, hexstring_theory)) {
+          _stp_error ("Build-id mismatch [man error::buildid]: \"%s\" address %#lx, expected %s actual %s\n",
+                      m->path, notes_addr, hexstring_theory, hexstring_practice);
       return 1;
-#else
-      /* This branch is a surrogate for kernels affected by Fedora bug
-       * #465873. */
-      _stp_warn (KERN_WARNING
-		 "Build-id mismatch [man error::buildid]: \"%s\" byte %d (0x%02x vs 0x%02x) rc %d\n",
-		 m->path, j, theory, practice, rc);
-#endif
-      break;
-    } /* end mismatch */
-  } /* end per-byte check loop */
+  }
+  
   return 0;
 }
 
