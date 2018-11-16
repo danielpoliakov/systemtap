@@ -1027,7 +1027,8 @@ bpf_unparser::emit_asm_opcode (const asm_stmt &stmt,
     throw SEMANTIC_ERROR (_("invalid bpf code"), stmt.tok);
 
   bool r_dest = false, r_src0 = false, r_src1 = false, i_src1 = false;
-  bool op_jmp = false, op_jcond = false; condition c;
+  bool op_jmp = false, op_jcond = false;
+  condition c = EQ; // <- quiet a compiler warning about uninitialized c
   switch (BPF_CLASS (stmt.code))
     {
     case BPF_LDX:
@@ -1150,7 +1151,6 @@ bpf_unparser::emit_asm_opcode (const asm_stmt &stmt,
                                 stmt.fallthrough.c_str()), stmt.tok);
       block *target = label_map[stmt.jmp_target];
       block *fallthrough = label_map[stmt.fallthrough];
-      c = EQ; // defeat compiler warning about uninitialized c
       this_prog.mk_jcond(this_ins, c, v_dest, v_src1, target, fallthrough);
     }
   else // regular opcode
