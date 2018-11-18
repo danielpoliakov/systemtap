@@ -305,7 +305,7 @@ FIXME description of how to use the stack backtracing
 			To ensure that the needed debug information is used to produce the
 			user-space stack backtraces, use the
 			<option>-d <replaceable>executable</replaceable></option> option for
-			executables and <option>-ldd</option> for shared libraries.
+			executables and <option>--ldd</option> for shared libraries.
 </para>
 
 <para>
