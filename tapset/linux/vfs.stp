@@ -1296,7 +1296,7 @@ probe vfs.open = kernel.function("vfs_open") ?
 {
         name = "vfs.open"
         path = $path
-        cred = $cred
+        cred = @defined($cred) ? $cred : $file->f_cred
         pathname = fullpath_struct_path($path)
         argstr = sprintf("%s, %p", pathname, $cred)
 }
@@ -1311,6 +1311,6 @@ probe vfs.open.return = kernel.function("vfs_open").return ?
 	error_str = error ? errno_str(error) : ""
 
         path = @entry($path)
-        cred = @entry($cred)
+        cred = @entry(@defined($cred) ? $cred : $file->f_cred)
         pathname = fullpath_struct_path(@entry($path))
 }
