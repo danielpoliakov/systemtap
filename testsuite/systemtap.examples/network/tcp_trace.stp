@@ -208,7 +208,8 @@ probe kernel.function("tcp_keepalive_timer")
 {
 	if ( !timer_flg ) next;
 
-	sk = $data;
+	sk = @choose_defined($data,
+			     & @container_of($t, "struct sock", sk_timer))
 	key = filter_key(sk)
 	if ( !key ) next;
 
@@ -223,7 +224,8 @@ probe kernel.function("tcp_delack_timer")
 {
 	if ( !timer_flg ) next;
 
-	sk = $data;
+	sk = @choose_defined($data,
+			     & @container_of($t, "struct inet_connection_sock", icsk_delack_timer)->icsk_inet->sk)
 	key = filter_key(sk)
 	if ( !key ) next;
 
@@ -274,7 +276,8 @@ probe kernel.function("tcp_write_timer")
 {
 	if ( !timer_flg ) next;
 
-	sk = $data
+	sk = @choose_defined($data,
+			     & @container_of($t, "struct inet_connection_sock", icsk_retransmit_timer)->icsk_inet->sk )
 	key = filter_key(sk)
 	if ( !key ) next;
 
