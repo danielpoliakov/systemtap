@@ -1,0 +1,13 @@
+title: Profile method invocations in Java, Perl, Php, Python, Ruby, and Tcl scripts
+name: ucalls.stp
+version: 0.1
+author: William Cohen
+keywords: profiling syscall
+subsystem: process
+status: experimental
+exit: user-controlled
+output: sorted-list
+scope: process
+description: The ucalls.stp script is modeled after the BCC ucalls script (https://github.com/iovisor/bcc/blob/master/tools/lib/ucalls.py) by Sasha Goldshtein. The ucalls.stp script monitors the process indicated by the -x or -c option.  When the scripts exits it prints out information about the number of times that each method is invoked for code written in Java, Perl, Php, Python, Ruby, and Tcl.  Include the word "syscalls" on the command line to count syscalls invoked by the process.  If you want latency information, include "latency" on the command line. Note that the latency option does not work for recursive functions
+test_check: stap -p4 ucalls.stp -c "python -c 'print(\"hello world\")'"
+test_installcheck: stap ucalls.stp syscalls latency -c "python -c 'print(\"hello world\")' || true"

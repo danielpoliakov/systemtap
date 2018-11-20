@@ -1,0 +1,161 @@
+#! /usr/bin/env stap
+#
+# Copyright (C) 2018 Red Hat, Inc.
+# By William cohen, Red Hat Inc.
+# wcohen@redhat.com
+#
+
+global latency = 0  // non-zero to include latency info
+global syscalls = 0 // non-zero to include syscalls
+global tally
+global top = 100000 // High enough limit to be "infinite"
+global entry_time%, acc_time
+
+function method_entry(class:string, method:string)
+{
+  tally[class, method] <<< 1
+  if (latency) {
+    entry_time[tid(), class, method] = gettimeofday_us()
+  }
+}
+
+function method_exit(class:string, method:string)
+{
+  t = entry_time[tid(), class, method] = gettimeofday_us()
+  if (t)
+    acc_time[class, method] <<< gettimeofday_us() - t
+}
+
+# probes for java
+probe hotspot.method_entry? {
+  if (pid() == target()) method_entry(class, name)
+}
+
+probe hotspot.method_return? {
+  if (latency && pid() == target()) method_exit(class, name)
+}
+
+# probes for perl
+probe perl.sub.call? {
+  if (pid() == target()) method_entry(filename, sub)
+}
+
+probe perl.sub.return? {
+  if (latency && pid() == target()) method_exit(filename, sub)
+}
+
+# probes for php
+probe process("php").mark("function__entry")? {
+  if (pid() == target()) {
+    class = user_string($arg4)
+    method = user_string($arg1)
+    method_entry(class, method)
+  }
+}
+
+probe process("php").mark("function__return")? {
+  if (latency && pid() == target()) {
+    class = user_string($arg4)
+    method = user_string($arg1)
+    method_exit(class, method)
+  }
+}
+
+# probes for python
+probe process("/usr/lib*/libpython*.so.1.0").mark("function__entry")? {
+  if (pid() == target()) {
+    class = user_string($arg1)
+    method = user_string($arg2)
+    method_entry(class, method)
+  }
+}
+
+probe process("/usr/lib*/libpython*.so.1.0").mark("function__return")? {
+  if (latency && pid() == target()) {
+    class = user_string($arg1)
+    method = user_string($arg2)
+    method_exit(class, method)
+  }
+}
+
+# probes for ruby
+probe ruby.method.entry? {
+  if (pid() == target()) method_entry(classname, methodname)
+}
+
+probe ruby.method.return? {
+  if (latency && pid() == target()) method_exit(classname, methodname)
+}
+
+# probes for tcl
+# TODO cmd__entry ?
+probe process("/usr/lib*/libtcl*.so").mark("proc__entry")? {
+  if (pid() == target()) {
+    method = user_string($arg1)
+    method_entry("", method)
+  }
+}
+
+probe process("/usr/lib*/libtcl*.so").mark("proc__return")? {
+  if (latency && pid() == target()) {
+    method = user_string($arg1)
+    method_exit("", method)
+  }
+}
+
+probe syscall_any {
+  if (syscalls && pid() == target()) method_entry("syscall", name)
+}
+
+probe syscall_any.return {
+  if (syscalls && latency && pid() == target()) method_exit("syscall", name)
+}
+
+function print_info() {
+  printf("%-50s %8s", "METHOD", "# CALLS")
+  if (latency) printf(" %9s", "TIME (us)")
+  printf("\n")
+  foreach([class, method] in tally- limit top){
+    class_method = sprintf("%s.%s", class, method)
+    printf("%-50s %8d", class_method, @sum(tally[class, method]))
+    if (latency) printf(" %9d", @sum(acc_time[class, method]))
+    printf("\n")
+  }
+  printf("\n")
+}
+
+probe end
+{
+  print_info()
+  delete tally
+  delete entry_time
+  delete acc_time
+}
+
+probe begin
+{
+  process_cmdline()
+}
+
+/* Handle the "top=<n>", "latency", and "syscall" options */
+function process_cmdline ()
+{
+  for (i=1; i <= argc; i++) {
+    argument = tokenize(argv[i], "=")
+
+    if ( argument == "top"){
+      top=strtol(tokenize("", "="),10)
+      continue;
+    }
+
+    if ( argument == "latency"){
+      latency = 1
+      continue;
+    }
+
+    if ( argument == "syscalls"){
+      syscalls = 1
+      continue;
+    }
+  }
+}
