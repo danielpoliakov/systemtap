@@ -54,6 +54,7 @@ extern "C" {
 #include <unistd.h>
 #include <wordexp.h>
 #include <ftw.h>
+#include <fcntl.h>
 }
 
 using namespace std;
@@ -277,8 +278,30 @@ void handle_interrupt (int)
   if (pending_interrupts > 2) // XXX: should be configurable? time-based?
     {
       char msg[] = "Too many interrupts received, exiting.\n";
-      int rc = write (2, msg, sizeof(msg)-1);
-      if (rc) {/* Do nothing; we don't care if our last gasp went out. */ ;}
+      int fd = 2;
+
+      /* NB: writing to stderr blockingly in a signal handler is dangerous
+       * since it may prevent the stap process from quitting gracefully
+       * on receiving SIGTERM/etc signals when the stderr write buffer
+       * is full. PR23891 */
+      int flags = fcntl(fd, F_GETFL);
+      if (flags == -1)
+        _exit (1);
+
+      if (!(flags & O_NONBLOCK))
+        {
+          if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0) {
+            int rc = write (fd, msg, sizeof(msg)-1);
+            if (rc)
+              {
+                /* Do nothing; we don't care if our last gasp went out. */
+                ;
+              }
+          }
+        }  /* if ! O_NONBLOCK */
+
+      /* to avoid leaving any side-effects on the stderr device */
+      (void) fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
       _exit (1);
     }
 }

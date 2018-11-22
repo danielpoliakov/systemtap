@@ -31,6 +31,51 @@ static int target_pid_failed_p = 0;
    main thread of interruptable events. */
 static pthread_t main_thread;
 
+static void set_nonblocking_std_fds(void)
+{
+  for (int fd = 1; fd < 3; fd++) {
+    /* NB: writing to stderr/stdout blockingly in signal handler is
+     * dangerous since it may prevent the stap process from quitting
+     * gracefully on receiving SIGTERM/etc signals when the stderr/stdout
+     * write buffer is full. PR23891 */
+    int flags = fcntl(fd, F_GETFL);
+    if (flags == -1)
+      continue;
+
+    if (flags & O_NONBLOCK)
+      continue;
+
+    (void) fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+  }
+}
+
+static void set_blocking_std_fds(void)
+{
+  for (int fd = 1; fd < 3; fd++) {
+    /* NB: writing to stderr/stdout blockingly in signal handler is
+     * dangerous since it may prevent the stap process from quitting
+     * gracefully on receiving SIGTERM/etc signals when the stderr/stdout
+     * write buffer is full. PR23891 */
+    int flags = fcntl(fd, F_GETFL);
+    if (flags == -1)
+      continue;
+
+    if (!(flags & O_NONBLOCK))
+      continue;
+
+    (void) fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+  }
+}
+
+static void my_exit(int rc)
+{
+  /* to avoid leaving any side-effects on the stdout/stderr devices */
+  if (pending_interrupts > 2)
+    set_blocking_std_fds();
+
+  _exit(rc);
+}
+
 static void *signal_thread(void *arg)
 {
   sigset_t *s = (sigset_t *) arg;
@@ -41,13 +86,19 @@ static void *signal_thread(void *arg)
       _perr("sigwait");
       continue;
     }
-    dbug(2, "sigproc %d (%s)\n", signum, strsignal(signum));
     if (signum == SIGQUIT) {
       load_only = 1; /* flag for stp_main_loop */
       pending_interrupts ++;
-    } else if (signum == SIGINT || signum == SIGHUP || signum == SIGTERM) {
+    } else if (signum == SIGINT || signum == SIGHUP || signum == SIGTERM
+               || signum == SIGPIPE)
+    {
       pending_interrupts ++;
     }
+    if (pending_interrupts > 2) {
+      set_nonblocking_std_fds();
+      pthread_kill (main_thread, SIGURG);
+    }
+    dbug(2, "sigproc %d (%s)\n", signum, strsignal(signum));
   }
   /* Notify main thread (interrupts select). */
   pthread_kill (main_thread, SIGURG);
@@ -153,6 +204,7 @@ static void setup_main_signals(void)
   sigaddset(s, SIGTERM);
   sigaddset(s, SIGHUP);
   sigaddset(s, SIGQUIT);
+  sigaddset(s, SIGPIPE);
   pthread_sigmask(SIG_SETMASK, s, NULL);
   if (pthread_create(&tid, NULL, signal_thread, s) < 0) {
     _perr(_("failed to create thread"));
@@ -533,10 +585,12 @@ void cleanup_and_exit(int detach, int rc)
   /* OTOH, it may be still be running - but there's no need for
      us to wait for it, considering that the script must have exited
      for another reason.  So, we no longer   while(...wait()...);  here.
-     XXX: we could consider killing it. */
+   */
 
   if (use_old_transport)
     close_oldrelayfs(detach);
+  else if (pending_interrupts > 2)
+    kill_relayfs();
   else
     close_relayfs();
 
@@ -545,7 +599,7 @@ void cleanup_and_exit(int detach, int rc)
 
   if (detach) {
     eprintf(_("\nDisconnecting from systemtap module.\n" "To reconnect, type \"staprun -A %s\"\n"), modname);
-    _exit(0);
+    my_exit(0);
   }
   else if (rename_mod)
     dbug(2, "\nRenamed module to: %s\n", modname);
@@ -568,7 +622,7 @@ void cleanup_and_exit(int detach, int rc)
   pid = fork();
   if (pid < 0) {
           _perr("fork");
-          _exit(-1);
+          my_exit(-1);
   }
 
   if (pid == 0) {			/* child process */
@@ -584,27 +638,27 @@ void cleanup_and_exit(int detach, int rc)
                   execlp("sh", "sh", "-c", cmd, NULL);
                   /* should not return */
                   perror(staprun);
-                  _exit(-1);
+                  my_exit(-1);
           } else {
                   perror("asprintf");
-                  _exit(-1);
+                  my_exit(-1);
           }
   }
 
   /* parent process */
   if (waitpid(pid, &rstatus, 0) < 0) {
           _perr("waitpid");
-          _exit(-1);
+          my_exit(-1);
   }
 
   if (WIFEXITED(rstatus)) {
           if(rc || target_pid_failed_p || rstatus) // if we have an error
-            _exit(1);
+            my_exit(1);
           else
-            _exit(0); //success
+            my_exit(0); //success
   }
 
-  _exit(-1);
+  my_exit(-1);
 }
 
 
@@ -637,7 +691,6 @@ int stp_main_loop(void)
   struct timespec ts;
   struct timespec *timeout = NULL;
   fd_set fds;
-  sigset_t blockset, mainset;
 
 
   setvbuf(ofp, (char *)NULL, _IONBF, 0);
@@ -663,15 +716,6 @@ int stp_main_loop(void)
   res = select(control_channel + 1, NULL, NULL, &fds, &tv);
   select_supported = (res == 1 && FD_ISSET(control_channel, &fds));
   dbug(2, "select_supported: %d\n", select_supported);
-  if (select_supported) {
-    /* We block SIGURG to the main thread, except when we call
-       pselect(). This makes sure we won't miss any signals. All other
-       calls are non-blocking, so we defer till pselect() time, which
-       is when we are "sleeping". */
-    sigemptyset(&blockset);
-    sigaddset(&blockset, SIGURG);
-    pthread_sigmask(SIG_BLOCK, &blockset, &mainset);
-  }
 
   if (monitor)
       monitor_setup();
@@ -749,7 +793,7 @@ int stp_main_loop(void)
         // Immediately update screen on input
         if (monitor)
           FD_SET(STDIN_FILENO, &fds);
-	res = pselect(maxfd + 1, &fds, NULL, NULL, timeout, &mainset);
+	res = pselect(maxfd + 1, &fds, NULL, NULL, timeout, NULL);
 	if (res < 0 && errno != EINTR)
 	  {
 	    _perr(_("Unexpected error in select"));

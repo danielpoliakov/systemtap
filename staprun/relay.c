@@ -468,3 +468,32 @@ void close_relayfs(void)
 	}
 	dbug(2, "done\n");
 }
+
+void kill_relayfs(void)
+{
+	int i;
+	stop_threads = 1;
+	dbug(2, "killing\n");
+	for (i = 0; i < ncpus; i++) {
+		if (reader[avail_cpus[i]])
+			pthread_kill(reader[avail_cpus[i]], SIGUSR2);
+		else
+			break;
+	}
+	for (i = 0; i < ncpus; i++) {
+		if (reader[avail_cpus[i]])
+			pthread_cancel(reader[avail_cpus[i]]); /* no wait */
+		else
+			break;
+	}
+	for (i = 0; i < ncpus; i++) {
+		if (relay_fd[avail_cpus[i]] >= 0)
+			close(relay_fd[avail_cpus[i]]);
+		else
+			break;
+	}
+	for (i = 0; i < ncpus; i++) {
+		pthread_mutex_destroy(&mutex[avail_cpus[i]]);
+	}
+	dbug(2, "done\n");
+}

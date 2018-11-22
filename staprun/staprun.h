@@ -164,6 +164,7 @@ int init_ctl_channel(const char *name, int verb);
 void close_ctl_channel(void);
 int init_relayfs(void);
 void close_relayfs(void);
+void kill_relayfs(void);
 int init_oldrelayfs(void);
 void close_oldrelayfs(int);
 int write_realtime_data(void *data, ssize_t nb);
