@@ -4463,6 +4463,7 @@ dwarf_var_expanding_visitor::visit_target_symbol (target_symbol *e)
       // parameters from a return probe.  PR 1382.
       if (q.has_return
           && !defined_being_checked
+          && (strverscmp(sess.compatible.c_str(), "4.1") < 0 || e->name != "@var")
           && e->name != "$return" // not the special return-value variable handled below
           && e->name != "$$return") // nor the other special variable handled below
         {

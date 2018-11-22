@@ -1,0 +1,3 @@
+probe process.function("main").return {
+    printf("a = %d\n", @var("a"));
+}

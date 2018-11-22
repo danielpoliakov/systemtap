@@ -1,0 +1,58 @@
+set test "ret-uprobe-var"
+set testpath "$srcdir/$subdir"
+
+if {! [installtest_p]} { untested $test; return }
+if {! [uretprobes_p]} { untested $test; return }
+
+# --- TEST 1 ---
+
+set subtest1 "TEST 1: @var in return probes should not be stale (4.1+)"
+
+set res [target_compile ${testpath}/${test}_1.c ./a.out executable \
+    "additional_flags=-O additional_flags=-g"]
+if {$res ne ""} {
+    verbose "target_compile failed: $res" 2
+    fail "$test: $subtest1: unable to compile ${test}_1.c"
+} else {
+    foreach runtime [get_runtime_list] {
+        if {$runtime eq ""} {
+            set runtime "kernel"
+        }
+        set test_name "$test: $subtest1 ($runtime)"
+        set cmd "stap --runtime=$runtime -c ./a.out '$srcdir/$subdir/${test}_1.stp'"
+        set exit_code [run_cmd_2way $cmd out stderr]
+        set exp_out "a = 4\n"
+        is "${test_name}: stdout" $out $exp_out
+        set exp_stderr ""
+        is "${test_name}: stderr" $stderr $exp_stderr
+        is "${test_name}: exit code" $exit_code 0
+    }
+}
+
+# --- TEST 2 ---
+
+set subtest2 "TEST 2: @var in return probes assumed @entry in release 4.0 or older"
+
+set res [target_compile ${testpath}/${test}_1.c ./a.out executable \
+    "additional_flags=-O additional_flags=-g"]
+if {$res ne ""} {
+    verbose "target_compile failed: $res" 2
+    fail "$test: $subtest2: unable to compile ${test}_1.c"
+} else {
+    foreach runtime [get_runtime_list] {
+        if {$runtime eq ""} {
+            set runtime "kernel"
+        }
+        set test_name "$test: $subtest2 ($runtime)"
+        set cmd "stap --compatible 4.0 --runtime=$runtime -c ./a.out '$srcdir/$subdir/${test}_1.stp'"
+        set exit_code [run_cmd_2way $cmd out stderr]
+        set exp_out "a = 3\n"
+        is "${test_name}: stdout" $out $exp_out
+        set stderr_pat "\\AWARNING: confusing usage, consider \\@entry\\(\\@var\\(\"a\", \"\[^\"\]+\"\\)\\) in \\.return probe: operator '\\@var' at .+?\\.stp:2:24
+ source:     printf\\(\"a = %d\\\\n\", \\@var\\(\"a\"\\)\\);
+                                \\^
+\\Z"
+        like "${test_name}: stderr" $stderr $stderr_pat "-linestop"
+        is "${test_name}: exit code" $exit_code 0
+    }
+}

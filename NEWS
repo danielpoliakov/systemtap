@@ -16,6 +16,8 @@
          printf("%s", user_string(buf_uaddr))
      }
 
+- Operator @var() no longer assumes @entry() in return probes.
+  THe old behavior can be restored by the '--compatible 4.0' option.
 
 * What's new in version 4.0, 2018-10-13
 
