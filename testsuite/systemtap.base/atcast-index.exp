@@ -1,0 +1,58 @@
+set test "atcast-index"
+set testpath "$srcdir/$subdir"
+
+if {! [installtest_p]} { untested $test; return }
+if {! [uretprobes_p]} { untested $test; return }
+
+# --- TEST 1 ---
+
+set subtest1 "TEST 1: const folding in array index of a translated array address"
+
+set res [target_compile ${testpath}/${test}_1.c ./a.out executable \
+    "additional_flags=-O additional_flags=-g"]
+if {$res ne ""} {
+    verbose "target_compile failed: $res" 2
+    fail "$test: $subtest1: unable to compile ${test}_1.c"
+} else {
+    foreach runtime [get_runtime_list] {
+        if {$runtime eq ""} {
+            set runtime "kernel"
+        }
+        set test_name "$test: $subtest1 ($runtime)"
+        set cmd "stap -vvv --runtime=$runtime -c ./a.out '$srcdir/$subdir/${test}_1.stp'"
+        set exit_code [run_cmd_2way $cmd out stderr]
+        set out_pat "^78\\n\\Z"
+        like "${test_name}: stdout" $out $out_pat "-linestop -lineanchor"
+        set stderr_pat "Collapsing constant-identity binary operator operator '\\*' at "
+        like "${test_name}: stderr" $stderr $stderr_pat "-lineanchor"
+        is "${test_name}: exit code" $exit_code 0
+    }
+}
+
+# --- TEST 2 ---
+
+set subtest2 "TEST 2: ternay expressions inside dwarf array indexes"
+
+set res [target_compile ${testpath}/${test}_2.c ./a.out executable \
+    "additional_flags=-O additional_flags=-g"]
+if {$res ne ""} {
+    verbose "target_compile failed: $res" 2
+    fail "$test: $subtest2: unable to compile ${test}_2.c"
+} else {
+    foreach runtime [get_runtime_list] {
+        if {$runtime eq ""} {
+            set runtime "kernel"
+        }
+        set test_name "$test: $subtest2 ($runtime)"
+        set cmd "stap --runtime=$runtime -c ./a.out '$srcdir/$subdir/${test}_2.stp'"
+        set exit_code [run_cmd_2way $cmd out stderr]
+        set exp_out "91
+78
+"
+        is "${test_name}: stdout" $out $exp_out
+        is "${test_name}: exit code" $exit_code 0
+        if {$stderr ne ""} {
+            send_log "stderr:\n$stderr"
+        }
+    }
+}

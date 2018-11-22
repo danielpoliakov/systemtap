@@ -1,0 +1,9 @@
+probe process.function("main").return {
+    p = &@var("a");
+    q = &@cast(p, "char")[((@cast(p, "foo")->sz))
+                          * (@cast(p, "foo")->sz != 2 ? (1) : (2))];
+    printf("%d\n", user_int8(q));
+    q = &@cast(p, "char")[((@cast(p, "foo")->sz))
+                          * (@cast(p, "foo")->sz == 2 ? (1) : (2))];
+    printf("%d\n", user_int8(q));
+}

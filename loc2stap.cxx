@@ -226,6 +226,7 @@ location_context::new_symref(vardecl *var)
 {
   symbol *sym = new symbol;
   sym->name = var->name;
+  sym->tok = var->tok;
   sym->referent = var;
   return sym;
 }
