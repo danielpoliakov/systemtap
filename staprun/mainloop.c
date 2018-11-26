@@ -33,7 +33,8 @@ static pthread_t main_thread;
 
 static void set_nonblocking_std_fds(void)
 {
-  for (int fd = 1; fd < 3; fd++) {
+  int fd;
+  for (fd = 1; fd < 3; fd++) {
     /* NB: writing to stderr/stdout blockingly in signal handler is
      * dangerous since it may prevent the stap process from quitting
      * gracefully on receiving SIGTERM/etc signals when the stderr/stdout
@@ -51,7 +52,8 @@ static void set_nonblocking_std_fds(void)
 
 static void set_blocking_std_fds(void)
 {
-  for (int fd = 1; fd < 3; fd++) {
+  int fd;
+  for (fd = 1; fd < 3; fd++) {
     /* NB: writing to stderr/stdout blockingly in signal handler is
      * dangerous since it may prevent the stap process from quitting
      * gracefully on receiving SIGTERM/etc signals when the stderr/stdout
