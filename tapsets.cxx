@@ -11882,6 +11882,7 @@ struct tracepoint_query : public base_query
   int handle_query_cu(Dwarf_Die * cudie);
   int handle_query_func(Dwarf_Die * func);
   int handle_query_type(Dwarf_Die * type);
+  int handle_query_type_syscall_events(Dwarf_Die * cudie);
   void query_library (const char *) {}
   void query_plt (const char *, size_t) {}
 
@@ -12010,7 +12011,19 @@ tracepoint_query::handle_query_cu(Dwarf_Die * cudie)
 
   // look at each type to see if it's a tracepoint
   if (dw.sess.runtime_mode == dw.sess.systemtap_session::bpf_runtime)
-    return dwflpp::iterate_over_globals (cudie, tracepoint_query_type, this);
+    { 
+      if (0 && current_system == "raw_syscalls")
+        // In BPF / trace_events world, syscalls are abstracted from
+        // the TRACE_EVENT_FN() (pure callbacks), via
+        // kernel/trace/trace_syscalls.stp into a family of trace
+        // events (demultiplexed by syscall id#).  There is a
+        // standardized event-field structure that does -not- show up
+        // in these header files, nor in the vmlinux file, but are
+        // synthesized/registered at kernel boot time.
+        return handle_query_type_syscall_events (cudie);
+      else
+        return dwflpp::iterate_over_globals (cudie, tracepoint_query_type, this);
+    }
 
   // look at each function to see if it's a tracepoint
   string function = "stapprobe_" + tracepoint;
@@ -12091,6 +12104,17 @@ tracepoint_query::handle_query_type(Dwarf_Die * type)
   results.push_back(dp);
   return DWARF_CB_OK;
 }
+
+
+int
+tracepoint_query::handle_query_type_syscall_events(Dwarf_Die * cudie)
+{
+  (void) cudie;
+  
+  return DWARF_CB_OK;
+}
+
+
 
 int
 tracepoint_query::tracepoint_query_cu (Dwarf_Die * cudie, tracepoint_query * q)
@@ -12294,6 +12318,10 @@ tracepoint_builder::get_tracequery_modules(systemtap_session& s,
 
           osrc << "#undef TRACE_EVENT" << endl;
           osrc << "#define TRACE_EVENT(name, proto, args, tstruct, assign, print) \\" << endl;
+          osrc << "  struct stapprobe_##name { unsigned long long pad; tstruct } stapprobe_##name;" << endl;
+
+          osrc << "#undef TRACE_EVENT_FN" << endl;
+          osrc << "#define TRACE_EVENT_FN(name, proto, args, tstruct, assign, print, reg, unreg) \\" << endl;
           osrc << "  struct stapprobe_##name { unsigned long long pad; tstruct } stapprobe_##name;" << endl;
 
           osrc << "#undef TRACE_EVENT_CONDITION" << endl;
