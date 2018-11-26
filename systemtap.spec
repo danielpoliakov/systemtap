@@ -4,7 +4,7 @@
 %{!?with_htmldocs: %global with_htmldocs 0}
 %{!?with_monitor: %global with_monitor 1}
 # crash is not available
-%ifarch ppc ppc64 %{sparc} aarch64 ppc64le %{mips}
+%ifarch ppc ppc64 %{sparc} %{mips}
 %{!?with_crash: %global with_crash 0}
 %else
 %{!?with_crash: %global with_crash 1}
@@ -39,8 +39,11 @@
 %{!?with_python3_probes: %global with_python3_probes (0%{?fedora} >= 23 || 0%{?rhel} > 7)}
 %{!?with_httpd: %global with_httpd 0}
 
+# Virt is supported on these arches, even on el7, but it's not in core EL7
+%if 0%{?rhel} <= 7
 %ifarch ppc64le aarch64
 %global with_virthost 0
+%endif
 %endif
 
 %if 0%{?fedora} >= 18 || 0%{?rhel} >= 6
@@ -116,7 +119,6 @@ Release: 1%{?release_override}%{?dist}
 # intermediary stap-server for --use-server:   systemtap-server (-devel unused)
 
 Summary: Programmable system-wide instrumentation system
-Group: Development/System
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
 Source: ftp://sourceware.org/pub/systemtap/releases/systemtap-%{version}.tar.gz
@@ -221,7 +223,6 @@ the components needed to locally develop and execute systemtap scripts.
 
 %package server
 Summary: Instrumentation System Server
-Group: Development/System
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
 Requires: systemtap-devel = %{version}-%{release}
@@ -231,8 +232,6 @@ Conflicts: systemtap-client < %{version}-%{release}
 Requires: nss coreutils
 Requires: zip unzip
 Requires(pre): shadow-utils
-Requires(post): chkconfig
-Requires(preun): chkconfig
 BuildRequires: nss-devel avahi-devel
 %if %{with_openssl}
 Requires: openssl
@@ -240,6 +239,8 @@ Requires: openssl
 %if %{with_systemd}
 Requires: systemd
 %else
+Requires(post): chkconfig
+Requires(preun): chkconfig
 Requires(preun): initscripts
 Requires(postun): initscripts
 %endif
@@ -252,7 +253,6 @@ compiles systemtap scripts to kernel objects on their demand.
 
 %package devel
 Summary: Programmable system-wide instrumentation system - development headers, tools
-Group: Development/System
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
 # The virtual provide 'kernel-devel-uname-r' tries to get the right
@@ -277,7 +277,6 @@ a copy of the standard tapset library and the runtime library C files.
 
 %package runtime
 Summary: Programmable system-wide instrumentation system - runtime
-Group: Development/System
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
 Requires(pre): shadow-utils
@@ -293,7 +292,6 @@ using a local or remote systemtap-devel installation.
 
 %package client
 Summary: Programmable system-wide instrumentation system - client
-Group: Development/System
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
 Requires: zip unzip
@@ -317,15 +315,14 @@ documentation, and a copy of the tapset library for reference.
 
 %package initscript
 Summary: Systemtap Initscripts
-Group: Development/System
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
 Requires: systemtap = %{version}-%{release}
-Requires(post): chkconfig
-Requires(preun): chkconfig
 %if %{with_systemd}
 Requires: systemd
 %else
+Requires(post): chkconfig
+Requires(preun): chkconfig
 Requires(preun): initscripts
 Requires(postun): initscripts
 %endif
@@ -338,7 +335,6 @@ boot-time probing if supported.
 
 %package sdt-devel
 Summary: Static probe support tools
-Group: Development/System
 License: GPLv2+ and Public Domain
 URL: http://sourceware.org/systemtap/
 %if %{with_pyparsing}
@@ -362,7 +358,6 @@ with the optional dtrace-compatibility preprocessor to process related
 
 %package testsuite
 Summary: Instrumentation System Testsuite
-Group: Development/System
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
 Requires: systemtap = %{version}-%{release}
@@ -420,7 +415,6 @@ systemtap on the current system.
 %if %{with_java}
 %package runtime-java
 Summary: Systemtap Java Runtime Support
-Group: Development/System
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
 Requires: systemtap-runtime = %{version}-%{release}
@@ -435,7 +429,6 @@ that probe Java processes running on the OpenJDK runtimes using Byteman.
 %if %{with_python2_probes}
 %package runtime-python2
 Summary: Systemtap Python 2 Runtime Support
-Group: Development/System
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
 Requires: systemtap-runtime = %{version}-%{release}
@@ -448,7 +441,6 @@ that probe python 2 processes.
 %if %{with_python3_probes}
 %package runtime-python3
 Summary: Systemtap Python 3 Runtime Support
-Group: Development/System
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
 Requires: systemtap-runtime = %{version}-%{release}
@@ -466,7 +458,6 @@ that probe python 3 processes.
 %if %{with_python3}
 %package exporter
 Summary: Systemtap-prometheus interoperation mechanism
-Group: Development/System
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
 Requires: systemtap-runtime = %{version}-%{release}
@@ -480,7 +471,6 @@ to remote requesters on demand.
 %if %{with_virthost}
 %package runtime-virthost
 Summary: Systemtap Cross-VM Instrumentation - host
-Group: Development/System
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
 Requires: libvirt >= 1.0.2
@@ -495,7 +485,6 @@ connection.
 %if %{with_virtguest}
 %package runtime-virtguest
 Summary: Systemtap Cross-VM Instrumentation - guest
-Group: Development/System
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
 Requires: systemtap-runtime = %{version}-%{release}
@@ -649,7 +638,6 @@ make %{?_smp_mflags}
 %endif
 
 %install
-rm -rf ${RPM_BUILD_ROOT}
 make DESTDIR=$RPM_BUILD_ROOT install
 %find_lang %{name}
 for dir in $(ls -1d $RPM_BUILD_ROOT%{_mandir}/{??,??_??}) ; do
@@ -1036,7 +1024,6 @@ done
 # The master "systemtap" rpm doesn't include any files.
 
 %files server -f systemtap.lang
-%defattr(-,root,root)
 %{_bindir}/stap-server
 %dir %{_libexecdir}/systemtap
 %{_libexecdir}/systemtap/stap-serverd
@@ -1109,7 +1096,6 @@ done
 
 
 %files runtime -f systemtap.lang
-%defattr(-,root,root)
 %attr(4110,root,stapusr) %{_bindir}/staprun
 %{_bindir}/stapsh
 %{_bindir}/stap-merge
@@ -1145,7 +1131,6 @@ done
 
 
 %files client -f systemtap.lang
-%defattr(-,root,root)
 %doc README README.unprivileged AUTHORS NEWS
 %{_datadir}/systemtap/examples
 %{!?_licensedir:%global license %%doc}
@@ -1175,7 +1160,6 @@ done
 
 
 %files initscript
-%defattr(-,root,root)
 %if %{with_systemd}
 %{_unitdir}/systemtap.service
 %{_sbindir}/systemtap-service
@@ -1197,7 +1181,6 @@ done
 
 
 %files sdt-devel
-%defattr(-,root,root)
 %{_bindir}/dtrace
 %{_includedir}/sys/sdt.h
 %{_includedir}/sys/sdt-config.h
@@ -1209,7 +1192,6 @@ done
 
 
 %files testsuite
-%defattr(-,root,root)
 %dir %{_datadir}/systemtap
 %{_datadir}/systemtap/testsuite
 
@@ -1270,7 +1252,6 @@ done
 #   http://sourceware.org/systemtap/wiki/SystemTapReleases
 
 # PRERELEASE
-%changelog
 * Sat Oct 13 2018 Frank Ch. Eigler <fche@redhat.com> - 4.0-1
 - Upstream release.
 
