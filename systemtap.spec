@@ -1252,6 +1252,7 @@ done
 #   http://sourceware.org/systemtap/wiki/SystemTapReleases
 
 # PRERELEASE
+%changelog
 * Sat Oct 13 2018 Frank Ch. Eigler <fche@redhat.com> - 4.0-1
 - Upstream release.
 
