@@ -293,7 +293,9 @@ static void set_expr_rule(uleb128_t reg, enum item_location where,
 
 /* Limit the number of instructions we process. Arbitrary limit.
    512 should be enough for anybody... */
+#ifndef MAX_CFI
 #define MAX_CFI 512
+#endif
 
 static int processCFI(const u8 *start, const u8 *end, unsigned long targetLoc,
 		      signed ptrType, int user, struct uw_state *state, int compat_task)
