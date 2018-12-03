@@ -255,11 +255,14 @@ compiles systemtap scripts to kernel objects on their demand.
 Summary: Programmable system-wide instrumentation system - development headers, tools
 License: GPLv2+
 URL: http://sourceware.org/systemtap/
-# The virtual provide 'kernel-devel-uname-r' tries to get the right
-# kernel variant  (kernel-PAE, kernel-debug, etc.) devel package
-# installed.
+
+%if 0%{?rhel} >= 8 || 0%{?fedora} >= 20
+Recommends: kernel-debug-devel
+Recommends: kernel-devel
+%else
 Requires: kernel-devel-uname-r
-%{?fedora:Suggests: kernel-devel}
+%endif
+
 Requires: gcc make
 Conflicts: systemtap-client < %{version}-%{release}
 Conflicts: systemtap-server < %{version}-%{release}
