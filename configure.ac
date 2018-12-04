@@ -641,8 +641,24 @@ AC_MSG_NOTICE([stapbpf will link $stapbpf_LIBS])
 AC_LANG_PUSH(C++)
 # Use boost::string_ref if available
 AC_CHECK_HEADERS([boost/utility/string_ref.hpp])
-AC_LANG_POP(C++)
+# add boost_system bits for stapdyn with dyninst 10+
+saved_LIBS="$LIBS"
+LIBS="-lboost_system $LIBS"
+AC_MSG_CHECKING([need for -lboost_system library])
+AC_LINK_IFELSE([AC_LANG_SOURCE([
+#include <boost/system/system_error.hpp>
+int main() {
+   boost::system::error_condition e();
+}
+])],[AC_MSG_RESULT([yup])
+    BOOST_SYSTEM_LIB="-lboost_system"
+],[AC_MSG_RESULT([nope])
+    BOOST_SYSTEM_LIB=""
+])
+LIBS="$saved_LIBS"
+AC_SUBST(BOOST_SYSTEM_LIB)
 
+AC_LANG_POP(C++)
 
 # Check for Dyninst headers and libraries
 AC_ARG_WITH([dyninst],
