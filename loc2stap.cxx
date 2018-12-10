@@ -668,7 +668,36 @@ location_context::translate (const Dwarf_Op *expr, const size_t len,
 	    break;
 
 	  case DW_OP_GNU_entry_value:
-	    DIE ("unhandled DW_OP_GNU_entry_value");
+	    {
+	      Dwarf_Op *op;
+	      Dwarf_Attribute op_attr;
+	      size_t op_len;
+	      location* op_loc;
+
+	      dwarf_getlocation_attr(attr, &expr[i], &op_attr);
+	      dwarf_getlocation_addr(&op_attr, pc, &op, &op_len, 1);
+	      op_loc = translate(op, op_len, 0, NULL, may_use_fb, computing_value);
+
+	      symbol *sym = new symbol;
+	      // symbol name will be determined later when the global
+	      // variable is made
+	      sym->tok = e->tok;
+
+	      functioncall *fc = new functioncall;
+	      fc->tok = e->tok;
+	      fc->function = std::string("tid");
+
+	      arrayindex *ai = new arrayindex;
+	      ai->tok = e->tok;
+	      ai->base = sym;
+	      ai->indexes.push_back(fc);
+
+	      // save these so they can be used later to construct
+	      // the entry probe
+	      entry_values.insert( std::pair<symbol *, expression *> (sym, op_loc->program) );
+
+	      PUSH(ai);
+	    }
 	    break;
 
 	  case DW_OP_GNU_parameter_ref:

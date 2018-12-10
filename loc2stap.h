@@ -66,6 +66,8 @@ public:
   std::vector<vardecl *> locals;
   std::vector<expression *> evals;
 
+  std::map<symbol *, expression *> entry_values;
+
   // A set of locations which have been requested to be evaluated.
   // The last one can be considered "current", and thus the result
   // is locations.back()->program.

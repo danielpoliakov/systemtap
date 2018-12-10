@@ -1,0 +1,16 @@
+probe begin
+{
+	println("systemtap starting probe")
+}
+
+probe process.statement("bar@dw_entry_value.c:9")
+{
+	println("systemtap ending probe")
+
+	if ($b == 3 && $c == 2)
+		println("systemtap test success")
+	else
+		println("systemtap test failure")
+	exit()
+}
+
