@@ -102,7 +102,7 @@ esac
 	else
 	    echo "Need to install $package"
             if [ `id -u` = "0" ]; then #attempt to install
-                apt-get -y install $NEEDED
+                apt-get -y install $package
             fi
 	fi
     elif ! dpkg --compare-versions $installedversion $relation $requiredversion; then
