@@ -19,7 +19,7 @@ probe process.function("sub")
 %(arch != "s390" %?
   // On s390x, the utimes() wrapper and function both just get longs,
   // so we'll have to use @cast().
-probe kernel.function("SYSC_utimes")!, kernel.function("sys_utimes")
+probe kernel.function("SYSC_utimes")!, kernel.function("sys_utimes")!, kernel.function("do_futimesat")
 {
   printf("$utimes$$: %s\n", $utimes$$);
   printf("$utimes[1]$$: %s\n", $utimes[1]$$);
@@ -38,12 +38,12 @@ probe process.function("sub").return
      so taking the address of that field is 42 again. */
   printf("&@cast($foo->bar, \"struct foo\")->bar: %d\n",
 	 &@cast($foo->bar, "struct foo")->bar);
-  printf("&@cast(@var(\"foo\")->bar, \"struct foo\")->bar: %d\n",
-	 &@cast(@var("foo")->bar, "struct foo")->bar);
-
-  /* Note that variables are taken at entry in both cases. */
   printf("$foo->bar == @entry($foo->bar): %s\n",
 	 $foo->bar == @entry($foo->bar) ? "true" : "false");
+%( systemtap_v <= "4.0" %?
+  printf("&@cast(@var(\"foo\")->bar, \"struct foo\")->bar: %d\n",
+	 &@cast(@var("foo")->bar, "struct foo")->bar);
   printf("@var(\"foo\")->bar == @entry(@var(\"foo\")->bar): %s\n",
 	 @var("foo")->bar == @entry(@var("foo")->bar) ? "true" : "false");
+%)
 }

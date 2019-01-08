@@ -21,8 +21,10 @@ $utimes[1]$$: {.tv_sec=3, .tv_usec=4}
 set result_string3 {user_int(&$foo->bar): 40
 user_int(&@var("foo")->bar): 40
 &@cast($foo->bar, "struct foo")->bar: 42
+$foo->bar == @entry($foo->bar): true}
+
+set result_string4 {
 &@cast(@var("foo")->bar, "struct foo")->bar: 42
-$foo->bar == @entry($foo->bar): true
 @var("foo")->bar == @entry(@var("foo")->bar): true}
 
 # s390x machines can't do $utimes$$, since all syscall args are
@@ -36,6 +38,8 @@ if {[istarget s390x-*-*]} {
 # Only run on make installcheck and uprobes present.
 if {! [installtest_p]} { untested "$test"; return }
 if {! [uretprobes_p]} { untested "$test"; return }
+
+# A)  Test the "current" (post-4a8652800d4dc7d57d3e2ac5463c1d292b9742a8) version behavior:
 
 set res [target_compile ${testpath}/${test}.c ${test} executable "additional_flags=-O2 additional_flags=-g"]
 if { $res != "" } {
@@ -53,6 +57,28 @@ if { $res != "" } {
     fail "${test_name}: unable to compile ${test}.c"
 } else {
     stap_run3 $test_name $srcdir/$subdir/$test.stp -c ./${test} -w
+}
+
+# B) Test the legacy/--compatible=4.0 (pre-4a8652800d4dc7d57d3e2ac5463c1d292b9742a8) behavior:
+
+set ::result_string "${::result_string}$result_string4"
+
+set res [target_compile ${testpath}/${test}.c ${test} executable "additional_flags=-O2 additional_flags=-g"]
+if { $res != "" } {
+    verbose "target_compile failed: $res" 2
+    fail "${test}: unable to compile ${test}.c"
+} else {
+    stap_run3 $test $srcdir/$subdir/$test.stp -c ./${test} -w --compatible=4.0
+}
+
+# Test for target program compiled without optimization
+set test_name "${test} (non-optimized)"
+set res [target_compile ${testpath}/${test}.c ${test} executable "additional_flags=-g"]
+if { $res != "" } {
+    verbose "target_compile failed: $res" 2
+    fail "${test_name}: unable to compile ${test}.c"
+} else {
+    stap_run3 $test_name $srcdir/$subdir/$test.stp -c ./${test} -w --compatible=4.0
 }
 
 # Cleanup
