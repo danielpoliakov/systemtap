@@ -120,6 +120,11 @@ make_any_make_cmd(systemtap_session& s, const string& dir, const string& target)
       "CONFIG_STACK_VALIDATION=",
     };
 
+  // relevant to PR10280: suppress symbol versioning to restrict to exact kernel version
+  if (s.guru_mode)
+    make_cmd.push_back("CONFIG_MODVERSIONS=");
+  // XXX: Consider adding an explicit option to control this behaviour?
+
   // Add architecture, except for old powerpc (RHBZ669082)
   if (s.architecture != "powerpc" ||
       (strverscmp (s.kernel_base_release.c_str(), "2.6.15") >= 0))
