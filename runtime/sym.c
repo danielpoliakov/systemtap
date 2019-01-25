@@ -746,7 +746,7 @@ static int _stp_module_check(void)
           dbug_sym(1, "build-id validation [%s]\n", m->name); /* kernel only */
 
           /* skip userspace program */
-          if (m->name[0] != '/') continue;
+          if (m->name[0] == '/') continue;
 
           /* notes end address */
           if (!strcmp(m->name, "kernel")) {
