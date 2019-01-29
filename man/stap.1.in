@@ -1724,14 +1724,15 @@ variance ( v sub 1 - Y, v sub 2 - Y, ... , v sub N - Y ) = V
 Histograms are also available, but are more complicated because they
 have a vector rather than scalar value.
 .I @hist_linear(v,start,stop,interval)
-represents a linear histogram from "start" to "stop" by increments
-of "interval".  The interval must be positive. Similarly,
+represents a linear histogram from "start" to "stop" (inclusive)
+by increments of "interval".  The interval must be positive. Similarly,
 .I @hist_log(v)
 represents a base-2 logarithmic histogram. Printing a histogram
 with the
 .I print
 family of functions renders a histogram object as a tabular
 "ASCII art" bar chart.
+
 .SAMPLE
 probe timer.profile {
   x[1] <<< pid()
@@ -1748,6 +1749,30 @@ probe end {
   }
   println ("y:")        
   println (@hist_log(y))  
+}
+.ESAMPLE
+
+The counts of each histogram bucket may be individually accessed via
+the \fB[index]\fP operator.  Each bucket is addressed from 1 through N
+(for each natural bucket).  In addition bucket #0 counts all the
+samples beneath the start value, and bucket #N+1 counts all the
+samples above the stop value.  Histogram buckets (including the two
+out-of-range buckets) may also be iterated with \fBforeach\fP.
+
+.SAMPLE
+global x
+probe oneshot {
+  x <<< -100
+  x <<< 1
+  x <<< 2
+  x <<< 3
+  x <<< 100
+  foreach (bucket in @hist_linear(x,1,3,1))
+    // expecting   1 out-of-range-low bucket
+    //             3 payload buckets
+    //             1 out-of-range-high bucket
+    printf("bucket %d count %d\\n",
+           bucket, @hist_linear(x,1,3,1)[bucket])
 }
 .ESAMPLE
 
