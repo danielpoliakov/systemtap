@@ -42,9 +42,9 @@ git_version.stamp ../git_version.h:
 # Why the "id -u" condition?  This way, an unprivileged user can run
 # make install, and have "sudo stap ...." or "sudo stapbpf ...." work later.
 install-exec-hook:
-	if [ `id -u` -eq 0 ]; then \
-		(getent group stapusr >/dev/null || groupadd -f -g 156 -r stapusr) \
-		&& chgrp stapusr "$(DESTDIR)$(bindir)/stapbpf" \
+	if [ `id -u` -eq 0 ] && (getent group stapusr >/dev/null \
+	                         || groupadd -f -g 156 -r stapusr); then \
+		chgrp stapusr "$(DESTDIR)$(bindir)/stapbpf" \
 		&& chmod 04110 "$(DESTDIR)$(bindir)/stapbpf"; \
 	fi
 endif
