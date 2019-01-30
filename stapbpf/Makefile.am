@@ -43,8 +43,7 @@ git_version.stamp ../git_version.h:
 # make install, and have "sudo stap ...." or "sudo stapbpf ...." work later.
 install-exec-hook:
 	if [ `id -u` -eq 0 ]; then \
-		getent group stapusr >/dev/null || groupadd -g 156 -r stapusr 2>/dev/null || groupadd -r stapusr; \
-		getent group stapusr >/dev/null \
+		(getent group stapusr >/dev/null || groupadd -f -g 156 -r stapusr) \
 		&& chgrp stapusr "$(DESTDIR)$(bindir)/stapbpf" \
 		&& chmod 04110 "$(DESTDIR)$(bindir)/stapbpf"; \
 	fi

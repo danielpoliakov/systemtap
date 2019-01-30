@@ -849,8 +849,7 @@ uninstall-man: uninstall-man8
 # make install, and have "sudo stap ...." or "sudo stapbpf ...." work later.
 @HAVE_BPF_DECLS_TRUE@install-exec-hook:
 @HAVE_BPF_DECLS_TRUE@	if [ `id -u` -eq 0 ]; then \
-@HAVE_BPF_DECLS_TRUE@		getent group stapusr >/dev/null || groupadd -g 156 -r stapusr 2>/dev/null || groupadd -r stapusr; \
-@HAVE_BPF_DECLS_TRUE@		getent group stapusr >/dev/null \
+@HAVE_BPF_DECLS_TRUE@		(getent group stapusr >/dev/null || groupadd -f -g 156 -r stapusr) \
 @HAVE_BPF_DECLS_TRUE@		&& chgrp stapusr "$(DESTDIR)$(bindir)/stapbpf" \
 @HAVE_BPF_DECLS_TRUE@		&& chmod 04110 "$(DESTDIR)$(bindir)/stapbpf"; \
 @HAVE_BPF_DECLS_TRUE@	fi

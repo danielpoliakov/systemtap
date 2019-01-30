@@ -767,13 +767,13 @@ done
 %endif
 
 %pre runtime
-getent group stapusr >/dev/null || groupadd -g 156 -r stapusr 2>/dev/null || groupadd -r stapusr
-getent group stapsys >/dev/null || groupadd -g 157 -r stapsys 2>/dev/null || groupadd -r stapsys
-getent group stapdev >/dev/null || groupadd -g 158 -r stapdev 2>/dev/null || groupadd -r stapdev
+getent group stapusr >/dev/null || groupadd -f -g 156 -r stapusr
+getent group stapsys >/dev/null || groupadd -f -g 157 -r stapsys
+getent group stapdev >/dev/null || groupadd -f -g 158 -r stapdev
 exit 0
 
 %pre server
-getent group stap-server >/dev/null || groupadd -g 155 -r stap-server 2>/dev/null || groupadd -r stap-server
+getent group stap-server >/dev/null || groupadd -f -g 155 -r stap-server
 getent passwd stap-server >/dev/null || \
   useradd -c "Systemtap Compile Server" -u 155 -g stap-server -d %{_localstatedir}/lib/stap-server -r -s /sbin/nologin stap-server 2>/dev/null || \
   useradd -c "Systemtap Compile Server" -g stap-server -d %{_localstatedir}/lib/stap-server -r -s /sbin/nologin stap-server
