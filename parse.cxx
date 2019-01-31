@@ -2333,7 +2333,7 @@ parser::do_parse_global (vector <vardecl*>& globals, vector<probe*>&,
 	  int64_t size;
 	  swallow ();
 	  expect_number(size);
-	  if (size <= 0 || size > 1000000) // arbitrary max
+	  if (size <= 0 || size > INT_MAX)
 	    throw PARSE_ERROR(_("array size out of range"));
 	  d->maxsize = (int)size;
 	  expect_known(tok_operator, "]");

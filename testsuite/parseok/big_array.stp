@@ -1,0 +1,4 @@
+#! stap -p1
+
+global foo [100000000]
+probe begin { foo[0]=1 }
