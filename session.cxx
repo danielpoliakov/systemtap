@@ -488,10 +488,10 @@ void
 systemtap_session::version ()
 {
   cout << _F("Systemtap translator/driver (version %s)\n"
-             "Copyright (C) 2005-2018 Red Hat, Inc. and others\n"   // PRERELEASE
+             "Copyright (C) 2005-2019 Red Hat, Inc. and others\n"   // PRERELEASE
              "This is free software; see the source for copying conditions.\n",
              version_string().c_str());
-  cout << _F("tested kernel versions: %s ... %s\n", "2.6.18", "4.19-rc7");   // PRERELEASE
+  cout << _F("tested kernel versions: %s ... %s\n", "2.6.18", "5.0-rc3");   // PRERELEASE
   
   cout << _("enabled features:")
 #ifdef HAVE_AVAHI

@@ -416,7 +416,8 @@ compile_pass (systemtap_session& s)
   output_autoconf(s, o, "autoconf-netfilter-4_4.c", "STAPCONF_NETFILTER_V44", NULL);
   output_autoconf(s, o, "autoconf-smpcall-5args.c", "STAPCONF_SMPCALL_5ARGS", NULL);
   output_autoconf(s, o, "autoconf-smpcall-4args.c", "STAPCONF_SMPCALL_4ARGS", NULL);
-
+  output_autoconf(s, o, "autoconf-access_ok_2args.c", "STAPCONF_ACCESS_OK_2ARGS", NULL);
+  
   // used by tapset/timestamp_monotonic.stp
   output_autoconf(s, o, "autoconf-cpu-clock.c", "STAPCONF_CPU_CLOCK", NULL);
   output_autoconf(s, o, "autoconf-local-clock.c", "STAPCONF_LOCAL_CLOCK", NULL);
@@ -575,9 +576,16 @@ compile_pass (systemtap_session& s)
   o << endl;
 
   // add all stapconf dependencies
-  o << s.translated_source << ": $(STAPCONF_HEADER)" << endl;
-  for (unsigned i=0; i<s.auxiliary_outputs.size(); i++)
-    o << s.auxiliary_outputs[i]->filename << ": $(STAPCONF_HEADER)" << endl;  
+  string translated = s.translated_source;
+  translated.back() = 'o';
+  o << translated << ": $(STAPCONF_HEADER)" << endl;
+  translated.back() = 'i';
+  o << translated << ": $(STAPCONF_HEADER)" << endl;
+  for (unsigned i=0; i<s.auxiliary_outputs.size(); i++) {
+    translated = s.auxiliary_outputs[i]->filename;
+    translated.back() = 'o';
+    o << translated << ": $(STAPCONF_HEADER)" << endl;
+  }
 
   o.close ();
 

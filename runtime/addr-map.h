@@ -16,6 +16,14 @@
 
 #include <linux/uaccess.h>
 
+#ifndef VERIFY_READ
+#define VERIFY_READ	0
+#endif
+#ifndef VERIFY_WRITE
+#define VERIFY_WRITE	1
+#endif
+/* see also STAPCONF_ACCESS_OK_2ARGS */
+
 #elif defined(__DYNINST__)
 
 #include <sys/types.h>

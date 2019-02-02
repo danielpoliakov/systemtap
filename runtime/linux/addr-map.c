@@ -34,25 +34,33 @@
 #include <asm/processor.h> /* For TASK_SIZE */
 #endif
 
+
+#ifdef STAPCONF_ACCESS_OK_2ARGS
+#define stp_access_ok(x,y,z) access_ok(y,z)
+#else
+#define stp_access_ok(x,y,z) access_ok(x,y,z)
+#endif
+
+
 static int
 lookup_bad_addr(const int type, const unsigned long addr, const size_t size)
 {
   /* Is this a valid memory access?
    * 
-   * Note we're using access_ok() here. This is only supposed to be
+   * Note we're using stp_access_ok() here. This is only supposed to be
    * called when we're in task context. Occasionally lookup_bad_addr()
    * gets called when not in task context. If in_task() exists, only
-   * call access_ok() when we're in task context (otherwise we'll get
+   * call stp_access_ok() when we're in task context (otherwise we'll get
    * a kernel warning). If we aren't in task context, we'll just do a
    * range check.
    */
 #if !defined(in_task)
   if (size == 0 || ULONG_MAX - addr < size - 1
-      || !access_ok(type, (void *)addr, size))
+      || !stp_access_ok(type, (void *)addr, size))
     return 1;
 #else
   if (size == 0 || ULONG_MAX - addr < size - 1
-      || (in_task() && !access_ok(type, (void *)addr, size))
+      || (in_task() && !stp_access_ok(type, (void *)addr, size))
       || (!in_task()
 #if defined(user_addr_max)
 	  && ((user_addr_max() - size) < addr)
@@ -174,7 +182,7 @@ lookup_bad_addr(const int type, const unsigned long addr, const size_t size)
 
   /* Is this a valid memory access?  */
   if (size == 0 || ULONG_MAX - addr < size - 1
-      || !access_ok(type, (void *)addr, size))
+      || !stp_access_ok(type, (void *)addr, size))
     return 1;
 
 #if ! STP_PRIVILEGE_CONTAINS (STP_PRIVILEGE, STP_PR_STAPDEV) && \

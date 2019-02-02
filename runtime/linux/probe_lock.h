@@ -31,6 +31,7 @@ static void
 stp_unlock_probe(const struct stp_probe_lock *locks, unsigned num_locks)
 {
 	unsigned i;
+	if (num_locks == 0) return; /* defeat a gcc9 warning */
 	for (i = num_locks; i-- > 0;) {
 		if (locks[i].write_p)
 			write_unlock(locks[i].lock);
