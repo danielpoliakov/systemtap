@@ -8,6 +8,29 @@
  * Public License (GPL); either version 2, or (at your option) any
  * later version.
  */
+
+#if defined(STAPCONF_KTIME_GET_REAL_FAST_NS)
+/* Prefer this simple 4.15+ mechanism for timekeeping. */
+
+static int
+_stp_init_time(void) {
+        return 0;
+}
+
+
+static void
+_stp_kill_time(void) {
+}
+
+
+static int64_t _stp_gettimeofday_ns(void) {
+        return ktime_get_real_fast_ns();
+}
+
+
+#else /* rest of file - do it the hard way */
+
+
 #if defined (__i386__) || defined (__x86_64__)
 #include <asm/cpufeature.h>
 #endif
@@ -441,3 +464,7 @@ _stp_gettimeofday_ns(void)
 
     return base + delta;
 }
+
+
+
+#endif /* ! defined(STAPCONF_KTIME_GET_REAL_FAST_NS) */

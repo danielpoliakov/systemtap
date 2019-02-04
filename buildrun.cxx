@@ -336,6 +336,7 @@ compile_pass (systemtap_session& s)
   output_autoconf(s, o, "autoconf-inode-rwsem.c", "STAPCONF_INODE_RWSEM", NULL);
   output_autoconf(s, o, "autoconf-constant-tsc.c", "STAPCONF_CONSTANT_TSC", NULL);
   output_autoconf(s, o, "autoconf-ktime-get-real.c", "STAPCONF_KTIME_GET_REAL", NULL);
+  output_exportconf(s, o, "ktime_get_real_fast_ns", "STAPCONF_KTIME_GET_REAL_FAST_NS");
   output_autoconf(s, o, "autoconf-x86-uniregs.c", "STAPCONF_X86_UNIREGS", NULL);
   output_autoconf(s, o, "autoconf-nameidata.c", "STAPCONF_NAMEIDATA_CLEANUP", NULL);
   output_dual_exportconf(s, o, "unregister_kprobes", "unregister_kretprobes", "STAPCONF_UNREGISTER_KPROBES");
@@ -421,7 +422,7 @@ compile_pass (systemtap_session& s)
   // used by tapset/timestamp_monotonic.stp
   output_autoconf(s, o, "autoconf-cpu-clock.c", "STAPCONF_CPU_CLOCK", NULL);
   output_autoconf(s, o, "autoconf-local-clock.c", "STAPCONF_LOCAL_CLOCK", NULL);
-
+  
   // used by runtime/uprobe-inode.c
   output_either_exportconf(s, o, "uprobe_register", "register_uprobe",
 			   "STAPCONF_UPROBE_REGISTER_EXPORTED");
