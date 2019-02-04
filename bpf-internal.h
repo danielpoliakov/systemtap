@@ -41,7 +41,7 @@ namespace bpf {
 #define MAX_BPF_STACK 512
 #define BPF_REG_SIZE 8
 #define BPF_MAXSTRINGLEN 64
-// #define BPF_MAXSTRINGLEN 128 // TODO: Longer strings require storage allocator & better printf().
+// #define BPF_MAXSTRINGLEN 128 // TODO: Longer strings require storage allocator & PR22330 better printf().
 #define BPF_MAXFORMATLEN 256
 #define BPF_MAXMAPENTRIES 2048
 // TODO: add BPF_MAXSPRINTFLEN
