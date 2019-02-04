@@ -580,13 +580,13 @@ compile_pass (systemtap_session& s)
 
   // add all stapconf dependencies
   string translated = s.translated_source;
-  translated.back() = 'o';
+  translated[translated.size()-1] = 'o';
   o << translated << ": $(STAPCONF_HEADER)" << endl;
-  translated.back() = 'i';
+  translated[translated.size()-1] = 'i';
   o << translated << ": $(STAPCONF_HEADER)" << endl;
   for (unsigned i=0; i<s.auxiliary_outputs.size(); i++) {
     translated = s.auxiliary_outputs[i]->filename;
-    translated.back() = 'o';
+    translated[translated.size()-1] = 'o';
     o << translated << ": $(STAPCONF_HEADER)" << endl;
   }
 
