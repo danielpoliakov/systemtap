@@ -1976,6 +1976,9 @@ function _futex_wake_op_str:string(encoded_op:long)
 %}
 
 %{
+#ifdef STAPCONF_UAPI_LINUX_MOUNT_H
+#include <uapi/linux/mount.h>
+#endif
 static const _stp_val_array _stp_mountflags_list[] = {
 	V(MS_RDONLY),
 	V(MS_NOSUID),
