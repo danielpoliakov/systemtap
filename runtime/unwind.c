@@ -291,10 +291,15 @@ static void set_expr_rule(uleb128_t reg, enum item_location where,
 	}
 }
 
-/* Limit the number of instructions we process. Arbitrary limit.
-   512 should be enough for anybody... */
+/* Limit the number of instructions we process.  
+   This is intended to provide a little bit of protection
+   against CPU DoS by forcing the stap module to overly
+   large user-provided data.
+   8192 should be enough for anybody... larger than anything
+   found in e.g. fedora 29. 
+*/
 #ifndef MAX_CFI
-#define MAX_CFI 512
+#define MAX_CFI 8192
 #endif
 
 static int processCFI(const u8 *start, const u8 *end, unsigned long targetLoc,
