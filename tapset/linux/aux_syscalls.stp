@@ -5897,6 +5897,10 @@ function _fanotify_init_flags_str:string(flags:long)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37) \
     && defined(__NR_fanotify_init) && defined(__NR_fanotify_mark)
 	unsigned int flags = (unsigned int)STAP_ARG_flags;
+/* deprecation: linux commit 23c9deeb3285d */
+#ifndef FAN_ALL_CLASS_BITS
+#define FAN_ALL_CLASS_BITS (FAN_CLASS_NOTIF | FAN_CLASS_CONTENT | FAN_CLASS_PRE_CONTENT)
+#endif
 	unsigned int flags_part1 = flags & FAN_ALL_CLASS_BITS;
 	unsigned int flags_part2 = flags & ~FAN_ALL_CLASS_BITS;
 
