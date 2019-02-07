@@ -34,6 +34,11 @@
 #endif
 #endif
 
+/* deprecation: struct compat_*time* aliases moved to this header */
+#ifdef STAPCONF_TIME32_H
+#include <linux/time32.h>
+#endif
+  
 /*
 * Simple lookup functions for mapping values to names
 * using embedded C. Use these functions to create safe,
@@ -143,7 +148,7 @@ sigset_from_compat(sigset_t *set, compat_sigset_t *compat)
 function _struct_timeval_u:string(uaddr:long, n:long)
 %{ /* pure */
 	int n = (int)STAP_ARG_n;
-	struct timeval tv[n];
+	struct timeval tv[2]; /* maximum enforced below */
 	char *ptr = (char *)(uintptr_t)STAP_ARG_uaddr;
 	
 	if (ptr == NULL || n < 1 || n > 2)
@@ -171,7 +176,7 @@ function _struct_compat_timeval_u:string(uaddr:long, n:long)
 %{ /* pure */
 #ifdef CONFIG_COMPAT
 	int n = (int)STAP_ARG_n;
-	struct compat_timeval tv[n];
+        struct compat_timeval tv[2]; /* maximum enforced below */
 	char *ptr = (char *)(uintptr_t)STAP_ARG_uaddr;
 
 	if (ptr == NULL || n < 1 || n > 2)
@@ -270,7 +275,11 @@ function _struct_utimbuf_modtime:long(uaddr:long)
 function _struct_compat_utimbuf_actime:long(uaddr:long)
 %{ /* pure */
 #ifdef CONFIG_COMPAT
-	struct compat_utimbuf ubuf;
+#if defined(STAPCONF_COMPAT_UTIMBUF)
+        struct compat_utimbuf ubuf;
+#else
+        struct old_utimbuf32 ubuf;
+#endif
 	char *ptr = (char *)(uintptr_t)STAP_ARG_uaddr;
 	
 	if (ptr == NULL)
@@ -288,7 +297,11 @@ function _struct_compat_utimbuf_actime:long(uaddr:long)
 function _struct_compat_utimbuf_modtime:long(uaddr:long)
 %{ /* pure */
 #ifdef CONFIG_COMPAT
-	struct compat_utimbuf ubuf;
+#if defined(STAPCONF_COMPAT_UTIMBUF)
+        struct compat_utimbuf ubuf;
+#else
+        struct old_utimbuf32 ubuf;
+#endif
 	char *ptr = (char *)(uintptr_t)STAP_ARG_uaddr;
 	
 	if (ptr == NULL)
@@ -306,7 +319,7 @@ function _struct_timespec_u:string(uaddr:long, n:long)
 #define STP_UTIME_NOW  ((1l << 30) - 1l)
 #define STP_UTIME_OMIT ((1l << 30) - 2l)
 	int n = (int)STAP_ARG_n;
-	struct timespec ts[n];
+        struct timespec ts[2];  /* maximum enforced below */
 	char *ptr = (char *)(uintptr_t)STAP_ARG_uaddr;
 
 	if (ptr == NULL || n < 1 || n > 2)
@@ -350,7 +363,7 @@ function _struct_compat_timespec_u:string(uaddr:long, n:long)
 #define STP_UTIME_NOW  ((1l << 30) - 1l)
 #define STP_UTIME_OMIT ((1l << 30) - 2l)
 	int n = (int)STAP_ARG_n;
-	struct compat_timespec ts[n];
+        struct compat_timespec ts[2]; /* maximum, enforced below */
 	char *ptr = (char *)(uintptr_t)STAP_ARG_uaddr;
 
 	if (ptr == NULL || n < 1 || n > 2)

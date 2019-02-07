@@ -419,6 +419,8 @@ compile_pass (systemtap_session& s)
   output_autoconf(s, o, "autoconf-smpcall-4args.c", "STAPCONF_SMPCALL_4ARGS", NULL);
   output_autoconf(s, o, "autoconf-access_ok_2args.c", "STAPCONF_ACCESS_OK_2ARGS", NULL);
   output_autoconf(s, o, "autoconf-uapi-mount.c", "STAPCONF_UAPI_LINUX_MOUNT_H", NULL);
+  output_autoconf(s, o, "autoconf-time32.c", "STAPCONF_TIME32_H", NULL);
+  output_autoconf(s, o, "autoconf-compat-utimbuf.c", "STAPCONF_COMPAT_UTIMBUF", NULL);
   
   // used by tapset/timestamp_monotonic.stp
   output_autoconf(s, o, "autoconf-cpu-clock.c", "STAPCONF_CPU_CLOCK", NULL);
