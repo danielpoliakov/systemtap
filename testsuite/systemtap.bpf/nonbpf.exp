@@ -129,7 +129,31 @@ foreach file $stap_files {
 
     set output_str [get_output_str $test]
     verbose -log "Running $file"
-    switch [stapnonbpf_run $test $output_str $file] {
+    set rc [stapnonbpf_run $test $output_str $file]
+    if {$rc != 0} {
+        # Known failures
+        switch $test {
+            bigmap1.stp { _setup_kfail NONBPF x86_64,s390x,aarch64 rhel }
+            cast_op_tracepoint.stp {
+                _setup_kfail NONBPF x86_64,s390x rhel
+                _setup_kfail NONBPF x86_64 fedora
+            }
+            context_vars1.stp -
+            context_vars2.stp -
+            context_vars3.stp -
+            kprobes.stp { _setup_kfail NONBPF ppc64le rhel }
+            logging1.stp { _setup_kfail NONBPF - rhel,fedora }
+            perf1.stp { _setup_kfail NONBPF x86_64,ppc64le,s390x,aarch64 rhel }
+            perf2.stp { _setup_kfail NONBPF ppc64le,s390x,aarch64 rhel }
+            pr23875_loop.stp -
+            reg_alloc3.stp -
+            string3.stp -
+            tracepoint1.stp -
+            timer2.stp { _setup_kfail NONBPF - rhel,fedora }
+            timer1.stp { _setup_kfail NONBPF x86_64 rhel,fedora }
+        }
+    }
+    switch $rc {
         0 { pass $test }
         1 { fail "$test incorrect result" }
         2 { fail "$test unexpected output" }

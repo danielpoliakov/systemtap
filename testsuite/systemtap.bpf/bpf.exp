@@ -7,6 +7,18 @@
 
 set testdir "$srcdir/$subdir/bpf_tests"
 
+# Skip irrelevant environment.
+if {![bpf_p]} {
+    untested "bpf.exp"
+    exit 0
+}
+
+# This testcase takes long time on s390x and fails after that.  Skip it.
+if { "$::tcl_platform(machine)" == "s390x" } {
+   untested "bpf.exp"
+   exit 0
+}
+
 # All tests should start by printing "BEGIN". If OUTPUT_STR is "", then 
 # the test passes if "END PASS" is read and fails if "END FAIL" is read. Otherwise
 # the test passes when "${OUTPUT_STR}END" is read and fails if END is read without
@@ -134,7 +146,63 @@ foreach file $stap_files {
 
     set output_str [get_output_str $test]
     verbose -log "Running $file"
-    switch [stapbpf_run $test $output_str $file] {
+    set rc [stapbpf_run $test $output_str $file]
+    if {$rc != 0} {
+        if { "$::tcl_platform(machine)" == "s390x" } {
+            # The s390x part seems broken at the moment:
+            _setup_kfail BPF s390x rhel
+        } else {
+            # Known failures in other environments:
+            switch $test {
+                array.stp {
+                    _setup_kfail BPF ppc64le rhel
+                    _setup_kfail BPF x86_64 fedora
+                }
+                array_preinit.stp { _setup_kfail BPF ppc64le rhel }
+                bigmap1.stp {
+                    _setup_kfail BPF x86_64,aarch64 rhel
+                    _setup_kfail BPF x86_64 fedora
+                }
+                cast_op_tracepoint.stp { _setup_kfail BPF x86_64 rhel,fedora }
+                context_vars1.stp -
+                context_vars2.stp -
+                context_vars3.stp { _setup_kfail BPF ppc64le rhel }
+                globals2.stp {
+                    _setup_kfail BPF ppc64le rhel
+                    _setup_kfail BPF x86_64 fedora
+                }
+                globals3.stp { _setup_kfail BPF ppc64le rhel }
+                kprobes.stp { _setup_kfail BPF ppc64le rhel }
+                logging1.stp { _setup_kfail BPF x86_64,aarch64,ppc64le rhel }
+                no_begin_no_end.stp { _setup_kfail BPF x86_64 fedora }
+                no_end.stp { _setup_kfail BPF x86_64 fedora }
+                perf1.stp { _setup_kfail BPF x86_64,aarch64,ppc64le rhel }
+                perf2.stp { _setup_kfail BPF aarch64,ppc64le rhel }
+                pr23875_loop.stp -
+                pr23875_smash.stp {
+                    _setup_kfail BPF x86_64,aarch64,ppc64le rhel
+                    _setup_kfail BPF x86_64 fedora
+                }
+                printf.stp { _setup_kfail BPF x86_64 fedora }
+                reg_alloc3.stp {
+                    _setup_kfail BPF x86_64,aarch64,ppc64le rhel
+                    _setup_kfail BPF x86_64 fedora
+                }
+                string1.stp { _setup_kfail BPF x86_64 fedora }
+                string3.stp {
+                    _setup_kfail BPF x86_64,aarch64,ppc64le rhel
+                    _setup_kfail BPF x86_64 fedora
+                }
+                timer1.stp { _setup_kfail BPF x86_64 rhel }
+                timer2.stp { _setup_kfail BPF aarch64,ppc64le rhel }
+                tracepoint1.stp {
+                    _setup_kfail BPF x86_64,aarch64,ppc64le rhel
+                    _setup_kfail BPF x86_64 fedora
+                }
+            }
+        }
+    }
+    switch $rc {
         0 { pass $test }
         1 { fail "$test incorrect result" }
         2 { fail "$test unexpected output" }

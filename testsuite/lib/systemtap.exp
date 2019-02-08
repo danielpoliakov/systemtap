@@ -594,7 +594,7 @@ proc fullpath { path } {
 }
 
 proc get_system_info {} {
-    global Host Snapshot Distro GCC_Version GCC_FullVersion ELF_Version env SElinux Dracut_Version
+    global Host Snapshot Distro DistroID DistroVer GCC_Version GCC_FullVersion ELF_Version env SElinux Dracut_Version
 
     set Host [exec /bin/uname -a]
     if [file exists ../SNAPSHOT] {
@@ -616,6 +616,17 @@ proc get_system_info {} {
             if [file exists $f] then {set Distro [exec /bin/cat $f]; break }
         }
     }
+
+    # http://0pointer.de/blog/projects/os-release.html
+    # TODO: For distros not having /etc/os-release, we can set DistroID and DistroVer
+    # based on parsing the above Distro string if needed.
+    set DistroID "unknown"
+    set DistroVer "unknown"
+    if {[file exists /etc/os-release]} {
+        set DistroID [exec bash -c {source /etc/os-release; echo $ID}]
+        set DistroVer [exec bash -c {source /etc/os-release; echo $VERSION_ID}]
+    }
+
     # Easily parsable version first major minor patch level
     set n [exec echo "__GNUC__ __GNUC_MINOR__ __GNUC_PATCHLEVEL__" | cpp -P]
     set n [string map {" " "."} $n]
@@ -1006,4 +1017,34 @@ proc strverscmp { vers1 vers2 } {
       set vers1 $nextvers1
       set vers2 $nextvers2
    }
+}
+
+# The original DejaGnu setup_kfail()'s target triplet e.g. ('s390x-ibm-linux-gnu',
+# or 'x86_64-pc-linux-gnu', or even 'rs6000*-*-aix*') as implemented in dejagnu's
+# framework.exp, doesn't offer fine enough granularity.
+proc _setup_kfail { bugid {arches "-"} {distroids "-"} {maxkernelver "-"} {maxdistrover "-"} } {
+    global DistroID DistroVer
+
+    if { "$arches" != "-" } {
+        if {[string first ,$::tcl_platform(machine), ,$arches,] == -1} {
+            return 0
+        }
+    }
+    if { "$distroids" != "-" } {
+        if {[string first ,$DistroID, ,$distroids,] == -1} {
+            return 0
+        }
+    }
+    if { "$maxkernelver" != "-" } {
+        if { [min_kernel_vers_p $maxkernelver] <= 0 } {
+            return 0
+        }
+    }
+    if { "$maxdistrover" != "-" } {
+        if { [strverscmp $DistroVer $maxdistrover] > 0 } {
+            return 0
+        }
+    }
+
+    setup_kfail $bugid *-*-*
 }
