@@ -343,31 +343,66 @@ string atvar_op::sym_name ()
 }
 
 
+// Substring operations like interned_string.find() are repeated a
+// surprising number of times (with nested / widely used tapset emb-C
+// functions), and need to be efficient.  We memoize the search
+// results.
+bool memo_tagged_p (const interned_string& haystack, const string& needle)
+{
+  static map <interned_string,bool> string_find_memoized;
+
+  auto it = string_find_memoized.find(haystack);
+  if (it != string_find_memoized.end())
+    return it->second;
+
+  auto findres = haystack.find(needle);
+  bool res = (findres != interned_string::npos);
+  string_find_memoized.insert(make_pair(haystack,res));
+  
+  return res;
+}
+
+
+
 bool
 embedded_expr::tagged_p (const char *tag) const
 {
-  return code.find(tag) != interned_string::npos;
+  return memo_tagged_p (code, tag);
+}
+
+
+bool
+embedded_expr::tagged_p (const string &tag) const
+{
+  return memo_tagged_p (code, tag);
 }
 
 
 bool
 embedded_expr::tagged_p (const interned_string& tag) const
 {
-  return code.find(tag) != interned_string::npos;
+  return memo_tagged_p (code, tag);
 }
 
 
 bool
 embeddedcode::tagged_p (const char *tag) const
 {
-  return code.find(tag) != interned_string::npos;
+  return memo_tagged_p (code, tag);
+}
+
+
+bool
+embeddedcode::tagged_p (const string &tag) const
+{
+  return memo_tagged_p (code, tag);
 }
 
 
 bool
 embeddedcode::tagged_p (const interned_string& tag) const
 {
-  return code.find(tag) != interned_string::npos;
+  return memo_tagged_p (code, tag);
 }
 
 
@@ -2545,13 +2580,13 @@ varuse_collecting_visitor::visit_embeddedcode (embeddedcode *s)
     {
       vardecl* v = session.globals[i];
       string name = v->unmangled_name;
-      if (s->code.find("/* pragma:read:" + name + " */") != string::npos)
+      if (s->tagged_p("/* pragma:read:" + name + " */"))
         {
           if (v->type == pe_stats)
             throw SEMANTIC_ERROR(_("Aggregates not available in embedded-C"), s->tok);
           read.insert(v);
         }
-      if (s->code.find("/* pragma:write:" + name + " */") != string::npos)
+      if (s->tagged_p("/* pragma:write:" + name + " */"))
         {
           if (v->type == pe_stats)
             throw SEMANTIC_ERROR(_("Aggregates not available in embedded-C"), s->tok);
@@ -2564,7 +2599,7 @@ varuse_collecting_visitor::visit_embeddedcode (embeddedcode *s)
   // call-site-sensitive.
 
   // PR14524: Support old-style THIS->local syntax on per-function basis.
-  if (s->code.find ("/* unmangled */") != string::npos)
+  if (s->tagged_p ("/* unmangled */"))
     current_function->mangle_oldstyle = true;
 
   // We want to elide embedded-C functions when possible.  For
@@ -2577,7 +2612,7 @@ varuse_collecting_visitor::visit_embeddedcode (embeddedcode *s)
   // $target variables as rvalues will have this; lvalues won't.
   // Also, explicit side-effect-free tapset functions will have this.
 
-  if (s->code.find ("/* pure */") != string::npos)
+  if (s->tagged_p ("/* pure */"))
     return;
 
   embedded_seen = true;
@@ -2593,13 +2628,13 @@ varuse_collecting_visitor::visit_embedded_expr (embedded_expr *e)
     {
       vardecl* v = session.globals[i];
       string name = v->unmangled_name;
-      if (e->code.find("/* pragma:read:" + name + " */") != string::npos)
+      if (e->tagged_p ("/* pragma:read:" + name + " */"))
         {
           if (v->type == pe_stats)
             throw SEMANTIC_ERROR(_("Aggregates not available in embedded-C"), e->tok);
           read.insert(v);
         }
-      if (e->code.find("/* pragma:write:" + name + " */") != string::npos)
+      if (e->tagged_p ("/* pragma:write:" + name + " */"))
         {
           if (v->type == pe_stats)
             throw SEMANTIC_ERROR(_("Aggregates not available in embedded-C"), e->tok);
@@ -2613,14 +2648,14 @@ varuse_collecting_visitor::visit_embedded_expr (embedded_expr *e)
   if (! pr_contains (session.privilege, pr_stapdev) &&
       ! pr_contains (session.privilege, pr_stapsys) &&
       ! session.runtime_usermode_p () &&
-      e->code.find ("/* unprivileged */") == string::npos &&
-      e->code.find ("/* myproc-unprivileged */") == string::npos)
+      ! e->tagged_p ("/* unprivileged */") &&
+      ! e->tagged_p ("/* myproc-unprivileged */"))
     throw SEMANTIC_ERROR (_F("embedded expression may not be used when --privilege=%s is specified",
 			     pr_name (session.privilege)),
 			  e->tok);
 
   // Don't allow /* guru */ functions unless -g is active.
-  if (!session.guru_mode && e->code.find ("/* guru */") != string::npos)
+  if (!session.guru_mode && e->tagged_p ("/* guru */"))
     throw SEMANTIC_ERROR (_("embedded expression may not be used unless -g is specified"),
 			  e->tok);
 
@@ -2634,7 +2669,7 @@ varuse_collecting_visitor::visit_embedded_expr (embedded_expr *e)
   // $target variables as rvalues will have this; lvalues won't.
   // Also, explicit side-effect-free tapset functions will have this.
 
-  if (e->code.find ("/* pure */") != string::npos)
+  if (e->tagged_p ("/* pure */"))
     return;
 
   embedded_seen = true;

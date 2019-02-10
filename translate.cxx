@@ -3792,11 +3792,11 @@ c_unparser::visit_embeddedcode (embeddedcode *s)
 {
   // Automatically add a call to assert_is_myproc to any code tagged with
   // /* myproc-unprivileged */
-  if (s->code.find ("/* myproc-unprivileged */") != string::npos)
+  if (s->tagged_p ("/* myproc-unprivileged */"))
     o->newline() << "assert_is_myproc();";
   o->newline() << "{";
 
-  //  if (1 || s->code.find ("CATCH_DEREF_FAULT") != string::npos)
+  //  if (1 || s->tagged_p ("CATCH_DEREF_FAULT"))
   //    o->newline() << "__label__ deref_fault;";
 
   vector<vardecl*> read_defs;
@@ -3805,12 +3805,12 @@ c_unparser::visit_embeddedcode (embeddedcode *s)
     {
       vardecl* v = session->globals[i];
       string name = v->unmangled_name;
-      if (s->code.find("/* pragma:read:" + name + " */") != string::npos)
+      if (s->tagged_p("/* pragma:read:" + name + " */"))
         {
           c_global_read_def(v);
           read_defs.push_back(v);
         }
-      if (s->code.find("/* pragma:write:" + name + " */") != string::npos)
+      if (s->tagged_p("/* pragma:write:" + name + " */"))
         {
           c_global_write_def(v);
           write_defs.push_back(v);
@@ -3825,7 +3825,7 @@ c_unparser::visit_embeddedcode (embeddedcode *s)
   for (vector<vardecl*>::const_iterator it = write_defs.begin(); it != write_defs.end(); ++it)
     c_global_write_undef(*it);
 
-  //  if (1 || s->code.find ("CATCH_DEREF_FAULT") != string::npos)
+  //  if (1 || s->tagged_p ("CATCH_DEREF_FAULT"))
   //    o->newline() << ";";
 
   o->newline() << "}";
@@ -4690,13 +4690,13 @@ c_unparser::visit_embedded_expr (embedded_expr* e)
     {
       vardecl* v = session->globals[i];
       string name = v->unmangled_name;
-      if (e->code.find("/* pragma:read:" + name + " */") != string::npos)
+      if (e->tagged_p ("/* pragma:read:" + name + " */"))
         {
           has_defines = true;
           c_global_read_def(v);
           read_defs.push_back(v);
         }
-      if (e->code.find("/* pragma:write:" + name + " */") != string::npos)
+      if (e->tagged_p ("/* pragma:write:" + name + " */"))
         {
           has_defines = true;
           c_global_write_def(v);
@@ -4711,7 +4711,7 @@ c_unparser::visit_embedded_expr (embedded_expr* e)
 
   // Automatically add a call to assert_is_myproc to any code tagged with
   // /* myproc-unprivileged */
-  if (e->code.find ("/* myproc-unprivileged */") != string::npos)
+  if (e->tagged_p ("/* myproc-unprivileged */"))
     o->line() << "({ assert_is_myproc(); }), ";
 
   if (e->type == pe_long)

@@ -185,6 +185,7 @@ struct embedded_expr: public expression
 {
   interned_string code;
   bool tagged_p (const char *tag) const;
+  bool tagged_p (const std::string &tag) const;
   bool tagged_p (const interned_string& tag) const;
   void print (std::ostream& o) const;
   void visit (visitor* u);
@@ -706,6 +707,7 @@ struct embeddedcode: public statement
 {
   interned_string code;
   bool tagged_p (const char *tag) const;
+  bool tagged_p (const std::string& tag) const;
   bool tagged_p (const interned_string& tag) const;
   void print (std::ostream& o) const;
   void visit (visitor* u);

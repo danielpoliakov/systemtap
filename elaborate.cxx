@@ -1682,15 +1682,19 @@ protected:
 public:
   embeddedcode_info (systemtap_session& s): session(s) { }
 
-  void visit_embeddedcode (embeddedcode* c) { examine (c->code, c->tok); }
-  void visit_embedded_expr (embedded_expr* e) { examine (e->code, e->tok); }
+  template <class Embeddish> void examine (Embeddish e, const token *tok);
+  
+  void visit_embeddedcode (embeddedcode* c) { examine (c, c->tok); }
+  void visit_embedded_expr (embedded_expr* e) { examine (e, e->tok); }
 };
 
+
+template <class Embeddish>
 void
-embeddedcode_info::examine (const interned_string &code, const token *tok)
+embeddedcode_info::examine (Embeddish e, const token *tok)
 {
   if (! vma_tracker_enabled(session)
-      && code.find("/* pragma:vma */") != string::npos)
+      && e->tagged_p("/* pragma:vma */"))
     {
       if (session.verbose > 2)
         clog << _F("Turning on task_finder vma_tracker, pragma:vma found in %s",
@@ -1704,7 +1708,7 @@ embeddedcode_info::examine (const interned_string &code, const token *tok)
     }
 
   if (! session.need_unwind
-      && code.find("/* pragma:unwind */") != string::npos)
+      && e->tagged_p("/* pragma:unwind */"))
     {
       if (session.verbose > 2)
 	clog << _F("Turning on unwind support, pragma:unwind found in %s",
@@ -1713,7 +1717,7 @@ embeddedcode_info::examine (const interned_string &code, const token *tok)
     }
 
   if (! session.need_symbols
-      && code.find("/* pragma:symbols */") != string::npos)
+      && e->tagged_p("/* pragma:symbols */"))
     {
       if (session.verbose > 2)
 	clog << _F("Turning on symbol data collecting, pragma:symbols found in %s",
@@ -1722,7 +1726,7 @@ embeddedcode_info::examine (const interned_string &code, const token *tok)
     }
 
   if (! session.need_lines
-      && code.find("/* pragma:lines */") != string::npos)
+      && e->tagged_p("/* pragma:lines */"))
     {
       if (session.verbose > 2)
 	clog << _F("Turning on debug line data collecting, pragma:lines found in %s",
@@ -2899,15 +2903,15 @@ public:
   if (! pr_contains (session.privilege, pr_stapdev) &&
       ! pr_contains (session.privilege, pr_stapsys) &&
       ! session.runtime_usermode_p () &&
-      s->code.find ("/* unprivileged */") == string::npos &&
-      s->code.find ("/* myproc-unprivileged */") == string::npos)
+      ! s->tagged_p ("/* unprivileged */") &&
+      ! s->tagged_p ("/* myproc-unprivileged */"))
     throw SEMANTIC_ERROR (_F("function may not be used when --privilege=%s is specified",
 			     pr_name (session.privilege)),
 			  current_function->tok);
 
   // Allow only /* bpf */ functions in bpf mode.
   if ((session.runtime_mode == systemtap_session::bpf_runtime)
-      != (s->code.find ("/* bpf */") != string::npos))
+      != (s->tagged_p ("/* bpf */")))
     {
       if (session.runtime_mode == systemtap_session::bpf_runtime)
 	throw SEMANTIC_ERROR (_("function may not be used with bpf runtime"),
@@ -2918,7 +2922,8 @@ public:
     }
 
   // Don't allow /* guru */ functions unless caller is privileged.
-  if (!call->tok->location.file->privileged && s->code.find ("/* guru */") != string::npos)
+  if (!call->tok->location.file->privileged &&
+      s->tagged_p ("/* guru */"))
     throw SEMANTIC_ERROR (_("function may not be used unless -g is specified"),
 			  call->tok);
   }    
@@ -4893,7 +4898,7 @@ struct function_next_check : public traversing_visitor
 
   void visit_embeddedcode(embeddedcode* s)
   {
-    if (s->code.find("STAP_NEXT;") != string::npos)
+    if (s->tagged_p("STAP_NEXT;"))
       current_function->has_next = true;
   }
 };
@@ -6134,9 +6139,9 @@ typeresolution_info::visit_embedded_expr (embedded_expr *e)
 {
   if (e->type == pe_unknown)
     {
-      if (e->code.find ("/* string */") != string::npos)
+      if (e->tagged_p ("/* string */"))
         e->type = pe_string;
-      else // if (e->code.find ("/* long */") != string::npos)
+      else // if (e->tagged_p ("/* long */"))
         e->type = pe_long;
 
       resolved (e->tok, e->type);
@@ -6668,7 +6673,7 @@ typeresolution_info::visit_embeddedcode (embeddedcode* s)
   // over yonder in pass 3.  However, we want to do it during pass 2 so
   // that cached sessions also get the uprobes treatment.
   if (! session.need_uprobes
-      && s->code.find("/* pragma:uprobes */") != string::npos)
+      && s->tagged_p ("/* pragma:uprobes */"))
     {
       if (session.verbose > 2)
         clog << _("Activating uprobes support because /* pragma:uprobes */ seen.") << endl;
@@ -6679,7 +6684,7 @@ typeresolution_info::visit_embeddedcode (embeddedcode* s)
   // before the gen_dfa_table pass. Again, the typechecking part of
   // pass 2 is a good place for this.
   if (! session.need_tagged_dfa
-      && s->code.find("/* pragma:tagged_dfa */") != string::npos)
+      && s->tagged_p("/* pragma:tagged_dfa */"))
     {
       if (session.verbose > 2)
         clog << _("Turning on DFA subexpressions because /* pragma:tagged_dfa */ seen") << endl;
