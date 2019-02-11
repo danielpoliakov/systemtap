@@ -349,15 +349,15 @@ string atvar_op::sym_name ()
 // results.
 bool memo_tagged_p (const interned_string& haystack, const string& needle)
 {
-  static map <interned_string,bool> string_find_memoized;
+  static map <pair<interned_string,string>,bool> string_find_memoized;
 
-  auto it = string_find_memoized.find(haystack);
+  auto it = string_find_memoized.find(make_pair(haystack,needle));
   if (it != string_find_memoized.end())
     return it->second;
 
   auto findres = haystack.find(needle);
   bool res = (findres != interned_string::npos);
-  string_find_memoized.insert(make_pair(haystack,res));
+  string_find_memoized.insert(make_pair(make_pair(haystack,needle),res));
   
   return res;
 }
