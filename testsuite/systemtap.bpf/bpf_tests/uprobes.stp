@@ -1,3 +1,5 @@
+// note: requires coreutils-debuginfo
+
 global f1, f2
 probe begin {
 	printf("BEGIN\n")
