@@ -350,14 +350,15 @@ string atvar_op::sym_name ()
 bool memo_tagged_p (const interned_string& haystack, const string& needle)
 {
   static map <pair<interned_string,string>,bool> string_find_memoized;
-
-  auto it = string_find_memoized.find(make_pair(haystack,needle));
+  auto key = make_pair(haystack,needle);
+  
+  auto it = string_find_memoized.find(key);
   if (it != string_find_memoized.end())
     return it->second;
 
   auto findres = haystack.find(needle);
   bool res = (findres != interned_string::npos);
-  string_find_memoized.insert(make_pair(make_pair(haystack,needle),res));
+  string_find_memoized.insert(make_pair(key,res));
   
   return res;
 }
@@ -2579,7 +2580,9 @@ varuse_collecting_visitor::visit_embeddedcode (embeddedcode *s)
   for (unsigned i = 0; i < session.globals.size(); i++)
     {
       vardecl* v = session.globals[i];
+      if (v->synthetic) continue; /* skip synthetic variables; embedded c can't access them. */
       string name = v->unmangled_name;
+      assert (name != "");
       if (s->tagged_p("/* pragma:read:" + name + " */"))
         {
           if (v->type == pe_stats)
@@ -2627,7 +2630,9 @@ varuse_collecting_visitor::visit_embedded_expr (embedded_expr *e)
   for (unsigned i = 0; i < session.globals.size(); i++)
     {
       vardecl* v = session.globals[i];
+      if (v->synthetic) continue; /* skip synthetic variables; embedded c can't access them. */
       string name = v->unmangled_name;
+      assert (name != "");
       if (e->tagged_p ("/* pragma:read:" + name + " */"))
         {
           if (v->type == pe_stats)

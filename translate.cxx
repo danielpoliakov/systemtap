@@ -3804,7 +3804,9 @@ c_unparser::visit_embeddedcode (embeddedcode *s)
   for (unsigned i = 0; i < session->globals.size(); i++)
     {
       vardecl* v = session->globals[i];
+      if (v->synthetic) continue; /* skip synthetic variables; embedded c can't access them. */
       string name = v->unmangled_name;
+      assert (name != "");
       if (s->tagged_p("/* pragma:read:" + name + " */"))
         {
           c_global_read_def(v);
@@ -4689,7 +4691,9 @@ c_unparser::visit_embedded_expr (embedded_expr* e)
   for (unsigned i = 0; i < session->globals.size(); i++)
     {
       vardecl* v = session->globals[i];
+      if (v->synthetic) continue; /* skip synthetic variables; embedded c can't access them. */
       string name = v->unmangled_name;
+      assert (name != "");
       if (e->tagged_p ("/* pragma:read:" + name + " */"))
         {
           has_defines = true;

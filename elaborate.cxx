@@ -1551,8 +1551,8 @@ semantic_pass_conditions (systemtap_session & sess)
   map<derived_probe*, set<vardecl*> > vars_read_in_cond;
   map<derived_probe*, set<vardecl*> > vars_written_in_body;
 
-  // do a first pass through the probes to ensure safety, inline any condition,
-  // and collect var usage
+  // do a first pass through the probes to inline any condition, collect
+  // globals being read
   for (unsigned i = 0; i < sess.probes.size(); ++i)
     {
       if (pending_interrupts) return 1;
@@ -1576,10 +1576,28 @@ semantic_pass_conditions (systemtap_session & sess)
 
           derived_probe_condition_inline(p);
 
-          vars_read_in_cond[p].insert(vcv_cond.read.begin(),
-                                      vcv_cond.read.end());
+          if (! vcv_cond.read.empty()) { // insert only if nonempty
+            vars_read_in_cond[p].insert(vcv_cond.read.begin(),
+                                        vcv_cond.read.end());
+          }
         }
+    }
+  
+  // skip all the rest of this processing if there are no conditions
+  // that relate to state (global variables) at all
+  if (sess.verbose > 2)
+    clog << "number of probes with global-variable conditions: "
+         << vars_read_in_cond.size() << endl;
+  if (vars_read_in_cond.empty())
+    return 0;
+      
+  // do a second pass to see what probes write to any globals
+  for (unsigned i = 0; i < sess.probes.size(); ++i)
+    {
+      if (pending_interrupts) return 1;
 
+      derived_probe* p = sess.probes[i];
+      
       varuse_collecting_visitor vcv_body(sess);
       p->body->visit (& vcv_body);
 
@@ -1587,7 +1605,7 @@ semantic_pass_conditions (systemtap_session & sess)
                                      vcv_body.written.end());
     }
 
-  // do a second pass to collect affected probes
+  // do a third pass to collect affected probes
   for (unsigned i = 0; i < sess.probes.size(); ++i)
     {
       if (pending_interrupts) return 1;

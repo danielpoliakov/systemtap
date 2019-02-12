@@ -3199,8 +3199,9 @@ dwarf_pretty_print::expand ()
     {
       vardecl *v = new vardecl;
       v->type = pe_long;
-      v->name = "pointer";
+      v->name = v->unmangled_name = "pointer";
       v->tok = ts->tok;
+      v->synthetic = true;
       fdecl->formal_args.push_back (v);
       fcall->args.push_back (pointer);
 
@@ -3216,7 +3217,7 @@ dwarf_pretty_print::expand ()
       {
         vardecl *v = new vardecl;
         v->type = pe_long;
-        v->name = "index" + lex_cast(i);
+        v->unmangled_name = v->name = "index" + lex_cast(i);
         v->tok = ts->tok;
         fdecl->formal_args.push_back (v);
         fcall->args.push_back (ts->components[i].expr_index);
@@ -3768,7 +3769,7 @@ synthetic_embedded_deref_call(dwflpp& dw, location_context &ctx,
 
       vardecl *rvalue = new vardecl;
       rvalue->type = pe_long;
-      rvalue->name = "rvalue";
+      rvalue->name = rvalue->unmangled_name = "rvalue";
       rvalue->tok = tok;
 
       fdecl->formal_args.push_back(rvalue);
@@ -3989,14 +3990,16 @@ gen_mapped_saved_return(systemtap_session &sess, expression* e,
                   + name
                   + "_" + lex_cast(tick++));
   vardecl* vd = new vardecl;
-  vd->name = aname;
+  vd->name = vd->unmangled_name = aname;
+  vd->synthetic = true;
   vd->tok = e->tok;
   sess.globals.push_back (vd);
 
   string ctrname = aname + "_ctr";
   vd = new vardecl;
-  vd->name = ctrname;
+  vd->name = vd->unmangled_name = ctrname;
   vd->tok = e->tok;
+  vd->synthetic = true;
   sess.globals.push_back (vd);
 
   // (2) Create a new code block we're going to insert at the
@@ -4298,8 +4301,9 @@ dwarf_var_expanding_visitor::gen_entry_probe_saved_value(expression* e)
   std::string name = std::string("__global_tvar_entry_value_") + lex_cast(tick++);
 
   vardecl *var = new vardecl;
-  var->name = name;
+  var->name = var->unmangled_name = name;
   var->tok = e->tok;
+  var->synthetic = true;
   q.dw.sess.globals.push_back(var);
 
   symbol *sym = new symbol;
@@ -5398,7 +5402,7 @@ dwarf_derived_probe::dwarf_derived_probe(interned_string funcname,
 	    if ((*it).first == (*pcii))
               {
                 vardecl* vd = new vardecl;
-                vd->name = "__perf_read_" + (*it).first;
+                vd->name = vd->unmangled_name = "__perf_read_" + (*it).first;
                 vd->tok = this->tok;
                 vd->set_arity(0, this->tok);
                 vd->type = pe_long;
@@ -11061,7 +11065,7 @@ tracepoint_derived_probe::tracepoint_derived_probe (systemtap_session& s,
       else
         {
           vardecl* v = new vardecl;
-          v->name = "__tracepoint_arg_" + args[i].name;
+          v->name = v->unmangled_name = "__tracepoint_arg_" + args[i].name;
 	  v->tok = this->tok;
 	  v->set_arity(0, this->tok);
 	  v->type = pe_long;
