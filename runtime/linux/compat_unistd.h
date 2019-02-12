@@ -37,6 +37,9 @@
 #ifndef __NR_accept4
 #define __NR_accept4 (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_bdflush
+#define __NR_bdflush (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_bind
 #define __NR_bind (__NR_syscall_max + 1)
 #endif
