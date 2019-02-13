@@ -49,21 +49,32 @@ probe procfs("unblock").write {  # unblock given pid
 
 # payload
 
+global deny_ptrace
+
+probe kernel.function("cap_ptrace_traceme").return,
+      kernel.function("cap_ptrace_access_check").return
+{
+  if (tid() in deny_ptrace) {
+    $return = -1 /* -EPERM */
+  }
+}
+
 probe syscall.ptrace {
       if (pid() in noptrace) {
          # report
-         printf ("%s[%d] ptrace(%d) blocked: ", execname(), tid(), $request)
+         printf ("%s[%d] ptrace(%d) blocked: ", execname(), tid(), request)
          # (or if desired, accumulate counts and report at probe end {})
 
          # disable the ptrace call in progress
          # if it weren't for PTRACE_TRACEME, we could set $pid=1 => -EPERM
-         # changing it to an invalid request number works too
-         $request=0xbeef # anything invalid should do
+         # instead make the capability check fail with -PERM
+         deny_ptrace [tid()] = 1
       }
 }
 
 probe syscall.ptrace.return { # should occur instantly
       if (pid() in noptrace) {
-         printf ("rc=%d\n", $return)
+         printf ("rc=%d\n", retval)
       }
+      delete deny_ptrace [tid()]
 }
