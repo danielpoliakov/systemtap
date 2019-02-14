@@ -191,12 +191,13 @@ location_context::translate_constant(Dwarf_Attribute *attr)
 
 /* Die in the middle of an expression.  */
 static void __attribute__((noreturn))
-lose (const Dwarf_Op *lexpr, size_t len, const char *failure, size_t i)
+lose (const std::string& err_src, const Dwarf_Op *lexpr, size_t len, const char *failure, size_t i)
 {
+  // NB: not using SEMANTIC_ERROR() wrapper, so as to push DIE() source location through macros
   if (lexpr == NULL || i >= len)
-    throw SEMANTIC_ERROR(failure);
+    throw semantic_error(err_src, failure);
   else
-    throw SEMANTIC_ERROR(std::string(failure)
+    throw semantic_error(err_src, std::string(failure)
                          + " in DWARF expression ["
 			 + lex_cast(i)
                          + "] at " + lex_cast(lexpr[i].offset)
@@ -299,7 +300,7 @@ location_context::translate (const Dwarf_Op *expr, const size_t len,
 			     location *input, bool may_use_fb,
 			     bool computing_value_orig)
 {
-#define DIE(msg)	lose(expr, len, N_(msg), i)
+#define DIE(msg)	lose(ERR_SRC, expr, len, N_(msg), i)
 
 #define POP(VAR)	if (stack.empty()) goto underflow;	\
 			expression *VAR = stack.back();		\
@@ -904,7 +905,7 @@ location_context::translate_offset (const Dwarf_Op *expr, size_t len,
 				    size_t i, location *input,
 				    Dwarf_Word offset)
 {
-#define DIE(msg) lose (expr, len, N_(msg), i)
+#define DIE(msg) lose (ERR_SRC, expr, len, N_(msg), i)
 
   while (input->type == loc_noncontiguous)
     {
@@ -975,7 +976,7 @@ location *
 location_context::location_relative (const Dwarf_Op *expr, size_t len,
 				     location *input)
 {
-#define DIE(msg)	lose(expr, len, N_(msg), i)
+#define DIE(msg)	lose(ERR_SRC, expr, len, N_(msg), i)
 
 #define POP(VAR)	if (stack.empty())		\
 			  goto underflow;		\
