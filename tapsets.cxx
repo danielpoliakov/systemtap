@@ -4604,6 +4604,9 @@ dwarf_var_expanding_visitor::visit_target_symbol (target_symbol *e)
       // target_symbol to the next pass.  We hope that this value ends
       // up not being referenced after all, so it can be optimized out
       // quietly.
+      if (sess.verbose > 3)
+        clog << "chaining to " << *e->tok << endl
+             << sess.build_error_msg(er) << endl;
       e->chain (er);
       provide (e);
     }
@@ -5020,6 +5023,9 @@ exp_type_dwarf::expand(autocast_op* e, bool lvalue)
     }
   catch (const semantic_error &er)
     {
+      if (dw->sess.verbose > 3)
+        clog << "chaining to " << *e->tok << endl
+             << dw->sess.build_error_msg(er) << endl;
       e->chain (er);
       return NULL;
     }
@@ -5193,6 +5199,9 @@ dwarf_atvar_expanding_visitor::visit_atvar_op (atvar_op* e)
                                      esn.c_str(), mn.c_str(),
                                      cun.empty() ? "" : _(", in "),
                                      cun.c_str()));
+      if (sess.verbose > 3)
+        clog << "chaining to " << *e->tok << endl
+             << sess.build_error_msg(er) << endl;
       e->chain (er);
     }
 
@@ -7225,9 +7234,12 @@ sdt_uprobe_var_expanding_visitor::visit_target_symbol_arg (target_symbol *e)
           if ((argexpr = try_parse_arg_varname(e, asmarg, precision)) != NULL)
             goto matched;
         }
-      catch (const semantic_error& err)
+      catch (const semantic_error& er)
         {
-          e->chain(err);
+          if (sess.verbose > 3)
+            clog << "chaining to " << *e->tok << endl
+                 << sess.build_error_msg(er) << endl;
+          e->chain(er);
         }
 
       // The asmarg operand was not recognized.  Back down to dwarf.
@@ -7277,6 +7289,9 @@ sdt_uprobe_var_expanding_visitor::visit_target_symbol_arg (target_symbol *e)
     }
   catch (const semantic_error &er)
     {
+      if (sess.verbose > 3)
+        clog << "chaining to " << *e->tok << endl
+             << sess.build_error_msg(er) << endl;
       e->chain (er);
       provide (e);
     }
@@ -7298,6 +7313,9 @@ sdt_uprobe_var_expanding_visitor::visit_target_symbol (target_symbol* e)
     }
   catch (const semantic_error &er)
     {
+      if (sess.verbose > 3)
+        clog << "chaining to " << *e->tok << endl
+             << sess.build_error_msg(er) << endl;
       e->chain (er);
       provide (e);
     }
@@ -7349,6 +7367,9 @@ plt_expanding_visitor::visit_target_symbol (target_symbol *e)
     }
   catch (const semantic_error &er)
     {
+      if (sess.verbose > 3)
+        clog << "chaining to " << *e->tok << endl
+             << sess.build_error_msg(er) << endl;
       e->chain (er);
       provide (e);
     }
@@ -10993,6 +11014,9 @@ tracepoint_var_expanding_visitor::visit_target_symbol (target_symbol* e)
     }
   catch (const semantic_error &er)
     {
+      if (sess.verbose > 3)
+        clog << "chaining to " << *e->tok << endl
+             << sess.build_error_msg(er) << endl;
       e->chain (er);
       provide (e);
     }
