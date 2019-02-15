@@ -121,6 +121,10 @@ struct typeresolution_info: public visitor
   // If they have this null_type, they're explicitly *not* a rich type.
   const exp_type_ptr null_type;
 
+  // PR24199 NB: below functions should NOT throw exceptions on a
+  // routine type resolution failure.  Instead, session.print_error()
+  // and keep on chugging.
+
   void visit_block (block* s);
   void visit_try_block (try_block* s);
   void visit_embeddedcode (embeddedcode* s);
@@ -166,6 +170,10 @@ struct typeresolution_info: public visitor
   void visit_defined_op (defined_op* e);
   void visit_entry_op (entry_op* e);
   void visit_perf_op (perf_op* e);
+
+  // PR24199 NB: above functions should NOT throw exceptions on a
+  // routine type resolution failure.  Instead, session.print_error()
+  // and keep on chugging.
 };
 
 

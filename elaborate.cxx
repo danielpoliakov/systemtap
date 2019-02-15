@@ -6148,7 +6148,7 @@ typeresolution_info::visit_assignment (assignment *e)
         }
     }
   else
-    throw SEMANTIC_ERROR (_("unsupported assignment operator ") + (string)e->op);
+    throw SEMANTIC_ERROR (_("internal error: unsupported assignment operator ") + (string)e->op);
 }
 
 
@@ -6315,7 +6315,7 @@ void resolve_2types (Referrer* referrer, Referent* referent,
 void
 typeresolution_info::visit_symbol (symbol* e)
 {
-  if (e->referent == 0)
+  if (e->referent == 0) // should have been linked or rejected before now
     throw SEMANTIC_ERROR (_F("internal error: unresolved symbol '%s'",
                              e->name.to_string().c_str()), e->tok);
 
@@ -6410,9 +6410,9 @@ typeresolution_info::visit_target_symbol (target_symbol* e)
     }
 
   if (e->saved_conversion_error)
-    throw (* (e->saved_conversion_error));
+    session.print_error (* (e->saved_conversion_error));
   else
-    throw SEMANTIC_ERROR(_("unresolved target-symbol expression"), e->tok);
+    session.print_error (SEMANTIC_ERROR(_("unresolved target-symbol expression"), e->tok));
 }
 
 
@@ -6446,9 +6446,9 @@ typeresolution_info::visit_atvar_op (atvar_op* e)
     }
 
   if (e->saved_conversion_error)
-    throw (* (e->saved_conversion_error));
+    session.print_error (* (e->saved_conversion_error));
   else
-    throw SEMANTIC_ERROR(_("unresolved @var() expression"), e->tok);
+    session.print_error (SEMANTIC_ERROR(_("unresolved @var() expression"), e->tok));
 }
 
 
@@ -6461,7 +6461,7 @@ typeresolution_info::visit_defined_op (defined_op* e)
   e->operand->visit(this);
 
   if (assert_resolvability)
-    throw SEMANTIC_ERROR(_("unexpected @defined"), e->tok);
+    session.print_error (SEMANTIC_ERROR(_("unexpected @defined"), e->tok));
   else
     num_still_unresolved ++;
 }
@@ -6470,7 +6470,7 @@ typeresolution_info::visit_defined_op (defined_op* e)
 void
 typeresolution_info::visit_entry_op (entry_op* e)
 {
-  throw SEMANTIC_ERROR(_("@entry is only valid in .return probes"), e->tok);
+  throw SEMANTIC_ERROR(_("internal error: @entry is only valid in .return probes"), e->tok);
 }
 
 
@@ -6480,11 +6480,11 @@ typeresolution_info::visit_cast_op (cast_op* e)
   // Like target_symbol, a cast_op shouldn't survive this far
   // unless it was not resolved and its value is really needed.
   if (e->saved_conversion_error)
-    throw (* (e->saved_conversion_error));
+    session.print_error (* (e->saved_conversion_error));
   else
-    throw SEMANTIC_ERROR(_F("type definition '%s' not found in '%s'",
-                            e->type_name.to_string().c_str(),
-                            e->module.to_string().c_str()), e->tok);
+    session.print_error (SEMANTIC_ERROR(_F("type definition '%s' not found in '%s'",
+                                           e->type_name.to_string().c_str(),
+                                           e->module.to_string().c_str()), e->tok));
 }
 
 
@@ -6494,9 +6494,9 @@ typeresolution_info::visit_autocast_op (autocast_op* e)
   // Like cast_op, a implicit autocast_op shouldn't survive this far
   // unless it was not resolved and its value is really needed.
   if (assert_resolvability && e->saved_conversion_error)
-    throw (* (e->saved_conversion_error));
+    session.print_error (* (e->saved_conversion_error));
   else if (assert_resolvability)
-    throw SEMANTIC_ERROR(_("unknown type in dereference"), e->tok);
+    session.print_error (SEMANTIC_ERROR(_("unknown type in dereference"), e->tok));
 
   t = pe_long;
   e->operand->visit (this);
@@ -7327,11 +7327,14 @@ typeresolution_info::mismatch (const token *tok, exp_type type,
  * index if index-based (array index or function arg)
  * */
 void
-typeresolution_info::resolved (const token *tok, exp_type,
+typeresolution_info::resolved (const token *tok, exp_type t,
                                const symboldecl* decl, int index)
 {
   num_newly_resolved ++;
 
+  if (session.verbose > 4)
+    clog << "resolved type " << t << " to " << *tok << endl;
+  
   // We only use the resolved_types vector to give better mismatch messages
   // involving symbols. So don't bother adding it if we're not given a decl
   if (decl != NULL)
