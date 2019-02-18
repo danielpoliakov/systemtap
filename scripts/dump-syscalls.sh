@@ -5,9 +5,9 @@
 # you run this script, make sure that STRACE_SRC points to fresh strace git
 # sources.
 #
-# As of 3/2017, strace source can be obtained by the following command:
+# As of 2/2019, strace source can be obtained by the following command:
 #
-#    git clone https://git.code.sf.net/p/strace/code strace-code
+#    git clone https://github.com/strace/strace strace-code
 #
 # Functions syscall_name() and syscall_num() are the primary feature front-end.
 
@@ -104,6 +104,7 @@ __generate_tapset $TAPSET_ARM
 
 # ======= aarch64 =======
 __init
+__dump_syscalls $STRACE_SRC/linux/arm/syscallent.h 32
 __dump_syscalls $STRACE_SRC/linux/64/syscallent.h 64
 __dump_syscalls $STRACE_SRC/linux/aarch64/syscallent.h 64
 __generate_tapset $TAPSET_AARCH64
