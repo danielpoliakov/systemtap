@@ -373,11 +373,10 @@
 
 // As other architectures adopt the 4.17 syscall wrapper mechanism,
 // these macros will have to be conditionalized on %( arch %).
-@define arch_syscall_prefix %( "__{ia32,x64}_" %)
-@define arch_syscall0_prefix %( "__x64_" %)
-
         
 %( arch == "ia64" %?
+@define arch_syscall_prefix %( "" %)
+@define arch_syscall0_prefix %( "" %)
 @define SYSC_CLONE_CLONE_FLAGS_ARGNO %( 1 %)
 @define SYSC_CLONE_STACK_START_ARGNO %( 2 %)
 @define SYSC_CLONE_PARENT_TID_UADDR_ARGNO %( 4 %)
@@ -385,6 +384,8 @@
 %)
 
 %( arch == "s390" %?
+@define arch_syscall_prefix %( "" %)
+@define arch_syscall0_prefix %( "" %)
 @define SYSC_CLONE_CLONE_FLAGS_ARGNO %( 2 %)
 @define SYSC_CLONE_STACK_START_ARGNO %( 1 %)
 @define SYSC_CLONE_PARENT_TID_UADDR_ARGNO %( 3 %)
@@ -392,13 +393,26 @@
 %)
 
 %( arch == "x86_64" %?
+@define arch_syscall_prefix %( "__{ia32,x64}_" %)
+@define arch_syscall0_prefix %( "__x64_" %)
 @define SYSC_CLONE_CLONE_FLAGS_ARGNO %( 1 %)
 @define SYSC_CLONE_STACK_START_ARGNO %( 2 %)
 @define SYSC_CLONE_PARENT_TID_UADDR_ARGNO %( 3 %)
 @define SYSC_CLONE_CHILD_TID_UADDR_ARGNO %( @__compat_task ? 5 : 4 %)
 %)
 
-%( arch == "i386" || arch == "arm" || arch == "arm64" || arch == "powerpc" || arch == "mips" %?
+%( arch == "arm64" %?
+@define arch_syscall_prefix %( "__arm64_" %)
+@define arch_syscall0_prefix %( "" %)
+@define SYSC_CLONE_CLONE_FLAGS_ARGNO %( 1 %)
+@define SYSC_CLONE_STACK_START_ARGNO %( 2 %)
+@define SYSC_CLONE_PARENT_TID_UADDR_ARGNO %( 3 %)
+@define SYSC_CLONE_CHILD_TID_UADDR_ARGNO %( 5 %)
+%)
+
+%( arch == "i386" || arch == "arm" || arch == "powerpc" || arch == "mips" %?
+@define arch_syscall_prefix %( "" %)
+@define arch_syscall0_prefix %( "" %)
 @define SYSC_CLONE_CLONE_FLAGS_ARGNO %( 1 %)
 @define SYSC_CLONE_STACK_START_ARGNO %( 2 %)
 @define SYSC_CLONE_PARENT_TID_UADDR_ARGNO %( 3 %)
