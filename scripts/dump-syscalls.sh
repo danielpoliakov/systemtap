@@ -65,8 +65,9 @@ EOF03
 probe init {
 EOF04
 
-cat $SYSCALLS_32 >> $__TAPSET_FILE
-cat $SYSCALLS_64 >> $__TAPSET_FILE
+cat $SYSCALLS_32 $SYSCALLS_64  | sort -t\" -k2 >> $__TAPSET_FILE
+
+
 
     cat >> $__TAPSET_FILE <<EOF05
 } /* probe init */
