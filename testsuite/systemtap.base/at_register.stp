@@ -1,7 +1,10 @@
 global errors
 
-%( arch == "i386" || arch == "x86_64" %?
-global regname = "ax"
+%( arch == "i386" %?
+global regname = "eax"
+%)
+%( arch == "x86_64" %?
+global regname = "rax"
 %)
 %( arch == "powerpc" || arch == "s390x" %?
 global regname = "r0"

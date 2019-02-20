@@ -6,7 +6,7 @@ if { $res != "" } {
     verbose "target_compile failed: $res" 2
     fail "${test}: unable to compile ${test}.c"
 } else {
-    stap_run $test no_load $all_pass_string $srcdir/$subdir/$test.stp -c ./${test} -w
+    stap_run $test no_load $all_pass_string $srcdir/$subdir/$test.stp -g -c ./${test} -w
 }
 
 # Cleanup
