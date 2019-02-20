@@ -2,7 +2,7 @@ set test "at_deref"
 set subtest1 "at_kderef"
 set subtest2 "at_uderef"
 
-stap_run $subtest1 no_load $all_pass_string $srcdir/$subdir/at_deref1.stp -c "cat /dev/null" -w
+stap_run $subtest1 no_load $all_pass_string $srcdir/$subdir/at_deref1.stp -g -c "cat /dev/null" -w
 
 set res [target_compile $srcdir/$subdir/${test}.c ${test} executable "additional_flags=-O2 additional_flags=-g"]
 if { $res != "" } {
