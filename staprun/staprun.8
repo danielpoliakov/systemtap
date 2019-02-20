@@ -238,7 +238,7 @@ potentially private user information.  See the
 manual page for additional information on safety and security.
 .PP
 To increase system security, users of systemtap must be root, or in the
-.I staprun
+.I stapusr
 group in order to execute this setuid 
 .I staprun
 program.
@@ -262,13 +262,13 @@ group have almost all the privileges of
 .IR stapdev ,
 except for guru mode constructs.
 .TP
-staprun
+stapusr
 Members only of the
 .I stapusr
 group may any-privileged modules placed into the /lib/modules/VERSION/systemtap 
 by the system administrator.
 .TP
-staprun
+stapusr
 Members only of the
 .I stapusr
 group may also write and load low-privilege script modules, which are normally
