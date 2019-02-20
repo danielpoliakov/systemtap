@@ -54,7 +54,7 @@ public:
   derived_probe* current_probe;
   symresolution_info (systemtap_session& s, bool omniscient_unmangled = false);
 
-  vardecl* find_var (interned_string name, int arity, const token *tok);
+  vardecl* find_var (const std::string& name, int arity, const token *tok);
   std::vector<functiondecl*> find_functions (functioncall *call, const std::string& name, unsigned arity, const token *tok);
   std::set<std::string> collect_functions(void);
 

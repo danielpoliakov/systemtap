@@ -1891,33 +1891,22 @@ semantic_pass_symbols (systemtap_session& s)
       // with those already in s.globals/functions.  We need to deconflict
       // here.
 
-      for (unsigned i=0; i<dome->globals.size(); i++)
+      // PR24239: don't transcribe s.files .globals or .functions into
+      // s.globals or s.functions here.  Instead, symresolution_info::find_*
+      // will have already done that, for only those functions / globals
+      // that are actually transitively referenced from the end-user script.
+      
+      if (s.verbose > 3)
         {
-          vardecl* g = dome->globals[i];
-          for (unsigned j=0; j<s.globals.size(); j++)
-            {
-              vardecl* g2 = s.globals[j];
-              if (g->name == g2->name)
-                {
-                  s.print_error (SEMANTIC_ERROR (_("conflicting global variables"),
-                                                 g->tok, g2->tok));
-                }
-            }
-          s.globals.push_back (g);
-        }
+          for (auto it = dome->globals.begin(); it != dome->globals.end(); it++)
+            if (std::find(s.globals.begin(), s.globals.end(), *it) == s.globals.end())
+              clog << "excluded unused global " << (*it)->name << " from tapset " << dome->name << endl;
 
-      for (unsigned i=0; i<dome->functions.size(); i++)
-        {
-          functiondecl* f = dome->functions[i];
-          functiondecl* f2 = s.functions[f->name];
-          if (f2 && f != f2)
-            {
-              s.print_error (SEMANTIC_ERROR (_("conflicting functions"), 
-                                             f->tok, f2->tok));
-            }
-          s.functions[f->name] = f;
+          for (auto it = dome->functions.begin(); it != dome->functions.end(); it++)
+            if (s.functions.find((*it)->name) == s.functions.end())
+              clog << "excluded unused function " << (*it)->name << " from tapset " << dome->name << endl;
         }
-
+      
       // NB: embeds don't conflict with each other
       for (unsigned i=0; i<dome->embeds.size(); i++)
         s.embeds.push_back (dome->embeds[i]);
@@ -2668,11 +2657,7 @@ symresolution_info::visit_symbol (symbol* e)
   if (e->referent)
     return;
 
-  if (session.verbose > 3)
-    clog << _F("Resolving symbol symbol %p (%s) ...", (void*) e, ((string)e->name).c_str());
   vardecl* d = find_var (e->name, 0, e->tok);
-  if (session.verbose > 3)
-    clog << endl;
   if (d)
     {
       e->referent = d;
@@ -2800,7 +2785,7 @@ symresolution_info::visit_functioncall (functioncall* e)
 /*find_var will return an argument other than zero if the name matches the var
  * name ie, if the current local name matches the name passed to find_var*/
 vardecl*
-symresolution_info::find_var (interned_string name, int arity, const token* tok)
+symresolution_info::find_var (const string& name, int arity, const token* tok)
 {
   if (current_function || current_probe)
     {
@@ -2813,9 +2798,9 @@ symresolution_info::find_var (interned_string name, int arity, const token* tok)
       for (unsigned i=0; i<locals.size(); i++)
         if (locals[i]->name == name)
           {
-	    if (session.verbose > 3)
-	      clog << _F("to local (%p/%p) vardecl %p",
-			 (void*) current_function, (void*) current_probe, (void*) locals[i]);
+            if (session.verbose > 2)
+              cerr << _F("      local %s is already defined",
+                         name.c_str()) << endl;
 
             locals[i]->set_arity (arity, tok);
             return locals[i];
@@ -2828,8 +2813,9 @@ symresolution_info::find_var (interned_string name, int arity, const token* tok)
       if (current_function->formal_args[i]->name == name)
 	{
 	  // NB: no need to check arity here: formal args always scalar
-	  if (session.verbose > 3)
-	    clog << _F("to %p param vardecl %p", (void*) current_function, (void*) current_function->formal_args[i]);
+          if (session.verbose > 2)
+            cerr << _F("      local %s is formal parameter",
+                       name.c_str()) << endl;
 
 	  current_function->formal_args[i]->set_arity (0, tok);
 	  return current_function->formal_args[i];
@@ -2852,15 +2838,15 @@ symresolution_info::find_var (interned_string name, int arity, const token* tok)
         (session.globals[i]->name == gname) ||
         (session.globals[i]->name == pname))
       {
-	if (session.verbose > 3)
-	  clog << _F("to global vardecl %p", (void*) session.globals[i]);
+	if (session.verbose > 2)
+          cerr << _F("      global %s is already defined",
+                     name.c_str()) << endl;
 
         if (! session.suppress_warnings)
           {
             vardecl* v = session.globals[i];
 	    stapfile* f = tok->location.file;
-            // clog << "resolved " << *tok << " to global " << *v->tok << endl;
-            if (v->tok && v->tok->location.file != f && !f->synthetic)
+            if (!session.is_user_file(f->name) && v->tok && v->tok->location.file != f && !f->synthetic)
               {
                 session.print_warning (_F("cross-file global variable reference to %s from",
                                           lex_cast(*v->tok).c_str()), tok);
@@ -2871,7 +2857,30 @@ symresolution_info::find_var (interned_string name, int arity, const token* tok)
       }
   }
 
-  // search library globals
+  // search chosen-tapset globals
+  for (unsigned i=0; i<session.files.size(); i++)
+    {
+      stapfile* f = session.files[i];
+      for (unsigned j=0; j<f->globals.size(); j++)
+        {
+          vardecl* g = f->globals[j];
+          if ((g->name == gname) ||
+              (g->name == pname)) // private global within tapset probe alias
+            {
+              if (session.verbose > 2)
+                cerr << _F("      global %s is defined in chosen-tapset-file %s",
+                           name.c_str(), f->name.c_str()) << endl;
+
+	      g->set_arity (arity, tok);
+
+              session.globals.push_back (g);
+              return g;
+            }
+        }
+    }
+  
+  
+  // search not-yet-chosen library globals
   for (unsigned i=0; i<session.library_files.size(); i++)
     {
       stapfile* f = session.library_files[i];
@@ -2881,21 +2890,21 @@ symresolution_info::find_var (interned_string name, int arity, const token* tok)
           if ((g->name == gname) ||
               (g->name == pname)) // private global within tapset probe alias
             {
-	      if (session.verbose > 3)
-		clog << _F("to tapset global vardecl %p", (void*) g);
+	      if (session.verbose > 2)
+                      cerr << _F("      global %s is defined in new-tapset-file %s",
+                                 name.c_str(), f->name.c_str()) << endl;
 
 	      g->set_arity (arity, tok);
 
-              // put library into the queue if not already there
-              if (find (session.files.begin(), session.files.end(), f)
-                  == session.files.end())
-                session.files.push_back (f);
+              assert (find (session.files.begin(), session.files.end(), f) == session.files.end());
+              session.files.push_back (f);
+              session.globals.push_back (g);
 
               return g;
             }
         }
     }
-
+  
   return 0;
 }
 
@@ -3004,7 +3013,32 @@ symresolution_info::find_functions (functioncall *call, const string& name, unsi
             last = fd;
         }
 
-      // search library functions
+      // search chosen-tapset-file functions
+      for (unsigned i=0; !found && i<session.files.size(); i++)
+        {
+          stapfile* f = session.files[i];
+          for (unsigned j=0; !found && j<f->functions.size(); j++)
+          {
+            if ((f->functions[j]->name == gname) ||
+                (f->functions[j]->name == pname))
+              {
+                if (f->functions[j]->formal_args.size() == arity)
+                  {
+                    // put library into the queue if not already there
+                    if (session.verbose > 2)
+                      cerr << _F("      function %s is defined in chosen-tapset-file %s",
+                                 name.c_str(), f->name.c_str()) << endl;
+
+                    functions.push_back(f->functions[j]);
+                    found = true;
+                  }
+                else
+                  last = f->functions[j];
+              }
+          }
+        }
+
+      // search not-yet-chosen library functions
       for (unsigned i=0; !found && i<session.library_files.size(); i++)
         {
           stapfile* f = session.library_files[i];
@@ -3016,15 +3050,13 @@ symresolution_info::find_functions (functioncall *call, const string& name, unsi
                 if (f->functions[j]->formal_args.size() == arity)
                   {
                     // put library into the queue if not already there
-                    if (0) // session.verbose_resolution
-                      cerr << _F("      function %s is defined from %s",
+                    if (session.verbose > 2)
+                      cerr << _F("      function %s is defined in new-tapset-file %s",
                                  name.c_str(), f->name.c_str()) << endl;
 
-                    if (find (session.files.begin(), session.files.end(), f)
-                        == session.files.end())
-                      session.files.push_back (f);
-                    // else .. print different message?
-
+                    assert (find (session.files.begin(), session.files.end(), f) == session.files.end());
+                    session.files.push_back (f);
+                    
                     functions.push_back(f->functions[j]);
                     found = true;
                   }
@@ -3044,11 +3076,22 @@ symresolution_info::find_functions (functioncall *call, const string& name, unsi
 
   // check every function for safety/security constraints
   functioncall_security_check fsc(session, call);
-  for (auto gi = functions.begin(); gi != functions.end(); gi++)
+  for (auto gi = functions.begin(); gi != functions.end(); gi++) {
     fsc.traverse(*gi);
+    
+    // record this as a used function for later sym resolution
+    functiondecl *f = *gi;
+    const string& fname = f->name;
+    functiondecl *f2 = session.functions[fname];
+    if (f2 && f != f2)
+      session.print_error (SEMANTIC_ERROR (_("conflicting functions"), 
+                                     f->tok, f2->tok));
+    session.functions[fname] = f;
+  }
 
   return functions;
 }
+
 
 set<string>
 symresolution_info::collect_functions(void)
@@ -3077,6 +3120,9 @@ symresolution_info::collect_functions(void)
 
 // Do away with functiondecls that are never (transitively) called
 // from probes.
+//
+// PR24239: this will generally not trigger, since we avoid adding
+// uncalled functions to s.functions[].
 void semantic_pass_opt1 (systemtap_session& s, bool& relaxed_p)
 {
   functioncall_traversing_visitor ftv;
