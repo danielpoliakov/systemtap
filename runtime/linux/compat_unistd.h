@@ -52,6 +52,9 @@
 #ifndef __NR_chmod
 #define __NR_chmod (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_chown
+#define __NR_chown (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_chown32
 #define __NR_chown32 (__NR_syscall_max + 1)
 #endif
