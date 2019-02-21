@@ -31,6 +31,9 @@
 #ifndef __NR__newselect
 #define __NR__newselect (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_access
+#define __NR_access (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_accept
 #define __NR_accept (__NR_syscall_max + 1)
 #endif
@@ -46,8 +49,14 @@
 #ifndef __NR_bpf
 #define __NR_bpf (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_chmod
+#define __NR_chmod (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_chown32
 #define __NR_chown32 (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_compat_bdflush
+#define __NR_compat_bdflush (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_connect
 #define __NR_connect (__NR_syscall_max + 1)
@@ -55,8 +64,17 @@
 #ifndef __NR_copy_file_range
 #define __NR_copy_file_range (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_creat
+#define __NR_creat (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_dup2
+#define __NR_dup2 (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_epoll_wait
 #define __NR_epoll_wait (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_eventfd
+#define __NR_eventfd (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_execveat
 #define __NR_execveat (__NR_syscall_max + 1)
@@ -94,6 +112,9 @@
 #ifndef __NR_getcpu
 #define __NR_getcpu (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_getdents
+#define __NR_getdents (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_getegid32
 #define __NR_getegid32 (__NR_syscall_max + 1)
 #endif
@@ -108,6 +129,9 @@
 #endif
 #ifndef __NR_getpeername
 #define __NR_getpeername (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_getpgrp
+#define __NR_getpgrp (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_getrandom
 #define __NR_getrandom (__NR_syscall_max + 1)
@@ -130,6 +154,9 @@
 #ifndef __NR_io_pgetevents
 #define __NR_io_pgetevents (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_inotify_init
+#define __NR_inotify_init (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_ipc
 #define __NR_ipc (__NR_syscall_max + 1)
 #endif
@@ -139,17 +166,32 @@
 #ifndef __NR_kexec_file_load
 #define __NR_kexec_file_load (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_lchown
+#define __NR_lchown (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_lchown32
 #define __NR_lchown32 (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_link
+#define __NR_link (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_listen
 #define __NR_listen (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_lstat
+#define __NR_lstat (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_lstat64
 #define __NR_lstat64 (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_membarrier
 #define __NR_membarrier (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_mkdir
+#define __NR_mkdir (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_mknod
+#define __NR_mknod (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_mlock2
 #define __NR_mlock2 (__NR_syscall_max + 1)
@@ -196,6 +238,15 @@
 #ifndef __NR_open
 #define __NR_open (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_pause
+#define __NR_pause (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_pipe
+#define __NR_pipe (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_poll
+#define __NR_poll (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_preadv2
 #define __NR_preadv2 (__NR_syscall_max + 1)
 #endif
@@ -208,6 +259,9 @@
 #ifndef __NR_readdir
 #define __NR_readdir (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_readlink
+#define __NR_readlink (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_recv
 #define __NR_recv (__NR_syscall_max + 1)
 #endif
@@ -217,11 +271,20 @@
 #ifndef __NR_recvmsg
 #define __NR_recvmsg (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_rename
+#define __NR_rename (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_renameat2
 #define __NR_renameat2 (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_rmdir
+#define __NR_rmdir (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_rseq
 #define __NR_rseq (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_select
+#define __NR_select (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_semctl
 #define __NR_semctl (__NR_syscall_max + 1)
@@ -322,6 +385,9 @@
 #ifndef __NR_ssetmask
 #define __NR_ssetmask (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_stat
+#define __NR_stat (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_stat64
 #define __NR_stat64 (__NR_syscall_max + 1)
 #endif
@@ -334,8 +400,17 @@
 #ifndef __NR_stime
 #define __NR_stime (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_symlink
+#define __NR_symlink (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_sync_file_range
 #define __NR_sync_file_range (__NR_syscall_max + 1)
+#endif
+#ifndef __NR__sysctl
+#define __NR__sysctl (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_sysfs
+#define __NR_sysfs (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_truncate
 #define __NR_truncate (__NR_syscall_max + 1)
@@ -348,6 +423,21 @@
 #endif
 #ifndef __NR_umount
 #define __NR_umount (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_unlink
+#define __NR_unlink (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_uselib
+#define __NR_uselib (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_ustat
+#define __NR_ustat (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_utimes
+#define __NR_utimes (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_vfork
+#define __NR_vfork (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_waitpid
 #define __NR_waitpid (__NR_syscall_max + 1)
