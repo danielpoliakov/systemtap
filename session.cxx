@@ -2093,7 +2093,7 @@ systemtap_session::parse_kernel_functions ()
       string address, type, name;
       system_map >> address >> type >> name;
 
-      if (verbose > 3)
+      if (verbose > 5)
         clog << "'" << address << "' '" << type << "' '" << name
              << "'" << endl;
 
