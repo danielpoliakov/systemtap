@@ -36,6 +36,7 @@
 #include <sys/fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/syscall.h>
+#include <sys/mman.h>
 #include <sys/utsname.h>
 #include <sys/resource.h>
 #include "bpfinterp.h"
@@ -85,6 +86,15 @@ static uint32_t kernel_version;
 // Sized by the contents of the "maps" section.
 static bpf_map_def *map_attrs;
 static std::vector<int> map_fds;
+
+// Sized by the number of CPUs:
+static std::vector<int> perf_fds;
+static std::vector<struct perf_event_mmap_page *> perf_headers;
+
+// Additional info for perf_events transport:
+static int perf_event_page_size;
+static int perf_event_page_count = 8;
+static int perf_event_mmap_size;
 
 // Sized by the number of sections, so that we can easily
 // look them up by st_shndx.
@@ -235,6 +245,8 @@ instantiate_maps (Elf64_Shdr *shdr, Elf_Data *data)
       // TODO: The 58 bytes of overhead space per entry has been
       // decided by trial and error, and may require further tweaking:
       rlimit_increase += (58 + attrs[i].key_size + attrs[i].value_size) * attrs[i].max_entries;
+      // TODO: Note that Certain Other Tools just give up on
+      // calculating and set rlimit to the maximum possible.
     }
 
   struct rlimit curr_rlimit;
@@ -272,9 +284,24 @@ instantiate_maps (Elf64_Shdr *shdr, Elf_Data *data)
   /* Now create the maps: */
   for (i = 0; i < n; ++i)
     {
+      /* PR22330: The perf_event_map used for message transport must
+         have max_entries equal to the number of active CPUs, which we
+         wouldn't know for sure at translate time. Set it now: */
+      bpf_map_type map_type = static_cast<bpf_map_type>(attrs[i].type);
+      if (map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY)
+        {
+          /* XXX: Assume our only perf_event_map is the percpu transport one: */
+          assert(i == bpf::globals::perf_event_map_idx);
+          assert(attrs[i].max_entries == bpf::globals::NUM_CPUS_PLACEHOLDER);
+
+          // TODOXXX: Should we use get_nprocs_conf() / _SC_NPROCESSORS_CONF?
+          //attrs[i].max_entries = get_nprocs();
+          attrs[i].max_entries = sysconf(_SC_NPROCESSORS_ONLN);
+        }
+
       if (log_level > 2)
-        fprintf(stderr, "creating map entry %zu: key_size %u, value_size %u, "
-                "max_entries %u, map_flags %u\n", i,
+        fprintf(stderr, "creating map type %u entry %zu: key_size %u, value_size %u, "
+                "max_entries %u, map_flags %u\n", map_type, i,
                 attrs[i].key_size, attrs[i].value_size,
                 attrs[i].max_entries, attrs[i].map_flags);
       int fd = bpf_create_map(static_cast<bpf_map_type>(attrs[i].type),
@@ -1033,6 +1060,44 @@ init_internal_globals()
   if (bpf_update_elem(map_fds[globals::internal_map_idx],
                      (void*)&key, (void*)&val, BPF_ANY) != 0)
     fatal("Error updating pid: %s\n", errno);
+
+  // PR22330: Initialize perf_event_map and perf_fds.
+  unsigned ncpus = map_attrs[globals::perf_event_map_idx].max_entries;
+
+  struct perf_event_attr peattr;
+
+  memset(&peattr, 0, sizeof(peattr));
+  peattr.size = sizeof(peattr);
+  peattr.sample_type = PERF_SAMPLE_RAW;
+  peattr.type = PERF_TYPE_SOFTWARE;
+  peattr.config = PERF_COUNT_SW_BPF_OUTPUT;
+
+  for (unsigned cpu = 0; cpu < ncpus; cpu++)
+    {
+      int pmu_fd = perf_event_open(&peattr, -1/*pid*/, cpu, -1/*group_fd*/, 0);
+      if (pmu_fd < 0)
+        fatal("Error initializing perf event for cpu %d: %s\n", cpu, errno);
+      if (bpf_update_elem(map_fds[globals::perf_event_map_idx],
+                          (void*)&key, (void*)&pmu_fd, BPF_ANY) != 0)
+        fatal("Error assigning perf event for cpu %d: %s\n", cpu, errno);
+      ioctl(pmu_fd, PERF_EVENT_IOC_ENABLE, 0);
+      perf_fds.push_back(pmu_fd);
+    }
+
+  // XXX: based on perf_event_mmap_header()
+  // in kernel tools/testing/selftests/bpf/trace_helpers.c
+  perf_event_page_size = getpagesize();
+  perf_event_mmap_size = perf_event_page_size * (perf_event_page_count + 1);
+  for (unsigned cpu = 0; cpu < ncpus; cpu++)
+    {
+      int pmu_fd = perf_fds[cpu];
+      void *base = mmap(NULL, perf_event_mmap_size,
+                        PROT_READ | PROT_WRITE, MAP_SHARED,
+                        pmu_fd, 0);
+      if (base == MAP_FAILED)
+        fatal("error mmapping header for perf_event fd %d\n", pmu_fd);
+      perf_headers.push_back((perf_event_mmap_page*)base);
+    }
 }
 
 static void
@@ -1279,6 +1344,76 @@ get_exit_status()
   return val;
 }
 
+// TODOXXX: Work in progress.
+static enum bpf_perf_event_ret
+perf_event_handle(struct perf_event_header *hdr, void *private_data)
+{
+  // XXX: based on bpf_perf_event_print
+  // in kernel tools/testing/selftests/bpf/trace_helpers.c
+
+  ; // TODOXXX
+  std::cerr << "DEBUG: reached perf_event_handle" << std::endl;
+  (void)hdr; (void)private_data;
+  return LIBBPF_PERF_EVENT_CONT;
+}
+
+// TODOXXX: Work in progress.
+// PR22330: Listen for perf_events.
+static void
+perf_event_loop(pthread_t main_thread)
+{
+  // XXX: based on perf_event_poller_multi()
+  // in kernel tools/testing/selftests/bpf/trace_helpers.c
+
+  enum bpf_perf_event_ret ret;
+  void *data = NULL;
+  size_t len = 0;
+
+  unsigned ncpus
+    = map_attrs[bpf::globals::perf_event_map_idx].max_entries;
+  struct pollfd *pmu_fds
+    = (struct pollfd *)malloc(ncpus * sizeof(struct pollfd));
+
+  assert(ncpus == perf_fds.size());
+  for (unsigned i = 0; i < ncpus; i++)
+    {
+      pmu_fds[i].fd = perf_fds[i];
+      pmu_fds[i].events = POLLIN;
+    }
+
+  for (;;)
+    {
+      // TODOXXX: Consider setting timeout 1000?
+      int ready = poll(pmu_fds, ncpus, -1 /* no timeout */);
+      if (ready < 0)
+        fatal("Error checking for perf events: %s\n", errno);
+      for (unsigned i = 0; i < ncpus; i++)
+        {
+          if (pmu_fds[i].revents <= 0)
+            continue;
+
+          ready --;
+          ret = bpf_perf_event_read_simple
+            (perf_headers[i],
+             perf_event_page_count * perf_event_page_size,
+             perf_event_page_size,
+             &data, &len,
+             perf_event_handle, NULL);
+          // TODOXXX: last arg can be used to pass private data, e.g. the pmu_fd.
+
+          if (ret != LIBBPF_PERF_EVENT_CONT)
+            break; // TODOXXX: will fail assertion below.
+        }
+      assert(ready == 0);
+    }
+
+  // TODOXXX: Wake main thread to begin program shutdown.
+  pthread_kill(main_thread, SIGINT);
+  free(pmu_fds);
+}
+
+// TODOXXX PR22330: remove this older code.
+#if 0
 static void
 print_trace_output(pthread_t main_thread)
 {
@@ -1348,6 +1483,7 @@ print_trace_output(pthread_t main_thread)
       // case simply reopen the file and continue parsing.
     }
 }
+#endif
 
 static void
 usage(const char *argv0)
@@ -1437,6 +1573,7 @@ main(int argc, char **argv)
   if (optind != argc - 1)
     goto do_usage;
 
+  // Be sure dmesg mentions that we are loading bpf programs:
   kmsg = fopen("/dev/kmsg", "a");
 
   load_bpf_file(argv[optind]);
@@ -1463,8 +1600,10 @@ main(int argc, char **argv)
   // Wait for ^C; read BPF_OUTPUT events, copying them to output_f.
   signal(SIGINT, (sighandler_t)sigint);
   signal(SIGTERM, (sighandler_t)sigint);
-  std::thread(print_trace_output, pthread_self()).detach();
 
+  // PR22330: Listen for perf_events and wait for STP_EXIT message:
+  std::thread(perf_event_loop, pthread_self()).detach();
+  //std::thread(print_trace_output, pthread_self()).detach(); // TODOXXX: remove this older code.
   while (!get_exit_status())
     pause();
     

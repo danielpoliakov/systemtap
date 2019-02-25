@@ -32,6 +32,21 @@ struct bpf_map_def {
         unsigned int map_flags;
 };
 
+enum bpf_perf_event_ret {
+        LIBBPF_PERF_EVENT_DONE  = 0,
+        LIBBPF_PERF_EVENT_ERROR = -1,
+        LIBBPF_PERF_EVENT_CONT  = -2,
+};
+
+struct perf_event_header;
+typedef enum bpf_perf_event_ret
+        (*bpf_perf_event_print_t)(struct perf_event_header *hdr,
+                                  void *private_data);
+enum bpf_perf_event_ret
+bpf_perf_event_read_simple(void *mmap_mem, size_t mmap_size, size_t page_size,
+                           void **copy_mem, size_t *copy_size,
+                           bpf_perf_event_print_t fn, void *private_data);
+
 /* create RAW socket and bind to interface 'name' */
 int open_raw_sock(const char *name);
 

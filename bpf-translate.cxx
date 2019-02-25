@@ -137,8 +137,6 @@ has_side_effects (expression *e)
 
 /* forward declarations */
 struct asm_stmt;
-static void print_format_add_tag(std::string&);
-static void print_format_add_tag(print_format*);
 
 struct bpf_unparser : public throwing_visitor
 {
@@ -150,7 +148,7 @@ struct bpf_unparser : public throwing_visitor
   // The program into which we are emitting code.
   program &this_prog;
   globals &glob;
-  value *this_in_arg0;
+  value *this_in_arg0 = NULL;
 
   // The "current" block into which we are currently emitting code.
   insn_append_inserter this_ins;
@@ -240,6 +238,8 @@ struct bpf_unparser : public throwing_visitor
   value *emit_bool(expression *e);
   value *emit_context_var(bpf_context_vardecl *v);
 
+  void emit_transport_msg(globals::perf_event_type msg,
+                          value *arg = NULL, exp_type format_type = pe_unknown);
   value *emit_functioncall(functiondecl *f, const std::vector<value *> &args);
   value *emit_print_format(const std::string &format,
                            const std::vector<value *> &actual,
@@ -1323,10 +1323,6 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
               format = format.substr(1,format.size()-2); /* strip quotes */
               format = translate_escapes(format);
 
-              bool print_to_stream = (func_name == "printf");
-              if (print_to_stream)
-                print_format_add_tag(format);
-
               size_t format_bytes = format.size() + 1;
               if (format_bytes > BPF_MAXFORMATLEN)
                 throw SEMANTIC_ERROR(_("Format string for print too long"), stmt.tok);
@@ -1334,11 +1330,12 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
               std::vector<value *> args;
               for (unsigned k = 2; k < stmt.params.size(); k++)
                 args.push_back(emit_asm_arg(stmt, stmt.params[k]));
-              if (args.size() > 3)
+              if (args.size() > BPF_MAXPRINTFARGS)
                 throw SEMANTIC_ERROR(_NF("additional argument to print",
                                          "too many arguments to print (%zu)",
                                          args.size(), args.size()), stmt.tok);
 
+              bool print_to_stream = (func_name == "printf");
               value *retval = emit_print_format(format, args, print_to_stream);
               if (retval != NULL && stmt.dest != "-")
                 {
@@ -2799,68 +2796,109 @@ bpf_unparser::visit_functioncall (functioncall *e)
   result = emit_functioncall(f, args);
 }
 
-static void
-print_format_add_tag(std::string& format)
+// TODOXXX: We should support referencing 'interned' strings within
+// the globals map. This will eliminate the need to handle long format
+// strings in-kernel and remove a major format string length
+// limitation.
+//
+// TODOXXX: Move to a logical location.
+static int
+intern_string (globals &glob, std::string& str)
 {
-  // surround the string with <MODNAME>...</MODNAME> to facilitate
-  // stapbpf recovering it from debugfs.
-  std::string start_tag = module_name;
-  start_tag = "<" + start_tag.erase(4,1) + ">";
-  std::string end_tag = start_tag + "\n";
-  end_tag.insert(1, "/");
-  format = start_tag + format + end_tag;
+  if (glob.interned_strings.count(str) > 0)
+    return glob.interned_strings[str];
+
+  int this_idx = glob.interned_str_map.size();
+  glob.interned_str_map[this_idx] = str;
+  glob.interned_strings[str] = this_idx;
+  return this_idx;
 }
 
-static void
-print_format_add_tag(print_format *e)
+// TODOXXX: Based on the interface of perf_event_output, this_in_arg0
+// must be a pt_regs * struct. For the sake of user-space helpers
+// (e.g. begin/end) we just pass NULL when this_in_arg0 is not
+// available. We need to make sure there is no in-kernel situation
+// where this_in_arg0 could be NULL.
+//
+// TODOXXX: We need to specify the transport message format more
+// compactly. Thus far, everything is written as double-words to avoid
+// getting 'misaligned stack access' errors from the verifier.
+//
+// TODOXXX: We could extend this interface to allow passing multiple
+// values in one transport message, e.g. a sequence of pe_long.
+void
+bpf_unparser::emit_transport_msg (globals::perf_event_type msg,
+                                  value *arg, exp_type format_type)
 {
-  if (e->tag)
-    return;
-
-  e->tag = true;
-  // surround the string with <MODNAME>...</MODNAME> to facilitate
-  // stapbpf recovering it from debugfs.
-  std::string start_tag = module_name;
-  start_tag = "<" + start_tag.erase(4, 1) + ">";
-  std::string end_tag = start_tag + "\n";
-  end_tag.insert(1, "/");
-  e->raw_components.insert(0, start_tag);
-  e->raw_components.append(end_tag);
-
-  if (e->components.empty())
+  // Harmonize the information in arg and format_type:
+  if (arg != NULL)
     {
-      print_format::format_component c;
-      c.literal_string = start_tag + end_tag;
-      e->components.insert(e->components.begin(), c);
+      if (format_type == pe_unknown)
+        format_type = arg->format_type;
+      assert(format_type == arg->format_type || arg->format_type == pe_unknown);
+      if (arg->is_str() && arg->is_format() && format_type == pe_unknown)
+        format_type = pe_string;
     }
-  else
-    {
-      if (e->components[0].type == print_format::conv_literal)
-        {
-          std::string s = start_tag
-                            + e->components[0].literal_string.to_string();
-          e->components[0].literal_string = s;
-        }
-      else
-        {
-          print_format::format_component c;
-          c.literal_string = start_tag;
-          e->components.insert(e->components.begin(), c);
-        }
 
-      if (e->components.back().type == print_format::conv_literal)
-        {
-          std::string s = end_tag
-                            + e->components.back().literal_string.to_string();
-          e->components.back().literal_string = s;
-        }
-      else
-        {
-          print_format::format_component c;
-          c.literal_string = end_tag;
-          e->components.insert(e->components.end(), c);
-        }
-    }
+#define USE_INTERNED_STR 1
+  unsigned arg_size = 0;
+  if (arg != NULL)
+    switch (format_type)
+      {
+      case pe_long:
+        arg_size = 8;
+        break;
+      case pe_string:
+        if (arg->is_format() && USE_INTERNED_STR)
+          arg_size = 8; // pass index of interned str
+        else
+          arg_size = arg->is_format() ? BPF_MAXFORMATLEN : BPF_MAXSTRINGLEN;
+        break;
+      default:
+        assert(false); // TODOXXX -- should be caught earlier - signal a bug
+      }
+
+  int arg_ofs = -arg_size;
+  int msg_ofs = arg_ofs-8; // double word -- XXX verifier forces aligned access
+  this_prog.use_tmp_space(-msg_ofs);
+
+  value *frame = this_prog.lookup_reg(BPF_REG_10);
+
+  // store arg
+  if (arg != NULL)
+    switch (format_type)
+      {
+      case pe_long:
+        this_prog.mk_st(this_ins, BPF_DW, frame, arg_ofs, arg);
+        break;
+      case pe_string:
+        if (arg->is_format() && USE_INTERNED_STR)
+          {
+            int idx = intern_string(glob, arg->str_val);
+            this_prog.mk_st(this_ins, BPF_DW, frame, arg_ofs, this_prog.new_imm(idx));
+          }
+        else
+          // TODOXXX: would zero-pad be needed here?
+          emit_string_copy(frame, arg_ofs, arg, false);
+        break;
+      default:
+        assert(false); // TODOXXX -- should be caught earlier -- signal a bug
+      }
+
+  // double word -- XXX verifier forces aligned access
+  this_prog.mk_st(this_ins, BPF_DW, frame, msg_ofs, this_prog.new_imm(msg));
+
+  value *ctx = this_in_arg0 == NULL ? this_prog.new_imm(0) : this_in_arg0;
+  emit_mov(this_prog.lookup_reg(BPF_REG_1), ctx); // ctx
+  this_prog.load_map(this_ins, this_prog.lookup_reg(BPF_REG_2),
+                     globals::perf_event_map_idx);
+  emit_mov(this_prog.lookup_reg(BPF_REG_3),
+           this_prog.new_imm(BPF_F_CURRENT_CPU)); // flags
+  this_prog.mk_binary(this_ins, BPF_ADD,
+                      this_prog.lookup_reg(BPF_REG_4),
+                      frame, this_prog.new_imm(msg_ofs));
+  emit_mov(this_prog.lookup_reg(BPF_REG_5), this_prog.new_imm(-msg_ofs));
+  this_prog.mk_call(this_ins, BPF_FUNC_perf_event_output, 5);
 }
 
 value *
@@ -2870,22 +2908,26 @@ bpf_unparser::emit_print_format (const std::string& format,
 {
   size_t nargs = actual.size();
 
-  // The bpf verifier requires that the format string be stored on the
-  // bpf program stack.  This is handled by bpf-opt.cxx lowering STR values.
-  size_t format_bytes = format.size() + 1;
-  this_prog.mk_mov(this_ins, this_prog.lookup_reg(BPF_REG_1),
-                   this_prog.new_str(format, true /*format_str*/));
-  emit_mov(this_prog.lookup_reg(BPF_REG_2), this_prog.new_imm(format_bytes));
-  for (size_t i = 0; i < nargs; ++i)
-    emit_mov(this_prog.lookup_reg(BPF_REG_3 + i), actual[i]);
-
-  if (print_to_stream)
-    this_prog.mk_call(this_ins, BPF_FUNC_trace_printk, nargs + 2);
-  else
+  if (!print_to_stream)
     {
+      // Emit an ordinary function call to sprintf.
+      size_t format_bytes = format.size() + 1;
+      this_prog.mk_mov(this_ins, this_prog.lookup_reg(BPF_REG_1),
+                       this_prog.new_str(format, true /*format_str*/));
+      emit_mov(this_prog.lookup_reg(BPF_REG_2), this_prog.new_imm(format_bytes));
+      for (size_t i = 0; i < nargs; ++i)
+        emit_mov(this_prog.lookup_reg(BPF_REG_3 + i), actual[i]);
+
       this_prog.mk_call(this_ins, BPF_FUNC_sprintf, nargs + 2);
       return this_prog.lookup_reg(BPF_REG_0);
     }
+
+  emit_transport_msg(globals::STP_PRINTF_START, this_prog.new_imm(nargs), pe_long);
+  emit_transport_msg(globals::STP_PRINTF_FORMAT, this_prog.new_str(format, true /*format_str*/));
+  for (size_t i = 0; i < nargs; ++i)
+    emit_transport_msg(globals::STP_PRINTF_ARG, actual[i]);
+  emit_transport_msg(globals::STP_PRINTF_END);
+
   return NULL;
 }
 
@@ -2895,22 +2937,27 @@ bpf_unparser::visit_print_format (print_format *e)
   if (e->hist)
     throw SEMANTIC_ERROR (_("unhandled histogram print"), e->tok);
 
-  if (e->print_to_stream)
-    print_format_add_tag(e);
-
-  // ??? Traditional stap allows max 32 args; trace_printk allows only 3.
-  // ??? Could split the print into multiple calls, such that each is
-  // under the limit.
+  // ??? Traditional stap allows max 32 args.
   size_t nargs = e->args.size();
   size_t i;
-  if (nargs > 3)
+  if (nargs > BPF_MAXPRINTFARGS)
     throw SEMANTIC_ERROR(_NF("additional argument to print",
 			     "too many arguments to print (%zu)",
 			     e->args.size(), e->args.size()), e->tok);
 
   std::vector<value *> actual;
   for (i = 0; i < nargs; ++i)
-    actual.push_back(emit_expr(e->args[i]));
+    {
+      value *arg = emit_expr(e->args[i]);
+      arg->format_type = e->args[i]->type;
+      actual.push_back(arg);
+    }
+
+  for (size_t i = 0; i < nargs; ++i)
+    if (actual[i]->format_type == pe_stats)
+      throw SEMANTIC_ERROR (_("cannot print a raw stats object"), e->args[i]->tok);
+    else if (actual[i]->format_type != pe_long && actual[i]->format_type != pe_string)
+      throw SEMANTIC_ERROR (_("cannot print unknown expression type"), e->args[i]->tok);
 
   std::string format;
   if (e->print_with_format)
@@ -2961,9 +3008,6 @@ bpf_unparser::visit_print_format (print_format *e)
 	}
       if (e->print_with_newline)
 	format += '\n';
-
-      if (e->print_to_stream)
-        print_format_add_tag(format);
     }
 
   size_t format_bytes = format.size() + 1;
@@ -2992,6 +3036,11 @@ build_internal_globals(globals& glob)
                        globals::map_slot(0, globals::EXIT)));
   glob.maps.push_back
     ({ BPF_MAP_TYPE_HASH, 4, 8, globals::NUM_INTERNALS, 0 });
+
+  // PR22330: Use a PERF_EVENT_ARRAY map for message transport:
+  glob.maps.push_back
+    ({ BPF_MAP_TYPE_PERF_EVENT_ARRAY, 4, 4, globals::NUM_CPUS_PLACEHOLDER, 0 });
+  // XXX: NUM_CPUS_PLACEHOLDER will be replaced at loading time.
 }
 
 static void
@@ -3314,7 +3363,8 @@ bpf_unparser::add_prologue()
   this_prog.mk_st(this_ins, BPF_W, frame, -4, i0);
   this_prog.use_tmp_space(4);
 
-  this_prog.load_map(this_ins, this_prog.lookup_reg(BPF_REG_1), 0);
+  this_prog.load_map(this_ins, this_prog.lookup_reg(BPF_REG_1),
+                     globals::internal_map_idx);
   this_prog.mk_binary(this_ins, BPF_ADD, this_prog.lookup_reg(BPF_REG_2),
                       frame, this_prog.new_imm(-4));
   this_prog.mk_call(this_ins, BPF_FUNC_map_lookup_elem, 2);

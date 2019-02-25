@@ -42,6 +42,8 @@ namespace bpf {
 #define BPF_REG_SIZE 8
 #define BPF_MAXSTRINGLEN 64
 // #define BPF_MAXSTRINGLEN 128 // TODO: Longer strings require storage allocator & PR22330 better printf().
+#define BPF_MAXPRINTFARGS 32
+// #define BPF_MAXPRINTFARGS 3 // Maximum for trace_printk() method.
 #define BPF_MAXFORMATLEN 256
 #define BPF_MAXMAPENTRIES 2048
 // TODO: add BPF_MAXSPRINTFLEN
@@ -78,11 +80,13 @@ struct value
   int64_t imm_val;
   std::string str_val;
 
-  bool format_str; // for str_val
+  bool format_str; // marks format string
+  exp_type format_type; // marks format arguments
 
   value(value_type t = UNINIT, regno r = noreg, int64_t c = 0,
         std::string s = "", bool format_str = false)
-  : type(t), reg_val(r), imm_val(c), str_val(s), format_str(format_str)
+    : type(t), reg_val(r), imm_val(c), str_val(s),
+      format_str(format_str), format_type(pe_unknown)
   { }
 
   static value mk_imm(int64_t i) { return value(IMM, noreg, i); }
@@ -347,7 +351,7 @@ struct globals
   bool empty() { return this->globals.empty(); }
 
   // Index into globals. This element represents the map of internal globals
-  // used for communication between stapbpf and kernel-side bpf programs.
+  // used for sharing data between stapbpf and kernel-side bpf programs.
   static const int internal_map_idx = 0;
 
   // Indicates whether exit() has been called from within a bpf program.
@@ -360,7 +364,33 @@ struct globals
     NUM_INTERNALS, // non-ABI
   };
 
-  // Used to resolve function symbols in embedded code.
+  // PR22330: Index into globals. This element represents the
+  // perf_event_map used to send messages from kernel-side bpf
+  // programs to stapbpf.
+  static const int perf_event_map_idx = 1;
+
+  // XXX: The number of elements for the perf_event_map is not known
+  // at translation time and must be determined by the stapbpf loader:
+  static const int NUM_CPUS_PLACEHOLDER = 0;
+
+  // Types of transport messages supported:
+  enum perf_event_type
+  {
+    STP_EXIT,
+    STP_PRINTF_START,
+    STP_PRINTF_END,
+    STP_PRINTF_FORMAT,
+    STP_PRINTF_ARG,
+  };
+
+  // TODOXXX: These must be added to a separate ELF section.
+  // Interned strings by index:
+  std::map<int, std::string> interned_str_map;
+
+  // The set of already interned strings:
+  std::map<std::string, int> interned_strings;
+
+  // XXX: Hacky, used to resolve function symbols in embedded code:
   systemtap_session *session;
 };
 } // namespace bpf
