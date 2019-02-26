@@ -1,0 +1,55 @@
+#! /usr/bin/env stap
+
+/* Monitors hits and misses to the page cache and reports a count
+ every 5 seconds. Based on a bpftrace tool by David Valin. */
+
+// XXX: Rewrite after adding statistical aggregates, new printf to stapbpf.
+
+global active
+global hits, misses, total_hits, total_misses
+
+probe begin {
+  printf("%12s%12s%12s\n", "Hits", "Misses", "% Hits")
+}
+
+probe kernel.function("pagecache_get_page") {
+  active[tid()] = 1
+}
+
+probe kernel.function("pagecache_get_page").return {
+  active[tid()] = 0
+}
+
+probe kernel.function("find_get_entry").return {
+  if (active[tid()]) {
+    if ($return != 0) hits++ else misses++
+  }
+}
+
+probe timer.s(5) {
+  h = hits; m = misses
+  hits = 0; misses = 0
+  if (h + m > 0) {
+    percent_hits = h*10000 / (h + m)
+    printf("%12d%12d", h, m)
+    printf("%8d.%02d%%\n", percent_hits/100, percent_hits%100)
+  } else {
+    printf("%12d%12d", 0, 0)
+    printf("%8d.%02d%%\n", 0, 0)
+  }
+
+  total_hits += h
+  total_misses += m
+}
+
+probe end {
+  printf("\nSummary\n")
+  printf("===\n")
+  printf("total hits: %12d\n", total_hits)
+  printf("total misses: %10d\n", total_misses)
+  if (total_hits+total_misses > 0) {
+    total_hit_percentage = total_hits*10000/(total_hits+total_misses)
+    printf("hit percentage: %4d.%02d%%\n",
+           total_hit_percentage/100, total_hit_percentage%100)
+  }
+}
