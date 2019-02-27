@@ -9,7 +9,7 @@ global regname = "rax"
 %( arch == "powerpc" || arch == "s390x" %?
 global regname = "r0"
 %)
-%( arch == "aarch64" %?
+%( arch == "arm64" %?
 global regname = "x0"
 %)
 
