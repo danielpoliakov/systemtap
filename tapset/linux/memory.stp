@@ -222,7 +222,7 @@ probe vm.munmap = kernel.function("do_munmap") {
  * Context:
  *  The process calling brk.
  */
-probe vm.brk = kernel.function("do_brk") {
+probe vm.brk = kernel.function("do_brk_flags")!, kernel.function("do_brk") {
     name = "brk"
     address = $addr
     length = $len
