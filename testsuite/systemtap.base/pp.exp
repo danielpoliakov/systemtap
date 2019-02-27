@@ -9,7 +9,7 @@ proc opener {} { # the test uses syscall.open -- make sure it happens
 
 set test "pp"
 set file $srcdir/$subdir/pp.stp
-set output_string "(kernel\\.function\[^\r\n]*\r\n)+systemtap test success\r\n"
+set output_string "((kernel|kprobe)\\.function\[^\r\n]*\r\n)+systemtap test success\r\n"
 stap_run $test opener $output_string $file $test
 
 # NB: we may hit one or both, open and openat, depending on other system activity
