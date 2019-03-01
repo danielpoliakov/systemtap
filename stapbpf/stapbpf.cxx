@@ -1577,7 +1577,7 @@ main(int argc, char **argv)
     goto do_usage;
 
   // Be sure dmesg mentions that we are loading bpf programs:
-  kmsg = fopen("/dev/kmsg", "a");
+  kmsg = fopen("/dev/kmsg", "w");
   if (kmsg == NULL)
     fprintf(stderr, "WARNING: could not open /dev/kmsg for diagnostics: %s\n", strerror(errno));
 
