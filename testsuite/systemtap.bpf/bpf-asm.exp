@@ -7,7 +7,7 @@ set testdir "$srcdir/$subdir/asm_tests"
 # This testcase stalls on s390x, skip it there
 if { "$::tcl_platform(machine)" == "s390x" } {
    untested "bpf-asm.exp"
-   exit 0
+   return
 }
 
 proc stapbpf_run { TEST_NAME args } {

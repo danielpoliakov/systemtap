@@ -10,13 +10,13 @@ set testdir "$srcdir/$subdir/bpf_tests"
 # Skip irrelevant environment.
 if {![bpf_p]} {
     untested "bpf.exp"
-    exit 0
+    return
 }
 
 # This testcase takes long time on s390x and fails after that.  Skip it.
 if { "$::tcl_platform(machine)" == "s390x" } {
    untested "bpf.exp"
-   exit 0
+   return
 }
 
 # All tests should start by printing "BEGIN". If OUTPUT_STR is "", then 
