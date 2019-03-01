@@ -73,7 +73,7 @@ static int warnings = 1;
 static int exit_phase = 0;
 static int interrupt_message = 0;
 static FILE *output_f = stdout;
-static FILE *kmsg;
+static FILE *kmsg = NULL;
 
 static const char *module_name;
 static const char *module_basename;
@@ -341,9 +341,12 @@ prog_load(Elf_Data *data, const char *name)
   if (data->d_size % sizeof(bpf_insn))
     fatal("program size not a multiple of %zu\n", sizeof(bpf_insn));
 
-  fprintf (kmsg, "%s (%s): stapbpf: %s, name: %s, d_size: %lu\n",
-           module_basename, script_name, VERSION, name, (unsigned long)data->d_size);
-  fflush (kmsg); // Otherwise, flush will only happen after the prog runs.
+  if (kmsg != NULL)
+    {
+      fprintf (kmsg, "%s (%s): stapbpf: %s, name: %s, d_size: %lu\n",
+               module_basename, script_name, VERSION, name, (unsigned long)data->d_size);
+      fflush (kmsg); // Otherwise, flush will only happen after the prog runs.
+    }
   int fd = bpf_prog_load(prog_type, static_cast<bpf_insn *>(data->d_buf),
 			 data->d_size, module_license, kernel_version);
   if (fd < 0)
@@ -1575,6 +1578,8 @@ main(int argc, char **argv)
 
   // Be sure dmesg mentions that we are loading bpf programs:
   kmsg = fopen("/dev/kmsg", "a");
+  if (kmsg == NULL)
+    fprintf(stderr, "WARNING: could not open /dev/kmsg for diagnostics: %s\n", strerror(errno));
 
   load_bpf_file(argv[optind]);
   init_internal_globals();
