@@ -371,6 +371,7 @@ compile_pass (systemtap_session& s)
   output_dual_exportconf(s, o, "probe_kernel_read", "probe_kernel_write", "STAPCONF_PROBE_KERNEL");
   output_autoconf(s, o, "autoconf-hw_breakpoint_context.c",
 		  "STAPCONF_HW_BREAKPOINT_CONTEXT", NULL);
+  output_exportconf(s, o, "save_stack_trace_regs", "STAPCONF_SAVE_STACK_TRACE_REGS_EXPORTED");
   output_autoconf(s, o, "autoconf-save-stack-trace.c",
                   "STAPCONF_KERNEL_STACKTRACE", NULL);
   output_autoconf(s, o, "autoconf-save-stack-trace-no-bp.c",

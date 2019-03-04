@@ -38,8 +38,8 @@
 
 #include "linux/uprobes-inc.h"
 
-#if defined(STAPCONF_KERNEL_STACKTRACE) || defined(STAPCONF_KERNEL_STACKTRACE_NO_BP)
 #include <linux/stacktrace.h>
+#if defined(STAPCONF_KERNEL_STACKTRACE) || defined(STAPCONF_KERNEL_STACKTRACE_NO_BP)
 #include <asm/stacktrace.h>
 #endif
 
@@ -151,6 +151,32 @@ static void _stp_stack_print_fallback(unsigned long stack, struct pt_regs *regs,
 #endif
 }
 #else
+#if defined(STAPCONF_SAVE_STACK_TRACE_REGS_EXPORTED)
+static void _stp_stack_print_fallback(unsigned long sp, struct pt_regs *regs,
+				      int sym_flags,
+				      int levels, int skip) {
+	unsigned long entries[MAXBACKTRACE];
+	struct stack_trace trace;
+	int i;
+
+	/* Use kernel provided unwinder */
+	dbug_unwind(1, "fallback kernel stacktrace (save_stack_strace_regs)\n");
+	memset(&trace, 0, sizeof(trace));
+	trace.max_entries = MAXBACKTRACE;
+	trace.entries = &(entries[0]);
+	trace.skip = skip;
+	save_stack_trace_regs(regs, &trace);
+
+	dbug_unwind(1, "trace.nr_entries: %d\n", trace.nr_entries);
+	dbug_unwind(1, "trace.max_entries: %d\n", trace.max_entries);
+	dbug_unwind(1, "trace.skip %d\n", trace.skip);
+
+	/* save_stack_trace_reg() adds a ULONG_MAX after last valid entry. Ignore it. */
+	for (i=0; i<MAXBACKTRACE && i<trace.nr_entries && entries[i]!=ULONG_MAX; ++i) {
+		_stp_print_addr((unsigned long) entries[i], sym_flags, NULL);
+	}
+}
+#else
 #if defined(STAPCONF_KERNEL_UNWIND_STACK)
 static void _stp_stack_print_fallback(unsigned long sp, struct pt_regs *regs,
 				      int sym_flags,
@@ -188,8 +214,9 @@ static void _stp_stack_print_fallback(unsigned long s, struct pt_regs *r, int v,
         dbug_unwind(1, "no fallback kernel stacktrace (giving up)\n");
 	_stp_print_addr(0, v | _STP_SYM_INEXACT, NULL);
 }
-#endif /* new unwind */
-#endif /* defined(STAPCONF_KERNEL_STACKTRACE) || defined(STAPCONF_KERNEL_STACKTRACE_NO_BP) */
+#endif /* no new unwind */
+#endif /* defined(STAPCONF_KERNEL_UNWIND_STACK) */
+#endif /* defined(STAPCONF_KERNEL_STACKTRACE) */
 
 
 /** Gets user space registers when available, also sets context
