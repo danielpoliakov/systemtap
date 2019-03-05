@@ -295,6 +295,7 @@ instantiate_maps (Elf64_Shdr *shdr, Elf_Data *data)
           assert(attrs[i].max_entries == bpf::globals::NUM_CPUS_PLACEHOLDER);
 
           // TODOXXX: Should we use get_nprocs_conf() / _SC_NPROCESSORS_CONF?
+          // TODOXXX: We need to support non-contiguous active cpu #s
           //attrs[i].max_entries = get_nprocs();
           attrs[i].max_entries = sysconf(_SC_NPROCESSORS_ONLN);
         }
@@ -1067,21 +1068,23 @@ init_internal_globals()
   // PR22330: Initialize perf_event_map and perf_fds.
   unsigned ncpus = map_attrs[globals::perf_event_map_idx].max_entries;
 
-  struct perf_event_attr peattr;
-
-  memset(&peattr, 0, sizeof(peattr));
-  peattr.size = sizeof(peattr);
-  peattr.sample_type = PERF_SAMPLE_RAW;
-  peattr.type = PERF_TYPE_SOFTWARE;
-  peattr.config = PERF_COUNT_SW_BPF_OUTPUT;
-
   for (unsigned cpu = 0; cpu < ncpus; cpu++)
     {
+      struct perf_event_attr peattr;
+
+      memset(&peattr, 0, sizeof(peattr));
+      peattr.size = sizeof(peattr);
+      peattr.sample_type = PERF_SAMPLE_RAW;
+      peattr.type = PERF_TYPE_SOFTWARE;
+      peattr.config = PERF_COUNT_SW_BPF_OUTPUT;
+      peattr.sample_period = 1;
+      peattr.wakeup_events = 1;
+
       int pmu_fd = perf_event_open(&peattr, -1/*pid*/, cpu, -1/*group_fd*/, 0);
       if (pmu_fd < 0)
         fatal("Error initializing perf event for cpu %d: %s\n", cpu, errno);
       if (bpf_update_elem(map_fds[globals::perf_event_map_idx],
-                          (void*)&key, (void*)&pmu_fd, BPF_ANY) != 0)
+                          (void*)&cpu, (void*)&pmu_fd, BPF_ANY) != 0)
         fatal("Error assigning perf event for cpu %d: %s\n", cpu, errno);
       ioctl(pmu_fd, PERF_EVENT_IOC_ENABLE, 0);
       perf_fds.push_back(pmu_fd);
@@ -1100,6 +1103,8 @@ init_internal_globals()
       if (base == MAP_FAILED)
         fatal("error mmapping header for perf_event fd %d\n", pmu_fd);
       perf_headers.push_back((perf_event_mmap_page*)base);
+      if (log_level > 2)
+        fprintf(stderr, "Initialized perf_event output on cpu %d\n", cpu);
     }
 }
 
@@ -1386,14 +1391,17 @@ perf_event_loop(pthread_t main_thread)
 
   for (;;)
     {
-      // TODOXXX: Consider setting timeout 1000?
-      int ready = poll(pmu_fds, ncpus, -1 /* no timeout */);
+      if (log_level > 3)
+        fprintf(stderr, "Polling for perf_event data on %d cpus...\n", ncpus);
+      int ready = poll(pmu_fds, ncpus, 1000); // TODOXXX: Consider setting timeout -1 (unlimited).
       if (ready < 0)
         fatal("Error checking for perf events: %s\n", errno);
       for (unsigned i = 0; i < ncpus; i++)
         {
           if (pmu_fds[i].revents <= 0)
             continue;
+          if (log_level > 3)
+            fprintf(stderr, "Saw perf_event on fd %d\n", pmu_fds[i].fd);
 
           ready --;
           ret = bpf_perf_event_read_simple
