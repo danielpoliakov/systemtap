@@ -669,36 +669,7 @@ location_context::translate (const Dwarf_Op *expr, const size_t len,
 	    break;
 
 	  case DW_OP_GNU_entry_value:
-	    {
-	      Dwarf_Op *op;
-	      Dwarf_Attribute op_attr;
-	      size_t op_len;
-	      location* op_loc;
-
-	      dwarf_getlocation_attr(attr, &expr[i], &op_attr);
-	      dwarf_getlocation_addr(&op_attr, pc, &op, &op_len, 1);
-	      op_loc = translate(op, op_len, 0, NULL, may_use_fb, computing_value);
-
-	      symbol *sym = new symbol;
-	      // symbol name will be determined later when the global
-	      // variable is made
-	      sym->tok = e->tok;
-
-	      functioncall *fc = new functioncall;
-	      fc->tok = e->tok;
-	      fc->function = std::string("tid");
-
-	      arrayindex *ai = new arrayindex;
-	      ai->tok = e->tok;
-	      ai->base = sym;
-	      ai->indexes.push_back(fc);
-
-	      // save these so they can be used later to construct
-	      // the entry probe
-	      entry_values.insert( std::pair<symbol *, expression *> (sym, op_loc->program) );
-
-	      PUSH(ai);
-	    }
+	    PUSH(handle_GNU_entry_value(expr[i]));
 	    break;
 
 	  case DW_OP_GNU_parameter_ref:
@@ -1627,4 +1598,64 @@ location_context::translate_array_pointer (Dwarf_Die *typedie,
 					   vardecl *index_var)
 {
   return translate_array_pointer (typedie, input, new_symref(index_var));
+}
+
+expression *
+location_context::handle_GNU_entry_value (Dwarf_Op expr)
+{
+  Dwarf_Op *op;
+  Dwarf_Attribute op_attr;
+  size_t op_len;
+  location* op_loc;
+
+  // Translate the operand provided with the entry_value operation
+  dwarf_getlocation_attr(attr, &expr, &op_attr);
+  dwarf_getlocation_addr(&op_attr, pc, &op, &op_len, 1);
+  op_loc = translate(op, op_len, 0, NULL, true, false);
+
+  // Generate a tid-indexed global variable to store the entry value
+  static int tick = 0;
+  std::string name = std::string("__global_tvar_entry_value_") + lex_cast(tick++);
+  vardecl *var = new vardecl;
+  var->name = name;
+  var->tok = e->tok;
+  var->synthetic = true;
+  globals.push_back(var);
+
+  // Set the global variable in an extra probe which will be placed
+  // at the entry of the function
+  symbol *sym = new symbol;
+  sym->name = name;
+  sym->tok = e->tok;
+
+  functioncall *fc = new functioncall;
+  fc->tok = e->tok;
+  fc->function = std::string("tid");
+
+  arrayindex *ai = new arrayindex;
+  ai->tok = e->tok;
+  ai->base = sym;
+  ai->indexes.push_back(fc);
+
+  assignment *a = new assignment;
+  a->tok = e->tok;
+  a->op = "=";
+  a->left = ai;
+  a->right = op_loc->program;
+
+  expr_statement *es = new expr_statement;
+  es->tok = e->tok;
+  es->value = a;
+
+  block *b = new block();
+  b->tok = e->tok;
+  b->statements.push_back(es);
+
+  auto it = entry_probes.find(pc);
+  if (it == entry_probes.end())
+    entry_probes.insert(std::pair<Dwarf_Addr, block *>(pc, b));
+  else
+    it->second = new block (it->second, b);
+
+  return ai;
 }

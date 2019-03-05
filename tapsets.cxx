@@ -2841,13 +2841,13 @@ struct dwarf_var_expanding_visitor: public var_expanding_visitor
   Dwarf_Die *scope_die;
   Dwarf_Addr addr;
   block *add_block;
-  block *add_entry_probe;
   block *add_call_probe; // synthesized from .return probes with saved $vars
   // NB: tids are not always collected in add_block & add_call_probe, because
   // gen_kretprobe_saved_return doesn't need them.  Thus we need these extra
   // *_tid bools for gen_mapped_saved_return to tell what's there.
   bool add_block_tid, add_call_probe_tid;
   unsigned saved_longs, saved_strings; // data saved within kretprobes
+  unordered_map<Dwarf_Addr, block *> entry_probes;
   unordered_map<std::string, expression *> return_ts_map;
   vector<Dwarf_Die> scopes;
   // probe counter name -> pointer of associated probe
@@ -2856,13 +2856,11 @@ struct dwarf_var_expanding_visitor: public var_expanding_visitor
 
   dwarf_var_expanding_visitor(dwarf_query & q, Dwarf_Die *sd, Dwarf_Addr a):
     var_expanding_visitor(q.sess),
-    q(q), scope_die(sd), addr(a),
-    add_block(NULL), add_entry_probe(NULL), add_call_probe(NULL),
+    q(q), scope_die(sd), addr(a), add_block(NULL), add_call_probe(NULL),
     add_block_tid(false), add_call_probe_tid(false),
     saved_longs(0), saved_strings(0), visited(false) {}
   expression* gen_mapped_saved_return(expression* e, const string& name);
   expression* gen_kretprobe_saved_return(expression* e);
-  string gen_entry_probe_saved_value(expression* e);
   void visit_target_symbol_saved_return (target_symbol* e);
   void visit_target_symbol_context (target_symbol* e);
   void visit_target_symbol (target_symbol* e);
@@ -4295,50 +4293,6 @@ dwarf_var_expanding_visitor::gen_kretprobe_saved_return(expression* e)
   return get_fc;
 }
 
-string
-dwarf_var_expanding_visitor::gen_entry_probe_saved_value(expression* e)
-{
-  std::string name = std::string("__global_tvar_entry_value_") + lex_cast(tick++);
-
-  vardecl *var = new vardecl;
-  var->name = var->unmangled_name = name;
-  var->tok = e->tok;
-  var->synthetic = true;
-  q.dw.sess.globals.push_back(var);
-
-  symbol *sym = new symbol;
-  sym->name = name;
-  sym->tok = e->tok;
-
-  functioncall *fc = new functioncall;
-  fc->tok = e->tok;
-  fc->function = std::string("tid");
-
-  arrayindex *ai = new arrayindex;
-  ai->tok = e->tok;
-  ai->base = sym;
-  ai->indexes.push_back(fc);
-
-  assignment *a = new assignment;
-  a->tok = e->tok;
-  a->op = "=";
-  a->left = ai;
-  a->right = e;
-
-  expr_statement *es = new expr_statement;
-  es->tok = e->tok;
-  es->value = a;
-
-  if (add_entry_probe == NULL)
-    {
-      add_entry_probe = new block();
-      add_entry_probe->tok = e->tok;
-    }
-  add_entry_probe->statements.push_back(es);
-
-  return name;
-}
-
 void
 dwarf_var_expanding_visitor::visit_target_symbol_context (target_symbol* e)
 {
@@ -4579,10 +4533,17 @@ dwarf_var_expanding_visitor::visit_target_symbol (target_symbol *e)
 	q.dw.literal_stmt_for_local (ctx, getscopes(e), e->sym_name(),
 				     ctx.e, lvalue, &endtype);
 
-      for (auto it = ctx.entry_values.begin(); it != ctx.entry_values.end(); ++it)
+      q.dw.sess.globals.insert(q.dw.sess.globals.end(),
+                              ctx.globals.begin(),
+                              ctx.globals.end());
+
+      for (auto it = ctx.entry_probes.begin(); it != ctx.entry_probes.end(); ++it)
         {
-          symbol *sym = it->first;
-          sym->name = gen_entry_probe_saved_value(it->second);
+	  auto res = entry_probes.find(it->first);
+	  if (res == entry_probes.end())
+	    entry_probes.insert(std::pair<Dwarf_Addr, block *>(it->first, it->second));
+	  else
+	    res->second = new block(res->second, it->second);
         }
 
       string fname = (string(lvalue ? "_dwarf_tvar_set" : "_dwarf_tvar_get")
@@ -5471,32 +5432,11 @@ dwarf_derived_probe::dwarf_derived_probe(interned_string funcname,
           q.results.push_back (entry_handler);
         }
 
-      if (v.add_entry_probe)
+      for (auto it = v.entry_probes.begin(); it != v.entry_probes.end(); ++it)
         {
-          save_and_restore<statement*> tmp_body (&q.base_probe->body, v.add_entry_probe);
-
-          // find the function we are currently in and set a probe at the
-          // start of the function
-          auto fis = q.filtered_all();
-          for (auto i = fis.begin(); i != fis.end(); ++i)
-            {
-              if (q.dw.die_has_pc (i->die, dwfl_addr))
-                {
-                  if (q.has_process)
-                    q.results.push_back(new uprobe_derived_probe (funcname, filename,
-                                                                  i->decl_line, module,
-                                                                  section, i->entrypc,
-                                                                  i->entrypc, q,
-                                                                  &i->die));
-                  else
-                    q.results.push_back(new dwarf_derived_probe (funcname, filename,
-                                                                 i->decl_line, module,
-                                                                 section, i->entrypc,
-                                                                 i->entrypc, q,
-                                                                 &i->die));
-                  break;
-                }
-            }
+          save_and_restore<statement*> tmp_body (&q.base_probe->body, it->second);
+          save_and_restore<bool> tmp_function_num (&q.has_function_num, true);
+          query_addr (it->first, &q);
         }
 
       // Save the local variables for listing mode. If the scope_die is null,

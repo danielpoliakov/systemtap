@@ -66,7 +66,8 @@ public:
   std::vector<vardecl *> locals;
   std::vector<expression *> evals;
 
-  std::map<symbol *, expression *> entry_values;
+  std::vector<vardecl *> globals;
+  std::map<Dwarf_Addr, block *> entry_probes;
 
   // A set of locations which have been requested to be evaluated.
   // The last one can be considered "current", and thus the result
@@ -88,6 +89,7 @@ public:
   expression *save_expression(expression *);
   symbol *frame_location();
   void adapt_pointer_to_bpf(int size, int offset, bool is_signed);
+  expression *handle_GNU_entry_value(Dwarf_Op expr);
 
   location *translate(const Dwarf_Op *expr, size_t len, size_t start,
 		      location *input, bool may_use_fb, bool computing_value);
