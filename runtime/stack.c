@@ -47,6 +47,10 @@
 #include <asm/unwind.h>
 #endif
 
+static int checked_stack_trace_fns;
+static void (*(save_stack_trace_regs_fn))(struct pt_regs *regs,
+				  struct stack_trace *trace);
+
 static void _stp_stack_print_fallback(unsigned long, struct pt_regs*, int, int, int);
 
 #ifdef STP_USE_DWARF_UNWINDER
@@ -151,7 +155,6 @@ static void _stp_stack_print_fallback(unsigned long stack, struct pt_regs *regs,
 #endif
 }
 #else
-#if defined(STAPCONF_SAVE_STACK_TRACE_REGS_EXPORTED)
 static void _stp_stack_print_fallback(unsigned long sp, struct pt_regs *regs,
 				      int sym_flags,
 				      int levels, int skip) {
@@ -159,13 +162,27 @@ static void _stp_stack_print_fallback(unsigned long sp, struct pt_regs *regs,
 	struct stack_trace trace;
 	int i;
 
-	/* Use kernel provided unwinder */
-	dbug_unwind(1, "fallback kernel stacktrace (save_stack_strace_regs)\n");
+	/* One time check for save_stack_trace_regs */
+	if (!checked_stack_trace_fns) {
+		dbug_unwind(1, "fallback kernel stacktrace search for save_stack_trace_regs\n");
+		save_stack_trace_regs_fn = (void *)kallsyms_lookup_name("save_stack_trace_regs");
+		checked_stack_trace_fns = 1;
+	}
+
+	/* If don't have save_stack_trace_regs unwinder, just give up. */
+	if (!save_stack_trace_regs_fn) {
+		dbug_unwind(1, "no fallback kernel stacktrace (giving up)\n");
+		_stp_print_addr(0, sym_flags | _STP_SYM_INEXACT, NULL);
+		return;
+	}
+
+	/* Use kernel provided save_stack_trace_regs unwinder if available */
+	dbug_unwind(1, "fallback kernel stacktrace (save_stack_trace_regs)\n");
 	memset(&trace, 0, sizeof(trace));
 	trace.max_entries = MAXBACKTRACE;
 	trace.entries = &(entries[0]);
 	trace.skip = skip;
-	save_stack_trace_regs(regs, &trace);
+	(* (save_stack_trace_regs_fn))(regs, &trace);
 
 	dbug_unwind(1, "trace.nr_entries: %d\n", trace.nr_entries);
 	dbug_unwind(1, "trace.max_entries: %d\n", trace.max_entries);
@@ -173,51 +190,17 @@ static void _stp_stack_print_fallback(unsigned long sp, struct pt_regs *regs,
 
 	/* save_stack_trace_reg() adds a ULONG_MAX after last valid entry. Ignore it. */
 	for (i=0; i<MAXBACKTRACE && i<trace.nr_entries && entries[i]!=ULONG_MAX; ++i) {
-		_stp_print_addr((unsigned long) entries[i], sym_flags, NULL);
-	}
-}
-#else
-#if defined(STAPCONF_KERNEL_UNWIND_STACK)
-static void _stp_stack_print_fallback(unsigned long sp, struct pt_regs *regs,
-				      int sym_flags,
-				      int levels, int skip) {
-	struct unwind_state state;
-	unwind_start (&state, current, regs, (unsigned long *) sp);
-	dbug_unwind(1, "fallback kernel stacktrace (unwind)\n");
-	while (levels > 0 && ! unwind_done (&state))
-	  {
-	    if (skip == 0)
-	      {
-		unsigned long addr = unwind_get_return_address (&state);
 		/* When we have frame pointers, the unwind addresses can be
 		   (mostly) trusted, otherwise it is all guesswork.  */
 #ifdef CONFIG_FRAME_POINTER
-		_stp_print_addr(addr, sym_flags, NULL);
+		_stp_print_addr((unsigned long) entries[i], sym_flags, NULL);
 #else
-		_stp_print_addr(addr, sym_flags | _STP_SYM_INEXACT, NULL);
+		_stp_print_addr((unsigned long) entries[i], sym_flags | _STP_SYM_INEXACT,
+				NULL);
 #endif
-		if (addr == 0)
-		  break;
-		levels--;
-	      }
-	    else
-	      {
-		dbug_unwind(1, "skipping frame\n");
-	        skip--;
-	      }
-	    unwind_next_frame(&state);
-	  }
+	}
 }
-#else /* no new unwind */
-static void _stp_stack_print_fallback(unsigned long s, struct pt_regs *r, int v, int l, int k) {
-	/* Don't guess, just give up. */
-        dbug_unwind(1, "no fallback kernel stacktrace (giving up)\n");
-	_stp_print_addr(0, v | _STP_SYM_INEXACT, NULL);
-}
-#endif /* no new unwind */
-#endif /* defined(STAPCONF_KERNEL_UNWIND_STACK) */
-#endif /* defined(STAPCONF_KERNEL_STACKTRACE) */
-
+#endif /* defined(STAPCONF_KERNEL_STACKTRACE) || defined(STAPCONF_KERNEL_STACKTRACE_NO_BP) */
 
 /** Gets user space registers when available, also sets context
  * full_uregs_p if appropriate.  Should be used instead of accessing
