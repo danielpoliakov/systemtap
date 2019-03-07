@@ -1918,6 +1918,15 @@ c_unparser::emit_module_init ()
   o->newline(-1) << "}";
   o->newline() << "#endif";
 
+  // initialize stack setup (if needed)
+  o->newline() << "#ifdef STP_NEED_UNWIND_DATA";
+  o->newline() << "rc = _stp_init_stack();";
+  o->newline() << "if (rc) {";
+  o->newline(1) << "_stp_error (\"couldn't initialize stack support\");";
+  o->newline() << "goto out;";
+  o->newline(-1) << "}";
+  o->newline() << "#endif";
+
   // NB: we don't need per-_stp_module task_finders, since a single common one
   // set up in runtime/sym.c's _stp_sym_init() will scan through all _stp_modules. XXX - check this!
   o->newline() << "(void) probe_point;";

@@ -47,9 +47,18 @@
 #include <asm/unwind.h>
 #endif
 
-static int checked_stack_trace_fns;
 static void (*(save_stack_trace_regs_fn))(struct pt_regs *regs,
 				  struct stack_trace *trace);
+
+static int
+_stp_init_stack(void)
+{
+	/* check for save_stack_trace_regs function for fallback stack print */
+	save_stack_trace_regs_fn = (void *)kallsyms_lookup_name("save_stack_trace_regs");
+	dbug_unwind(1, "save_stack_trace_regs_fn=%lx for _stp_stack_print_fallback().\n",
+		    (unsigned long) save_stack_trace_regs_fn);
+	return 0;
+}
 
 static void _stp_stack_print_fallback(unsigned long, struct pt_regs*, int, int, int);
 
@@ -161,13 +170,6 @@ static void _stp_stack_print_fallback(unsigned long sp, struct pt_regs *regs,
 	unsigned long entries[MAXBACKTRACE];
 	struct stack_trace trace;
 	int i;
-
-	/* One time check for save_stack_trace_regs */
-	if (!checked_stack_trace_fns) {
-		dbug_unwind(1, "fallback kernel stacktrace search for save_stack_trace_regs\n");
-		save_stack_trace_regs_fn = (void *)kallsyms_lookup_name("save_stack_trace_regs");
-		checked_stack_trace_fns = 1;
-	}
 
 	/* If don't have save_stack_trace_regs unwinder, just give up. */
 	if (!save_stack_trace_regs_fn) {
