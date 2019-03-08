@@ -2796,21 +2796,15 @@ bpf_unparser::visit_functioncall (functioncall *e)
   result = emit_functioncall(f, args);
 }
 
-// TODOXXX: We should support referencing 'interned' strings within
-// the globals map. This will eliminate the need to handle long format
-// strings in-kernel and remove a major format string length
-// limitation.
-//
-// TODOXXX: Move to a logical location.
-static int
-intern_string (globals &glob, std::string& str)
+int
+globals::intern_string (std::string& str)
 {
-  if (glob.interned_strings.count(str) > 0)
-    return glob.interned_strings[str];
+  if (interned_str_map.count(str) > 0)
+    return interned_str_map[str];
 
-  int this_idx = glob.interned_str_map.size();
-  glob.interned_str_map[this_idx] = str;
-  glob.interned_strings[str] = this_idx;
+  int this_idx = interned_strings.size();
+  interned_strings.push_back(str);
+  interned_str_map[str] = this_idx;
   return this_idx;
 }
 
@@ -2840,7 +2834,6 @@ bpf_unparser::emit_transport_msg (globals::perf_event_type msg,
         format_type = pe_string;
     }
 
-#define USE_INTERNED_STR 1
   unsigned arg_size = 0;
   if (arg != NULL)
     switch (format_type)
@@ -2849,10 +2842,10 @@ bpf_unparser::emit_transport_msg (globals::perf_event_type msg,
         arg_size = 8;
         break;
       case pe_string:
-        if (arg->is_format() && USE_INTERNED_STR)
-          arg_size = 8; // pass index of interned str
+        if (arg->is_format())
+          arg_size = sizeof(BPF_TRANSPORT_ARG); // pass index of interned str
         else
-          arg_size = arg->is_format() ? BPF_MAXFORMATLEN : BPF_MAXSTRINGLEN;
+          arg_size = BPF_MAXSTRINGLEN;
         break;
       default:
         assert(false); // TODOXXX -- should be caught earlier - signal a bug
@@ -2873,9 +2866,9 @@ bpf_unparser::emit_transport_msg (globals::perf_event_type msg,
         this_prog.mk_st(this_ins, BPF_DW, frame, arg_ofs, arg);
         break;
       case pe_string:
-        if (arg->is_format() && USE_INTERNED_STR)
+        if (arg->is_format())
           {
-            int idx = intern_string(glob, arg->str_val);
+            int idx = glob.intern_string(arg->str_val);
             this_prog.mk_st(this_ins, BPF_DW, frame, arg_ofs,
                             this_prog.new_imm(idx));
           }
@@ -3312,6 +3305,7 @@ output_stapbpf_script_name(BPF_Output &eo, const std::string script_name)
   char *script_name_buf = (char *)data->d_buf;
   script_name.copy(script_name_buf, script_name_len);
   script_name_buf[script_name_len] = '\0';
+  data->d_type = ELF_T_BYTE;
   data->d_size = script_name_len + 1;
   so->free_data = true;
   so->shdr->sh_type = SHT_PROGBITS;
@@ -3367,6 +3361,47 @@ output_maps(BPF_Output &eo, globals &glob)
       s->sym.st_size = bpf_map_def_sz;
       eo.symbols[i] = s;
     }
+}
+
+static void
+output_interned_strings(BPF_Output &eo, globals& glob)
+{
+  // XXX: Don't use SHT_STRTAB since it can reorder the strings, iiuc
+  // requiring us to use yet more ELF infrastructure to refer to them
+  // and forcing us to generate this section at the same time as the
+  // code instead of in a separate procedure. To avoid that, manually
+  // write a SHT_PROGBITS section in SHT_STRTAB format.
+
+  if (glob.interned_strings.size() == 0)
+    return;
+
+  BPF_Section *str = eo.new_scn("stapbpf_interned_strings");
+  Elf_Data *data = str->data;
+  size_t interned_strings_len = 1; // extra NUL byte
+  for (auto i = glob.interned_strings.begin();
+       i != glob.interned_strings.end(); ++i)
+    {
+      std::string &str = *i;
+      interned_strings_len += str.size() + 1; // with NUL byte
+    }
+  data->d_buf = (void *)malloc(interned_strings_len);
+  char *interned_strings_buf = (char *)data->d_buf;
+  interned_strings_buf[0] = '\0';
+  unsigned ofs = 1;
+  for (auto i = glob.interned_strings.begin();
+       i != glob.interned_strings.end(); ++i)
+    {
+      std::string &str = *i;
+      assert(ofs+str.size()+1 <= interned_strings_len);
+      str.copy(interned_strings_buf+ofs, str.size());
+      interned_strings_buf[ofs+str.size()] = '\0';
+      ofs += str.size() + 1;
+    }
+  assert(ofs == interned_strings_len);
+  data->d_type = ELF_T_BYTE;
+  data->d_size = interned_strings_len;
+  str->free_data = true;
+  str->shdr->sh_type = SHT_PROGBITS;
 }
 
 void
@@ -3790,6 +3825,7 @@ translate_bpf_pass (systemtap_session& s)
       output_kernel_version(eo, s.kernel_base_release);
       output_license(eo);
       output_stapbpf_script_name(eo, escaped_literal_string(s.script_basename()));
+      output_interned_strings(eo, glob);
       output_symbols_sections(eo);
 
       int64_t r = elf_update(eo.elf, ELF_C_WRITE_MMAP);

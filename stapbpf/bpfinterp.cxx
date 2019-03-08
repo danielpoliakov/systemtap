@@ -215,18 +215,33 @@ bpf_handle_transport_msg(void *buf, size_t size,
     case bpf::globals::STP_PRINTF_END:
       if (!ctx->in_printf)
         abort(); // printf not started
-      if (ctx->format_no == -1)
+      if (ctx->format_no < 0 || ctx->format_no >= (int)ctx->interned_strings->size())
         abort(); // printf format is missing
       if (ctx->printf_args.size() != ctx->expected_args)
         abort(); // wrong number of args
-      // TODOXXX: Print accumulated format+args to output_f:
-      std::cerr << "DEBUG: printf() -- format string #" << ctx->format_no;
-      for (unsigned i = 0; i < ctx->printf_args.size(); i++)
-        if (ctx->printf_arg_types[i] == bpf::globals::STP_PRINTF_ARG_LONG)
-          std::cerr << ", " << *(__u64*)ctx->printf_args[i];
+
+      // XXX: Surprisingly, it is not easy to pass an array to a
+      // printf-type function. The best I can do for now is hardcode a
+      // call to fprintf with BPF_MAXPRINTFARGS arguments:
+      {
+      std::string &format_str = (*ctx->interned_strings)[ctx->format_no];
+      void *fargs[BPF_MAXPRINTFARGS];
+      for (unsigned i = 0; i < BPF_MAXPRINTFARGS; i++)
+        if (i < ctx->printf_args.size())
+          fargs[i] = ctx->printf_args[i];
         else
-          std::cerr << ", \"" << (char *)ctx->printf_args[i] << "\"";
-      std::cerr << std::endl;
+          fargs[i] = NULL;
+      assert(BPF_MAXPRINTFARGS == 32); // XXX: Change the fprintf() call if this changes.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+      fprintf(ctx->output_f, format_str.c_str(),
+              fargs[0], fargs[1], fargs[2], fargs[3], fargs[4], fargs[5], fargs[6], fargs[7],
+              fargs[8], fargs[9], fargs[10], fargs[11], fargs[12], fargs[13], fargs[14], fargs[15],
+              fargs[16], fargs[17], fargs[18], fargs[19], fargs[20], fargs[21], fargs[22], fargs[23],
+              fargs[24], fargs[25], fargs[26], fargs[27], fargs[28], fargs[29], fargs[30], fargs[31]);
+#pragma GCC diagnostic pop
+      }
+
       // Deallocate accumulated format+args:
       ctx->in_printf = false; ctx->format_no = -1;
       for (unsigned i = 0; i < ctx->printf_args.size(); i++)

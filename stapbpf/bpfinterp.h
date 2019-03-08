@@ -40,19 +40,20 @@ struct bpf_transport_context {
   // References to global state:
   std::vector<int> *map_fds;
   FILE *output_f;
+  std::vector<std::string> *interned_strings;
 
   // Data for an in-progress printf request:
   bool in_printf;
   int format_no;          // -- index into table of interned strings
   unsigned expected_args; // -- expected number of printf_args
-  char printf_format[BPF_MAXFORMATLEN]; // TODOXXX replace with global table of interned strings
   std::vector<void *> printf_args;
   std::vector<bpf::globals::perf_event_type> printf_arg_types; // either ..ARG_LONG or ..ARG_STR
 
   bpf_transport_context(unsigned cpu, int pmu_fd,
-                        std::vector<int> *map_fds, FILE *output_f)
+                        std::vector<int> *map_fds, FILE *output_f,
+                        std::vector<std::string> *interned_strings)
     : cpu(cpu), pmu_fd(pmu_fd),
-      map_fds(map_fds), output_f(output_f),
+      map_fds(map_fds), output_f(output_f), interned_strings(interned_strings),
       in_printf(false), format_no(-1), expected_args(0) {}
 };
 

@@ -97,6 +97,9 @@ static int perf_event_page_size;
 static int perf_event_page_count = 8;
 static int perf_event_mmap_size;
 
+// Table of interned strings:
+static std::vector<std::string> interned_strings;
+
 // Sized by the number of sections, so that we can easily
 // look them up by st_shndx.
 static std::vector<int> prog_fds;
@@ -1101,7 +1104,7 @@ init_perf_transport()
       perf_fds.push_back(pmu_fd);
 
       // Create a data structure to track what's happening on each CPU:
-      bpf_transport_context *ctx = new bpf_transport_context(cpu, pmu_fd, &map_fds, output_f);
+      bpf_transport_context *ctx = new bpf_transport_context(cpu, pmu_fd, &map_fds, output_f, &interned_strings);
       transport_contexts.push_back(ctx);
     }
 
@@ -1192,6 +1195,7 @@ load_bpf_file(const char *module)
   unsigned version_idx = 0;
   unsigned license_idx = 0;
   unsigned script_name_idx = 0;
+  unsigned interned_strings_idx = 0;
   unsigned kprobes_idx = 0;
   unsigned begin_idx = 0;
   unsigned end_idx = 0;
@@ -1228,6 +1232,8 @@ load_bpf_file(const char *module)
 	license_idx = i;
       else if (strcmp(shname, "stapbpf_script_name") == 0)
 	script_name_idx = i;
+      else if (strcmp(shname, "stapbpf_interned_strings") == 0)
+        interned_strings_idx = i;
       else if (strcmp(shname, "version") == 0)
 	version_idx = i;
       else if (strcmp(shname, "maps") == 0)
@@ -1262,6 +1268,27 @@ load_bpf_file(const char *module)
   // Create bpf maps as required.
   if (maps_idx != 0)
     instantiate_maps(shdrs[maps_idx], sh_data[maps_idx]);
+
+  // Create interned strings as required.
+  if (interned_strings_idx != 0)
+    {
+      // XXX: Whatever the type used by the translator, this section
+      // just holds a blob of NUL-terminated strings we parse as follows:
+      char *strtab = static_cast<char *>(sh_data[interned_strings_idx]->d_buf);
+      unsigned long long strtab_size = shdrs[interned_strings_idx]->sh_size;
+      unsigned ofs = 0;
+      bool found_hdr = false;
+      while (ofs < strtab_size)
+        {
+          // XXX: Potentially vulnerable to NUL byte in string constant.
+          std::string str(strtab+ofs); // XXX: will slurp up to NUL byte
+          if (str.size() == 0 && !found_hdr)
+            found_hdr = true; // section *may* start with an extra NUL byte
+          else
+            interned_strings.push_back(str);
+          ofs += str.size() + 1;
+        }
+    }
 
   // Relocate all programs that require it.
   for (unsigned i = 1; i < shnum; ++i)
@@ -1659,7 +1686,7 @@ main(int argc, char **argv)
   init_perf_transport();
 
   // Create a bpf_transport_context for userspace programs:
-  bpf_transport_context uctx(0/*cpu*/, -1/*pmu_fd*/, &map_fds, output_f);
+  bpf_transport_context uctx(0/*cpu*/, -1/*pmu_fd*/, &map_fds, output_f, &interned_strings);
 
   if (create_group_fds() < 0)
     fatal("Error creating perf event group: %s\n", strerror(errno));

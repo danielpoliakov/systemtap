@@ -392,12 +392,14 @@ struct globals
     // TODO PR23476: Yet more messages to request things such as histogram printing.
   };
 
-  // TODOXXX: These must be added to a separate ELF section.
+  // Converts a string to an index usable in STP_PRINTF_FORMAT messages:
+  int intern_string(std::string& str);
+
   // Interned strings by index:
-  std::map<int, std::string> interned_str_map;
+  std::vector<std::string> interned_strings;
 
   // The set of already interned strings:
-  std::map<std::string, int> interned_strings;
+  std::map<std::string, int> interned_str_map;
 
   // XXX: Hacky, used to resolve function symbols in embedded code:
   systemtap_session *session;
