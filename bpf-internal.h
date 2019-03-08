@@ -50,7 +50,14 @@ namespace bpf {
 // TODO: BPF_MAX{STRING,FORMAT}LEN,BPF_MAXMAPENTRIES,BPF_MAXSPRINTFLEN should be user-configurable.
 // XXX: BPF_MAXMAPENTRIES may depend on kernel version. May need to experiment with rlimit in instantiate_maps().
 
-// #define DEBUG_CODEGEN
+// TODOXXX: Constants for transport message layout. Try to reduce the size (to __u32) while keeping proper alignment.
+#define BPF_TRANSPORT_VAL __u64
+#define BPF_TRANSPORT_ARG __u64
+// XXX: BPF_TRANSPORT_ARG is for small numerical arguments, not pe_long values.
+// TODOXXX: Use sizeof(BPF_TRANSPORT_*) instead of magic numbers throughout.
+
+// Will print out bpf assembly before and after optimization:
+//#define DEBUG_CODEGEN
 
 typedef unsigned short regno;
 static const regno max_regno = BPF_MAXINSNS;
@@ -380,7 +387,9 @@ struct globals
     STP_PRINTF_START,
     STP_PRINTF_END,
     STP_PRINTF_FORMAT,
-    STP_PRINTF_ARG,
+    STP_PRINTF_ARG_LONG,
+    STP_PRINTF_ARG_STR,
+    // TODO PR23476: Yet more messages to request things such as histogram printing.
   };
 
   // TODOXXX: These must be added to a separate ELF section.
@@ -393,6 +402,7 @@ struct globals
   // XXX: Hacky, used to resolve function symbols in embedded code:
   systemtap_session *session;
 };
+
 } // namespace bpf
 
 #endif // BPF_INTERNAL_H

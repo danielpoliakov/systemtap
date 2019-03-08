@@ -146,7 +146,7 @@ int bpf_obj_pin(int fd, const char *pathname)
 	return syscall(__NR_bpf, BPF_OBJ_PIN, &attr, sizeof(attr));
 }
 
-// TODOXXX experimental, imitates tools/include/linux/ring_buffer.h and bcc
+// XXX experimental, imitates tools/include/linux/ring_buffer.h and bcc
 static inline __u64
 ring_buffer_read_head(volatile struct perf_event_mmap_page *base)
 {
@@ -155,7 +155,7 @@ ring_buffer_read_head(volatile struct perf_event_mmap_page *base)
         return head;
 }
 
-// TODOXXX experimental, imitates tools/include/linux/ring_buffer.h and bcc
+// XXX experimental, imitates tools/include/linux/ring_buffer.h and bcc
 static inline void
 ring_buffer_write_tail(volatile struct perf_event_mmap_page *base,
                        __u64 tail)

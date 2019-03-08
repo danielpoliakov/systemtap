@@ -2859,7 +2859,8 @@ bpf_unparser::emit_transport_msg (globals::perf_event_type msg,
       }
 
   int arg_ofs = -arg_size;
-  int msg_ofs = arg_ofs-8; // double word -- XXX verifier forces aligned access
+  int msg_ofs = arg_ofs-sizeof(BPF_TRANSPORT_VAL); // double word -- XXX verifier forces aligned access
+  // TODOXXX: add code to ensure alignment, depending on argument size.
   this_prog.use_tmp_space(-msg_ofs);
 
   value *frame = this_prog.lookup_reg(BPF_REG_10);
@@ -2875,7 +2876,8 @@ bpf_unparser::emit_transport_msg (globals::perf_event_type msg,
         if (arg->is_format() && USE_INTERNED_STR)
           {
             int idx = intern_string(glob, arg->str_val);
-            this_prog.mk_st(this_ins, BPF_DW, frame, arg_ofs, this_prog.new_imm(idx));
+            this_prog.mk_st(this_ins, BPF_DW, frame, arg_ofs,
+                            this_prog.new_imm(idx));
           }
         else
           // TODOXXX: would zero-pad be needed here?
@@ -2899,6 +2901,20 @@ bpf_unparser::emit_transport_msg (globals::perf_event_type msg,
                       frame, this_prog.new_imm(msg_ofs));
   emit_mov(this_prog.lookup_reg(BPF_REG_5), this_prog.new_imm(-msg_ofs));
   this_prog.mk_call(this_ins, BPF_FUNC_perf_event_output, 5);
+}
+
+globals::perf_event_type
+printf_arg_type (value *arg)
+{
+  switch (arg->format_type)
+    {
+    case pe_long:
+      return globals::STP_PRINTF_ARG_LONG;
+    case pe_string:
+      return globals::STP_PRINTF_ARG_STR;
+    default:
+      assert(false); // TODOXXX: Should be caught earlier -- signal a bug.
+    }
 }
 
 value *
@@ -2925,7 +2941,7 @@ bpf_unparser::emit_print_format (const std::string& format,
   emit_transport_msg(globals::STP_PRINTF_START, this_prog.new_imm(nargs), pe_long);
   emit_transport_msg(globals::STP_PRINTF_FORMAT, this_prog.new_str(format, true /*format_str*/));
   for (size_t i = 0; i < nargs; ++i)
-    emit_transport_msg(globals::STP_PRINTF_ARG, actual[i]);
+    emit_transport_msg(printf_arg_type(actual[i]), actual[i]);
   emit_transport_msg(globals::STP_PRINTF_END);
 
   return NULL;
