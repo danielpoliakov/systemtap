@@ -69,7 +69,7 @@ function exit ()
 %:
   { /* unprivileged */ /* bpf */
     _set_exit_status()
-    printf("")
+    _send_exit_msg()
   }
 %)
 

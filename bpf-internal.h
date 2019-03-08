@@ -383,7 +383,7 @@ struct globals
   // Types of transport messages supported:
   enum perf_event_type
   {
-    STP_EXIT,
+    STP_EXIT = 0,
     STP_PRINTF_START,
     STP_PRINTF_END,
     STP_PRINTF_FORMAT,
