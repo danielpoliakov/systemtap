@@ -609,7 +609,7 @@ bpf_unparser::visit_block (::block *s)
 
    <arg>    ::= <reg> | <imm>
    <optreg> ::= <reg> | -
-   <reg>    ::= <register index> | r<register index> |
+   <reg>    ::= <register index> | r<register index> | $ctx
                 $<identifier> | $<integer constant> | $$ | <string constant>
    <imm>    ::= <integer constant> | BPF_MAXSTRINGLEN | -
    <off>    ::= <imm> | <jump label>
@@ -918,6 +918,11 @@ bpf_unparser::emit_asm_arg (const asm_stmt &stmt, const std::string &arg,
       if (func_return.empty())
         throw SEMANTIC_ERROR (_("no return value outside function"), stmt.tok);
       return func_return_val.back();
+    }
+  else if (arg == "$ctx")
+    {
+      /* provide the context where available */
+      return this_in_arg0 ? this_in_arg0 : this_prog.new_imm(0x0);
     }
   else if (arg[0] == '$')
     {
