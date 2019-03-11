@@ -1472,8 +1472,10 @@ perf_event_loop(pthread_t main_thread)
       if (log_level > 3)
         fprintf(stderr, "Polling for perf_event data on %d cpus...\n", ncpus);
       int ready = poll(pmu_fds, ncpus, 1000); // XXX: Consider setting timeout -1 (unlimited).
+      if (ready < 0 && errno == EINTR) // TODOXXX: Check that we really received a signal.
+        goto signal_exit;
       if (ready < 0)
-        fatal("Error checking for perf events: %s\n", strerror(errno)); // TODOXXX: Handle 'Interrupted system call' as a normal occurrence here?
+        fatal("Error checking for perf events: %s\n", strerror(errno));
       for (unsigned i = 0; i < ncpus; i++)
         {
           if (pmu_fds[i].revents <= 0)
@@ -1494,11 +1496,7 @@ perf_event_loop(pthread_t main_thread)
               // Saw STP_EXIT message. If the exit flag is set,
               // wake up main thread to begin program shutdown.
               if (get_exit_status())
-                {
-                  pthread_kill(main_thread, SIGINT);
-                  free(pmu_fds);
-                  return;
-                }
+                  goto signal_exit;
               continue;
             }
           if (ret != LIBBPF_PERF_EVENT_CONT)
@@ -1511,8 +1509,10 @@ perf_event_loop(pthread_t main_thread)
       assert(ready == 0);
     }
 
-  // XXX: should not be reachable.
-  assert(false);
+ signal_exit:
+  pthread_kill(main_thread, SIGINT);
+  free(pmu_fds);
+  return;
 }
 
 // TODOXXX PR22330: remove this older code.
@@ -1703,19 +1703,21 @@ main(int argc, char **argv)
                   static_cast<bpf_insn *>(prog_begin->d_buf),
                   &uctx);
 
-  // Now that the begin probe has run, enable the kprobes.
-  ioctl(group_fd, PERF_EVENT_IOC_ENABLE, 0);
-
   // Wait for ^C; read BPF_OUTPUT events, copying them to output_f.
   signal(SIGINT, (sighandler_t)sigint);
   signal(SIGTERM, (sighandler_t)sigint);
 
-  // PR22330: Listen for perf_events and wait for STP_EXIT message:
+  // PR22330: Listen for perf_events:
   std::thread(perf_event_loop, pthread_self()).detach();
   //std::thread(print_trace_output, pthread_self()).detach(); // TODOXXX: remove this older code.
+
+  // Now that the begin probe has run and the perf_event listener is active, enable the kprobes.
+  ioctl(group_fd, PERF_EVENT_IOC_ENABLE, 0);
+
+  // Wait for STP_EXIT message:
   while (!get_exit_status())
     pause();
-    
+
   // Disable the kprobes before deregistering and running exit probes.
   ioctl(group_fd, PERF_EVENT_IOC_DISABLE, 0);
   close(group_fd);

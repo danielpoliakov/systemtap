@@ -2873,7 +2873,7 @@ bpf_unparser::emit_transport_msg (globals::perf_event_type msg,
         arg_size = 8;
         break;
       case pe_string:
-        if (arg->is_format())
+        if (arg->is_str() && arg->is_format())
           arg_size = sizeof(BPF_TRANSPORT_ARG); // pass index of interned str
         else
           arg_size = BPF_MAXSTRINGLEN;
@@ -2882,9 +2882,12 @@ bpf_unparser::emit_transport_msg (globals::perf_event_type msg,
         assert(false); // TODOXXX -- should be caught earlier - signal a bug
       }
 
+  // TODOXXX: add code to ensure alignment, depending on argument size.
+  if (arg_size % 8 != 0)
+    arg_size += 8 - arg_size % 8; // double word -- XXX verifier forces aligned access
   int arg_ofs = -arg_size;
   int msg_ofs = arg_ofs-sizeof(BPF_TRANSPORT_VAL); // double word -- XXX verifier forces aligned access
-  // TODOXXX: add code to ensure alignment, depending on argument size.
+  assert(msg_ofs % 8 == 0);
   this_prog.use_tmp_space(-msg_ofs);
 
   value *frame = this_prog.lookup_reg(BPF_REG_10);
@@ -2897,7 +2900,7 @@ bpf_unparser::emit_transport_msg (globals::perf_event_type msg,
         this_prog.mk_st(this_ins, BPF_DW, frame, arg_ofs, arg);
         break;
       case pe_string:
-        if (arg->is_format())
+        if (arg->is_str() && arg->is_format())
           {
             int idx = glob.intern_string(arg->str_val);
             this_prog.mk_st(this_ins, BPF_DW, frame, arg_ofs,

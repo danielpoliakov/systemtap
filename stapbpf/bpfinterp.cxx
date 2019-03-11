@@ -145,6 +145,7 @@ empty:
   return -1;
 }
 
+// TODOXXX: Adapt to MAXPRINTFARGS == 32.
 uint64_t
 bpf_sprintf(std::vector<std::string> &strings, char *fstr,
             uint64_t arg1, uint64_t arg2, uint64_t arg3)
@@ -171,7 +172,6 @@ bpf_ktime_get_ns()
 }
 
 
-// TODOXXX: Work in progress.
 enum bpf_perf_event_ret
 bpf_handle_transport_msg(void *buf, size_t size,
                          bpf_transport_context *ctx)
@@ -196,7 +196,6 @@ bpf_handle_transport_msg(void *buf, size_t size,
   switch (msg_type)
     {
     case bpf::globals::STP_EXIT:
-      std::cerr << "DEBUG: received exit()" << std::endl; // TODOXXX
       // Signal an exit from the program:
       if (bpf_update_elem((*ctx->map_fds)[bpf::globals::internal_map_idx],
                           &exit_key, &exit_val, BPF_ANY) != 0)
@@ -225,9 +224,12 @@ bpf_handle_transport_msg(void *buf, size_t size,
       // call to fprintf with BPF_MAXPRINTFARGS arguments:
       {
       std::string &format_str = (*ctx->interned_strings)[ctx->format_no];
-      void *fargs[BPF_MAXPRINTFARGS];
+      void *fargs[BPF_MAXPRINTFARGS]; // TODOXXX: Fixup for 32-bit systems?
       for (unsigned i = 0; i < BPF_MAXPRINTFARGS; i++)
-        if (i < ctx->printf_args.size())
+        if (i < ctx->printf_args.size()
+            && ctx->printf_arg_types[i] == bpf::globals::STP_PRINTF_ARG_LONG)
+          fargs[i] = (void *)*(__u64*)ctx->printf_args[i]; // TODOXXX: Fixup for 32-bit systems?
+        else if (i < ctx->printf_args.size())
           fargs[i] = ctx->printf_args[i];
         else
           fargs[i] = NULL;
@@ -239,6 +241,7 @@ bpf_handle_transport_msg(void *buf, size_t size,
               fargs[8], fargs[9], fargs[10], fargs[11], fargs[12], fargs[13], fargs[14], fargs[15],
               fargs[16], fargs[17], fargs[18], fargs[19], fargs[20], fargs[21], fargs[22], fargs[23],
               fargs[24], fargs[25], fargs[26], fargs[27], fargs[28], fargs[29], fargs[30], fargs[31]);
+      fflush(ctx->output_f);
 #pragma GCC diagnostic pop
       }
 
