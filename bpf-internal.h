@@ -321,7 +321,7 @@ struct program
 
 // ??? Properly belongs to bpf_unparser but must be visible from bpf-opt.cxx:
 value *emit_simple_literal_str(program &this_prog, insn_inserter &this_ins,
-                               value *dest, int ofs, std::string &src,
+                               value *dest, int ofs, const std::string &src,
                                bool zero_pad = false);
 
 inline std::ostream&

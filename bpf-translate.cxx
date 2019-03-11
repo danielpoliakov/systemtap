@@ -2545,7 +2545,7 @@ bpf_unparser::visit_target_register (target_register* e)
 // ??? Endianness of the target comes into play here.
 value *
 emit_simple_literal_str(program &this_prog, insn_inserter &this_ins,
-                 value *dest, int ofs, std::string &src, bool zero_pad)
+                 value *dest, int ofs, const std::string &src, bool zero_pad)
 {
 #ifdef DEBUG_CODEGEN
   this_ins.notes.push("str");
@@ -2625,14 +2625,35 @@ bpf_unparser::emit_string_copy(value *dest, int ofs, value *src, bool zero_pad)
   size_t str_bytes = BPF_MAXSTRINGLEN;
   size_t str_words = (str_bytes + 3) / 4;
 
-  block *join_block = this_prog.new_block();
+  value *out = this_prog.new_reg(); // -- where to store the final string addr
+  block *return_block = this_prog.new_block();
+
+  // XXX: It is sometimes possible to receive src == NULL.
+  // trace_printk() did not care about being passed such values, but
+  // applying strcpy() to NULL will (understandably) fail the
+  // verifier. Therefore, we need to check for this possibility first:
+  block *null_copy_block = this_prog.new_block();
+  block *normal_block = this_prog.new_block();
+  this_prog.mk_jcond(this_ins, EQ, src, this_prog.new_imm(0),
+                     null_copy_block, normal_block);
+
+  // Only call emit_simple_literal_str() if we can't reuse the zero-pad code:
+  if (!zero_pad)
+    {
+      set_block(null_copy_block);
+      value *empty_str = emit_simple_literal_str (this_prog, this_ins,
+                                                  dest, ofs, "", false);
+      emit_mov(out, empty_str);
+      emit_jmp(return_block);
+    }
+
+  set_block(normal_block);
 
   /* block_A[i] copies src[4*i] to dest[4*i+ofs];
-     block_B[i] copies 0 to dest[4*i+ofs].
-     Since block_B[0] is never branched to, we set it to NULL. */
+     block_B[i] copies 0 to dest[4*i+ofs], produced only if zero_pad is true. */
   std::vector<block *> block_A, block_B;
   block_A.push_back(this_ins.get_block());
-  if (zero_pad) block_B.push_back(NULL);
+  if (zero_pad) block_B.push_back(null_copy_block);
 
   for (unsigned i = 0; i < str_words; ++i)
     {
@@ -2646,7 +2667,7 @@ bpf_unparser::emit_string_copy(value *dest, int ofs, value *src, bool zero_pad)
         }
       else
         {
-          next_block = join_block;
+          next_block = return_block;
         }
 
       set_block(block_A[i]);
@@ -2703,7 +2724,7 @@ bpf_unparser::emit_string_copy(value *dest, int ofs, value *src, bool zero_pad)
         }
 
       this_prog.mk_jcond(this_ins, EQ, all_nz, this_prog.new_imm(0),
-                         zero_pad ? block_B[i+1] : join_block, next_block);
+                         zero_pad ? block_B[i+1] : return_block, next_block);
     }
 
   // XXX: Zero-padding is only used under specific circumstances;
@@ -2712,23 +2733,21 @@ bpf_unparser::emit_string_copy(value *dest, int ofs, value *src, bool zero_pad)
     {
       for (unsigned i = 0; i < str_words; ++i)
         {
-          /* Since block_B[0] is never branched to, it was set to NULL. */
-          if (block_B[i] == NULL) continue;
-
           set_block(block_B[i]);
           this_prog.mk_st(this_ins, BPF_W,
                           dest, (int32_t)i * 4 + ofs,
                           this_prog.new_imm(0));
 
-          emit_jmp(i < str_words - 1 ? block_B[i+1] : join_block);
+          emit_jmp(i < str_words - 1 ? block_B[i+1] : return_block);
         }
     }
 
-  set_block(join_block);
+  set_block(return_block);
 
-  value *out = this_prog.new_reg();
   this_prog.mk_binary(this_ins, BPF_ADD, out,
                       dest, this_prog.new_imm(ofs));
+
+  
 #ifdef DEBUG_CODEGEN
   this_ins.notes.pop(); // strcpy
 #endif
@@ -2907,8 +2926,10 @@ bpf_unparser::emit_transport_msg (globals::perf_event_type msg,
                             this_prog.new_imm(idx));
           }
         else
-          // TODOXXX: would zero-pad be needed here?
-          emit_string_copy(frame, arg_ofs, arg, false);
+          {
+            emit_string_copy(frame, arg_ofs, arg, false);
+            // TODOXXX: would zero-pad be needed here?
+          }
         break;
       default:
         assert(false); // TODOXXX -- should be caught earlier -- signal a bug
