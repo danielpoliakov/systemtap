@@ -600,7 +600,7 @@ bpf_unparser::visit_block (::block *s)
 /* Supported assembly statement types include:
 
    <stmt> ::= label, <dest=label>;
-   <stmt> ::= alloc, <dest=reg>, <imm=imm>;
+   <stmt> ::= alloc, <dest=reg>, <imm=imm> [, align|noalign];
    <stmt> ::= call, <dest=optreg>, <param[0]=function name>, <param[1]=arg>, ...;
    <stmt> ::= <code=integer opcode>, <dest=reg>, <src1=reg>,
               <off/jmp_target=off>, <imm=imm>;
@@ -611,7 +611,7 @@ bpf_unparser::visit_block (::block *s)
    <optreg> ::= <reg> | -
    <reg>    ::= <register index> | r<register index> | $ctx
                 $<identifier> | $<integer constant> | $$ | <string constant>
-   <imm>    ::= <integer constant> | BPF_MAXSTRINGLEN | -
+   <imm>    ::= <integer constant> | BPF_MAXSTRINGLEN | BPF_F_CURRENT_CPU | -
    <off>    ::= <imm> | <jump label>
 
 */
@@ -633,6 +633,9 @@ struct asm_stmt {
 
   // metadata for call, error instructions
   std::vector<std::string> params;
+
+  // metadata for alloc instructions
+  bool align_alloc;
 
   token *tok;
 };
@@ -700,6 +703,8 @@ bpf_unparser::parse_imm (const asm_stmt &stmt, const std::string &str)
   int64_t val;
   if (str == "BPF_MAXSTRINGLEN")
     val = BPF_MAXSTRINGLEN;
+  else if (str == "BPF_F_CURRENT_CPU")
+    val = BPF_F_CURRENT_CPU;
   else if (str == "-")
     val = 0;
   else try {
@@ -846,11 +851,27 @@ bpf_unparser::parse_asm_stmt (embeddedcode *s, size_t start,
     }
   else if (args[0] == "alloc")
     {
-      if (args.size() != 3)
-        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (alloc expects 2 args, found %llu)", (long long) args.size()-1), stmt.tok);
+      if (args.size() != 3 && args.size() != 4)
+        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (alloc expects 2 or 3 args, found %llu)", (long long) args.size()-1), stmt.tok);
       stmt.kind = args[0];
       stmt.dest = args[1];
       stmt.imm = parse_imm(stmt, args[2]);
+
+      // handle align, noalign options
+      if (args.size() == 4 && args[3] == "align")
+        {
+          stmt.align_alloc = true;
+        }
+      else if (args.size() == 4 && args[3] == "noalign")
+        {
+          stmt.align_alloc = false;
+        }
+      else if (args.size() == 4)
+        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (alloc expects 'align' or 'noalign' as 3rd arg, found '%s'", args[3].c_str()), stmt.tok);
+      else
+        {
+          stmt.align_alloc = false;
+        }
     }
   else if (args[0] == "call")
     {
@@ -983,13 +1004,16 @@ bpf_unparser::emit_asm_arg (const asm_stmt &stmt, const std::string &arg,
       std::string str = translate_escapes(escaped_str);
       return emit_literal_string(str, stmt.tok);
     }
-  else if (arg == "BPF_MAXSTRINGLEN")
+  else if (arg == "BPF_MAXSTRINGLEN" || arg == "BPF_F_CURRENT_CPU")
     {
-      /* arg is BPF_MAXSTRINGLEN */
+      /* arg is a system constant */
       if (!allow_imm)
         throw SEMANTIC_ERROR (_F("invalid bpf register '%s'",
                                  arg.c_str()), stmt.tok);
-      return this_prog.new_imm(BPF_MAXSTRINGLEN);
+      if (arg == "BPF_MAXSTRINGLEN")
+        return this_prog.new_imm(BPF_MAXSTRINGLEN);
+      else // arg == "BPF_F_CURRENT_CPU"
+        return this_prog.new_imm(BPF_F_CURRENT_CPU);
     }
   else if (arg == "-")
     {
@@ -1278,6 +1302,8 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
         {
           /* Reserve stack space and store its address in dest. */
           int ofs = -this_prog.max_tmp_space - stmt.imm;
+          if (stmt.align_alloc && (-ofs) % 8 != 0) // align to double-word
+            ofs -= 8 - (-ofs) % 8;
           this_prog.use_tmp_space(-ofs);
           // ??? Consider using a storage allocator and this_prog.new_obj().
 

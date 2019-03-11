@@ -1,5 +1,5 @@
 /**
- * function _set_exit_status - 
+ * function _set_exit_status
  *
  * Description: Set exit flag.
  */
@@ -18,14 +18,14 @@ function _set_exit_status:long ()
 %}
 
 /**
- * function _exit
+ * function _send_exit_msg
  *
  * Description: Send an exit request through perf_events transport.
  */
 function _send_exit_msg:long ()
 %{ /* bpf */ /* unprivileged */
-    0x118, $perf_events_map, 0, 0, 1; /* BPF_LD_MAP_FD($perf_events_map, map1) */
-    alloc, $data, 8;
+    0x118, $perf_events_map, -, -, 1; /* BPF_LD_MAP_FD($perf_events_map, map1) */
+    alloc, $data, 8, align;
     0x7a, $data, -, -, 0x0;  /* stdw [$data+0], STP_EXIT */
-    call, $$, perf_event_output, $ctx, $perf_events_map, -1, $data, 8;
+    call, $rc, perf_event_output, $ctx, $perf_events_map, BPF_F_CURRENT_CPU, $data, 8;
 %}
