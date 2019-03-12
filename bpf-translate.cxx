@@ -243,7 +243,8 @@ struct bpf_unparser : public throwing_visitor
   value *emit_functioncall(functiondecl *f, const std::vector<value *> &args);
   value *emit_print_format(const std::string &format,
                            const std::vector<value *> &actual,
-                           bool print_to_stream = true);
+                           bool print_to_stream = true,
+                           const token *tok = NULL);
 
   // Used for the embedded-code assembler:
   int64_t parse_imm (const asm_stmt &stmt, const std::string &str);
@@ -1367,7 +1368,7 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
                                          args.size(), args.size()), stmt.tok);
 
               bool print_to_stream = (func_name == "printf");
-              value *retval = emit_print_format(format, args, print_to_stream);
+              value *retval = emit_print_format(format, args, print_to_stream, stmt.tok);
               if (retval != NULL && stmt.dest != "-")
                 {
                   value *dest = get_asm_reg(stmt, stmt.dest);
@@ -2858,29 +2859,39 @@ globals::intern_string (std::string& str)
   return this_idx;
 }
 
-// TODOXXX: Based on the interface of perf_event_output, this_in_arg0
-// must be a pt_regs * struct. For the sake of user-space helpers
-// (e.g. begin/end) we just pass NULL when this_in_arg0 is not
-// available. We need to make sure there is no in-kernel situation
-// where this_in_arg0 could be NULL.
+// Generates perf_event_output transport message glue code.
 //
-// TODOXXX: We need to specify the transport message format more
+// XXX: Based on the interface of perf_event_output, this_in_arg0 must
+// be a pt_regs * struct. In fact, the BPF program apparently has to
+// pass the context given to the program as arg 0, regardless of the
+// type. For the sake of user-space helpers (e.g. begin/end) we just
+// pass NULL when this_in_arg0 is not available. Should not happen
+// in-kernel where BPF programs apparently always have a context, but
+// it's worth noting the assumptions here.
+//
+// TODO: We need to specify the transport message format more
 // compactly. Thus far, everything is written as double-words to avoid
 // getting 'misaligned stack access' errors from the verifier.
 //
-// TODOXXX: We could extend this interface to allow passing multiple
+// TODO: We could extend this interface to allow passing multiple
 // values in one transport message, e.g. a sequence of pe_long.
 void
 bpf_unparser::emit_transport_msg (globals::perf_event_type msg,
                                   value *arg, exp_type format_type)
 {
-  // Harmonize the information in arg and format_type:
+  // Harmonize the information in arg, format_type, and msg:
   if (arg != NULL)
     {
       if (format_type == pe_unknown)
         format_type = arg->format_type;
       assert(format_type == arg->format_type || arg->format_type == pe_unknown);
       if (arg->is_str() && arg->is_format() && format_type == pe_unknown)
+        format_type = pe_string;
+
+      // XXX: Finally, pick format_type based on msg (inferred from format string):
+      if (msg == globals::STP_PRINTF_ARG_LONG && format_type == pe_unknown)
+        format_type = pe_long;
+      else if (msg == globals::STP_PRINTF_ARG_STR && format_type == pe_unknown)
         format_type = pe_string;
     }
 
@@ -2898,7 +2909,7 @@ bpf_unparser::emit_transport_msg (globals::perf_event_type msg,
           arg_size = BPF_MAXSTRINGLEN;
         break;
       default:
-        assert(false); // TODOXXX -- should be caught earlier - signal a bug
+        assert(false); // XXX: Should be caught earlier.
       }
 
   // TODOXXX: add code to ensure alignment, depending on argument size.
@@ -2926,13 +2937,10 @@ bpf_unparser::emit_transport_msg (globals::perf_event_type msg,
                             this_prog.new_imm(idx));
           }
         else
-          {
-            emit_string_copy(frame, arg_ofs, arg, false);
-            // TODOXXX: would zero-pad be needed here?
-          }
+          emit_string_copy(frame, arg_ofs, arg, false);
         break;
       default:
-        assert(false); // TODOXXX -- should be caught earlier -- signal a bug
+        assert(false); // XXX: Should be caught earlier.
       }
 
   // double word -- XXX verifier forces aligned access
@@ -2952,7 +2960,7 @@ bpf_unparser::emit_transport_msg (globals::perf_event_type msg,
 }
 
 globals::perf_event_type
-printf_arg_type (value *arg)
+printf_arg_type (value *arg, const print_format::format_component &c)
 {
   switch (arg->format_type)
     {
@@ -2960,15 +2968,34 @@ printf_arg_type (value *arg)
       return globals::STP_PRINTF_ARG_LONG;
     case pe_string:
       return globals::STP_PRINTF_ARG_STR;
+    case pe_unknown:
+      // XXX: Could be a lot stricter and force
+      // arg->format_type and c.type to match.
+      switch (c.type) {
+      case print_format::conv_pointer:
+      case print_format::conv_number:
+      case print_format::conv_char:
+      case print_format::conv_memory:
+      case print_format::conv_memory_hex:
+      case print_format::conv_binary:
+        return globals::STP_PRINTF_ARG_LONG;
+
+      case print_format::conv_string:
+        return globals::STP_PRINTF_ARG_STR;
+
+      default:
+        assert(false); // XXX
+      }
     default:
-      assert(false); // TODOXXX: Should be caught earlier -- signal a bug.
+      assert(false); // XXX: Should be caught earlier.
     }
 }
 
 value *
 bpf_unparser::emit_print_format (const std::string& format,
                                  const std::vector<value *>& actual,
-                                 bool print_to_stream)
+                                 bool print_to_stream,
+                                 const token *tok)
 {
   size_t nargs = actual.size();
 
@@ -2986,10 +3013,29 @@ bpf_unparser::emit_print_format (const std::string& format,
       return this_prog.lookup_reg(BPF_REG_0);
     }
 
+  // Filter components to include only non-literal printf arguments:
+  std::vector<print_format::format_component> all_components =
+    print_format::string_to_components(format);
+  // XXX: Could pass print_format * to avoid extra parse, except for embedded-code.
+
+  std::vector<print_format::format_component> components;
+  for (auto &c : all_components) {
+    if (c.type != print_format::conv_literal)
+      components.push_back(c);
+  }
+  if (components.size() != nargs)
+    {
+      if (tok != NULL)
+        throw SEMANTIC_ERROR(_F("format string expected %zu args, got %zu",
+                                components.size(), nargs), tok);
+      else
+        assert(false); // XXX: Should be caught earlier.
+    }
+
   emit_transport_msg(globals::STP_PRINTF_START, this_prog.new_imm(nargs), pe_long);
   emit_transport_msg(globals::STP_PRINTF_FORMAT, this_prog.new_str(format, true /*format_str*/));
   for (size_t i = 0; i < nargs; ++i)
-    emit_transport_msg(printf_arg_type(actual[i]), actual[i]);
+    emit_transport_msg(printf_arg_type(actual[i], components[i]), actual[i]);
   emit_transport_msg(globals::STP_PRINTF_END);
 
   return NULL;
@@ -3001,7 +3047,6 @@ bpf_unparser::visit_print_format (print_format *e)
   if (e->hist)
     throw SEMANTIC_ERROR (_("unhandled histogram print"), e->tok);
 
-  // ??? Traditional stap allows max 32 args.
   size_t nargs = e->args.size();
   size_t i;
   if (nargs > BPF_MAXPRINTFARGS)
@@ -3026,8 +3071,8 @@ bpf_unparser::visit_print_format (print_format *e)
   std::string format;
   if (e->print_with_format)
     {
-      // ??? If this is a long string with no actual arguments,
-      // intern the string as a global and use "%s" as the format.
+      // If this is a long string with no actual arguments, it will be
+      // interned in the format string table as usual.
       interned_string fstr = e->raw_components;
       format += translate_escapes(fstr);
     }
@@ -3078,7 +3123,7 @@ bpf_unparser::visit_print_format (print_format *e)
   if (format_bytes > BPF_MAXFORMATLEN)
     throw SEMANTIC_ERROR(_("Format string for print too long"), e->tok);
 
-  value *retval = emit_print_format(format, actual, e->print_to_stream);
+  value *retval = emit_print_format(format, actual, e->print_to_stream, e->tok);
   if (retval != NULL)
     result = retval;
 }
