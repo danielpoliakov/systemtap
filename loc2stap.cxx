@@ -1615,9 +1615,11 @@ location_context::handle_GNU_entry_value (Dwarf_Op expr)
 
   // Generate a tid-indexed global variable to store the entry value
   static int tick = 0;
-  std::string name = std::string("__global_tvar_entry_value_") + lex_cast(tick++);
+  std::string name = std::string("__global_tvar_entry_value_")
+	             + "_" + escaped_identifier_string (e->sym_name())
+		     + "_" + lex_cast(tick++);
   vardecl *var = new vardecl;
-  var->name = name;
+  var->name = var->unmangled_name = name;
   var->tok = e->tok;
   var->synthetic = true;
   globals.push_back(var);

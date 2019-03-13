@@ -2045,8 +2045,11 @@ void add_global_var_display (systemtap_session& s)
 	continue;
 
       // Don't generate synthetic end probes for unread globals
-      // declared only within tapsets. (RHBZ 468139), but rather
-      // only within the end-user script.
+      // that were synthesized or declared only within tapsets.
+      // (RHBZ 468139), but rather only within the end-user script.
+
+      if (l->synthetic)
+        continue;
 
       bool tapset_global = false;
       for (size_t m=0; m < s.library_files.size(); m++)
