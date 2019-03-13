@@ -1,6 +1,6 @@
 #! /usr/bin/env stap
 
-global var, varerr
+global var%, varerr
 
 probe $1 {
   if (@defined($2)) {
@@ -13,14 +13,6 @@ probe $1 {
          }
      } catch { varerr ++ }  # error during $2 resolution or perhaps var[] assignment
   }
-}
-
-probe kprocess.release { # if using per-thread checking
-  delete var[$p->pid] # thread
-}
-
-probe never {
-  var[0]=""  # assigns a type to var in case no probes match $1 above
 }
 
 probe error,end {
