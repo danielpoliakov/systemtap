@@ -2937,7 +2937,7 @@ bpf_unparser::emit_transport_msg (globals::perf_event_type msg,
                             this_prog.new_imm(idx));
           }
         else
-          emit_string_copy(frame, arg_ofs, arg, false);
+          emit_string_copy(frame, arg_ofs, arg, false /* no zero pad */);
         break;
       default:
         assert(false); // XXX: Should be caught earlier.
@@ -3006,7 +3006,7 @@ bpf_unparser::emit_print_format (const std::string& format,
       if (actual.size() > BPF_MAXSPRINTFARGS)
         throw SEMANTIC_ERROR(_NF("additional argument to sprintf",
                                  "too many arguments to sprintf (%zu)",
-                                 actual.size(), e->args.size()), tok);
+                                 actual.size(), actual.size()), tok);
 
       // Emit an ordinary function call to sprintf.
       size_t format_bytes = format.size() + 1;
