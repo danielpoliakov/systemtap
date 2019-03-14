@@ -189,9 +189,8 @@ static std::vector<perf_data> perf_probes;
 static std::vector<trace_data> tracepoint_probes;
 static std::vector<uprobe_data> uprobes;
 
-// TODOXXX: Move fatal() to bpfinterp.h and replace abort() calls in the interpreter.
-// TODOXXX: Add warn() option.
-
+// TODO: Move fatal() to bpfinterp.h and replace abort() calls in the interpreter.
+// TODO: Add warn() option.
 static void __attribute__((noreturn))
 fatal(const char *str, ...)
 {
@@ -1472,7 +1471,7 @@ perf_event_loop(pthread_t main_thread)
       if (log_level > 3)
         fprintf(stderr, "Polling for perf_event data on %d cpus...\n", ncpus);
       int ready = poll(pmu_fds, ncpus, 1000); // XXX: Consider setting timeout -1 (unlimited).
-      if (ready < 0 && errno == EINTR) // TODOXXX: Check that we really received a signal.
+      if (ready < 0 && errno == EINTR)
         goto signal_exit;
       if (ready < 0)
         fatal("Error checking for perf events: %s\n", strerror(errno));
@@ -1514,79 +1513,6 @@ perf_event_loop(pthread_t main_thread)
   free(pmu_fds);
   return;
 }
-
-// TODOXXX PR22330: remove this older code.
-#if 0
-static void
-print_trace_output(pthread_t main_thread)
-{
-  // Output from printf statements within probe handlers is sent to
-  // debugfs via trace_printk. Get this output and copy it to output_f.
-  string modname(module_name);
-  size_t pos = modname.find_last_of("/");
-  if (pos != string::npos)
-    modname = modname.substr(pos + 1);
-
-  string start_tag = "<" + modname.erase(modname.size() - 3).erase(4, 1) + ">";
-  string end_tag = start_tag;
-  end_tag.insert(1, "/");
-
-  while (1)
-    {
-      ifstream trace_pipe(DEBUGFS "trace_pipe");
-      if (!trace_pipe)
-        fatal("error opening trace_pipe: %s\n", strerror(errno));
-
-      bool start_tag_seen = false;
-      unsigned bytes_written = 0;
-      string line, buf;
-      while (getline(trace_pipe, line))
-        {
-          line += "\n";
-          if (!start_tag_seen)
-            {
-              pos = line.find(start_tag);
-              if (pos != string::npos)
-                {
-                  start_tag_seen = true;
-                  bytes_written = 0;
-                  line = line.substr(pos + start_tag.size(), string::npos);
-                }
-            }
-          if (start_tag_seen)
-            {
-              pos = line.find(end_tag);
-              if (pos != string::npos)
-                {
-                  line = line.substr(0, pos);
-                  start_tag_seen = false;
-
-                  // exit() causes "" to be written to trace_pipe. If
-                  // "" is seen and the exit flag is set, wake up main
-                  // thread to begin program shutdown.
-                  if (line == "" && buf == "" && bytes_written == 0
-                      && get_exit_status())
-                    {
-                      pthread_kill(main_thread, SIGINT);
-                      return;
-                    }
-                }
-
-              buf += line;
-              if (fwrite(buf.c_str(), sizeof(char), buf.size(), output_f)
-                   != buf.size())
-                fatal("error writing to output file: %s\n", strerror(errno));
-              bytes_written += buf.size();
-
-              fflush(output_f);
-              buf = "";
-            }
-        }
-      // If another process opens trace_pipe then we may read EOF. In this
-      // case simply reopen the file and continue parsing.
-    }
-}
-#endif
 
 static void
 usage(const char *argv0)
@@ -1709,7 +1635,6 @@ main(int argc, char **argv)
 
   // PR22330: Listen for perf_events:
   std::thread(perf_event_loop, pthread_self()).detach();
-  //std::thread(print_trace_output, pthread_self()).detach(); // TODOXXX: remove this older code.
 
   // Now that the begin probe has run and the perf_event listener is active, enable the kprobes.
   ioctl(group_fd, PERF_EVENT_IOC_ENABLE, 0);

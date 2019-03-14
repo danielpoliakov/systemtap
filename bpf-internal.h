@@ -38,23 +38,27 @@ struct vardecl;
 
 namespace bpf {
 
+// Constants for BPF code generation.
+// TODO: BPF_MAX{STRING,FORMAT}LEN,BPF_MAXMAPENTRIES,BPF_MAXSPRINTFLEN should be user-configurable.
+
 #define MAX_BPF_STACK 512
 #define BPF_REG_SIZE 8
+
 #define BPF_MAXSTRINGLEN 64
-// #define BPF_MAXSTRINGLEN 128 // TODO: Longer strings require storage allocator & PR22330 better printf().
+// #define BPF_MAXSTRINGLEN 128 // TODO: Longer strings require a smarter storage allocator.
+#define BPF_MAXFORMATLEN 256
 #define BPF_MAXPRINTFARGS 32
 // #define BPF_MAXPRINTFARGS 3 // Maximum for trace_printk() method.
-#define BPF_MAXFORMATLEN 256
+#define BPF_MAXSPRINTFARGS 3   // Maximum for sprintf() method.
+
 #define BPF_MAXMAPENTRIES 2048
-// TODO: add BPF_MAXSPRINTFLEN
-// TODO: BPF_MAX{STRING,FORMAT}LEN,BPF_MAXMAPENTRIES,BPF_MAXSPRINTFLEN should be user-configurable.
 // XXX: BPF_MAXMAPENTRIES may depend on kernel version. May need to experiment with rlimit in instantiate_maps().
 
-// TODOXXX: Constants for transport message layout. Try to reduce the size (to __u32) while keeping proper alignment.
-#define BPF_TRANSPORT_VAL __u64
-#define BPF_TRANSPORT_ARG __u64
+// Constants for transport message layout.
+// TODO: Try to reduce the size (to __u32) while keeping proper alignment.
+#define BPF_TRANSPORT_VAL uint64_t
+#define BPF_TRANSPORT_ARG uint64_t
 // XXX: BPF_TRANSPORT_ARG is for small numerical arguments, not pe_long values.
-// TODOXXX: Use sizeof(BPF_TRANSPORT_*) instead of magic numbers throughout.
 
 // Will print out bpf assembly before and after optimization:
 //#define DEBUG_CODEGEN

@@ -145,7 +145,7 @@ empty:
   return -1;
 }
 
-// TODOXXX: Adapt to MAXPRINTFARGS == 32.
+// TODO: Adapt to MAXPRINTFARGS == 32.
 uint64_t
 bpf_sprintf(std::vector<std::string> &strings, char *fstr,
             uint64_t arg1, uint64_t arg2, uint64_t arg3)
@@ -228,7 +228,7 @@ bpf_handle_transport_msg(void *buf, size_t size,
       for (unsigned i = 0; i < BPF_MAXPRINTFARGS; i++)
         if (i < ctx->printf_args.size()
             && ctx->printf_arg_types[i] == bpf::globals::STP_PRINTF_ARG_LONG)
-          fargs[i] = (void *)*(__u64*)ctx->printf_args[i]; // TODOXXX: Fixup for 32-bit systems?
+          fargs[i] = (void *)*(uint64_t*)ctx->printf_args[i]; // TODOXXX: Fixup for 32-bit systems?
         else if (i < ctx->printf_args.size())
           fargs[i] = ctx->printf_args[i];
         else

@@ -1373,7 +1373,6 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
                 {
                   value *dest = get_asm_reg(stmt, stmt.dest);
                   this_prog.mk_mov(this_ins, dest, retval);
-
                 }
               // ??? For diagnostics: check other cases with retval and stmt.dest.
             }
@@ -2748,7 +2747,6 @@ bpf_unparser::emit_string_copy(value *dest, int ofs, value *src, bool zero_pad)
   this_prog.mk_binary(this_ins, BPF_ADD, out,
                       dest, this_prog.new_imm(ofs));
 
-  
 #ifdef DEBUG_CODEGEN
   this_ins.notes.pop(); // strcpy
 #endif
@@ -2912,12 +2910,14 @@ bpf_unparser::emit_transport_msg (globals::perf_event_type msg,
         assert(false); // XXX: Should be caught earlier.
       }
 
-  // TODOXXX: add code to ensure alignment, depending on argument size.
+  // XXX: The following force-aligns all elements to double word boundary.
+  // Could probably switch to single-word alignment with more careful design.
   if (arg_size % 8 != 0)
-    arg_size += 8 - arg_size % 8; // double word -- XXX verifier forces aligned access
+    arg_size += 8 - arg_size % 8;
   int arg_ofs = -arg_size;
-  int msg_ofs = arg_ofs-sizeof(BPF_TRANSPORT_VAL); // double word -- XXX verifier forces aligned access
-  assert(msg_ofs % 8 == 0);
+  int msg_ofs = arg_ofs-sizeof(BPF_TRANSPORT_VAL);
+  if (msg_ofs % 8 != 0)
+    msg_ofs -= (8 - (-msg_ofs) % 8);
   this_prog.use_tmp_space(-msg_ofs);
 
   value *frame = this_prog.lookup_reg(BPF_REG_10);
@@ -3001,6 +3001,13 @@ bpf_unparser::emit_print_format (const std::string& format,
 
   if (!print_to_stream)
     {
+      // TODO: sprintf() has an additional constraint on arguments due
+      // to passing them in a very small number of registers.
+      if (actual.size() > BPF_MAXSPRINTFARGS)
+        throw SEMANTIC_ERROR(_NF("additional argument to sprintf",
+                                 "too many arguments to sprintf (%zu)",
+                                 actual.size(), e->args.size()), tok);
+
       // Emit an ordinary function call to sprintf.
       size_t format_bytes = format.size() + 1;
       this_prog.mk_mov(this_ins, this_prog.lookup_reg(BPF_REG_1),

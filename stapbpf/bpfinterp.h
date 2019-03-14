@@ -33,9 +33,10 @@ extern "C" {
 
 // Used by the transport layer and interpreter:
 struct bpf_transport_context {
+  // XXX: The following two fields are only used for kernel programs.
+  // pmu_fd == -1 indicates context for a userspace interpreter.
   unsigned cpu;
   int pmu_fd;
-  // TODOXXX: If pmu_fd == -1, this is a userspace context. Be sure to reflect this in diagnostics.
 
   // References to global state:
   std::vector<int> *map_fds;
