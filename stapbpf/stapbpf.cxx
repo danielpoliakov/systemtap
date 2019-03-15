@@ -89,6 +89,7 @@ static std::vector<int> map_fds;
 
 // Sized by the number of CPUs:
 static std::vector<int> perf_fds;
+static std::vector<bool> cpu_online; // -- is CPU active?
 static std::vector<struct perf_event_mmap_page *> perf_headers;
 static std::vector<bpf_transport_context *> transport_contexts;
 
@@ -112,6 +113,10 @@ static Elf_Data *prog_end;
 #define KPROBE_EVENTS	DEBUGFS "kprobe_events"
 #define UPROBE_EVENTS   DEBUGFS "uprobe_events"
 #define EVENTS          DEBUGFS "events"
+
+#define CPUFS         "/sys/devices/system/cpu/"
+#define CPUS_ONLINE   CPUFS "online"
+#define CPUS_POSSIBLE CPUFS "possible"
 
 static void unregister_kprobes(const size_t nprobes);
 
@@ -217,6 +222,53 @@ fatal_elf()
   fatal("%s\n", elf_errmsg(-1));
 }
 
+
+// XXX: based on get_online_cpus()/read_cpu_range()
+// in bcc src/cc/common.cc
+//
+// This is the only way I know of so far, so I have to imitate it for
+// now. Parsing a /sys/devices diagnostic file seems a bit brittle to
+// me, though.
+static void
+mark_active_cpus(unsigned ncpus)
+{
+  std::ifstream cpu_ranges(CPUS_ONLINE);
+  std::string cpu_range;
+
+  cpu_online.clear();
+  for (unsigned i = 0; i < ncpus; i++)
+    cpu_online.push_back(false);
+
+  while (std::getline(cpu_ranges, cpu_range, ','))
+    {
+      size_t rangepos = cpu_range.find("-");
+      int start, end;
+      if (rangepos == std::string::npos)
+        {
+          start = end = std::stoi(cpu_range);
+        }
+      else
+        {
+          start = std::stoi(cpu_range.substr(0, rangepos));
+          end = std::stoi(cpu_range.substr(rangepos+1));
+        }
+      for (int i = start; i <= end; i++)
+        {
+          cpu_online[i] = true;
+        }
+    }
+}
+
+static int
+count_active_cpus()
+{
+  int count = 0;
+  for (unsigned cpu = 0; cpu < cpu_online.size(); cpu++)
+    if (cpu_online[cpu])
+      count++;
+  return count;
+}
+
 static int
 create_group_fds()
 {
@@ -300,10 +352,16 @@ instantiate_maps (Elf64_Shdr *shdr, Elf_Data *data)
           assert(i == bpf::globals::perf_event_map_idx);
           assert(attrs[i].max_entries == bpf::globals::NUM_CPUS_PLACEHOLDER);
 
-          // TODOXXX: Should we use get_nprocs_conf() / _SC_NPROCESSORS_CONF?
-          // TODOXXX: We need to support non-contiguous active cpu #s
-          //attrs[i].max_entries = get_nprocs();
-          attrs[i].max_entries = sysconf(_SC_NPROCESSORS_ONLN);
+          // TODO: perf_event buffers can only be created for currently
+          // active CPUs. For now we imitate Certain Other Tools and
+          // create perf_events for CPUs that are active at startup time
+          // (while sizing the perf_event_map according to total CPUs).
+          // But for full coverage, we really need to listen to CPUs
+          // coming on/offline and adjust accordingly.
+          unsigned ncpus = sysconf(_SC_NPROCESSORS_CONF);
+          //unsigned ncpus = get_nprocs_conf();
+          mark_active_cpus(ncpus);
+          attrs[i].max_entries = ncpus;
         }
 
       if (log_level > 2)
@@ -1083,6 +1141,13 @@ init_perf_transport()
 
   for (unsigned cpu = 0; cpu < ncpus; cpu++)
     {
+      if (!cpu_online[cpu]) // -- skip inactive CPUs.
+        {
+          perf_fds.push_back(-1);
+          transport_contexts.push_back(nullptr);
+          continue;
+        }
+
       struct perf_event_attr peattr;
 
       memset(&peattr, 0, sizeof(peattr));
@@ -1113,6 +1178,12 @@ init_perf_transport()
   perf_event_mmap_size = perf_event_page_size * (perf_event_page_count + 1);
   for (unsigned cpu = 0; cpu < ncpus; cpu++)
     {
+      if (!cpu_online[cpu]) // -- skip inactive CPUs.
+        {
+          perf_headers.push_back(nullptr);
+          continue;
+        }
+
       int pmu_fd = perf_fds[cpu];
       void *base = mmap(NULL, perf_event_mmap_size,
                         PROT_READ | PROT_WRITE, MAP_SHARED,
@@ -1453,14 +1524,20 @@ perf_event_loop(pthread_t main_thread)
 
   unsigned ncpus
     = map_attrs[bpf::globals::perf_event_map_idx].max_entries;
+  unsigned n_active_cpus
+    = count_active_cpus();
   struct pollfd *pmu_fds
-    = (struct pollfd *)malloc(ncpus * sizeof(struct pollfd));
+    = (struct pollfd *)malloc(n_active_cpus * sizeof(struct pollfd));
 
   assert(ncpus == perf_fds.size());
-  for (unsigned i = 0; i < ncpus; i++)
+  unsigned i = 0;
+  for (unsigned cpu = 0; cpu < ncpus; cpu++)
     {
+      if (!cpu_online[cpu]) continue; // -- skip inactive CPUs.
+
       pmu_fds[i].fd = perf_fds[i];
       pmu_fds[i].events = POLLIN;
+      i++;
     }
 
   // Avoid multiple warnings about errors reading from an fd:
@@ -1469,13 +1546,13 @@ perf_event_loop(pthread_t main_thread)
   for (;;)
     {
       if (log_level > 3)
-        fprintf(stderr, "Polling for perf_event data on %d cpus...\n", ncpus);
-      int ready = poll(pmu_fds, ncpus, 1000); // XXX: Consider setting timeout -1 (unlimited).
+        fprintf(stderr, "Polling for perf_event data on %d cpus...\n", n_active_cpus);
+      int ready = poll(pmu_fds, n_active_cpus, 1000); // XXX: Consider setting timeout -1 (unlimited).
       if (ready < 0 && errno == EINTR)
         goto signal_exit;
       if (ready < 0)
         fatal("Error checking for perf events: %s\n", strerror(errno));
-      for (unsigned i = 0; i < ncpus; i++)
+      for (unsigned i = 0; i < n_active_cpus; i++)
         {
           if (pmu_fds[i].revents <= 0)
             continue;
