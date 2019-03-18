@@ -219,16 +219,18 @@ bpf_handle_transport_msg(void *buf, size_t size,
       if (ctx->printf_args.size() != ctx->expected_args)
         abort(); // wrong number of args
 
+      // TODO: Check this code on 32-bit systems after fixing PR24358.
+      //
       // XXX: Surprisingly, it is not easy to pass an array to a
       // printf-type function. The best I can do for now is hardcode a
       // call to fprintf with BPF_MAXPRINTFARGS arguments:
       {
       std::string &format_str = (*ctx->interned_strings)[ctx->format_no];
-      void *fargs[BPF_MAXPRINTFARGS]; // TODOXXX: Fixup for 32-bit systems?
+      void *fargs[BPF_MAXPRINTFARGS];
       for (unsigned i = 0; i < BPF_MAXPRINTFARGS; i++)
         if (i < ctx->printf_args.size()
             && ctx->printf_arg_types[i] == bpf::globals::STP_PRINTF_ARG_LONG)
-          fargs[i] = (void *)*(uint64_t*)ctx->printf_args[i]; // TODOXXX: Fixup for 32-bit systems?
+          fargs[i] = (void *)*(uint64_t*)ctx->printf_args[i];
         else if (i < ctx->printf_args.size())
           fargs[i] = ctx->printf_args[i];
         else
