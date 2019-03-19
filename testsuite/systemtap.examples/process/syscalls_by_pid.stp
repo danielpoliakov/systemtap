@@ -18,11 +18,11 @@ probe begin {
 }
 
 probe syscall_any {
-  syscalls[pid()]++
+  syscalls[pid()] <<< 1
 }
 
 probe end {
   printf ("%-10s %-s\n", "#SysCalls", "PID")
   foreach (pid in syscalls-)
-    printf("%-10d %-d\n", syscalls[pid], pid)
+    printf("%-10d %-d\n", @sum(syscalls[pid]), pid)
 }
