@@ -11,7 +11,7 @@ probe syscall.read.return {
   count = retval
   if ( count >= 0 ) {
     reads[execname()] <<< count # statistics array
-    totals[execname()] += count
+    totals[execname()] <<< count
   }
 }
 
@@ -19,7 +19,7 @@ probe syscall.write.return {
   count = retval
   if (count >= 0 ) {
     writes[execname()] <<< count # statistics array
-    totals[execname()] += count
+    totals[execname()] <<< count
   }
 }
 
@@ -28,7 +28,7 @@ probe end {
     "", "", "", "read", "read", "", "write", "write")
   printf("%16s %8s %8s %8s %8s %8s %8s %8s\n",
     "name", "open", "read", "KB tot", "B avg", "write", "KB tot", "B avg")
-  foreach (name in totals- limit 20) { # sort by total io
+  foreach (name in totals @sum- limit 20) { # sort by total io
     printf("%16s %8d %8d %8d %8d %8d %8d %8d\n",
       name, @count(opens[name]),
       @count(reads[name]),
