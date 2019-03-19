@@ -28,9 +28,41 @@ extern "C" {
 #include "libbpf.h"
 }
 
+// Required constants such as BPF_MAXFORMATLEN:
+#include "../bpf-internal.h"
+
+// Used by the transport layer and interpreter:
+struct bpf_transport_context {
+  // XXX: The following two fields are only used for kernel programs.
+  // pmu_fd == -1 indicates context for a userspace interpreter.
+  unsigned cpu;
+  int pmu_fd;
+
+  // References to global state:
+  std::vector<int> *map_fds;
+  FILE *output_f;
+  std::vector<std::string> *interned_strings;
+
+  // Data for an in-progress printf request:
+  bool in_printf;
+  int format_no;          // -- index into table of interned strings
+  unsigned expected_args; // -- expected number of printf_args
+  std::vector<void *> printf_args;
+  std::vector<bpf::globals::perf_event_type> printf_arg_types; // either ..ARG_LONG or ..ARG_STR
+
+  bpf_transport_context(unsigned cpu, int pmu_fd,
+                        std::vector<int> *map_fds, FILE *output_f,
+                        std::vector<std::string> *interned_strings)
+    : cpu(cpu), pmu_fd(pmu_fd),
+      map_fds(map_fds), output_f(output_f), interned_strings(interned_strings),
+      in_printf(false), format_no(-1), expected_args(0) {}
+};
+
+enum bpf_perf_event_ret bpf_handle_transport_msg(void *buf, size_t size,
+                                                 bpf_transport_context *ctx);
+  
 uint64_t bpf_interpret(size_t ninsns,
-		       const struct bpf_insn insns[],
-		       std::vector<int> &map_fds, FILE *output_f);
+                       const struct bpf_insn insns[],
+                       bpf_transport_context *ctx);
 
 #endif /* STAPRUNBPF_H */
-

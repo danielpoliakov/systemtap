@@ -36,6 +36,7 @@
 #include <sys/fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/syscall.h>
+#include <sys/mman.h>
 #include <sys/utsname.h>
 #include <sys/resource.h>
 #include "bpfinterp.h"
@@ -72,7 +73,7 @@ static int warnings = 1;
 static int exit_phase = 0;
 static int interrupt_message = 0;
 static FILE *output_f = stdout;
-static FILE *kmsg;
+static FILE *kmsg = NULL;
 
 static const char *module_name;
 static const char *module_basename;
@@ -86,6 +87,20 @@ static uint32_t kernel_version;
 static bpf_map_def *map_attrs;
 static std::vector<int> map_fds;
 
+// Sized by the number of CPUs:
+static std::vector<int> perf_fds;
+static std::vector<bool> cpu_online; // -- is CPU active?
+static std::vector<struct perf_event_mmap_page *> perf_headers;
+static std::vector<bpf_transport_context *> transport_contexts;
+
+// Additional info for perf_events transport:
+static int perf_event_page_size;
+static int perf_event_page_count = 8;
+static int perf_event_mmap_size;
+
+// Table of interned strings:
+static std::vector<std::string> interned_strings;
+
 // Sized by the number of sections, so that we can easily
 // look them up by st_shndx.
 static std::vector<int> prog_fds;
@@ -98,6 +113,10 @@ static Elf_Data *prog_end;
 #define KPROBE_EVENTS	DEBUGFS "kprobe_events"
 #define UPROBE_EVENTS   DEBUGFS "uprobe_events"
 #define EVENTS          DEBUGFS "events"
+
+#define CPUFS         "/sys/devices/system/cpu/"
+#define CPUS_ONLINE   CPUFS "online"
+#define CPUS_POSSIBLE CPUFS "possible"
 
 static void unregister_kprobes(const size_t nprobes);
 
@@ -175,6 +194,8 @@ static std::vector<perf_data> perf_probes;
 static std::vector<trace_data> tracepoint_probes;
 static std::vector<uprobe_data> uprobes;
 
+// TODO: Move fatal() to bpfinterp.h and replace abort() calls in the interpreter.
+// TODO: Add warn() option.
 static void __attribute__((noreturn))
 fatal(const char *str, ...)
 {
@@ -199,6 +220,53 @@ static void
 fatal_elf()
 {
   fatal("%s\n", elf_errmsg(-1));
+}
+
+
+// XXX: based on get_online_cpus()/read_cpu_range()
+// in bcc src/cc/common.cc
+//
+// This is the only way I know of so far, so I have to imitate it for
+// now. Parsing a /sys/devices diagnostic file seems a bit brittle to
+// me, though.
+static void
+mark_active_cpus(unsigned ncpus)
+{
+  std::ifstream cpu_ranges(CPUS_ONLINE);
+  std::string cpu_range;
+
+  cpu_online.clear();
+  for (unsigned i = 0; i < ncpus; i++)
+    cpu_online.push_back(false);
+
+  while (std::getline(cpu_ranges, cpu_range, ','))
+    {
+      size_t rangepos = cpu_range.find("-");
+      int start, end;
+      if (rangepos == std::string::npos)
+        {
+          start = end = std::stoi(cpu_range);
+        }
+      else
+        {
+          start = std::stoi(cpu_range.substr(0, rangepos));
+          end = std::stoi(cpu_range.substr(rangepos+1));
+        }
+      for (int i = start; i <= end; i++)
+        {
+          cpu_online[i] = true;
+        }
+    }
+}
+
+static int
+count_active_cpus()
+{
+  int count = 0;
+  for (unsigned cpu = 0; cpu < cpu_online.size(); cpu++)
+    if (cpu_online[cpu])
+      count++;
+  return count;
 }
 
 static int
@@ -235,6 +303,8 @@ instantiate_maps (Elf64_Shdr *shdr, Elf_Data *data)
       // TODO: The 58 bytes of overhead space per entry has been
       // decided by trial and error, and may require further tweaking:
       rlimit_increase += (58 + attrs[i].key_size + attrs[i].value_size) * attrs[i].max_entries;
+      // TODO: Note that Certain Other Tools just give up on
+      // calculating and set rlimit to the maximum possible.
     }
 
   struct rlimit curr_rlimit;
@@ -272,9 +342,31 @@ instantiate_maps (Elf64_Shdr *shdr, Elf_Data *data)
   /* Now create the maps: */
   for (i = 0; i < n; ++i)
     {
+      /* PR22330: The perf_event_map used for message transport must
+         have max_entries equal to the number of active CPUs, which we
+         wouldn't know for sure at translate time. Set it now: */
+      bpf_map_type map_type = static_cast<bpf_map_type>(attrs[i].type);
+      if (map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY)
+        {
+          /* XXX: Assume our only perf_event_map is the percpu transport one: */
+          assert(i == bpf::globals::perf_event_map_idx);
+          assert(attrs[i].max_entries == bpf::globals::NUM_CPUS_PLACEHOLDER);
+
+          // TODO: perf_event buffers can only be created for currently
+          // active CPUs. For now we imitate Certain Other Tools and
+          // create perf_events for CPUs that are active at startup time
+          // (while sizing the perf_event_map according to total CPUs).
+          // But for full coverage, we really need to listen to CPUs
+          // coming on/offline and adjust accordingly.
+          unsigned ncpus = sysconf(_SC_NPROCESSORS_CONF);
+          //unsigned ncpus = get_nprocs_conf();
+          mark_active_cpus(ncpus);
+          attrs[i].max_entries = ncpus;
+        }
+
       if (log_level > 2)
-        fprintf(stderr, "creating map entry %zu: key_size %u, value_size %u, "
-                "max_entries %u, map_flags %u\n", i,
+        fprintf(stderr, "creating map type %u entry %zu: key_size %u, value_size %u, "
+                "max_entries %u, map_flags %u\n", map_type, i,
                 attrs[i].key_size, attrs[i].value_size,
                 attrs[i].max_entries, attrs[i].map_flags);
       int fd = bpf_create_map(static_cast<bpf_map_type>(attrs[i].type),
@@ -314,9 +406,12 @@ prog_load(Elf_Data *data, const char *name)
   if (data->d_size % sizeof(bpf_insn))
     fatal("program size not a multiple of %zu\n", sizeof(bpf_insn));
 
-  fprintf (kmsg, "%s (%s): stapbpf: %s, name: %s, d_size: %lu\n",
-           module_basename, script_name, VERSION, name, (unsigned long)data->d_size);
-  fflush (kmsg); // Otherwise, flush will only happen after the prog runs.
+  if (kmsg != NULL)
+    {
+      fprintf (kmsg, "%s (%s): stapbpf: %s, name: %s, d_size: %lu\n",
+               module_basename, script_name, VERSION, name, (unsigned long)data->d_size);
+      fflush (kmsg); // Otherwise, flush will only happen after the prog runs.
+    }
   int fd = bpf_prog_load(prog_type, static_cast<bpf_insn *>(data->d_buf),
 			 data->d_size, module_license, kernel_version);
   if (fd < 0)
@@ -1032,7 +1127,73 @@ init_internal_globals()
 
   if (bpf_update_elem(map_fds[globals::internal_map_idx],
                      (void*)&key, (void*)&val, BPF_ANY) != 0)
-    fatal("Error updating pid: %s\n", errno);
+    fatal("Error updating pid: %s\n", strerror(errno));
+
+}
+
+// PR22330: Initialize perf_event_map and perf_fds.
+static void
+init_perf_transport()
+{
+  using namespace bpf;
+
+  unsigned ncpus = map_attrs[globals::perf_event_map_idx].max_entries;
+
+  for (unsigned cpu = 0; cpu < ncpus; cpu++)
+    {
+      if (!cpu_online[cpu]) // -- skip inactive CPUs.
+        {
+          perf_fds.push_back(-1);
+          transport_contexts.push_back(nullptr);
+          continue;
+        }
+
+      struct perf_event_attr peattr;
+
+      memset(&peattr, 0, sizeof(peattr));
+      peattr.size = sizeof(peattr);
+      peattr.sample_type = PERF_SAMPLE_RAW;
+      peattr.type = PERF_TYPE_SOFTWARE;
+      peattr.config = PERF_COUNT_SW_BPF_OUTPUT;
+      peattr.sample_period = 1;
+      peattr.wakeup_events = 1;
+
+      int pmu_fd = perf_event_open(&peattr, -1/*pid*/, cpu, -1/*group_fd*/, 0);
+      if (pmu_fd < 0)
+        fatal("Error initializing perf event for cpu %d: %s\n", cpu, strerror(errno));
+      if (bpf_update_elem(map_fds[globals::perf_event_map_idx],
+                          (void*)&cpu, (void*)&pmu_fd, BPF_ANY) != 0)
+        fatal("Error assigning perf event for cpu %d: %s\n", cpu, strerror(errno));
+      ioctl(pmu_fd, PERF_EVENT_IOC_ENABLE, 0);
+      perf_fds.push_back(pmu_fd);
+
+      // Create a data structure to track what's happening on each CPU:
+      bpf_transport_context *ctx = new bpf_transport_context(cpu, pmu_fd, &map_fds, output_f, &interned_strings);
+      transport_contexts.push_back(ctx);
+    }
+
+  // XXX: based on perf_event_mmap_header()
+  // in kernel tools/testing/selftests/bpf/trace_helpers.c
+  perf_event_page_size = getpagesize();
+  perf_event_mmap_size = perf_event_page_size * (perf_event_page_count + 1);
+  for (unsigned cpu = 0; cpu < ncpus; cpu++)
+    {
+      if (!cpu_online[cpu]) // -- skip inactive CPUs.
+        {
+          perf_headers.push_back(nullptr);
+          continue;
+        }
+
+      int pmu_fd = perf_fds[cpu];
+      void *base = mmap(NULL, perf_event_mmap_size,
+                        PROT_READ | PROT_WRITE, MAP_SHARED,
+                        pmu_fd, 0);
+      if (base == MAP_FAILED)
+        fatal("error mmapping header for perf_event fd %d\n", pmu_fd);
+      perf_headers.push_back((perf_event_mmap_page*)base);
+      if (log_level > 2)
+        fprintf(stderr, "Initialized perf_event output on cpu %d\n", cpu);
+    }
 }
 
 static void
@@ -1104,6 +1265,7 @@ load_bpf_file(const char *module)
   unsigned version_idx = 0;
   unsigned license_idx = 0;
   unsigned script_name_idx = 0;
+  unsigned interned_strings_idx = 0;
   unsigned kprobes_idx = 0;
   unsigned begin_idx = 0;
   unsigned end_idx = 0;
@@ -1140,6 +1302,8 @@ load_bpf_file(const char *module)
 	license_idx = i;
       else if (strcmp(shname, "stapbpf_script_name") == 0)
 	script_name_idx = i;
+      else if (strcmp(shname, "stapbpf_interned_strings") == 0)
+        interned_strings_idx = i;
       else if (strcmp(shname, "version") == 0)
 	version_idx = i;
       else if (strcmp(shname, "maps") == 0)
@@ -1174,6 +1338,27 @@ load_bpf_file(const char *module)
   // Create bpf maps as required.
   if (maps_idx != 0)
     instantiate_maps(shdrs[maps_idx], sh_data[maps_idx]);
+
+  // Create interned strings as required.
+  if (interned_strings_idx != 0)
+    {
+      // XXX: Whatever the type used by the translator, this section
+      // just holds a blob of NUL-terminated strings we parse as follows:
+      char *strtab = static_cast<char *>(sh_data[interned_strings_idx]->d_buf);
+      unsigned long long strtab_size = shdrs[interned_strings_idx]->sh_size;
+      unsigned ofs = 0;
+      bool found_hdr = false;
+      while (ofs < strtab_size)
+        {
+          // XXX: Potentially vulnerable to NUL byte in string constant.
+          std::string str(strtab+ofs); // XXX: will slurp up to NUL byte
+          if (str.size() == 0 && !found_hdr)
+            found_hdr = true; // section *may* start with an extra NUL byte
+          else
+            interned_strings.push_back(str);
+          ofs += str.size() + 1;
+        }
+    }
 
   // Relocate all programs that require it.
   for (unsigned i = 1; i < shnum; ++i)
@@ -1279,74 +1464,131 @@ get_exit_status()
   return val;
 }
 
-static void
-print_trace_output(pthread_t main_thread)
+// XXX: based on perf_event_sample
+// in kernel tools/testing/selftests/bpf/trace_helpers.c
+struct perf_event_sample {
+  struct perf_event_header header;
+  __u32 size;
+  char data[];
+};
+
+static enum bpf_perf_event_ret
+perf_event_handle(struct perf_event_header *hdr, void *private_data)
 {
-  // Output from printf statements within probe handlers is sent to
-  // debugfs via trace_printk. Get this output and copy it to output_f.
-  string modname(module_name);
-  size_t pos = modname.find_last_of("/");
-  if (pos != string::npos)
-    modname = modname.substr(pos + 1);
+  // XXX: based on bpf_perf_event_print
+  // in kernel tools/testing/selftests/bpf/trace_helpers.c
 
-  string start_tag = "<" + modname.erase(modname.size() - 3).erase(4, 1) + ">";
-  string end_tag = start_tag;
-  end_tag.insert(1, "/");
+  struct perf_event_sample *e = (struct perf_event_sample *)hdr;
+  bpf_transport_context *ctx = (bpf_transport_context *)private_data;
+  bpf_perf_event_ret ret;
 
-  while (1)
+  // Make sure we weren't passed a userspace context by accident.
+  assert(ctx->pmu_fd >= 0);
+
+  if (e->header.type == PERF_RECORD_SAMPLE)
     {
-      ifstream trace_pipe(DEBUGFS "trace_pipe");
-      if (!trace_pipe)
-        fatal("error opening trace_pipe: %s\n", strerror(errno));
-
-      bool start_tag_seen = false;
-      unsigned bytes_written = 0;
-      string line, buf;
-      while (getline(trace_pipe, line))
-        {
-          line += "\n";
-          if (!start_tag_seen)
-            {
-              pos = line.find(start_tag);
-              if (pos != string::npos)
-                {
-                  start_tag_seen = true;
-                  bytes_written = 0;
-                  line = line.substr(pos + start_tag.size(), string::npos);
-                }
-            }
-          if (start_tag_seen)
-            {
-              pos = line.find(end_tag);
-              if (pos != string::npos)
-                {
-                  line = line.substr(0, pos);
-                  start_tag_seen = false;
-
-                  // exit() causes "" to be written to trace_pipe. If
-                  // "" is seen and the exit flag is set, wake up main
-                  // thread to begin program shutdown.
-                  if (line == "" && buf == "" && bytes_written == 0
-                      && get_exit_status())
-                    {
-                      pthread_kill(main_thread, SIGINT);
-                      return;
-                    }
-                }
-
-              buf += line;
-              if (fwrite(buf.c_str(), sizeof(char), buf.size(), output_f)
-                   != buf.size())
-                fatal("error writing to output file: %s\n", strerror(errno));
-              bytes_written += buf.size();
-
-              fflush(output_f);
-              buf = "";
-            }
-        }
-      // If another process opens trace_pipe then we may read EOF. In this
-      // case simply reopen the file and continue parsing.
+      __u32 actual_size = e->size - sizeof(e->size);
+      ret = bpf_handle_transport_msg(e->data, actual_size, ctx);
+      if (ret != LIBBPF_PERF_EVENT_CONT)
+        return ret;
     }
+  else if (e->header.type == PERF_RECORD_LOST)
+    {
+      struct lost_events {
+        struct perf_event_header header;
+        __u64 id;
+        __u64 lost;
+      };
+      struct lost_events *lost = (lost_events *) e;
+      fprintf(stderr, "WARNING: lost %lld perf_events on cpu %d\n",
+              lost->lost, ctx->cpu);
+    }
+  else
+    {
+      fprintf(stderr, "WARNING: unknown perf_event type=%d size=%d on cpu %d\n",
+              e->header.type, e->header.size, ctx->cpu);
+    }
+  return LIBBPF_PERF_EVENT_CONT;
+}
+
+// PR22330: Listen for perf_events.
+static void
+perf_event_loop(pthread_t main_thread)
+{
+  // XXX: based on perf_event_poller_multi()
+  // in kernel tools/testing/selftests/bpf/trace_helpers.c
+
+  enum bpf_perf_event_ret ret;
+  void *data = NULL;
+  size_t len = 0;
+
+  unsigned ncpus
+    = map_attrs[bpf::globals::perf_event_map_idx].max_entries;
+  unsigned n_active_cpus
+    = count_active_cpus();
+  struct pollfd *pmu_fds
+    = (struct pollfd *)malloc(n_active_cpus * sizeof(struct pollfd));
+
+  assert(ncpus == perf_fds.size());
+  unsigned i = 0;
+  for (unsigned cpu = 0; cpu < ncpus; cpu++)
+    {
+      if (!cpu_online[cpu]) continue; // -- skip inactive CPUs.
+
+      pmu_fds[i].fd = perf_fds[i];
+      pmu_fds[i].events = POLLIN;
+      i++;
+    }
+
+  // Avoid multiple warnings about errors reading from an fd:
+  std::set<int> already_warned;
+
+  for (;;)
+    {
+      if (log_level > 3)
+        fprintf(stderr, "Polling for perf_event data on %d cpus...\n", n_active_cpus);
+      int ready = poll(pmu_fds, n_active_cpus, 1000); // XXX: Consider setting timeout -1 (unlimited).
+      if (ready < 0 && errno == EINTR)
+        goto signal_exit;
+      if (ready < 0)
+        fatal("Error checking for perf events: %s\n", strerror(errno));
+      for (unsigned i = 0; i < n_active_cpus; i++)
+        {
+          if (pmu_fds[i].revents <= 0)
+            continue;
+          if (log_level > 3)
+            fprintf(stderr, "Saw perf_event on fd %d\n", pmu_fds[i].fd);
+
+          ready --;
+          ret = bpf_perf_event_read_simple
+            (perf_headers[i],
+             perf_event_page_count * perf_event_page_size,
+             perf_event_page_size,
+             &data, &len,
+             perf_event_handle, transport_contexts[i]);
+
+          if (ret == LIBBPF_PERF_EVENT_DONE)
+            {
+              // Saw STP_EXIT message. If the exit flag is set,
+              // wake up main thread to begin program shutdown.
+              if (get_exit_status())
+                  goto signal_exit;
+              continue;
+            }
+          if (ret != LIBBPF_PERF_EVENT_CONT)
+            if (already_warned.count(pmu_fds[i].fd) == 0)
+              {
+                fprintf(stderr, "WARNING: could not read from perf_event buffer on fd %d\n", pmu_fds[i].fd);
+                already_warned.insert(pmu_fds[i].fd);
+              }
+        }
+      assert(ready == 0);
+    }
+
+ signal_exit:
+  pthread_kill(main_thread, SIGINT);
+  free(pmu_fds);
+  return;
 }
 
 static void
@@ -1437,10 +1679,17 @@ main(int argc, char **argv)
   if (optind != argc - 1)
     goto do_usage;
 
-  kmsg = fopen("/dev/kmsg", "a");
+  // Be sure dmesg mentions that we are loading bpf programs:
+  kmsg = fopen("/dev/kmsg", "w");
+  if (kmsg == NULL)
+    fprintf(stderr, "WARNING: could not open /dev/kmsg for diagnostics: %s\n", strerror(errno));
 
   load_bpf_file(argv[optind]);
   init_internal_globals();
+  init_perf_transport();
+
+  // Create a bpf_transport_context for userspace programs:
+  bpf_transport_context uctx(0/*cpu*/, -1/*pmu_fd*/, &map_fds, output_f, &interned_strings);
 
   if (create_group_fds() < 0)
     fatal("Error creating perf event group: %s\n", strerror(errno));
@@ -1455,19 +1704,22 @@ main(int argc, char **argv)
   if (prog_begin)
     bpf_interpret(prog_begin->d_size / sizeof(bpf_insn),
                   static_cast<bpf_insn *>(prog_begin->d_buf),
-	          map_fds, output_f);
-
-  // Now that the begin probe has run, enable the kprobes.
-  ioctl(group_fd, PERF_EVENT_IOC_ENABLE, 0);
+                  &uctx);
 
   // Wait for ^C; read BPF_OUTPUT events, copying them to output_f.
   signal(SIGINT, (sighandler_t)sigint);
   signal(SIGTERM, (sighandler_t)sigint);
-  std::thread(print_trace_output, pthread_self()).detach();
 
+  // PR22330: Listen for perf_events:
+  std::thread(perf_event_loop, pthread_self()).detach();
+
+  // Now that the begin probe has run and the perf_event listener is active, enable the kprobes.
+  ioctl(group_fd, PERF_EVENT_IOC_ENABLE, 0);
+
+  // Wait for STP_EXIT message:
   while (!get_exit_status())
     pause();
-    
+
   // Disable the kprobes before deregistering and running exit probes.
   ioctl(group_fd, PERF_EVENT_IOC_DISABLE, 0);
   close(group_fd);
@@ -1488,7 +1740,12 @@ main(int argc, char **argv)
   if (prog_end)
     bpf_interpret(prog_end->d_size / sizeof(bpf_insn),
                   static_cast<bpf_insn *>(prog_end->d_buf),
-		  map_fds, output_f);
+                  &uctx);
+
+  // Clean up transport layer allocations:
+  for (std::vector<bpf_transport_context *>::iterator it = transport_contexts.begin();
+       it != transport_contexts.end(); it++)
+    delete *it;
 
   elf_end(module_elf);
   fclose(kmsg);

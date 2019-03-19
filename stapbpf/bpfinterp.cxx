@@ -145,6 +145,7 @@ empty:
   return -1;
 }
 
+// TODO: Adapt to MAXPRINTFARGS == 32.
 uint64_t
 bpf_sprintf(std::vector<std::string> &strings, char *fstr,
             uint64_t arg1, uint64_t arg2, uint64_t arg3)
@@ -171,16 +172,129 @@ bpf_ktime_get_ns()
 }
 
 
+enum bpf_perf_event_ret
+bpf_handle_transport_msg(void *buf, size_t size,
+                         bpf_transport_context *ctx)
+{
+  // Unpack transport message:
+  struct bpf_transport_msg {
+    BPF_TRANSPORT_VAL type;
+    BPF_TRANSPORT_ARG content_start;
+  };
+  bpf_transport_msg *_msg = (bpf_transport_msg *) buf;
+  bpf::globals::perf_event_type msg_type = (bpf::globals::perf_event_type)_msg->type;
+  void *msg_content = (void*)&_msg->content_start;
+  size_t msg_size = size - sizeof(BPF_TRANSPORT_ARG);
+
+  // Used for bpf::globals::STP_EXIT:
+  int exit_key = bpf::globals::EXIT;
+  long exit_val = 1;
+
+  // Used for bpf::globals::STP_FORMAT_ARG:
+  void *arg;
+
+  switch (msg_type)
+    {
+    case bpf::globals::STP_EXIT:
+      // Signal an exit from the program:
+      if (bpf_update_elem((*ctx->map_fds)[bpf::globals::internal_map_idx],
+                          &exit_key, &exit_val, BPF_ANY) != 0)
+        abort(); // could not set exit status
+      return LIBBPF_PERF_EVENT_DONE;
+
+    case bpf::globals::STP_PRINTF_START:
+      if (ctx->in_printf)
+        abort(); // printf already started
+      if (msg_size != sizeof(BPF_TRANSPORT_ARG))
+        abort(); // wrong argument size
+      ctx->in_printf = true; ctx->format_no = -1;
+      ctx->expected_args = *(BPF_TRANSPORT_ARG*)msg_content;
+      break;
+
+    case bpf::globals::STP_PRINTF_END:
+      if (!ctx->in_printf)
+        abort(); // printf not started
+      if (ctx->format_no < 0 || ctx->format_no >= (int)ctx->interned_strings->size())
+        abort(); // printf format is missing
+      if (ctx->printf_args.size() != ctx->expected_args)
+        abort(); // wrong number of args
+
+      // TODO: Check this code on 32-bit systems after fixing PR24358.
+      //
+      // XXX: Surprisingly, it is not easy to pass an array to a
+      // printf-type function. The best I can do for now is hardcode a
+      // call to fprintf with BPF_MAXPRINTFARGS arguments:
+      {
+      std::string &format_str = (*ctx->interned_strings)[ctx->format_no];
+      void *fargs[BPF_MAXPRINTFARGS];
+      for (unsigned i = 0; i < BPF_MAXPRINTFARGS; i++)
+        if (i < ctx->printf_args.size()
+            && ctx->printf_arg_types[i] == bpf::globals::STP_PRINTF_ARG_LONG)
+          fargs[i] = (void *)*(uint64_t*)ctx->printf_args[i];
+        else if (i < ctx->printf_args.size())
+          fargs[i] = ctx->printf_args[i];
+        else
+          fargs[i] = NULL;
+      assert(BPF_MAXPRINTFARGS == 32); // XXX: Change the fprintf() call if this changes.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+      fprintf(ctx->output_f, format_str.c_str(),
+              fargs[0], fargs[1], fargs[2], fargs[3], fargs[4], fargs[5], fargs[6], fargs[7],
+              fargs[8], fargs[9], fargs[10], fargs[11], fargs[12], fargs[13], fargs[14], fargs[15],
+              fargs[16], fargs[17], fargs[18], fargs[19], fargs[20], fargs[21], fargs[22], fargs[23],
+              fargs[24], fargs[25], fargs[26], fargs[27], fargs[28], fargs[29], fargs[30], fargs[31]);
+      fflush(ctx->output_f);
+#pragma GCC diagnostic pop
+      }
+
+      // Deallocate accumulated format+args:
+      ctx->in_printf = false; ctx->format_no = -1;
+      for (unsigned i = 0; i < ctx->printf_args.size(); i++)
+        free(ctx->printf_args[i]);
+      ctx->printf_args.clear();
+      ctx->printf_arg_types.clear();
+      break;
+
+    case bpf::globals::STP_PRINTF_FORMAT:
+      if (!ctx->in_printf)
+        abort(); // printf not started
+      if (ctx->format_no != -1)
+        abort(); // printf already has format
+      if (msg_size != sizeof(BPF_TRANSPORT_ARG))
+        abort(); // wrong argument size
+      ctx->format_no = *(BPF_TRANSPORT_ARG*)msg_content;
+      break;
+
+    // XXX: Could save spurious mallocs by storing ARG_LONG as the void * itself.
+    case bpf::globals::STP_PRINTF_ARG_LONG:
+    case bpf::globals::STP_PRINTF_ARG_STR:
+      if (!ctx->in_printf)
+        abort(); // printf not started
+      arg = malloc(msg_size);
+      memcpy(arg, msg_content, msg_size);
+      ctx->printf_args.push_back(arg);
+      ctx->printf_arg_types.push_back(msg_type);
+      break;
+
+    default:
+      abort();
+    } 
+  return LIBBPF_PERF_EVENT_CONT;
+}
 
 uint64_t
 bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
-              std::vector<int> &map_fds, FILE *output_f)
+              bpf_transport_context *ctx)
 {
   uint64_t stack[512 / 8];
   uint64_t regs[MAX_BPF_REG];
   uint64_t lookup_tmp = 0xdeadbeef;
   const struct bpf_insn *i = insns;
   static std::vector<std::string> strings;
+
+  std::vector<int> &map_fds = *ctx->map_fds;
+  FILE *output_f = ctx->output_f;
+
   map_keys keys[map_fds.size()];
 
   regs[BPF_REG_10] = (uintptr_t)stack + sizeof(stack);
@@ -188,6 +302,7 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
   while ((size_t)(i - insns) < ninsns)
     {
       uint64_t dr, sr, si, s1;
+      bpf_perf_event_ret tr;
 
       dr = regs[i->dst_reg];
       sr = regs[i->src_reg];
@@ -397,7 +512,16 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
 	    case BPF_FUNC_ktime_get_ns:
               dr = bpf_ktime_get_ns();
               break;
+            case BPF_FUNC_perf_event_output:
+              /* XXX ignored, but could be checked: regs[1], regs[2], regs[3] */
+              tr = bpf_handle_transport_msg
+                ((void *)regs[4], (size_t)regs[5], ctx);
+              /* Normalize return value to match the helper API.
+                 XXX: May want to look at errno as well? */
+              dr = (tr != LIBBPF_PERF_EVENT_ERROR) ? 0 : -1;
+              break;
 	    case BPF_FUNC_trace_printk:
+              /* XXX no longer need this code after PR22330 */
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
               // regs[2] is the strlen(regs[1]) - not used by printf(3);
@@ -413,7 +537,7 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
               break;
             case bpf::BPF_FUNC_map_get_next_key:
               dr = map_get_next_key(regs[1], regs[2], regs[3], regs[4],
-                                    regs[5],  map_fds, keys[regs[1]]);
+                                    regs[5], map_fds, keys[regs[1]]);
               break;
 	    default:
 	      abort();

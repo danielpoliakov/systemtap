@@ -137,8 +137,6 @@ has_side_effects (expression *e)
 
 /* forward declarations */
 struct asm_stmt;
-static void print_format_add_tag(std::string&);
-static void print_format_add_tag(print_format*);
 
 struct bpf_unparser : public throwing_visitor
 {
@@ -150,7 +148,7 @@ struct bpf_unparser : public throwing_visitor
   // The program into which we are emitting code.
   program &this_prog;
   globals &glob;
-  value *this_in_arg0;
+  value *this_in_arg0 = NULL;
 
   // The "current" block into which we are currently emitting code.
   insn_append_inserter this_ins;
@@ -240,10 +238,13 @@ struct bpf_unparser : public throwing_visitor
   value *emit_bool(expression *e);
   value *emit_context_var(bpf_context_vardecl *v);
 
+  void emit_transport_msg(globals::perf_event_type msg,
+                          value *arg = NULL, exp_type format_type = pe_unknown);
   value *emit_functioncall(functiondecl *f, const std::vector<value *> &args);
   value *emit_print_format(const std::string &format,
                            const std::vector<value *> &actual,
-                           bool print_to_stream = true);
+                           bool print_to_stream = true,
+                           const token *tok = NULL);
 
   // Used for the embedded-code assembler:
   int64_t parse_imm (const asm_stmt &stmt, const std::string &str);
@@ -600,7 +601,7 @@ bpf_unparser::visit_block (::block *s)
 /* Supported assembly statement types include:
 
    <stmt> ::= label, <dest=label>;
-   <stmt> ::= alloc, <dest=reg>, <imm=imm>;
+   <stmt> ::= alloc, <dest=reg>, <imm=imm> [, align|noalign];
    <stmt> ::= call, <dest=optreg>, <param[0]=function name>, <param[1]=arg>, ...;
    <stmt> ::= <code=integer opcode>, <dest=reg>, <src1=reg>,
               <off/jmp_target=off>, <imm=imm>;
@@ -609,9 +610,9 @@ bpf_unparser::visit_block (::block *s)
 
    <arg>    ::= <reg> | <imm>
    <optreg> ::= <reg> | -
-   <reg>    ::= <register index> | r<register index> |
+   <reg>    ::= <register index> | r<register index> | $ctx
                 $<identifier> | $<integer constant> | $$ | <string constant>
-   <imm>    ::= <integer constant> | BPF_MAXSTRINGLEN | -
+   <imm>    ::= <integer constant> | BPF_MAXSTRINGLEN | BPF_F_CURRENT_CPU | -
    <off>    ::= <imm> | <jump label>
 
 */
@@ -633,6 +634,9 @@ struct asm_stmt {
 
   // metadata for call, error instructions
   std::vector<std::string> params;
+
+  // metadata for alloc instructions
+  bool align_alloc;
 
   token *tok;
 };
@@ -700,6 +704,8 @@ bpf_unparser::parse_imm (const asm_stmt &stmt, const std::string &str)
   int64_t val;
   if (str == "BPF_MAXSTRINGLEN")
     val = BPF_MAXSTRINGLEN;
+  else if (str == "BPF_F_CURRENT_CPU")
+    val = BPF_F_CURRENT_CPU;
   else if (str == "-")
     val = 0;
   else try {
@@ -846,11 +852,27 @@ bpf_unparser::parse_asm_stmt (embeddedcode *s, size_t start,
     }
   else if (args[0] == "alloc")
     {
-      if (args.size() != 3)
-        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (alloc expects 2 args, found %llu)", (long long) args.size()-1), stmt.tok);
+      if (args.size() != 3 && args.size() != 4)
+        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (alloc expects 2 or 3 args, found %llu)", (long long) args.size()-1), stmt.tok);
       stmt.kind = args[0];
       stmt.dest = args[1];
       stmt.imm = parse_imm(stmt, args[2]);
+
+      // handle align, noalign options
+      if (args.size() == 4 && args[3] == "align")
+        {
+          stmt.align_alloc = true;
+        }
+      else if (args.size() == 4 && args[3] == "noalign")
+        {
+          stmt.align_alloc = false;
+        }
+      else if (args.size() == 4)
+        throw SEMANTIC_ERROR (_F("invalid bpf embeddedcode syntax (alloc expects 'align' or 'noalign' as 3rd arg, found '%s'", args[3].c_str()), stmt.tok);
+      else
+        {
+          stmt.align_alloc = false;
+        }
     }
   else if (args[0] == "call")
     {
@@ -919,6 +941,11 @@ bpf_unparser::emit_asm_arg (const asm_stmt &stmt, const std::string &arg,
         throw SEMANTIC_ERROR (_("no return value outside function"), stmt.tok);
       return func_return_val.back();
     }
+  else if (arg == "$ctx")
+    {
+      /* provide the context where available */
+      return this_in_arg0 ? this_in_arg0 : this_prog.new_imm(0x0);
+    }
   else if (arg[0] == '$')
     {
       /* assume arg is a variable */
@@ -978,13 +1005,16 @@ bpf_unparser::emit_asm_arg (const asm_stmt &stmt, const std::string &arg,
       std::string str = translate_escapes(escaped_str);
       return emit_literal_string(str, stmt.tok);
     }
-  else if (arg == "BPF_MAXSTRINGLEN")
+  else if (arg == "BPF_MAXSTRINGLEN" || arg == "BPF_F_CURRENT_CPU")
     {
-      /* arg is BPF_MAXSTRINGLEN */
+      /* arg is a system constant */
       if (!allow_imm)
         throw SEMANTIC_ERROR (_F("invalid bpf register '%s'",
                                  arg.c_str()), stmt.tok);
-      return this_prog.new_imm(BPF_MAXSTRINGLEN);
+      if (arg == "BPF_MAXSTRINGLEN")
+        return this_prog.new_imm(BPF_MAXSTRINGLEN);
+      else // arg == "BPF_F_CURRENT_CPU"
+        return this_prog.new_imm(BPF_F_CURRENT_CPU);
     }
   else if (arg == "-")
     {
@@ -1273,6 +1303,8 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
         {
           /* Reserve stack space and store its address in dest. */
           int ofs = -this_prog.max_tmp_space - stmt.imm;
+          if (stmt.align_alloc && (-ofs) % 8 != 0) // align to double-word
+            ofs -= 8 - (-ofs) % 8;
           this_prog.use_tmp_space(-ofs);
           // ??? Consider using a storage allocator and this_prog.new_obj().
 
@@ -1323,10 +1355,6 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
               format = format.substr(1,format.size()-2); /* strip quotes */
               format = translate_escapes(format);
 
-              bool print_to_stream = (func_name == "printf");
-              if (print_to_stream)
-                print_format_add_tag(format);
-
               size_t format_bytes = format.size() + 1;
               if (format_bytes > BPF_MAXFORMATLEN)
                 throw SEMANTIC_ERROR(_("Format string for print too long"), stmt.tok);
@@ -1334,17 +1362,17 @@ bpf_unparser::visit_embeddedcode (embeddedcode *s)
               std::vector<value *> args;
               for (unsigned k = 2; k < stmt.params.size(); k++)
                 args.push_back(emit_asm_arg(stmt, stmt.params[k]));
-              if (args.size() > 3)
+              if (args.size() > BPF_MAXPRINTFARGS)
                 throw SEMANTIC_ERROR(_NF("additional argument to print",
                                          "too many arguments to print (%zu)",
                                          args.size(), args.size()), stmt.tok);
 
-              value *retval = emit_print_format(format, args, print_to_stream);
+              bool print_to_stream = (func_name == "printf");
+              value *retval = emit_print_format(format, args, print_to_stream, stmt.tok);
               if (retval != NULL && stmt.dest != "-")
                 {
                   value *dest = get_asm_reg(stmt, stmt.dest);
                   this_prog.mk_mov(this_ins, dest, retval);
-
                 }
               // ??? For diagnostics: check other cases with retval and stmt.dest.
             }
@@ -2517,7 +2545,7 @@ bpf_unparser::visit_target_register (target_register* e)
 // ??? Endianness of the target comes into play here.
 value *
 emit_simple_literal_str(program &this_prog, insn_inserter &this_ins,
-                 value *dest, int ofs, std::string &src, bool zero_pad)
+                 value *dest, int ofs, const std::string &src, bool zero_pad)
 {
 #ifdef DEBUG_CODEGEN
   this_ins.notes.push("str");
@@ -2597,14 +2625,35 @@ bpf_unparser::emit_string_copy(value *dest, int ofs, value *src, bool zero_pad)
   size_t str_bytes = BPF_MAXSTRINGLEN;
   size_t str_words = (str_bytes + 3) / 4;
 
-  block *join_block = this_prog.new_block();
+  value *out = this_prog.new_reg(); // -- where to store the final string addr
+  block *return_block = this_prog.new_block();
+
+  // XXX: It is sometimes possible to receive src == NULL.
+  // trace_printk() did not care about being passed such values, but
+  // applying strcpy() to NULL will (understandably) fail the
+  // verifier. Therefore, we need to check for this possibility first:
+  block *null_copy_block = this_prog.new_block();
+  block *normal_block = this_prog.new_block();
+  this_prog.mk_jcond(this_ins, EQ, src, this_prog.new_imm(0),
+                     null_copy_block, normal_block);
+
+  // Only call emit_simple_literal_str() if we can't reuse the zero-pad code:
+  if (!zero_pad)
+    {
+      set_block(null_copy_block);
+      value *empty_str = emit_simple_literal_str (this_prog, this_ins,
+                                                  dest, ofs, "", false);
+      emit_mov(out, empty_str);
+      emit_jmp(return_block);
+    }
+
+  set_block(normal_block);
 
   /* block_A[i] copies src[4*i] to dest[4*i+ofs];
-     block_B[i] copies 0 to dest[4*i+ofs].
-     Since block_B[0] is never branched to, we set it to NULL. */
+     block_B[i] copies 0 to dest[4*i+ofs], produced only if zero_pad is true. */
   std::vector<block *> block_A, block_B;
   block_A.push_back(this_ins.get_block());
-  if (zero_pad) block_B.push_back(NULL);
+  if (zero_pad) block_B.push_back(null_copy_block);
 
   for (unsigned i = 0; i < str_words; ++i)
     {
@@ -2618,7 +2667,7 @@ bpf_unparser::emit_string_copy(value *dest, int ofs, value *src, bool zero_pad)
         }
       else
         {
-          next_block = join_block;
+          next_block = return_block;
         }
 
       set_block(block_A[i]);
@@ -2675,7 +2724,7 @@ bpf_unparser::emit_string_copy(value *dest, int ofs, value *src, bool zero_pad)
         }
 
       this_prog.mk_jcond(this_ins, EQ, all_nz, this_prog.new_imm(0),
-                         zero_pad ? block_B[i+1] : join_block, next_block);
+                         zero_pad ? block_B[i+1] : return_block, next_block);
     }
 
   // XXX: Zero-padding is only used under specific circumstances;
@@ -2684,23 +2733,20 @@ bpf_unparser::emit_string_copy(value *dest, int ofs, value *src, bool zero_pad)
     {
       for (unsigned i = 0; i < str_words; ++i)
         {
-          /* Since block_B[0] is never branched to, it was set to NULL. */
-          if (block_B[i] == NULL) continue;
-
           set_block(block_B[i]);
           this_prog.mk_st(this_ins, BPF_W,
                           dest, (int32_t)i * 4 + ofs,
                           this_prog.new_imm(0));
 
-          emit_jmp(i < str_words - 1 ? block_B[i+1] : join_block);
+          emit_jmp(i < str_words - 1 ? block_B[i+1] : return_block);
         }
     }
 
-  set_block(join_block);
+  set_block(return_block);
 
-  value *out = this_prog.new_reg();
   this_prog.mk_binary(this_ins, BPF_ADD, out,
                       dest, this_prog.new_imm(ofs));
+
 #ifdef DEBUG_CODEGEN
   this_ins.notes.pop(); // strcpy
 #endif
@@ -2799,93 +2845,206 @@ bpf_unparser::visit_functioncall (functioncall *e)
   result = emit_functioncall(f, args);
 }
 
-static void
-print_format_add_tag(std::string& format)
+int
+globals::intern_string (std::string& str)
 {
-  // surround the string with <MODNAME>...</MODNAME> to facilitate
-  // stapbpf recovering it from debugfs.
-  std::string start_tag = module_name;
-  start_tag = "<" + start_tag.erase(4,1) + ">";
-  std::string end_tag = start_tag + "\n";
-  end_tag.insert(1, "/");
-  format = start_tag + format + end_tag;
+  if (interned_str_map.count(str) > 0)
+    return interned_str_map[str];
+
+  int this_idx = interned_strings.size();
+  interned_strings.push_back(str);
+  interned_str_map[str] = this_idx;
+  return this_idx;
 }
 
-static void
-print_format_add_tag(print_format *e)
+// Generates perf_event_output transport message glue code.
+//
+// XXX: Based on the interface of perf_event_output, this_in_arg0 must
+// be a pt_regs * struct. In fact, the BPF program apparently has to
+// pass the context given to the program as arg 0, regardless of the
+// type. For the sake of user-space helpers (e.g. begin/end) we just
+// pass NULL when this_in_arg0 is not available. Should not happen
+// in-kernel where BPF programs apparently always have a context, but
+// it's worth noting the assumptions here.
+//
+// TODO: We need to specify the transport message format more
+// compactly. Thus far, everything is written as double-words to avoid
+// getting 'misaligned stack access' errors from the verifier.
+//
+// TODO: We could extend this interface to allow passing multiple
+// values in one transport message, e.g. a sequence of pe_long.
+void
+bpf_unparser::emit_transport_msg (globals::perf_event_type msg,
+                                  value *arg, exp_type format_type)
 {
-  if (e->tag)
-    return;
-
-  e->tag = true;
-  // surround the string with <MODNAME>...</MODNAME> to facilitate
-  // stapbpf recovering it from debugfs.
-  std::string start_tag = module_name;
-  start_tag = "<" + start_tag.erase(4, 1) + ">";
-  std::string end_tag = start_tag + "\n";
-  end_tag.insert(1, "/");
-  e->raw_components.insert(0, start_tag);
-  e->raw_components.append(end_tag);
-
-  if (e->components.empty())
+  // Harmonize the information in arg, format_type, and msg:
+  if (arg != NULL)
     {
-      print_format::format_component c;
-      c.literal_string = start_tag + end_tag;
-      e->components.insert(e->components.begin(), c);
+      if (format_type == pe_unknown)
+        format_type = arg->format_type;
+      assert(format_type == arg->format_type || arg->format_type == pe_unknown);
+      if (arg->is_str() && arg->is_format() && format_type == pe_unknown)
+        format_type = pe_string;
+
+      // XXX: Finally, pick format_type based on msg (inferred from format string):
+      if (msg == globals::STP_PRINTF_ARG_LONG && format_type == pe_unknown)
+        format_type = pe_long;
+      else if (msg == globals::STP_PRINTF_ARG_STR && format_type == pe_unknown)
+        format_type = pe_string;
     }
-  else
-    {
-      if (e->components[0].type == print_format::conv_literal)
-        {
-          std::string s = start_tag
-                            + e->components[0].literal_string.to_string();
-          e->components[0].literal_string = s;
-        }
-      else
-        {
-          print_format::format_component c;
-          c.literal_string = start_tag;
-          e->components.insert(e->components.begin(), c);
-        }
 
-      if (e->components.back().type == print_format::conv_literal)
-        {
-          std::string s = end_tag
-                            + e->components.back().literal_string.to_string();
-          e->components.back().literal_string = s;
-        }
-      else
-        {
-          print_format::format_component c;
-          c.literal_string = end_tag;
-          e->components.insert(e->components.end(), c);
-        }
+  unsigned arg_size = 0;
+  if (arg != NULL)
+    switch (format_type)
+      {
+      case pe_long:
+        arg_size = 8;
+        break;
+      case pe_string:
+        if (arg->is_str() && arg->is_format())
+          arg_size = sizeof(BPF_TRANSPORT_ARG); // pass index of interned str
+        else
+          arg_size = BPF_MAXSTRINGLEN;
+        break;
+      default:
+        assert(false); // XXX: Should be caught earlier.
+      }
+
+  // XXX: The following force-aligns all elements to double word boundary.
+  // Could probably switch to single-word alignment with more careful design.
+  if (arg_size % 8 != 0)
+    arg_size += 8 - arg_size % 8;
+  int arg_ofs = -arg_size;
+  int msg_ofs = arg_ofs-sizeof(BPF_TRANSPORT_VAL);
+  if (msg_ofs % 8 != 0)
+    msg_ofs -= (8 - (-msg_ofs) % 8);
+  this_prog.use_tmp_space(-msg_ofs);
+
+  value *frame = this_prog.lookup_reg(BPF_REG_10);
+
+  // store arg
+  if (arg != NULL)
+    switch (format_type)
+      {
+      case pe_long:
+        this_prog.mk_st(this_ins, BPF_DW, frame, arg_ofs, arg);
+        break;
+      case pe_string:
+        if (arg->is_str() && arg->is_format())
+          {
+            int idx = glob.intern_string(arg->str_val);
+            this_prog.mk_st(this_ins, BPF_DW, frame, arg_ofs,
+                            this_prog.new_imm(idx));
+          }
+        else
+          emit_string_copy(frame, arg_ofs, arg, false /* no zero pad */);
+        break;
+      default:
+        assert(false); // XXX: Should be caught earlier.
+      }
+
+  // double word -- XXX verifier forces aligned access
+  this_prog.mk_st(this_ins, BPF_DW, frame, msg_ofs, this_prog.new_imm(msg));
+
+  value *ctx = this_in_arg0 == NULL ? this_prog.new_imm(0) : this_in_arg0;
+  emit_mov(this_prog.lookup_reg(BPF_REG_1), ctx); // ctx
+  this_prog.load_map(this_ins, this_prog.lookup_reg(BPF_REG_2),
+                     globals::perf_event_map_idx);
+  emit_mov(this_prog.lookup_reg(BPF_REG_3),
+           this_prog.new_imm(BPF_F_CURRENT_CPU)); // flags
+  this_prog.mk_binary(this_ins, BPF_ADD,
+                      this_prog.lookup_reg(BPF_REG_4),
+                      frame, this_prog.new_imm(msg_ofs));
+  emit_mov(this_prog.lookup_reg(BPF_REG_5), this_prog.new_imm(-msg_ofs));
+  this_prog.mk_call(this_ins, BPF_FUNC_perf_event_output, 5);
+}
+
+globals::perf_event_type
+printf_arg_type (value *arg, const print_format::format_component &c)
+{
+  switch (arg->format_type)
+    {
+    case pe_long:
+      return globals::STP_PRINTF_ARG_LONG;
+    case pe_string:
+      return globals::STP_PRINTF_ARG_STR;
+    case pe_unknown:
+      // XXX: Could be a lot stricter and force
+      // arg->format_type and c.type to match.
+      switch (c.type) {
+      case print_format::conv_pointer:
+      case print_format::conv_number:
+      case print_format::conv_char:
+      case print_format::conv_memory:
+      case print_format::conv_memory_hex:
+      case print_format::conv_binary:
+        return globals::STP_PRINTF_ARG_LONG;
+
+      case print_format::conv_string:
+        return globals::STP_PRINTF_ARG_STR;
+
+      default:
+        assert(false); // XXX
+      }
+    default:
+      assert(false); // XXX: Should be caught earlier.
     }
 }
 
 value *
 bpf_unparser::emit_print_format (const std::string& format,
                                  const std::vector<value *>& actual,
-                                 bool print_to_stream)
+                                 bool print_to_stream,
+                                 const token *tok)
 {
   size_t nargs = actual.size();
 
-  // The bpf verifier requires that the format string be stored on the
-  // bpf program stack.  This is handled by bpf-opt.cxx lowering STR values.
-  size_t format_bytes = format.size() + 1;
-  this_prog.mk_mov(this_ins, this_prog.lookup_reg(BPF_REG_1),
-                   this_prog.new_str(format, true /*format_str*/));
-  emit_mov(this_prog.lookup_reg(BPF_REG_2), this_prog.new_imm(format_bytes));
-  for (size_t i = 0; i < nargs; ++i)
-    emit_mov(this_prog.lookup_reg(BPF_REG_3 + i), actual[i]);
-
-  if (print_to_stream)
-    this_prog.mk_call(this_ins, BPF_FUNC_trace_printk, nargs + 2);
-  else
+  if (!print_to_stream)
     {
+      // TODO: sprintf() has an additional constraint on arguments due
+      // to passing them in a very small number of registers.
+      if (actual.size() > BPF_MAXSPRINTFARGS)
+        throw SEMANTIC_ERROR(_NF("additional argument to sprintf",
+                                 "too many arguments to sprintf (%zu)",
+                                 actual.size(), actual.size()), tok);
+
+      // Emit an ordinary function call to sprintf.
+      size_t format_bytes = format.size() + 1;
+      this_prog.mk_mov(this_ins, this_prog.lookup_reg(BPF_REG_1),
+                       this_prog.new_str(format, true /*format_str*/));
+      emit_mov(this_prog.lookup_reg(BPF_REG_2), this_prog.new_imm(format_bytes));
+      for (size_t i = 0; i < nargs; ++i)
+        emit_mov(this_prog.lookup_reg(BPF_REG_3 + i), actual[i]);
+
       this_prog.mk_call(this_ins, BPF_FUNC_sprintf, nargs + 2);
       return this_prog.lookup_reg(BPF_REG_0);
     }
+
+  // Filter components to include only non-literal printf arguments:
+  std::vector<print_format::format_component> all_components =
+    print_format::string_to_components(format);
+  // XXX: Could pass print_format * to avoid extra parse, except for embedded-code.
+
+  std::vector<print_format::format_component> components;
+  for (auto &c : all_components) {
+    if (c.type != print_format::conv_literal)
+      components.push_back(c);
+  }
+  if (components.size() != nargs)
+    {
+      if (tok != NULL)
+        throw SEMANTIC_ERROR(_F("format string expected %zu args, got %zu",
+                                components.size(), nargs), tok);
+      else
+        assert(false); // XXX: Should be caught earlier.
+    }
+
+  emit_transport_msg(globals::STP_PRINTF_START, this_prog.new_imm(nargs), pe_long);
+  emit_transport_msg(globals::STP_PRINTF_FORMAT, this_prog.new_str(format, true /*format_str*/));
+  for (size_t i = 0; i < nargs; ++i)
+    emit_transport_msg(printf_arg_type(actual[i], components[i]), actual[i]);
+  emit_transport_msg(globals::STP_PRINTF_END);
+
   return NULL;
 }
 
@@ -2895,28 +3054,32 @@ bpf_unparser::visit_print_format (print_format *e)
   if (e->hist)
     throw SEMANTIC_ERROR (_("unhandled histogram print"), e->tok);
 
-  if (e->print_to_stream)
-    print_format_add_tag(e);
-
-  // ??? Traditional stap allows max 32 args; trace_printk allows only 3.
-  // ??? Could split the print into multiple calls, such that each is
-  // under the limit.
   size_t nargs = e->args.size();
   size_t i;
-  if (nargs > 3)
+  if (nargs > BPF_MAXPRINTFARGS)
     throw SEMANTIC_ERROR(_NF("additional argument to print",
 			     "too many arguments to print (%zu)",
 			     e->args.size(), e->args.size()), e->tok);
 
   std::vector<value *> actual;
   for (i = 0; i < nargs; ++i)
-    actual.push_back(emit_expr(e->args[i]));
+    {
+      value *arg = emit_expr(e->args[i]);
+      arg->format_type = e->args[i]->type;
+      actual.push_back(arg);
+    }
+
+  for (size_t i = 0; i < nargs; ++i)
+    if (actual[i]->format_type == pe_stats)
+      throw SEMANTIC_ERROR (_("cannot print a raw stats object"), e->args[i]->tok);
+    else if (actual[i]->format_type != pe_long && actual[i]->format_type != pe_string)
+      throw SEMANTIC_ERROR (_("cannot print unknown expression type"), e->args[i]->tok);
 
   std::string format;
   if (e->print_with_format)
     {
-      // ??? If this is a long string with no actual arguments,
-      // intern the string as a global and use "%s" as the format.
+      // If this is a long string with no actual arguments, it will be
+      // interned in the format string table as usual.
       interned_string fstr = e->raw_components;
       format += translate_escapes(fstr);
     }
@@ -2961,16 +3124,13 @@ bpf_unparser::visit_print_format (print_format *e)
 	}
       if (e->print_with_newline)
 	format += '\n';
-
-      if (e->print_to_stream)
-        print_format_add_tag(format);
     }
 
   size_t format_bytes = format.size() + 1;
   if (format_bytes > BPF_MAXFORMATLEN)
     throw SEMANTIC_ERROR(_("Format string for print too long"), e->tok);
 
-  value *retval = emit_print_format(format, actual, e->print_to_stream);
+  value *retval = emit_print_format(format, actual, e->print_to_stream, e->tok);
   if (retval != NULL)
     result = retval;
 }
@@ -2992,6 +3152,11 @@ build_internal_globals(globals& glob)
                        globals::map_slot(0, globals::EXIT)));
   glob.maps.push_back
     ({ BPF_MAP_TYPE_HASH, 4, 8, globals::NUM_INTERNALS, 0 });
+
+  // PR22330: Use a PERF_EVENT_ARRAY map for message transport:
+  glob.maps.push_back
+    ({ BPF_MAP_TYPE_PERF_EVENT_ARRAY, 4, 4, globals::NUM_CPUS_PLACEHOLDER, 0 });
+  // XXX: NUM_CPUS_PLACEHOLDER will be replaced at loading time.
 }
 
 static void
@@ -3247,6 +3412,7 @@ output_stapbpf_script_name(BPF_Output &eo, const std::string script_name)
   char *script_name_buf = (char *)data->d_buf;
   script_name.copy(script_name_buf, script_name_len);
   script_name_buf[script_name_len] = '\0';
+  data->d_type = ELF_T_BYTE;
   data->d_size = script_name_len + 1;
   so->free_data = true;
   so->shdr->sh_type = SHT_PROGBITS;
@@ -3304,6 +3470,47 @@ output_maps(BPF_Output &eo, globals &glob)
     }
 }
 
+static void
+output_interned_strings(BPF_Output &eo, globals& glob)
+{
+  // XXX: Don't use SHT_STRTAB since it can reorder the strings, iiuc
+  // requiring us to use yet more ELF infrastructure to refer to them
+  // and forcing us to generate this section at the same time as the
+  // code instead of in a separate procedure. To avoid that, manually
+  // write a SHT_PROGBITS section in SHT_STRTAB format.
+
+  if (glob.interned_strings.size() == 0)
+    return;
+
+  BPF_Section *str = eo.new_scn("stapbpf_interned_strings");
+  Elf_Data *data = str->data;
+  size_t interned_strings_len = 1; // extra NUL byte
+  for (auto i = glob.interned_strings.begin();
+       i != glob.interned_strings.end(); ++i)
+    {
+      std::string &str = *i;
+      interned_strings_len += str.size() + 1; // with NUL byte
+    }
+  data->d_buf = (void *)malloc(interned_strings_len);
+  char *interned_strings_buf = (char *)data->d_buf;
+  interned_strings_buf[0] = '\0';
+  unsigned ofs = 1;
+  for (auto i = glob.interned_strings.begin();
+       i != glob.interned_strings.end(); ++i)
+    {
+      std::string &str = *i;
+      assert(ofs+str.size()+1 <= interned_strings_len);
+      str.copy(interned_strings_buf+ofs, str.size());
+      interned_strings_buf[ofs+str.size()] = '\0';
+      ofs += str.size() + 1;
+    }
+  assert(ofs == interned_strings_len);
+  data->d_type = ELF_T_BYTE;
+  data->d_size = interned_strings_len;
+  str->free_data = true;
+  str->shdr->sh_type = SHT_PROGBITS;
+}
+
 void
 bpf_unparser::add_prologue()
 {
@@ -3314,7 +3521,8 @@ bpf_unparser::add_prologue()
   this_prog.mk_st(this_ins, BPF_W, frame, -4, i0);
   this_prog.use_tmp_space(4);
 
-  this_prog.load_map(this_ins, this_prog.lookup_reg(BPF_REG_1), 0);
+  this_prog.load_map(this_ins, this_prog.lookup_reg(BPF_REG_1),
+                     globals::internal_map_idx);
   this_prog.mk_binary(this_ins, BPF_ADD, this_prog.lookup_reg(BPF_REG_2),
                       frame, this_prog.new_imm(-4));
   this_prog.mk_call(this_ins, BPF_FUNC_map_lookup_elem, 2);
@@ -3724,6 +3932,7 @@ translate_bpf_pass (systemtap_session& s)
       output_kernel_version(eo, s.kernel_base_release);
       output_license(eo);
       output_stapbpf_script_name(eo, escaped_literal_string(s.script_basename()));
+      output_interned_strings(eo, glob);
       output_symbols_sections(eo);
 
       int64_t r = elf_update(eo.elf, ELF_C_WRITE_MMAP);

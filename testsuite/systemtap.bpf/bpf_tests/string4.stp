@@ -8,10 +8,8 @@ global tab2
 
 @define test_print
 %(
-  /* PR23816 Test multiple %s in one printf */
-  printf("[")
-  printf("%s%s%s", "str0", var, tab1[17])
-  printf("%s]", tab2["key"])
+  /* PR23816 Test even more %s in one printf */
+  printf("[%s%s%s%s]", "str0", var, tab1[17], tab2["key"])
 %)
 
 probe begin {

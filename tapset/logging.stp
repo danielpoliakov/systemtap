@@ -69,7 +69,7 @@ function exit ()
 %:
   { /* unprivileged */ /* bpf */
     _set_exit_status()
-    printf("")
+    _send_exit_msg()
   }
 %)
 
@@ -94,7 +94,6 @@ function abort ()
   %}
 %:
   { /* unprivileged */ /* bpf */
-    _set_exit_status()
     printf("ERROR: abort() not supported in eBPF backend\n")
     exit()  /* TODO: need to abort the execution flow immediately -- could be handled with a special assembly operation */
   }
