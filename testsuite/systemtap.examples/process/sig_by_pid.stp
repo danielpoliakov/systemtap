@@ -21,7 +21,7 @@ probe signal.send
 {
   rcv_pid = sig_pid
 
-  sigcnt[pid(), rcv_pid, sig]++
+  sigcnt[pid(), rcv_pid, sig] <<< 1
 
   if (!(pid() in pid2name)) pid2name[pid()] = execname()
   if (!(rcv_pid in pid2name)) pid2name[rcv_pid] = pid_name
@@ -36,6 +36,6 @@ probe end
   foreach ([snd_pid, rcv_pid, sig_num] in sigcnt-) {
     printf("%-8d %-16s %-5d %-16s %-16s %d\n", 
            snd_pid, pid2name[snd_pid], rcv_pid, pid2name[rcv_pid],
-           sig2name[sig_num], sigcnt[snd_pid, rcv_pid, sig_num])
+           sig2name[sig_num], @count(sigcnt[snd_pid, rcv_pid, sig_num]))
   }
 }

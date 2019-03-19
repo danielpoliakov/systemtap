@@ -19,7 +19,7 @@ probe begin {
 
 probe signal.send 
 {
-	sigcnt[execname(), pid_name, sig]++
+	sigcnt[execname(), pid_name, sig] <<< 1
 
 	if (!(sig in sig2name)) sig2name[sig] = sig_name 
 }
@@ -32,5 +32,5 @@ probe end
 	foreach ([snd_name, rcv_name, sig_num] in sigcnt-)
 		printf("%-16s %-16s %-16s %d\n", 
 		       snd_name, rcv_name, sig2name[sig_num],
-		       sigcnt[snd_name, rcv_name, sig_num])
+		       @count(sigcnt[snd_name, rcv_name, sig_num]))
 }

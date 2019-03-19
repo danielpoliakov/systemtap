@@ -19,11 +19,11 @@ probe begin {
 }
 
 probe syscall_any {
-  syscalls[execname()]++
+  syscalls[execname()] <<< 1
 }
 
 probe end {
   printf ("%-10s %-s\n", "#SysCalls", "Process Name")
   foreach (proc in syscalls-)
-    printf("%-10d %-s\n", syscalls[proc], proc)
+    printf("%-10d %-s\n", @sum(syscalls[proc]), proc)
 }
