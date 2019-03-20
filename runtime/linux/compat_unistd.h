@@ -130,6 +130,9 @@
 #ifndef __NR_getgroups32
 #define __NR_getgroups32 (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_get_mempolicy
+#define __NR_get_mempolicy (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_getpeername
 #define __NR_getpeername (__NR_syscall_max + 1)
 #endif
@@ -189,6 +192,9 @@
 #endif
 #ifndef __NR_membarrier
 #define __NR_membarrier (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_migrate_pages
+#define __NR_migrate_pages (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_mkdir
 #define __NR_mkdir (__NR_syscall_max + 1)
@@ -325,6 +331,9 @@
 #ifndef __NR_setgroups32
 #define __NR_setgroups32 (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_set_mempolicy
+#define __NR_set_mempolicy (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_setregid32
 #define __NR_setregid32 (__NR_syscall_max + 1)
 #endif
@@ -433,6 +442,9 @@
 #ifndef __NR_uselib
 #define __NR_uselib (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_userfaultfd
+#define __NR_userfaultfd (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_ustat
 #define __NR_ustat (__NR_syscall_max + 1)
 #endif
@@ -450,6 +462,9 @@
 #endif
 #ifndef __NR_ioperm
 #define __NR_ioperm (__NR_syscall_max + 1)
+#endif
+#ifndef __NR_mbind
+#define __NR_mbind (__NR_syscall_max + 1)
 #endif
 #ifndef __NR_modify_ldt
 #define __NR_modify_ldt (__NR_syscall_max + 1)
