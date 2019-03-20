@@ -1501,7 +1501,7 @@ perf_event_handle(struct perf_event_header *hdr, void *private_data)
       };
       struct lost_events *lost = (lost_events *) e;
       fprintf(stderr, "WARNING: lost %lld perf_events on cpu %d\n",
-              lost->lost, ctx->cpu);
+              (long long)lost->lost, ctx->cpu);
     }
   else
     {
