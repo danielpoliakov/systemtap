@@ -2766,7 +2766,8 @@ symresolution_info::visit_embeddedcode (embeddedcode* s)
       auto var = s->code.substr(pos, pos2-pos);
       auto vd = find_var(var,0,s->tok);
       if (vd == 0)
-        throw SEMANTIC_ERROR (_F("unresolved pragma:read global %s", var), s->tok);
+        throw SEMANTIC_ERROR (_F("unresolved pragma:read global %s", ((string)var).c_str()),
+                              s->tok);
       s->read_referents.push_back(vd);
       pos = pos2+3;
     }
@@ -2785,7 +2786,8 @@ symresolution_info::visit_embeddedcode (embeddedcode* s)
       auto var = s->code.substr(pos, pos2-pos);
       auto vd = find_var(var,0,s->tok);
       if (vd == 0)
-        throw SEMANTIC_ERROR (_F("unresolved pragma:write global %s", var), s->tok);
+        throw SEMANTIC_ERROR (_F("unresolved pragma:write global %s", ((string)var).c_str()),
+                              s->tok);
       s->write_referents.push_back(vd);
       pos = pos2+3;
     }

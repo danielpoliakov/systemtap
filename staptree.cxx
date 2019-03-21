@@ -2582,14 +2582,14 @@ varuse_collecting_visitor::visit_embeddedcode (embeddedcode *s)
 
   // check types
   for (auto it = s->read_referents.begin(); it != s->read_referents.end(); it++) {
-    vardecl* vd = it;
+    vardecl* v = *it;
     if (v->type == pe_stats)
-      throw SEMANTIC_ERROR(_("Aggregates not available in embedded-C"), e->tok);
+      throw SEMANTIC_ERROR(_("Aggregates not available in embedded-C"), v->tok);
   }
   for (auto it = s->write_referents.begin(); it != s->write_referents.end(); it++) {
-    vardecl* vd = it;
+    vardecl* v = *it;
     if (v->type == pe_stats)
-      throw SEMANTIC_ERROR(_("Aggregates not available in embedded-C"), e->tok);
+      throw SEMANTIC_ERROR(_("Aggregates not available in embedded-C"), v->tok);
   }
 
   
