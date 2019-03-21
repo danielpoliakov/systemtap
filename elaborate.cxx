@@ -2745,6 +2745,57 @@ symresolution_info::visit_array_in (array_in* e)
 
 
 void
+symresolution_info::visit_embeddedcode (embeddedcode* s)
+{
+  // PR24239: must generate find_var references to globals
+  // that are marked by pragma:{read|write}:var
+
+  if (s->code_referents == s->code)
+    return; // already analyzed
+  
+  size_t pos = 0;
+  while (1)
+    {
+      pos = s->code.find("/* pragma:read:", pos);
+      if (pos == string::npos)
+        break;
+      pos += strlen("/* pragma:read:");
+      auto pos2 = s->code.find(" */", pos);
+      if (pos2 == string::npos)
+        break;
+      auto var = s->code.substr(pos, pos2-pos);
+      auto vd = find_var(var,0,s->tok);
+      if (vd == 0)
+        throw SEMANTIC_ERROR (_F("unresolved pragma:read global %s", var), s->tok);
+      s->read_referents.push_back(vd);
+      pos = pos2+3;
+    }
+
+  // repeat for write
+  pos = 0;
+  while (1)
+    {
+      pos = s->code.find("/* pragma:write:", pos);
+      if (pos == string::npos)
+        break;
+      pos += strlen("/* pragma:write:");
+      auto pos2 = s->code.find(" */", pos);
+      if (pos2 == string::npos)
+        break;
+      auto var = s->code.substr(pos, pos2-pos);
+      auto vd = find_var(var,0,s->tok);
+      if (vd == 0)
+        throw SEMANTIC_ERROR (_F("unresolved pragma:write global %s", var), s->tok);
+      s->write_referents.push_back(vd);
+      pos = pos2+3;
+    }
+
+  s->code_referents = s->code; // flag this object as not needing resolution again
+  // NB: why not a bool?  sure, could do that, but this way we can detect subsequent
+  // changes to the code object, and be ready to recompute.  It's at least harmless.
+}
+
+void
 symresolution_info::visit_functioncall (functioncall* e)
 {
   // XXX: we could relax this, if we're going to examine the

@@ -706,6 +706,9 @@ std::ostream& operator << (std::ostream& o, const statement& k);
 struct embeddedcode: public statement
 {
   interned_string code;
+  interned_string code_referents;
+  std::vector<vardecl*> read_referents; /* pragma:read:FOO */
+  std::vector<vardecl*> write_referents; /* pragma:write:BAR */
   bool tagged_p (const char *tag) const;
   bool tagged_p (const std::string& tag) const;
   bool tagged_p (const interned_string& tag) const;

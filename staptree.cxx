@@ -2576,27 +2576,23 @@ varuse_collecting_visitor::visit_embeddedcode (embeddedcode *s)
 {
   assert (current_function); // only they get embedded code
 
-  /* We need to lock globals that are accessed through embedded C code */
-  for (unsigned i = 0; i < session.globals.size(); i++)
-    {
-      vardecl* v = session.globals[i];
-      if (v->synthetic) continue; /* skip synthetic variables; embedded c can't access them. */
-      string name = v->unmangled_name;
-      assert (name != "");
-      if (s->tagged_p("/* pragma:read:" + name + " */"))
-        {
-          if (v->type == pe_stats)
-            throw SEMANTIC_ERROR(_("Aggregates not available in embedded-C"), s->tok);
-          read.insert(v);
-        }
-      if (s->tagged_p("/* pragma:write:" + name + " */"))
-        {
-          if (v->type == pe_stats)
-            throw SEMANTIC_ERROR(_("Aggregates not available in embedded-C"), s->tok);
-          written.insert(v);
-        }
-    }
+  // collect vardecls earlier identified during sym resolution
+  read.insert(s->read_referents.begin(), s->read_referents.end());
+  written.insert(s->write_referents.begin(), s->write_referents.end());  
 
+  // check types
+  for (auto it = s->read_referents.begin(); it != s->read_referents.end(); it++) {
+    vardecl* vd = it;
+    if (v->type == pe_stats)
+      throw SEMANTIC_ERROR(_("Aggregates not available in embedded-C"), e->tok);
+  }
+  for (auto it = s->write_referents.begin(); it != s->write_referents.end(); it++) {
+    vardecl* vd = it;
+    if (v->type == pe_stats)
+      throw SEMANTIC_ERROR(_("Aggregates not available in embedded-C"), e->tok);
+  }
+
+  
   // NB: we used to do security/safety checks here, which are now over
   // in elaborate.cxx functioncall_security_check because they may be
   // call-site-sensitive.
