@@ -107,11 +107,11 @@ proc stapbpf_run { TEST_NAME OUTPUT_STR args } {
 
 proc get_output_str { test } {
     global res
-    switch $test {
+    switch -glob $test {
         printf.stp { set res [string repeat "abcd123456" 3] }
         sprintf.stp { set res [string repeat "0123456789" 2] }
         string1.stp { set res {begin\[str0str1str2str3\]probe\[str0str1str2str3\]end\[str0str1str2str3\]} }
-        string2.stp { set res {probe0\[str0str1str2str3\]probe1\[str0str1str2str3\]end\[str0str1str2str3\]} }
+        string*.stp { set res {probe0\[str0str1str2str3\]probe1\[str0str1str2str3\]end\[str0str1str2str3\]} }
         default { set res "" }
     }
     return $res
