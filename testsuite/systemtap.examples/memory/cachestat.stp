@@ -31,15 +31,11 @@ probe timer.s(5) {
   hits = 0; misses = 0
   if (h + m > 0) {
     percent_hits = h*10000 / (h + m)
-    printf("%d %d ", h, m)
-    //printf("%12d%12d", h, m)
-    printf("%d.%d\n", percent_hits/100, percent_hits%100)
-    //printf("%8d.%02d%%\n", percent_hits/100, percent_hits%100)
+    printf("%12d%12d", h, m)
+    printf("%8d.%02d%%\n", percent_hits/100, percent_hits%100)
   } else {
-    printf("%d %d ", 0, 0)
-    //printf("%12d%12d", 0, 0)
-    printf("%d.%d\n", 0, 0)
-    //printf("%8d.%02d%%\n", 0, 0)
+    printf("%12d%12d", 0, 0)
+    printf("%8d.%02d%%\n", 0, 0)
   }
 
   total_hits += h
