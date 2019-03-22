@@ -39,9 +39,11 @@ struct bpf_transport_context {
   int pmu_fd;
 
   // References to global state:
+  bpf_map_def *map_attrs;
   std::vector<int> *map_fds;
   FILE *output_f;
   std::vector<std::string> *interned_strings;
+  // XXX: Could be refactored into a single global struct.
 
   // Data for an in-progress printf request:
   bool in_printf;
@@ -51,10 +53,13 @@ struct bpf_transport_context {
   std::vector<bpf::globals::perf_event_type> printf_arg_types; // either ..ARG_LONG or ..ARG_STR
 
   bpf_transport_context(unsigned cpu, int pmu_fd,
-                        std::vector<int> *map_fds, FILE *output_f,
+                        bpf_map_def *map_attrs,
+                        std::vector<int> *map_fds,
+                        FILE *output_f,
                         std::vector<std::string> *interned_strings)
     : cpu(cpu), pmu_fd(pmu_fd),
-      map_fds(map_fds), output_f(output_f), interned_strings(interned_strings),
+      map_attrs(map_attrs), map_fds(map_fds), output_f(output_f),
+      interned_strings(interned_strings),
       in_printf(false), format_no(-1), expected_args(0) {}
 };
 

@@ -286,16 +286,20 @@ uint64_t
 bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
               bpf_transport_context *ctx)
 {
+  uint64_t result = 0; // return value
   uint64_t stack[512 / 8];
   uint64_t regs[MAX_BPF_REG];
-  uint64_t lookup_tmp = 0xdeadbeef;
   const struct bpf_insn *i = insns;
-  static std::vector<std::string> strings;
+  static std::vector<uint64_t *> map_values;
+  static std::vector<std::string> strings; // TODO: could clear on exit?
 
+  bpf_map_def *map_attrs = ctx->map_attrs;
   std::vector<int> &map_fds = *ctx->map_fds;
   FILE *output_f = ctx->output_f;
 
   map_keys keys[map_fds.size()];
+
+  map_values.clear(); // XXX: avoid double free
 
   regs[BPF_REG_10] = (uintptr_t)stack + sizeof(stack);
 
@@ -375,7 +379,7 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
 	  if (s1 == 0)
             {
               // TODO: Signal a proper error.
-              return 0;
+              result = 0; goto cleanup;
             }
 	  dr /= s1;
 	  break;
@@ -384,7 +388,7 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
 	  if (s1 == 0)
             {
               // TODO: Signal a proper error.
-              return 0;
+              result = 0; goto cleanup;
             }
 	  dr %= s1;
 	  break;
@@ -415,7 +419,7 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
 	  if ((uint32_t)s1 == 0)
             {
               // TODO: Signal a proper error.
-              return 0;
+              result = 0; goto cleanup;
             }
 	  dr = (uint32_t)dr / (uint32_t)s1;
 	  break;
@@ -424,7 +428,7 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
 	  if ((uint32_t)s1 == 0)
             {
               // TODO: Signal a proper error.
-              return 0;
+              result = 0; goto cleanup;
             }
 	  dr = (uint32_t)dr % (uint32_t)s1;
 	  break;
@@ -437,7 +441,11 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
 	      break;
 	    case BPF_PSEUDO_MAP_FD:
 	      if (si >= map_fds.size())
-		return 0;
+                {
+                  // TODO: Signal a proper error.
+                  result = 0;
+                  goto cleanup;
+                }
 	      dr = si;
 	      break;
 	    default:
@@ -492,14 +500,18 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
 	    {
 	    case BPF_FUNC_map_lookup_elem:
 	      {
+                // allocate correctly sized buffer and store it in map_values
+                uint64_t *lookup_tmp = (uint64_t *)malloc(map_attrs[regs[1]].value_size);
+                map_values.push_back(lookup_tmp);
+
 	        int res = bpf_lookup_elem(map_fds[regs[1]], as_ptr(regs[2]),
-			                  as_ptr(&lookup_tmp));
+			                  as_ptr(lookup_tmp));
 
 	        if (res)
 		  // element could not be found
 	          dr = 0;
 	        else
-	          dr = as_int(&lookup_tmp);
+	          dr = as_int(lookup_tmp);
 	      }
 	      break;
 	    case BPF_FUNC_map_update_elem:
@@ -551,7 +563,8 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
 	  goto nowrite;
 
 	case BPF_JMP | BPF_EXIT:
-	  return regs[0];
+	  result = regs[0];
+          goto cleanup;
 
 	default:
 	  abort();
@@ -561,5 +574,10 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
     nowrite:
       i++;
     }
-  return 0;
+  result = 0;
+ cleanup:
+  for (uint64_t *ptr : map_values)
+    free(ptr);
+  map_values.clear(); // XXX: avoid double free
+  return result;
 }

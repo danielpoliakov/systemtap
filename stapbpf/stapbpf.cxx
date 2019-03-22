@@ -1168,7 +1168,7 @@ init_perf_transport()
       perf_fds.push_back(pmu_fd);
 
       // Create a data structure to track what's happening on each CPU:
-      bpf_transport_context *ctx = new bpf_transport_context(cpu, pmu_fd, &map_fds, output_f, &interned_strings);
+      bpf_transport_context *ctx = new bpf_transport_context(cpu, pmu_fd, map_attrs, &map_fds, output_f, &interned_strings);
       transport_contexts.push_back(ctx);
     }
 
@@ -1689,7 +1689,9 @@ main(int argc, char **argv)
   init_perf_transport();
 
   // Create a bpf_transport_context for userspace programs:
-  bpf_transport_context uctx(0/*cpu*/, -1/*pmu_fd*/, &map_fds, output_f, &interned_strings);
+  bpf_transport_context uctx(0/*cpu*/, -1/*pmu_fd*/,
+                             map_attrs, &map_fds, output_f,
+                             &interned_strings);
 
   if (create_group_fds() < 0)
     fatal("Error creating perf event group: %s\n", strerror(errno));
