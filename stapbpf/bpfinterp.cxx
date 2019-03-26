@@ -52,6 +52,12 @@ as_ptr(uint64_t *ptr)
   return reinterpret_cast<void *>(ptr);
 }
 
+inline void *
+as_ptr(char *ptr)
+{
+  return reinterpret_cast<void *>(ptr);
+}
+
 inline char *
 as_str(uintptr_t ptr)
 {
@@ -70,78 +76,131 @@ remove_tag(const char *fstr)
   return std::string(fstr, end - fstr);
 }
 
-// Used with map_get_next_key. Need signed type so that
-// negative values are properly sorted
-typedef std::vector<std::set<int64_t>> map_keys;
+// Used with map_get_next_key for int keys. Uses signed type so that
+// negative values are properly sorted.
+typedef std::vector<std::set<int64_t>> map_int_keys;
+
+// Used with map_get_next_key for string keys.
+typedef std::vector<std::set<std::string>> map_str_keys;
+
+struct map_keys {
+  map_int_keys int_keys;
+  map_str_keys str_keys;
+};
 
 // Wrapper for bpf_get_next_key that includes logic for accessing
-// keys in ascending or decending order
+// keys in ascending or descending order.
 int
-map_get_next_key(int fd_idx, int64_t key, int64_t next_key, int sort_direction,
-                 int64_t limit, std::vector<int> &map_fds, map_keys &keys)
+map_get_next_key(int fd_idx, int64_t key, int64_t next_key,
+                 int sort_direction, int64_t limit,
+                 bpf_transport_context *ctx, map_keys &keys)
 {
-  int fd = map_fds[fd_idx];
+  int fd = (*ctx->map_fds)[fd_idx];
 
-  // Final iteration, therefore keys back is no longer needed
+  // XXX: May want to pass the actual key type. For now just guess:
+  bool is_str = ctx->map_attrs[fd_idx].key_size == BPF_MAXSTRINGLEN;
+
+  // Final iteration, therefore keys.back() is no longer needed:
   if (limit == 0)
     goto empty;
 
   if (!sort_direction)
     return bpf_get_next_key(fd, as_ptr(key), as_ptr(next_key));
 
-  if (!key)
+  // Beginning of iteration; populate a new set of keys for
+  // the map specified by fd. Multiple sets can be associated
+  // with a single map during execution of nested foreach loops.
+  if (!key && is_str)
     {
-      // Beginning of iteration; populate a new set of keys for
-      // the map specified by fd. Multiple sets can be associated
-      // with a single map during execution of nested foreach loops
-      uint64_t k, n;
-      std::set<int64_t> s;
+      char k[BPF_MAXSTRINGLEN], n[BPF_MAXSTRINGLEN];
+      std::set<std::string> s;
 
-      int ret = bpf_get_next_key(fd, 0, as_ptr(&n));
-
-      while (!ret)
+      int rc = bpf_get_next_key(fd, 0, as_ptr(n));
+      while (!rc)
         {
-          s.insert(n);
-          k = n;
-          ret = bpf_get_next_key(fd, as_ptr(&k), as_ptr(&n));
+          strncpy(k, n, BPF_MAXSTRINGLEN);
+          s.insert(std::string(k));
+          rc = bpf_get_next_key(fd, as_ptr(k), as_ptr(n));
         }
 
       if (s.empty())
         return -1;
 
-      keys.push_back(s);
+      keys.str_keys.push_back(s);
     }
-
-  {
-  std::set<int64_t> &s = keys.back();
-  uint64_t *nptr = reinterpret_cast<uint64_t *>(next_key);
-
-  if (sort_direction > 0)
+  else if (!key) // && !is_str
     {
-      auto it = s.begin();
+      uint64_t k, n;
+      std::set<int64_t> s;
 
-      if (it == s.end())
-        goto empty;
+      int rc = bpf_get_next_key(fd, 0, as_ptr(&n));
+      while (!rc)
+        {
+          s.insert(n);
+          k = n;
+          rc = bpf_get_next_key(fd, as_ptr(&k), as_ptr(&n));
+        }
 
-      *nptr = *it;
+      if (s.empty())
+        return -1;
+
+      keys.int_keys.push_back(s);
     }
-  else
+
+  if (is_str)
     {
-      auto it = s.rbegin();
+      std::set<std::string> &s = keys.str_keys.back();
+      char *nstr = reinterpret_cast<char *>(next_key);
+      std::string skey;
 
-      if (it == s.rend())
-        goto empty;
+      if (sort_direction > 0)
+        {
+          auto it = s.begin();
+          if (it == s.end())
+            goto empty;
+          skey = *it;
+          strncpy(nstr, skey.c_str(), BPF_MAXSTRINGLEN);
+        }
+      else
+        {
+          auto it = s.rbegin();
+          if (it == s.rend())
+            goto empty;
+          skey = *it;
+          strncpy(nstr, skey.c_str(), BPF_MAXSTRINGLEN);
+        }
 
-      *nptr = *it;
+      s.erase(skey);
     }
+  else // if (!is_str)
+    {
+      std::set<int64_t> &s = keys.int_keys.back();
+      uint64_t *nptr = reinterpret_cast<uint64_t *>(next_key);
 
-  s.erase(*nptr);
-  }
+      if (sort_direction > 0)
+        {
+          auto it = s.begin();
+          if (it == s.end())
+            goto empty;
+          *nptr = *it;
+        }
+      else
+        {
+          auto it = s.rbegin();
+          if (it == s.rend())
+            goto empty;
+          *nptr = *it;
+        }
 
+      s.erase(*nptr);
+    }
   return 0;
 
 empty:
-  keys.pop_back();
+  if (is_str)
+    keys.str_keys.pop_back();
+  else // if (!is_str)
+    keys.int_keys.pop_back();
   return -1;
 }
 
@@ -548,8 +607,9 @@ bpf_interpret(size_t ninsns, const struct bpf_insn insns[],
                                regs[3], regs[4], regs[5]);
               break;
             case bpf::BPF_FUNC_map_get_next_key:
-              dr = map_get_next_key(regs[1], regs[2], regs[3], regs[4],
-                                    regs[5], map_fds, keys[regs[1]]);
+              dr = map_get_next_key(regs[1], regs[2], regs[3],
+                                    regs[4], regs[5],
+                                    ctx, keys[regs[1]]);
               break;
 	    default:
 	      abort();

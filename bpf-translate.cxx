@@ -1561,9 +1561,12 @@ bpf_unparser::visit_foreach_loop(foreach_loop* s)
     throw SEMANTIC_ERROR(_("unknown type"), s->base->tok);
   vardecl *arraydecl = a->referent;
 
-  // TODO PR23875: foreach should handle string keys
-  if (arraydecl->index_types[0] != pe_long)
-    throw SEMANTIC_ERROR(_("unhandled string index type"), s->tok);
+  // PR23875: foreach should handle string keys
+  auto type = arraydecl->index_types[0];
+  if (arraydecl->index_types[0] != pe_long
+      && arraydecl->index_types[0] != pe_string)
+    throw SEMANTIC_ERROR(_("unhandled foreach index type"), s->tok);
+  int keysize = type == pe_long ? 8 : BPF_MAXSTRINGLEN;
 
   auto g = glob.globals.find(arraydecl);
   if (g == glob.globals.end())
@@ -1573,11 +1576,11 @@ bpf_unparser::visit_foreach_loop(foreach_loop* s)
   value *limit = this_prog.new_reg();
   value *key = i->second;
   value *i0 = this_prog.new_imm(0);
-  value *key_ofs = this_prog.new_imm(-8);
-  value *newkey_ofs = this_prog.new_imm(-16);
+  value *key_ofs = this_prog.new_imm(-keysize);
+  value *newkey_ofs = this_prog.new_imm(-keysize-keysize);
   value *frame = this_prog.lookup_reg(BPF_REG_10);
   block *body_block = this_prog.new_block ();
-  block *load_block = this_prog.new_block();
+  block *load_block = this_prog.new_block ();
   block *iter_block = this_prog.new_block ();
   block *join_block = this_prog.new_block ();
 
@@ -1619,7 +1622,10 @@ bpf_unparser::visit_foreach_loop(foreach_loop* s)
   set_block(iter_block);
 
   this_prog.load_map (this_ins, this_prog.lookup_reg(BPF_REG_1), map_id);
-  this_prog.mk_st (this_ins, BPF_DW, frame, -8, key);
+  if (type == pe_string)
+    emit_string_copy(frame, -keysize, key, true /* zero pad */);
+  else
+    this_prog.mk_st (this_ins, BPF_DW, frame, -keysize, key);
   this_prog.mk_binary (this_ins, BPF_ADD, this_prog.lookup_reg(BPF_REG_2),
                        frame, key_ofs);
   this_prog.mk_binary (this_ins, BPF_ADD, this_prog.lookup_reg(BPF_REG_3),
@@ -1633,7 +1639,12 @@ bpf_unparser::visit_foreach_loop(foreach_loop* s)
 
   // Load next key, decrement limit if applicable
   set_block(load_block);
-  this_prog.mk_ld (this_ins, BPF_DW, key, frame, -16);
+  if (type == pe_string)
+    // Return the address of the key:
+    this_prog.mk_binary (this_ins, BPF_ADD, key, frame, newkey_ofs);
+  else
+    // Return the key itself:
+    this_prog.mk_ld (this_ins, BPF_DW, key, frame, -keysize-keysize);
 
   if (s->limit)
       this_prog.mk_binary (this_ins, BPF_ADD, limit, limit, this_prog.new_imm(-1));
