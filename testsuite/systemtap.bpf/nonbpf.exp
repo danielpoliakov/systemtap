@@ -145,7 +145,6 @@ foreach file $stap_files {
             logging1.stp { _setup_kfail NONBPF - rhel,fedora }
             perf1.stp { _setup_kfail NONBPF x86_64,ppc64le,s390x,aarch64 rhel }
             perf2.stp { _setup_kfail NONBPF ppc64le,s390x,aarch64 rhel }
-            pr23875_loop.stp -
             reg_alloc3.stp -
             tracepoint1.stp -
             timer2.stp { _setup_kfail NONBPF - rhel,fedora }

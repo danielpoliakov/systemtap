@@ -178,18 +178,8 @@ foreach file $stap_files {
                 no_end.stp { _setup_kfail BPF x86_64 fedora }
                 perf1.stp { _setup_kfail BPF x86_64,aarch64,ppc64le rhel }
                 perf2.stp { _setup_kfail BPF aarch64,ppc64le rhel }
-                pr23875_loop.stp -
-                pr23875_smash.stp {
-                    _setup_kfail BPF x86_64,aarch64,ppc64le rhel
-                    _setup_kfail BPF x86_64 fedora
-                }
                 printf.stp { _setup_kfail BPF x86_64 fedora }
                 reg_alloc3.stp {
-                    _setup_kfail BPF x86_64,aarch64,ppc64le rhel
-                    _setup_kfail BPF x86_64 fedora
-                }
-                string1.stp { _setup_kfail BPF x86_64 fedora }
-                string3.stp {
                     _setup_kfail BPF x86_64,aarch64,ppc64le rhel
                     _setup_kfail BPF x86_64 fedora
                 }
