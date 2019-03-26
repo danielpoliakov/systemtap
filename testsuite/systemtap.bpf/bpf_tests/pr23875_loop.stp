@@ -3,6 +3,7 @@ global t
 probe begin {
   println("BEGIN")
   t["key"] = 6
+  exit()
 }
 
 probe end {
