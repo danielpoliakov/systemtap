@@ -1895,6 +1895,17 @@ semantic_pass_symbols (systemtap_session& s)
       // s.globals or s.functions here.  Instead, symresolution_info::find_*
       // will have already done that, for only those functions / globals
       // that are actually transitively referenced from the end-user script.
+
+      // except in dump_* modes ... then we need to copy over the goods
+      // regardless of transitive referencing.
+      if (s.dump_mode == systemtap_session::dump_functions)
+        {
+          for (auto it = dome->functions.begin(); it != dome->functions.end(); it++)
+            {
+              functiondecl* v = *it;
+              s.functions[v->name] = v;
+            }
+        }
       
       if (s.verbose > 3)
         {
@@ -2764,7 +2775,7 @@ symresolution_info::visit_embeddedcode (embeddedcode* s)
       if (pos2 == string::npos)
         break;
       auto var = s->code.substr(pos, pos2-pos);
-      auto vd = find_var(var,0,s->tok);
+      auto vd = find_var(var,-1,s->tok);
       if (vd == 0)
         throw SEMANTIC_ERROR (_F("unresolved pragma:read global %s", ((string)var).c_str()),
                               s->tok);
@@ -2784,7 +2795,7 @@ symresolution_info::visit_embeddedcode (embeddedcode* s)
       if (pos2 == string::npos)
         break;
       auto var = s->code.substr(pos, pos2-pos);
-      auto vd = find_var(var,0,s->tok);
+      auto vd = find_var(var,-1,s->tok);
       if (vd == 0)
         throw SEMANTIC_ERROR (_F("unresolved pragma:write global %s", ((string)var).c_str()),
                               s->tok);
@@ -2818,7 +2829,7 @@ symresolution_info::visit_embedded_expr (embedded_expr *e)
       if (pos2 == string::npos)
         break;
       auto var = e->code.substr(pos, pos2-pos);
-      auto vd = find_var(var,0,e->tok);
+      auto vd = find_var(var,-1,e->tok);
       if (vd == 0)
         throw SEMANTIC_ERROR (_F("unresolved pragma:read global %s", ((string)var).c_str()),
                               e->tok);
@@ -2838,7 +2849,7 @@ symresolution_info::visit_embedded_expr (embedded_expr *e)
       if (pos2 == string::npos)
         break;
       auto var = e->code.substr(pos, pos2-pos);
-      auto vd = find_var(var,0,e->tok);
+      auto vd = find_var(var,-1,e->tok);
       if (vd == 0)
         throw SEMANTIC_ERROR (_F("unresolved pragma:write global %s", ((string)var).c_str()),
                               e->tok);
@@ -2893,8 +2904,10 @@ symresolution_info::visit_functioncall (functioncall* e)
     session.functions[e->function] = fds[0]; // no overload
 }
 
-/*find_var will return an argument other than zero if the name matches the var
- * name ie, if the current local name matches the name passed to find_var*/
+/* find_var will return an argument other than zero if the name matches the var
+ * name ie, if the current local name matches the name passed to find_var.
+ * arity=-1 means any.
+ */
 vardecl*
 symresolution_info::find_var (const string& name, int arity, const token* tok)
 {

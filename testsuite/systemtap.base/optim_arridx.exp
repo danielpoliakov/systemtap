@@ -2,10 +2,10 @@
 
 set test "optim_arridx"
 set ::result_string {# globals
-arr1:long [long, long]
-arr2:long [long]
-arr3:long [long]
 elide_idx1:long
+arr2:long [long]
+arr1:long [long, long]
+arr3:long [long]
 elide_global_a:long
 elide_global_b:long
 # functions
@@ -55,15 +55,15 @@ printf("%d %d %d %d %d\\n", aa, bb, cc, dd, ee);
 __global_exit__overload_0();
 }
 end /* <- end */
+{
+printf("elide_idx1=%#x\\n", __global_elide_idx1);
+}
+end /* <- end */
   # locals
   __idx0:long
   __val:long
 {
 foreach (__val = [__idx0] in __global_arr3-) printf("arr3[%#d]=%#x\\n", __idx0, __val);
-}
-end /* <- end */
-{
-printf("elide_idx1=%#x\\n", __global_elide_idx1);
 }
 end /* <- end */
 {

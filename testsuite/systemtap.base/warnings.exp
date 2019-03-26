@@ -12,7 +12,7 @@ expect {
     eof { }
 }
 catch { close }; catch { wait }
-if {$ok == 14} {
+if {$ok == 12} {
     pass $test
 } else {
     fail "$test ($ok)"
