@@ -1278,6 +1278,7 @@ dwflpp::iterate_over_libraries<void>(void (*callback)(void*, const char*),
       && interpreter != "/lib/ld64.so.1"                // s390x, ppc64
       && interpreter != "/lib64/ld64.so.1"
       && interpreter != "/lib/ld-linux-ia64.so.2"       // ia64
+      && interpreter != "/usr/lib/ld-linux-x86-64.so.2" // 
       && interpreter != "/emul/ia32-linux/lib/ld-linux.so.2"
       && interpreter != "/lib64/ld-linux-x86-64.so.2"   // x8664
       && interpreter != "/lib/ld-linux.so.2"            // x86
