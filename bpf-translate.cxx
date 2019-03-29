@@ -979,7 +979,7 @@ bpf_unparser::emit_asm_arg (const asm_stmt &stmt, const std::string &arg,
     {
       /* arg is a register number */
       std::string reg = arg[0] == 'r' ? arg.substr(1) : arg;
-      unsigned long num;
+      unsigned long num = 0;
       bool parsed = false;
       try {
         num = stoul(reg, 0, 0);
