@@ -333,10 +333,8 @@ instantiate_maps (Elf64_Shdr *shdr, Elf_Data *data)
           strerror(errno));
   if (log_level > 1)
     {
-      fprintf(stderr, "increasing map cur resource limit from %lu to %lu\n",
-              rlim_orig, curr_rlimit.rlim_cur);
-      fprintf(stderr, "increasing map max resource limit from %lu to %lu\n",
-              rlim_max_orig, curr_rlimit.rlim_max);
+      fprintf(stderr, "increasing map cur resource limit.\n");
+      fprintf(stderr, "increasing map max resource limit.\n");
     }
 
   /* Now create the maps: */
