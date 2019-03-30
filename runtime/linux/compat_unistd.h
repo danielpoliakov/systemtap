@@ -82,6 +82,9 @@
 #ifndef __NR_execveat
 #define __NR_execveat (__NR_syscall_max + 1)
 #endif
+#ifndef __NR_fadvise64
+#define __NR_fadvise64 (__NR_syscall_max + 1)
+#endif
 #ifndef __NR_fadvise64_64
 #define __NR_fadvise64_64 (__NR_syscall_max + 1)
 #endif
